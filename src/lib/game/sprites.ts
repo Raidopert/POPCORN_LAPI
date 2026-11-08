@@ -28,6 +28,15 @@ function paintCircle(g: Grid, cx: number, cy: number, r: number, color: string):
   }
 }
 
+/** Заливает прямоугольник включительно (координаты пиксельные) */
+function fillRect(g: Grid, x0: number, y0: number, x1: number, y1: number, color: string): void {
+  for (let y = y0; y <= y1; y++) {
+    for (let x = x0; x <= x1; x++) {
+      if (y >= 0 && y < g.length && x >= 0 && x < g[0].length) g[y][x] = color
+    }
+  }
+}
+
 /** Кладёт цвет только поверх уже закрашенных пикселей (тень/блик) */
 function tintCircle(g: Grid, cx: number, cy: number, r: number, color: string): void {
   const rows = g.length
@@ -196,6 +205,62 @@ export function makeCornSprite(): Sprite {
   tintCircle(g, 7.6, 8.2, 2.4, shade)
   // Блик сверху-слева
   tintCircle(g, 4.8, 4.2, 1.4, shine)
+
+  outlineGrid(g, edge)
+  return renderGrid(g)
+}
+
+/* ================= Сундучок с перками (закрытый / открытый) ================= */
+
+export function makeChestSprite(open = false): Sprite {
+  const g = createGrid(18, 17)
+  const wood = '#B07A3F'
+  const woodLight = '#C98F4F'
+  const woodDark = '#8A5330'
+  const band = '#6B421F'
+  const gold = '#FFE066'
+  const goldPale = '#FFF7C2'
+  const goldDark = '#D99A1B'
+  const edge = '#4A2A12'
+
+  if (!open) {
+    // Крышка (полукруглая сверху)
+    fillRect(g, 4, 1, 13, 1, woodDark)
+    fillRect(g, 3, 2, 14, 2, wood)
+    fillRect(g, 2, 3, 15, 5, wood)
+    fillRect(g, 2, 6, 15, 6, woodDark) // стык крышки
+    // Корпус
+    fillRect(g, 1, 7, 16, 15, wood)
+    fillRect(g, 1, 7, 16, 8, woodLight) // блик сверху корпуса
+    // Металлические полосы по краям
+    fillRect(g, 2, 7, 3, 15, band)
+    fillRect(g, 14, 7, 15, 15, band)
+    // Замок по центру
+    fillRect(g, 8, 7, 9, 11, gold)
+    g[9][8] = edge
+    g[9][9] = edge
+    g[10][8] = goldDark
+    g[10][9] = goldDark
+  } else {
+    // Открытая крышка, откинутая назад
+    fillRect(g, 3, 0, 14, 0, woodDark)
+    fillRect(g, 2, 1, 15, 2, wood)
+    // Светящееся нутро
+    fillRect(g, 2, 3, 15, 5, gold)
+    fillRect(g, 4, 3, 7, 4, goldPale)
+    g[3][10] = goldPale
+    g[5][12] = goldPale
+    g[5][5] = goldDark
+    // Корпус
+    fillRect(g, 1, 6, 16, 15, wood)
+    fillRect(g, 1, 6, 16, 7, woodLight)
+    fillRect(g, 2, 6, 3, 15, band)
+    fillRect(g, 14, 6, 15, 15, band)
+    // Передняя накладка замка
+    fillRect(g, 8, 6, 9, 9, gold)
+    g[8][8] = goldDark
+    g[8][9] = goldDark
+  }
 
   outlineGrid(g, edge)
   return renderGrid(g)

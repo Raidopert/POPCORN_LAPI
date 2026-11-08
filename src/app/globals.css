@@ -123,10 +123,14 @@
 
 /* ================= Кошачий попкорнный Беспредел ================= */
 
-/* Пиксельный дисплейный шрифт (заголовки, цифры) — Handjet: ровная кириллица */
+/* Пиксельный дисплейный шрифт (заголовки, цифры) — Handjet: ровная кириллица.
+   font-synthesis: none — запрещаем браузеру «фальшивый» жирный, из-за которого буквы прыгают */
 .font-pixel {
   font-family: var(--font-pixel), 'Handjet', 'Trebuchet MS', system-ui, sans-serif;
   letter-spacing: 0.04em;
+  font-synthesis: none;
+  font-variant-ligatures: none;
+  text-rendering: optimizeLegibility;
 }
 
 /* Читаемый текст интерфейса (инструкции, подписи) — системный шрифт, без «прыгающих» букв */

@@ -1,9 +1,14 @@
 /**
- * Игровой движок «Кошачий попкорнный Беспредел».
+ * Игровой движок «Кошачий попкорнный Беспредел» — рогалик-режим.
  * Canvas + requestAnimationFrame, независим от React.
+ *
+ * Игра бесконечна: каждый уровень = 60 секунд и норма (квота) попкорна.
+ * Выполнил норму → уровень пройден, сундучок с перком, дальше сложнее.
+ * Не успел → конец забега. Перки меняют правила одного уровня.
  */
 
 import { audio } from './audio'
+import { quotaFor, type PerkId } from './perks'
 import {
   makePopcornSprite,
   makeCupSprite,
@@ -19,19 +24,29 @@ import {
 export interface EngineStats {
   score: number
   timeLeft: number
-  wave: number
+  duration: number
+  level: number
+  quota: number
+  collected: number
   carrying: number
   paused: boolean
 }
 
-export interface EngineResult {
+export interface LevelResult {
+  level: number
   score: number
-  waves: number
+  bonus: number
+}
+
+export interface EndResult {
+  score: number
+  level: number
 }
 
 export interface EngineCallbacks {
   onStats?(s: EngineStats): void
-  onEnd?(r: EngineResult): void
+  onLevelComplete?(r: LevelResult): void
+  onEnd?(r: EndResult): void
 }
 
 type PieceKind = 'popcorn' | 'golden' | 'corn'
@@ -43,6 +58,8 @@ interface FieldPiece {
   kind: PieceKind
   phase: number
   spawn: number
+  /** угол дрейфа для перка «Скользкий пол» */
+  dA: number
 }
 
 interface Carried {
@@ -78,13 +95,12 @@ interface FloatText {
   size: number
 }
 
-const GAME_SECONDS = 60
+const LEVEL_SECONDS = 60
+const LEVEL_SECONDS_PERK = 75 // перк «Кошачьи часы»
 const CARRY_MAX = 3
-const WAVE_DELAY = 0.8
 const SPAWN_DUR = 0.35
-const CORN_CHANCE = 0.18 // доля кукурузы-мин среди новых спавнов
-const GOLDEN_CHANCE = 0.12 // доля золотых зёрен среди обычного попкорна
-const CORN_MAX = 10 // максимум мин одновременно на поле
+const CORN_MAX = 12 // максимум мин одновременно на поле
+const CLEAR_DELAY = 0.5 // пауза до «уровень пройден», чтобы зёрна долетели
 
 /** Смещения «шапки» попкорна над стаканчиком (в единицах спрайта) */
 const PUFF_POS: Array<[number, number]> = [
@@ -102,7 +118,6 @@ export class PopcornEngine {
   private canvas: HTMLCanvasElement
   private ctx: CanvasRenderingContext2D
   private cb: EngineCallbacks
-  private ro: ResizeObserver | null = null
   private raf = 0
   private lastTs = 0
   private destroyed = false
@@ -112,12 +127,25 @@ export class PopcornEngine {
   private dpr = 1
   private u = 1
 
-  phase: 'idle' | 'playing' | 'ended' = 'idle'
+  phase: 'idle' | 'playing' | 'clear' | 'ended' = 'idle'
   paused = false
 
   private timeLeft = 0
+  private duration = LEVEL_SECONDS
   private score = 0
-  private wave = 0
+  private lvl = 1
+  private perk: PerkId | null = null
+  private quota = 10
+  private collected = 0
+  private wave = 1
+  private waveSize = 7
+  private cornChance = 0.12
+  private goldenChance = 0.12
+  private baseWaveDelay = 0.82
+  private waveDelay = -1
+  private pendingClear = -1
+  private debugFast = false
+
   private pieces: FieldPiece[] = []
   private carried: Carried[] = []
   private flying: Flying[] = []
@@ -126,9 +154,8 @@ export class PopcornEngine {
   private paw = { x: 0, y: 0, tx: 0, ty: 0, seen: false, pulse: 0, hurt: 0 }
   private cup = { x: 0, y: 0, squash: 0 }
   private banner = { text: '', t: 99 }
-  private waveDelay = -1
   private lastSec = -1
-  private audioLevel = -1
+  private audioStage = -1
   private lastStatsKey = ''
 
   private cupScale = 5
@@ -155,13 +182,6 @@ export class PopcornEngine {
       paw: makePawSprite(),
       sparkle: makeSparkleSprite(),
     }
-    this.canvas.addEventListener('pointerdown', this.onPointer)
-    this.canvas.addEventListener('pointermove', this.onPointer)
-    this.resize()
-    if (typeof ResizeObserver !== 'undefined') {
-      this.ro = new ResizeObserver(() => this.resize())
-      if (this.canvas.parentElement) this.ro.observe(this.canvas.parentElement)
-    }
     this.lastTs = performance.now()
     this.raf = requestAnimationFrame(this.loop)
   }
@@ -169,29 +189,46 @@ export class PopcornEngine {
   destroy(): void {
     this.destroyed = true
     cancelAnimationFrame(this.raf)
-    this.ro?.disconnect()
-    this.canvas.removeEventListener('pointerdown', this.onPointer)
-    this.canvas.removeEventListener('pointermove', this.onPointer)
   }
 
   /* ================= публичное API ================= */
 
-  start(): void {
+  /** Новый забег: счёт с нуля, уровень 1 без перка */
+  startRun(opts: { fast?: boolean } = {}): void {
+    this.debugFast = !!opts.fast
+    this.score = 0
+    this.startLevel(1, null)
+  }
+
+  /** Следующий уровень забега (счёт сохраняется) */
+  startLevel(level: number, perk: PerkId | null): void {
+    this.lvl = level
+    this.perk = perk
+    this.duration = perk === 'timeplus' ? LEVEL_SECONDS_PERK : LEVEL_SECONDS
+    this.quota = this.debugFast ? 3 : quotaFor(level, perk === 'doublepoints')
+    this.collected = 0
+    this.wave = 1
+    this.waveSize = Math.min(16, 7 + Math.floor(level * 0.8))
+    this.cornChance = Math.min(0.3, 0.12 + (level - 1) * 0.02)
+    if (perk === 'cornrain') this.cornChance = Math.min(0.5, this.cornChance * 2)
+    this.goldenChance = perk === 'goldenvein' ? 0.26 : 0.12
+    this.baseWaveDelay = Math.max(0.35, 0.82 - (level - 1) * 0.04)
+
     this.phase = 'playing'
     this.paused = false
-    this.timeLeft = GAME_SECONDS
-    this.score = 0
-    this.wave = 1
+    this.timeLeft = this.duration
+    this.pendingClear = -1
     this.pieces = []
     this.carried = []
     this.flying = []
     this.particles = []
     this.texts = []
     this.waveDelay = -1
-    this.lastSec = GAME_SECONDS
-    this.banner = { text: 'ВОЛНА 1', t: 0 }
+    this.lastSec = Math.ceil(this.timeLeft)
+    this.banner = { text: `УРОВЕНЬ ${level}`, t: 0 }
     audio.setIntensity(0)
-    this.audioLevel = 0
+    audio.setMusicLevel(level >= 3 ? 1 : 0)
+    this.audioStage = 0
     if (!this.paw.seen) {
       this.paw.x = this.cup.x
       this.paw.y = this.H * 0.4
@@ -210,24 +247,18 @@ export class PopcornEngine {
     this.emitStats(true)
   }
 
-  /* ================= ввод ================= */
-
-  private onPointer = (e: PointerEvent): void => {
+  /** Координаты в системе игрового поля (трансформации экрана считает компонент) */
+  setPointer(x: number, y: number, lift = 0): void {
     if (this.phase !== 'playing' || this.paused) return
-    const r = this.canvas.getBoundingClientRect()
-    const lift = e.pointerType === 'touch' ? 64 * this.u : 0
-    this.paw.tx = e.clientX - r.left
-    this.paw.ty = e.clientY - r.top - lift
+    this.paw.tx = x
+    this.paw.ty = y - lift * this.u
     this.paw.seen = true
   }
 
   /* ================= размеры ================= */
 
-  private resize(): void {
-    const el = this.canvas.parentElement
-    if (!el) return
-    const w = el.clientWidth
-    const h = el.clientHeight
+  /** Размер игрового поля в CSS-пикселях (задаёт компонент с учётом перков) */
+  handleResize(w: number, h: number): void {
     if (w === 0 || h === 0) return
 
     const oldW = this.W
@@ -237,8 +268,6 @@ export class PopcornEngine {
     this.H = h
     this.canvas.width = Math.round(w * this.dpr)
     this.canvas.height = Math.round(h * this.dpr)
-    this.canvas.style.width = `${w}px`
-    this.canvas.style.height = `${h}px`
     this.ctx.setTransform(this.dpr, 0, 0, this.dpr, 0, 0)
     this.ctx.imageSmoothingEnabled = false
 
@@ -266,9 +295,8 @@ export class PopcornEngine {
   /* ================= волны ================= */
 
   private spawnWave(): void {
-    const count = Math.min(15, 8 + this.wave)
     let cornOnField = this.pieces.filter((p) => p.kind === 'corn').length
-    for (let i = 0; i < count; i++) {
+    for (let i = 0; i < this.waveSize; i++) {
       const kind = this.decideKind(cornOnField)
       if (kind === 'corn') cornOnField++
       this.spawnPiece(i, kind)
@@ -277,8 +305,8 @@ export class PopcornEngine {
 
   private decideKind(cornOnField: number): PieceKind {
     const r = Math.random()
-    if (r < CORN_CHANCE && cornOnField < CORN_MAX) return 'corn'
-    return Math.random() < GOLDEN_CHANCE ? 'golden' : 'popcorn'
+    if (r < this.cornChance && cornOnField < CORN_MAX) return 'corn'
+    return Math.random() < this.goldenChance ? 'golden' : 'popcorn'
   }
 
   private spawnPiece(index: number, kind: PieceKind): void {
@@ -293,7 +321,7 @@ export class PopcornEngine {
       y = top + Math.random() * Math.max(10, bottom - top)
       const dc = Math.hypot(x - this.cup.x, y - this.cup.y)
       if (dc <= 135 * u) continue
-      // не даём зернам застрять в кластере мин — маршрут всегда проходим
+      // не даём зёрнам застрять в кластере — маршрут всегда проходим
       let crowded = false
       for (const q of this.pieces) {
         if (Math.hypot(x - q.x, y - q.y) < 40 * u) {
@@ -310,7 +338,55 @@ export class PopcornEngine {
       kind,
       phase: Math.random() * Math.PI * 2,
       spawn: SPAWN_DUR + index * 0.045,
+      dA: Math.random() * Math.PI * 2,
     })
+  }
+
+  /* ================= перки-механики ================= */
+
+  /** «Скользкий пол»: зёрна катаются по полу */
+  private driftPieces(dt: number): void {
+    const u = this.u
+    const sp = 17 * u
+    const mX = 34 * u
+    const top = 90
+    const bottom = this.H - 42 * u
+    for (const p of this.pieces) {
+      p.dA += (Math.random() - 0.5) * dt * 2.4
+      p.x += Math.cos(p.dA) * sp * dt
+      p.y += Math.sin(p.dA) * sp * dt
+      if (p.x < mX) {
+        p.x = mX
+        p.dA = Math.PI - p.dA
+      }
+      if (p.x > this.W - mX) {
+        p.x = this.W - mX
+        p.dA = Math.PI - p.dA
+      }
+      if (p.y < top) {
+        p.y = top
+        p.dA = -p.dA
+      }
+      if (p.y > bottom) {
+        p.y = bottom
+        p.dA = -p.dA
+      }
+    }
+  }
+
+  /** «Магнитная лапа»: попкорн сам тянется к лапке */
+  private magnetPull(dt: number): void {
+    const u = this.u
+    const r = 115 * u
+    const k = Math.min(1, dt * 3.4)
+    for (const p of this.pieces) {
+      if (p.kind === 'corn' || p.spawn > 0.12) continue
+      const d = Math.hypot(this.paw.x - p.x, this.paw.y - p.y)
+      if (d < r && d > 1) {
+        p.x += (this.paw.x - p.x) * k
+        p.y += (this.paw.y - p.y) * k
+      }
+    }
   }
 
   /* ================= обновление ================= */
@@ -318,16 +394,22 @@ export class PopcornEngine {
   private update(dt: number): void {
     const u = this.u
 
-    // Плавное следование лапки за пальцем/курсором
+    // Плавное следование лапки за пальцем/курсором («Тяжёлая лапа» — вдвое медленнее)
     if (!this.paw.seen) {
       this.paw.tx = this.cup.x + Math.sin(performance.now() * 0.001) * 80 * u
       this.paw.ty = this.H * 0.35
     }
-    const k = 1 - Math.exp(-dt * 14)
+    const k = 1 - Math.exp(-dt * (this.perk === 'slowpaw' ? 6.5 : 14))
     this.paw.x += (this.paw.tx - this.paw.x) * k
     this.paw.y += (this.paw.ty - this.paw.y) * k
     this.paw.x = Math.max(22 * u, Math.min(this.W - 22 * u, this.paw.x))
     this.paw.y = Math.max(70, Math.min(this.H - 20 * u, this.paw.y))
+
+    if (this.perk === 'drift') this.driftPieces(dt)
+    if (this.perk === 'magnet') this.magnetPull(dt)
+
+    // Радиус подбора зависит от перка лапки
+    const grabR = (this.perk === 'bigpaw' ? 58 : this.perk === 'smallpaw' ? 34 : 44) * u
 
     // Подбор попкорна / ловушка-кукуруза
     for (let i = this.pieces.length - 1; i >= 0; i--) {
@@ -335,7 +417,7 @@ export class PopcornEngine {
       if (p.spawn > 0.12) continue
       const d = Math.hypot(this.paw.x - p.x, this.paw.y - p.y)
       if (p.kind === 'corn') {
-        // Кукуруза — штраф: задел = минус балл (мгновенно, не переносится)
+        // Кукуруза — мина: задел = минус балл
         if (d < 38 * u) {
           this.pieces.splice(i, 1)
           this.score = Math.max(0, this.score - 1)
@@ -354,7 +436,7 @@ export class PopcornEngine {
         }
         continue
       }
-      if (d < 44 * u && this.carried.length < CARRY_MAX) {
+      if (d < grabR && this.carried.length < CARRY_MAX) {
         this.pieces.splice(i, 1)
         this.carried.push({ golden: p.kind === 'golden', grabT: 0 })
         this.paw.pulse = 1
@@ -367,12 +449,15 @@ export class PopcornEngine {
     if (this.carried.length > 0) {
       const dc = Math.hypot(this.paw.x - this.cup.x, this.paw.y - this.cup.y)
       if (dc < 78 * u) {
-        let sum = 0
+        let base = 0
         let hasGold = false
         for (const c of this.carried) {
-          sum += c.golden ? 5 : 1
+          base += c.golden ? 5 : 1
           hasGold = hasGold || c.golden
         }
+        const mult = this.perk === 'doublepoints' ? 2 : 1
+        const sum = base * mult
+        this.collected += this.carried.length
         this.carried.forEach((c, i) => {
           this.flying.push({
             x0: this.paw.x + (i - 1) * 8 * u,
@@ -415,7 +500,7 @@ export class PopcornEngine {
       this.carried.length === 0 &&
       this.flying.length === 0
     ) {
-      this.waveDelay = WAVE_DELAY
+      this.waveDelay = this.baseWaveDelay
     }
     if (this.waveDelay >= 0) {
       this.waveDelay -= dt
@@ -428,11 +513,23 @@ export class PopcornEngine {
       }
     }
 
+    // Норма выполнена → короткая пауза (зёрна долетают) → уровень пройден
+    if (this.pendingClear < 0 && this.collected >= this.quota) {
+      this.pendingClear = CLEAR_DELAY
+    }
+    if (this.pendingClear >= 0) {
+      this.pendingClear -= dt
+      if (this.pendingClear <= 0) {
+        this.levelComplete()
+        return
+      }
+    }
+
     // Музыка зависит от оставшегося времени: >30с база, ≤30с +25%, ≤15с +40%, ≤5с 240 BPM
-    const level = this.timeLeft > 30 ? 0 : this.timeLeft > 15 ? 1 : this.timeLeft > 5 ? 2 : 3
-    if (level !== this.audioLevel) {
-      this.audioLevel = level
-      audio.setIntensity(level)
+    const stage = this.timeLeft > 30 ? 0 : this.timeLeft > 15 ? 1 : this.timeLeft > 5 ? 2 : 3
+    if (stage !== this.audioStage) {
+      this.audioStage = stage
+      audio.setIntensity(stage)
     }
 
     // Таймер
@@ -470,12 +567,22 @@ export class PopcornEngine {
     }
   }
 
+  private levelComplete(): void {
+    this.phase = 'clear'
+    const bonus = Math.ceil(this.timeLeft)
+    this.score += bonus
+    audio.stopMusic()
+    audio.play('levelwin')
+    this.emitStats(true)
+    this.cb.onLevelComplete?.({ level: this.lvl, score: this.score, bonus })
+  }
+
   private end(): void {
     this.phase = 'ended'
     audio.stopMusic()
     audio.play('gameover')
     this.emitStats(true)
-    this.cb.onEnd?.({ score: this.score, waves: this.wave })
+    this.cb.onEnd?.({ score: this.score, level: this.lvl })
   }
 
   private crumbs(x: number, y: number, color: string, n: number): void {
@@ -511,13 +618,16 @@ export class PopcornEngine {
   private emitStats(force: boolean): void {
     if (!this.cb.onStats) return
     const sec = Math.ceil(this.timeLeft)
-    const key = `${this.score}|${this.wave}|${this.carried.length}|${sec}|${this.paused}`
+    const key = `${this.score}|${this.lvl}|${this.quota}|${this.collected}|${this.carried.length}|${sec}|${this.paused}`
     if (!force && key === this.lastStatsKey) return
     this.lastStatsKey = key
     this.cb.onStats({
       score: this.score,
       timeLeft: this.timeLeft,
-      wave: this.wave,
+      duration: this.duration,
+      level: this.lvl,
+      quota: this.quota,
+      collected: this.collected,
       carrying: this.carried.length,
       paused: this.paused,
     })
@@ -537,10 +647,31 @@ export class PopcornEngine {
     this.drawPaw(ts)
     this.drawTexts()
     this.drawBanner()
+    if (this.perk === 'fog' && this.phase === 'playing') this.drawFog()
 
-    if (this.phase === 'ended') {
+    if (this.phase === 'ended' || this.phase === 'clear') {
       ctx.fillStyle = 'rgba(24, 10, 4, 0.35)'
       ctx.fillRect(0, 0, this.W, this.H)
+    }
+  }
+
+  /** «Попкорнный туман»: ступенчатые кольца темноты вокруг лапки (8-битный стиль) */
+  private drawFog(): void {
+    const { ctx } = this
+    const u = this.u
+    const rings: Array<[number, number]> = [
+      [150, 0.86],
+      [120, 0.8],
+      [95, 0.66],
+      [72, 0.45],
+      [52, 0.22],
+    ]
+    for (const [r, a] of rings) {
+      ctx.fillStyle = `rgba(12, 6, 2, ${a})`
+      ctx.beginPath()
+      ctx.rect(0, 0, this.W, this.H)
+      ctx.arc(this.paw.x, this.paw.y, r * u, 0, Math.PI * 2)
+      ctx.fill('evenodd')
     }
   }
 
@@ -565,8 +696,9 @@ export class PopcornEngine {
     )
     ctx.fill()
 
-    // «Шапка» попкорна за стаканчиком
-    const puffs = Math.min(PUFF_POS.length, Math.floor(this.score / 6))
+    // «Шапка» попкорна растёт вместе с выполнением нормы
+    const progress = this.quota > 0 ? this.collected / this.quota : 0
+    const puffs = Math.min(PUFF_POS.length, Math.ceil(progress * PUFF_POS.length))
     const mouthY = this.cup.y - 13 * s * sy
     for (let i = 0; i < puffs; i++) {
       const [ox, oy] = PUFF_POS[i]
@@ -626,23 +758,28 @@ export class PopcornEngine {
     const u = this.u
     if (!this.paw.seen && this.phase === 'idle') return
 
-    // Тряска при штрафе
+    // Тряска при штрафе + дрожь перка «Нервная лапа»
     const shake = Math.sin(ts * 0.055) * 5 * this.paw.hurt
-    const px = this.paw.x + shake
+    const shiver = this.perk === 'shaky'
+    const jx = shiver ? Math.sin(ts * 0.021) * 4 * u + Math.sin(ts * 0.047) * 2.5 * u : 0
+    const jy = shiver ? Math.cos(ts * 0.033) * 3 * u : 0
+    const px = this.paw.x + shake + jx
+    const py = this.paw.y + jy
 
     // Тень лапки
     ctx.fillStyle = 'rgba(0, 0, 0, 0.18)'
     ctx.beginPath()
-    ctx.ellipse(px, this.paw.y + 28 * u, 26 * u, 7 * u, 0, 0, Math.PI * 2)
+    ctx.ellipse(px, py + 28 * u, 26 * u, 7 * u, 0, 0, Math.PI * 2)
     ctx.fill()
 
-    const s = 3.8 * u * (1 + 0.13 * this.paw.pulse)
-    drawSprite(ctx, this.sp.paw, px, this.paw.y, s)
+    const basePaw = this.perk === 'bigpaw' ? 4.8 : this.perk === 'smallpaw' ? 2.9 : 3.8
+    const s = basePaw * u * (1 + 0.13 * this.paw.pulse)
+    drawSprite(ctx, this.sp.paw, px, py, s)
 
     // Зёрна в лапке (стопкой над подушечкой)
     this.carried.forEach((c, i) => {
       const wig = Math.sin(ts * 0.012 + i * 2) * 1.6 * u
-      const y = this.paw.y - 32 * u - i * 15 * u + (1 - c.grabT) * 10 * u
+      const y = py - 32 * u - i * 15 * u + (1 - c.grabT) * 10 * u
       drawSprite(ctx, c.golden ? this.sp.golden : this.sp.popcorn, px + wig, y, 2.3 * u, {
         rot: Math.sin(ts * 0.006 + i) * 0.12,
       })

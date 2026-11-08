@@ -6,13 +6,28 @@ import { AnimatePresence, motion } from 'framer-motion'
 import { Pause, Popcorn, RotateCcw, Timer, Trophy, Volume2, VolumeX } from 'lucide-react'
 import { PopcornEngine, type EngineStats } from '@/lib/game/engine'
 import { audio } from '@/lib/game/audio'
+import {
+  PERK_MAP,
+  quotaFor,
+  rollPerkOffer,
+  transformFor,
+  type PerkDef,
+  type PerkId,
+  type ScreenTransform,
+} from '@/lib/game/perks'
+import { makeChestSprite } from '@/lib/game/sprites'
 
-type Phase = 'start' | 'playing' | 'paused' | 'ended'
+type Phase = 'start' | 'playing' | 'paused' | 'chest' | 'ended'
 
 interface ResultState {
   score: number
-  waves: number
+  level: number
   record: boolean
+}
+
+interface ClearState {
+  level: number
+  bonus: number
 }
 
 const BEST_KEY = 'popcorn-best'
@@ -144,18 +159,44 @@ function Confetti() {
   )
 }
 
+/** Пиксельный сундучок (закрытый/открытый), отрисованный на canvas */
+function ChestImg({ open }: { open: boolean }) {
+  const ref = useRef<HTMLCanvasElement | null>(null)
+  useEffect(() => {
+    const c = ref.current
+    if (!c) return
+    const spr = makeChestSprite(open)
+    const px = 6
+    c.width = spr.w * px
+    c.height = spr.h * px
+    const ctx = c.getContext('2d')
+    if (!ctx) return
+    ctx.imageSmoothingEnabled = false
+    ctx.clearRect(0, 0, c.width, c.height)
+    ctx.drawImage(spr.canvas, 0, 0, c.width, c.height)
+  }, [open])
+  return <canvas ref={ref} aria-hidden className="pixelated h-auto w-16 sm:w-20" />
+}
+
 /* ---------- основной компонент ---------- */
 
 export function PopcornGame() {
+  const mainRef = useRef<HTMLElement | null>(null)
   const canvasRef = useRef<HTMLCanvasElement | null>(null)
   const engineRef = useRef<PopcornEngine | null>(null)
   const mutedRef = useRef(false)
+  const transformRef = useRef<ScreenTransform>('none')
+  const layoutRef = useRef<() => void>(() => {})
+  const devRef = useRef<{ fast: boolean; forced: PerkId | null }>({ fast: false, forced: null })
 
   const [phase, setPhase] = useState<Phase>('start')
   const [stats, setStats] = useState<EngineStats>({
     score: 0,
     timeLeft: 60,
-    wave: 1,
+    duration: 60,
+    level: 1,
+    quota: 10,
+    collected: 0,
     carrying: 0,
     paused: false,
   })
@@ -164,12 +205,57 @@ export function PopcornGame() {
   const best = Number(bestRaw) || 0
   const muted = mutedRaw === '1'
   const [result, setResult] = useState<ResultState | null>(null)
+  const [clearInfo, setClearInfo] = useState<ClearState | null>(null)
+  const [offers, setOffers] = useState<PerkDef[]>([])
+  const [openedIdx, setOpenedIdx] = useState<number | null>(null)
+  const [runLevel, setRunLevel] = useState(2)
+  const [perk, setPerk] = useState<PerkId | null>(null)
+
+  /* Скрытые dev-параметры URL: ?fast=1 (короткая норма) и ?perk=rot180 */
+  useEffect(() => {
+    const sp = new URLSearchParams(window.location.search)
+    devRef.current = {
+      fast: sp.has('fast'),
+      forced: (sp.get('perk') as PerkId | null) ?? null,
+    }
+  }, [])
 
   /* Синхронизируем состояние звука с аудио-движком (внешняя система) */
   useEffect(() => {
     mutedRef.current = muted
     audio.setMuted(muted)
   }, [muted])
+
+  /* Раскладка холста с учётом трансформации перка (ротация/зеркало) */
+  const applyLayout = useCallback(() => {
+    const main = mainRef.current
+    const canvas = canvasRef.current
+    if (!main || !canvas) return
+    const cw = main.clientWidth
+    const ch = main.clientHeight
+    if (cw === 0 || ch === 0) return
+    const t = transformRef.current
+    const rot90 = t === 'rot90'
+    const gw = rot90 ? ch : cw
+    const gh = rot90 ? cw : ch
+    engineRef.current?.handleResize(gw, gh)
+    canvas.style.width = `${gw}px`
+    canvas.style.height = `${gh}px`
+    if (rot90) {
+      canvas.style.left = '50%'
+      canvas.style.top = '50%'
+      canvas.style.transform = 'translate(-50%, -50%) rotate(90deg)'
+    } else {
+      canvas.style.left = '0'
+      canvas.style.top = '0'
+      canvas.style.transform =
+        t === 'rot180' ? 'rotate(180deg)' : t === 'mirror' ? 'scaleX(-1)' : 'none'
+    }
+  }, [])
+
+  useEffect(() => {
+    layoutRef.current = applyLayout
+  }, [applyLayout])
 
   /* Инициализация движка */
   useEffect(() => {
@@ -178,6 +264,13 @@ export function PopcornGame() {
 
     const engine = new PopcornEngine(canvas, {
       onStats: (s) => setStats(s),
+      onLevelComplete: (r) => {
+        setClearInfo({ level: r.level, bonus: r.bonus })
+        setOffers(rollPerkOffer(3, devRef.current.forced ?? undefined))
+        setOpenedIdx(null)
+        setRunLevel(r.level + 1)
+        setPhase('chest')
+      },
       onEnd: (r) => {
         const prevBest = Number(window.localStorage.getItem(BEST_KEY) ?? 0)
         const record = r.score > prevBest
@@ -185,17 +278,73 @@ export function PopcornGame() {
           storeBest(String(r.score))
           window.setTimeout(() => audio.play('record'), 700)
         }
-        setResult({ score: r.score, waves: r.waves, record })
+        setResult({ score: r.score, level: r.level, record })
         setPhase('ended')
       },
     })
     engineRef.current = engine
+    layoutRef.current()
 
     return () => {
       engine.destroy()
       engineRef.current = null
     }
   }, [storeBest])
+
+  /* Следим за размером контейнера */
+  useEffect(() => {
+    const main = mainRef.current
+    if (!main || typeof ResizeObserver === 'undefined') return
+    const ro = new ResizeObserver(() => layoutRef.current())
+    ro.observe(main)
+    return () => ro.disconnect()
+  }, [])
+
+  /* Ввод: координаты переводим в систему поля с учётом трансформации перка */
+  useEffect(() => {
+    const main = mainRef.current
+    if (!main) return
+    const onPointer = (e: PointerEvent) => {
+      const eng = engineRef.current
+      if (!eng) return
+      const r = main.getBoundingClientRect()
+      const sx = e.clientX - r.left
+      const sy = e.clientY - r.top
+      let x = sx
+      let y = sy
+      switch (transformRef.current) {
+        case 'rot180':
+          x = r.width - sx
+          y = r.height - sy
+          break
+        case 'mirror':
+          x = r.width - sx
+          break
+        case 'rot90':
+          x = sy
+          y = r.width - sx
+          break
+      }
+      eng.setPointer(x, y, e.pointerType === 'touch' ? 64 : 0)
+    }
+    main.addEventListener('pointerdown', onPointer)
+    main.addEventListener('pointermove', onPointer)
+    return () => {
+      main.removeEventListener('pointerdown', onPointer)
+      main.removeEventListener('pointermove', onPointer)
+    }
+  }, [])
+
+  /* Трансформации экрана и фильтры действуют только во время уровня */
+  useEffect(() => {
+    const onLevel = phase === 'playing' || phase === 'paused'
+    transformRef.current = onLevel ? transformFor(perk) : 'none'
+    const canvas = canvasRef.current
+    if (canvas) {
+      canvas.style.filter = onLevel && perk === 'grayscale' ? 'grayscale(1) contrast(1.05)' : ''
+    }
+    layoutRef.current()
+  }, [perk, phase])
 
   /* Автопауза при сворачивании вкладки */
   useEffect(() => {
@@ -210,15 +359,35 @@ export function PopcornGame() {
   }, [])
 
   const startGame = useCallback(() => {
+    setResult(null)
+    setClearInfo(null)
+    setPerk(null)
+    transformRef.current = 'none'
+    const canvas = canvasRef.current
+    if (canvas) canvas.style.filter = ''
     audio.ensure()
-    audio.setMuted(muted)
+    audio.setMuted(mutedRef.current)
     audio.startMusic()
     audio.play('click')
-    engineRef.current?.start()
-    setResult(null)
+    engineRef.current?.startRun({ fast: devRef.current.fast })
     setPhase('playing')
-  }, [muted])
+  }, [])
 
+  const beginLevel = useCallback((lvl: number, perkId: PerkId | null) => {
+    audio.ensure()
+    audio.setMuted(mutedRef.current)
+    audio.startMusic()
+    audio.play('click')
+    transformRef.current = transformFor(perkId)
+    const canvas = canvasRef.current
+    if (canvas) {
+      canvas.style.filter = perkId === 'grayscale' ? 'grayscale(1) contrast(1.05)' : ''
+    }
+    layoutRef.current()
+    engineRef.current?.startLevel(lvl, perkId)
+    setPerk(perkId)
+    setPhase('playing')
+  }, [])
 
   const resumeGame = useCallback(() => {
     audio.play('click')
@@ -236,14 +405,24 @@ export function PopcornGame() {
     storeMuted(muted ? '0' : '1')
   }, [muted, storeMuted])
 
+  const openChest = useCallback((i: number) => {
+    audio.play('chest')
+    setOpenedIdx(i)
+    window.setTimeout(() => audio.play('perk'), 380)
+  }, [])
+
   const sec = Math.ceil(stats.timeLeft)
   const urgent = sec <= 10
   const playing = phase === 'playing' || phase === 'paused'
+  const quotaPct = Math.min(100, (stats.collected / Math.max(1, stats.quota)) * 100)
+  const chosen: PerkDef | null = openedIdx !== null ? (offers[openedIdx] ?? null) : null
+  const activePerk = perk ? PERK_MAP[perk] : null
 
   return (
     <div className="flex h-dvh flex-col overflow-hidden bg-[#1d110b] select-none">
       <main
-        className="relative min-h-0 flex-1 overflow-hidden"
+        ref={mainRef}
+        className="relative min-h-0 flex-1 touch-none overflow-hidden"
         aria-label="Игровое поле: соберите рассыпанный попкорн в стаканчик лапкой куницы"
       >
         {/* Фон — ретро комната */}
@@ -256,10 +435,10 @@ export function PopcornGame() {
           className="absolute inset-0 bg-gradient-to-b from-black/50 via-black/10 to-black/55"
         />
 
-        {/* Игровой холст */}
+        {/* Игровой холст (трансформации перков применяются инлайн) */}
         <canvas
           ref={canvasRef}
-          className="absolute inset-0 z-10 h-full w-full touch-none"
+          className="absolute z-10 touch-none"
           onContextMenu={(e) => e.preventDefault()}
         />
 
@@ -272,13 +451,31 @@ export function PopcornGame() {
                   <Popcorn className="h-4 w-4 text-amber-300" aria-hidden />
                   <span className="min-w-6 font-pixel text-base tabular-nums">{stats.score}</span>
                 </Pill>
+                {/* Полоска нормы: наполняемость стаканчика */}
+                <Pill className="w-36 sm:w-40">
+                  <Popcorn className="h-4 w-4 shrink-0 text-amber-300" aria-hidden />
+                  <span className="tabular-nums">
+                    {stats.collected}/{stats.quota}
+                  </span>
+                  <span className="relative ml-auto h-2.5 w-12 overflow-hidden rounded-full bg-white/15 sm:w-14">
+                    <span
+                      className="absolute inset-y-0 left-0 rounded-full bg-amber-300 transition-[width] duration-200"
+                      style={{ width: `${quotaPct}%` }}
+                    />
+                  </span>
+                </Pill>
                 <Pill className={`relative overflow-hidden ${urgent ? 'animate-pulse border-red-400/60' : ''}`}>
                   <span
                     aria-hidden
                     className="absolute inset-y-0 left-0 bg-red-400/25"
-                    style={{ width: `${Math.max(0, Math.min(100, (stats.timeLeft / 60) * 100))}%` }}
+                    style={{
+                      width: `${Math.max(0, Math.min(100, (stats.timeLeft / Math.max(1, stats.duration)) * 100))}%`,
+                    }}
                   />
-                  <Timer className={`relative h-4 w-4 ${urgent ? 'text-red-400' : 'text-amber-300'}`} aria-hidden />
+                  <Timer
+                    className={`relative h-4 w-4 ${urgent ? 'text-red-400' : 'text-amber-300'}`}
+                    aria-hidden
+                  />
                   <span className="relative tabular-nums">{sec} с</span>
                 </Pill>
               </>
@@ -290,7 +487,27 @@ export function PopcornGame() {
             )}
           </div>
           <div className="flex flex-col items-end gap-2">
-            {playing && <Pill>Волна {stats.wave}</Pill>}
+            {playing && (
+              <>
+                <Pill>
+                  <span className="font-pixel text-sm">УР. {stats.level}</span>
+                </Pill>
+                {activePerk && (
+                  <Pill
+                    className={
+                      activePerk.curse
+                        ? 'border-red-400/50 text-red-200'
+                        : 'border-emerald-300/50 text-emerald-200'
+                    }
+                  >
+                    <span aria-hidden>{activePerk.icon}</span>
+                    <span className="max-w-36 truncate text-[11px] sm:max-w-none sm:text-xs">
+                      {activePerk.name}
+                    </span>
+                  </Pill>
+                )}
+              </>
+            )}
             <div className="flex gap-2">
               {phase === 'playing' && (
                 <IconBtn onClick={pauseGame} label="Пауза">
@@ -327,21 +544,22 @@ export function PopcornGame() {
                   width={220}
                   height={220}
                   priority
-                  className="pixelated animate-float-y mx-auto h-32 w-32 rounded-2xl border-4 border-[#E24B3B] bg-[#F8D8B8] object-cover shadow-lg [@media(max-height:700px)]:h-24 [@media(max-height:700px)]:w-24 sm:h-44 sm:w-44"
+                  className="pixelated animate-float-y mx-auto h-28 w-28 rounded-2xl border-4 border-[#E24B3B] bg-[#F8D8B8] object-cover shadow-lg [@media(max-height:700px)]:h-20 [@media(max-height:700px)]:w-20 sm:h-40 sm:w-40"
                 />
                 <h1 className="text-shadow-pixel mt-2 font-pixel text-2xl font-bold leading-tight text-[#B33A26] [@media(max-height:700px)]:mt-1.5 sm:text-3xl">
                   КОШАЧИЙ ПОПКОРННЫЙ БЕСПРЕДЕЛ
                 </h1>
                 <p className="mt-1 font-ui text-xs font-medium text-[#8a5330] sm:text-sm">
-                  8-битная мини-игра · 60 секунд на рекорд
+                  8-битный рогалик-аркада · бесконечные уровни
                 </p>
 
                 <ul className="mt-3 space-y-1.5 text-left font-ui text-xs leading-snug text-[#5C3A1E] [@media(max-height:700px)]:mt-2 sm:text-sm">
                   <HowToRow icon="👆">Веди лапку пальцем по экрану (на ПК — мышкой)</HowToRow>
-                  <HowToRow icon="🍿">Собирай попкорн — до 3 зёрен за раз. Золотое зерно = +5!</HowToRow>
+                  <HowToRow icon="🍿">Собирай попкорн в стаканчик. Золотое зерно = +5!</HowToRow>
                   <HowToRow icon="🌽">Кукуруза — мины: обходи, заденешь — минус балл</HowToRow>
-                  <HowToRow icon="🥤">Высыпай добычу в стаканчик внизу экрана</HowToRow>
-                  <HowToRow icon="🏁">Волна пройдена, когда собран весь попкорн. Мины остаются!</HowToRow>
+                  <HowToRow icon="🎯">Собери норму за 60 секунд — и уровень пройден!</HowToRow>
+                  <HowToRow icon="🎁">Между уровнями открывай сундучок со случайным перком: бывают бонусы и проклятья</HowToRow>
+                  <HowToRow icon="♾️">Уровни бесконечны: норма, скорость и мины растут. Держись!</HowToRow>
                 </ul>
 
                 {best > 0 && (
@@ -377,11 +595,124 @@ export function PopcornGame() {
               >
                 <h2 className="font-pixel text-2xl font-bold text-[#B33A26]">ПАУЗА</h2>
                 <p className="mt-2 font-ui text-xs font-medium text-[#8a5330]">
-                  Счёт: {stats.score} · Волна {stats.wave}
+                  Уровень {stats.level} · Счёт: {stats.score} · Норма {stats.collected}/{stats.quota}
                 </p>
                 <div className="mt-5">
                   <GameButton onClick={resumeGame}>▶ ПРОДОЛЖИТЬ</GameButton>
                 </div>
+              </motion.div>
+            </motion.div>
+          )}
+
+          {phase === 'chest' && clearInfo && (
+            <motion.div
+              key="chest"
+              className="absolute inset-0 z-30 flex items-center justify-center overflow-y-auto bg-black/70 p-4 backdrop-blur-sm"
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              exit={{ opacity: 0 }}
+            >
+              <motion.div
+                className="my-auto w-full max-w-sm rounded-2xl border-4 border-[#8a5330] bg-[#FFF6E6] p-4 text-center shadow-[0_18px_50px_rgba(0,0,0,0.55)] sm:p-6"
+                initial={{ scale: 0.9, y: 14 }}
+                animate={{ scale: 1, y: 0 }}
+                exit={{ scale: 0.95, opacity: 0 }}
+                transition={{ type: 'spring', stiffness: 260, damping: 22 }}
+              >
+                <div aria-hidden className="text-4xl">
+                  🎁
+                </div>
+                <h2 className="mt-1 font-pixel text-xl font-bold text-[#B33A26] sm:text-2xl">
+                  УРОВЕНЬ {clearInfo.level} ПРОЙДЕН!
+                </h2>
+                <p className="mt-1 font-ui text-xs font-medium text-[#8a5330]">
+                  Бонус за скорость: +{clearInfo.bonus} · Счёт: {stats.score}
+                </p>
+                <p className="mt-2 font-ui text-xs text-[#5C3A1E]">
+                  Выбери сундучок — он решит судьбу следующего уровня
+                </p>
+
+                <div className="mt-3 flex items-end justify-center gap-2 sm:gap-4">
+                  {offers.map((p, i) => {
+                    const isOpen = openedIdx === i
+                    const dimmed = openedIdx !== null && !isOpen
+                    return (
+                      <motion.button
+                        key={p.id}
+                        type="button"
+                        aria-label={`Открыть сундучок ${i + 1}`}
+                        disabled={openedIdx !== null}
+                        onClick={() => openChest(i)}
+                        className={`flex flex-col items-center rounded-xl border-4 px-3 pb-1.5 pt-2.5 transition-colors sm:px-4 ${
+                          isOpen
+                            ? 'border-amber-400 bg-amber-100'
+                            : dimmed
+                              ? 'border-[#c9a97a] bg-[#f3e2c8] opacity-40'
+                              : 'border-[#8a5330] bg-[#f3e2c8] hover:bg-[#eed7b4] active:scale-95'
+                        }`}
+                        animate={isOpen ? { rotate: [0, -7, 7, -4, 0], y: [0, -8, 0] } : {}}
+                        transition={{ duration: 0.45 }}
+                      >
+                        <ChestImg open={isOpen} />
+                        <span className="font-pixel text-[10px] text-[#8a5330] sm:text-xs">
+                          {isOpen ? 'ОТКРЫТ' : 'СУНДУК'}
+                        </span>
+                      </motion.button>
+                    )
+                  })}
+                </div>
+
+                <AnimatePresence mode="wait">
+                  {chosen && (
+                    <motion.div
+                      key={chosen.id}
+                      className={`mt-3 rounded-xl border-2 p-3 ${
+                        chosen.curse
+                          ? 'border-red-300 bg-red-50'
+                          : 'border-emerald-300 bg-emerald-50'
+                      }`}
+                      initial={{ opacity: 0, y: 12, scale: 0.94 }}
+                      animate={{ opacity: 1, y: 0, scale: 1 }}
+                      exit={{ opacity: 0, y: -8 }}
+                      transition={{ type: 'spring', stiffness: 300, damping: 22 }}
+                    >
+                      <div className="flex items-center justify-center gap-2">
+                        <span aria-hidden className="text-3xl">
+                          {chosen.icon}
+                        </span>
+                        <div className="text-left">
+                          <div className="font-pixel text-base font-bold text-[#5C3A1E] sm:text-lg">
+                            {chosen.name}
+                          </div>
+                          <span
+                            className={`inline-block rounded-full px-2 py-0.5 font-ui text-[10px] font-bold ${
+                              chosen.curse
+                                ? 'bg-red-200 text-red-800'
+                                : 'bg-emerald-200 text-emerald-800'
+                            }`}
+                          >
+                            {chosen.curse ? '☠ ПРОКЛЯТЬЕ' : '✨ БОНУС'}
+                          </span>
+                        </div>
+                      </div>
+                      <p className="mt-2 font-ui text-xs leading-snug text-[#5C3A1E]">
+                        {chosen.desc}
+                      </p>
+                      <p className="mt-1.5 font-ui text-[11px] text-[#8a5330]">
+                        Уровень {runLevel}: норма {quotaFor(runLevel, chosen.id === 'doublepoints')}{' '}
+                        🍿 за {chosen.id === 'timeplus' ? 75 : 60} сек
+                      </p>
+                    </motion.div>
+                  )}
+                </AnimatePresence>
+
+                {chosen && (
+                  <div className="mt-3">
+                    <GameButton onClick={() => beginLevel(runLevel, chosen.id)}>
+                      ДАЛЬШЕ: УРОВЕНЬ {runLevel} ▶
+                    </GameButton>
+                  </div>
+                )}
               </motion.div>
             </motion.div>
           )}
@@ -403,8 +734,11 @@ export function PopcornGame() {
               >
                 {result.record && <Confetti />}
                 <h2 className="font-pixel text-xl font-bold text-[#B33A26] sm:text-2xl">
-                  ВРЕМЯ ВЫШЛО!
+                  КВОТА ПРОВАЛЕНА!
                 </h2>
+                <p className="mt-1 font-ui text-xs font-medium text-[#8a5330]">
+                  Время вышло на {result.level} уровне
+                </p>
                 <div className="mt-3 flex items-center justify-center gap-2">
                   <Popcorn className="h-8 w-8 text-amber-500" aria-hidden />
                   <span className="font-pixel text-5xl font-bold tabular-nums text-[#5C3A1E]">
@@ -412,7 +746,7 @@ export function PopcornGame() {
                   </span>
                 </div>
                 <p className="mt-1 font-ui text-xs font-medium text-[#8a5330]">
-                  зёрен собрано · волна {result.waves}
+                  очков · дошёл до уровня {result.level}
                 </p>
 
                 {result.record ? (
@@ -433,7 +767,7 @@ export function PopcornGame() {
                 <div className="mt-5 space-y-2">
                   <GameButton onClick={startGame}>
                     <span className="inline-flex items-center justify-center gap-2">
-                      <RotateCcw className="h-5 w-5" aria-hidden /> ИГРАТЬ ЕЩЁ
+                      <RotateCcw className="h-5 w-5" aria-hidden /> ЗАБЕГ ЗАНОВО
                     </span>
                   </GameButton>
                 </div>
@@ -446,7 +780,7 @@ export function PopcornGame() {
       {/* Липкий футер */}
       <footer className="relative z-30 mt-auto border-t border-amber-100/10 bg-[#160c07] px-4 pb-[max(0.5rem,env(safe-area-inset-bottom))] pt-2 text-center">
         <p className="font-ui text-[11px] tracking-wide text-amber-200/70 sm:text-xs">
-          🌽 Кошачий попкорнный Беспредел · 8-битная мини-игра · сделано с ❤️
+          🌽 Кошачий попкорнный Беспредел · 8-битный рогалик · сделано с ❤️
         </p>
       </footer>
     </div>

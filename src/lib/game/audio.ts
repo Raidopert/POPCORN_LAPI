@@ -13,6 +13,9 @@ export type SfxName =
   | 'penalty'
   | 'gameover'
   | 'record'
+  | 'chest'
+  | 'perk'
+  | 'levelwin'
 
 const NOTE_OFFSETS: Record<string, number> = {
   C: 0,
@@ -77,10 +80,16 @@ class ChipTuneAudio {
   private playingMusic = false
   private _muted = false
   private level = 0
+  private stage = 0
 
   /** Уровень напряжённости 0–3: темп и мелодия зависят от оставшегося времени */
   setIntensity(level: number): void {
     this.level = Math.max(0, Math.min(3, level))
+  }
+
+  /** Сложность забега: с 3-го уровня мелодия энергичнее */
+  setMusicLevel(stage: number): void {
+    this.stage = stage >= 1 ? 1 : 0
   }
 
   /** Создаёт/возобновляет AudioContext. Вызывать по жесту пользователя. */
@@ -158,7 +167,7 @@ class ChipTuneAudio {
 
   private playStep(s: number, t: number, dur: number): void {
     const bus = this.musicBus as GainNode
-    const lead = (this.level >= 2 ? LEAD_B : LEAD_A)[s]
+    const lead = (this.level >= 2 || this.stage >= 1 ? LEAD_B : LEAD_A)[s]
     if (lead) this.tone('square', noteFreq(lead), t, dur * 0.92, 0.15, bus)
     const bass = BASS[s]
     if (bass) this.tone('triangle', noteFreq(bass), t, dur * 1.7, 0.24, bus)
@@ -269,6 +278,28 @@ class ChipTuneAudio {
         )
         ;['C6', 'E6', 'G6', 'C7'].forEach((n) =>
           this.tone('square', noteFreq(n), t + 0.56, 0.5, 0.12, bus),
+        )
+        break
+      case 'chest':
+        // Щелчок замка + скрип крышки
+        this.tone('square', 220, t, 0.06, 0.26, bus, 150)
+        this.noise(t + 0.09, 0.13, 0.16, 'bandpass', 900, bus)
+        this.tone('triangle', 330, t + 0.12, 0.12, 0.16, bus, 240)
+        break
+      case 'perk':
+        // Фанфара открытия перка
+        ;['C5', 'F5', 'A5', 'C6'].forEach((n, i) =>
+          this.tone('square', noteFreq(n), t + i * 0.08, 0.1, 0.22, bus),
+        )
+        this.tone('triangle', noteFreq('F4'), t + 0.34, 0.3, 0.2, bus)
+        break
+      case 'levelwin':
+        // Победный джингл пройденного уровня
+        ;['G5', 'C6', 'E6', 'G6'].forEach((n, i) =>
+          this.tone('square', noteFreq(n), t + i * 0.11, 0.14, 0.24, bus),
+        )
+        ;['C6', 'E6', 'G6', 'C7'].forEach((n) =>
+          this.tone('square', noteFreq(n), t + 0.5, 0.4, 0.1, bus),
         )
         break
     }
