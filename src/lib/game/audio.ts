@@ -10,6 +10,7 @@ export type SfxName =
   | 'wave'
   | 'click'
   | 'tick'
+  | 'penalty'
   | 'gameover'
   | 'record'
 
@@ -36,12 +37,20 @@ function noteFreq(name: string): number {
   return 440 * Math.pow(2, (midi - 69) / 12)
 }
 
-/* Мелодия (квадратная волна) — 32 шага по 1/8, 4 такта, 140 BPM */
-const LEAD: (string | null)[] = [
+/* Мелодия A (спокойная) — 32 шага по 1/8, 4 такта */
+const LEAD_A: (string | null)[] = [
   'E5', null, 'E5', 'G5', 'A5', null, 'G5', null,
   'F5', null, 'F5', 'A5', 'C6', null, 'A5', null,
   'G5', null, 'G5', 'B5', 'D6', null, 'B5', 'G5',
   'C6', null, 'G5', 'E5', 'C5', null, null, null,
+]
+
+/* Мелодия B (энергичная, без пауз) — для высоких волн */
+const LEAD_B: (string | null)[] = [
+  'E5', 'G5', 'A5', 'G5', 'E5', 'G5', 'A5', 'B5',
+  'F5', 'A5', 'C6', 'A5', 'F5', 'A5', 'C6', 'D6',
+  'G5', 'B5', 'D6', 'B5', 'G5', 'B5', 'D6', 'B5',
+  'C6', 'D6', 'E6', 'D6', 'C6', null, 'G5', null,
 ]
 
 /* Бас (треугольная волна) — играем на четвертях */
@@ -52,7 +61,8 @@ const BASS: (string | null)[] = [
   'C3', null, 'G2', null, 'C3', null, 'G2', null,
 ]
 
-const BPM = 140
+const BPM_BASE = 140
+const BPM_MAX_STEP = 8 // +8 BPM за волну, максимум +64
 
 class ChipTuneAudio {
   private ctx: AudioContext | null = null
@@ -65,6 +75,12 @@ class ChipTuneAudio {
   private nextTime = 0
   private playingMusic = false
   private _muted = false
+  private waveLevel = 1
+
+  /** Сложность: темп и мелодия зависят от волны */
+  setIntensity(wave: number): void {
+    this.waveLevel = Math.max(1, wave)
+  }
 
   /** Создаёт/возобновляет AudioContext. Вызывать по жесту пользователя. */
   ensure(): boolean {
@@ -130,7 +146,8 @@ class ChipTuneAudio {
 
   private schedule(): void {
     if (!this.ctx || !this.playingMusic) return
-    const stepDur = 60 / BPM / 2
+    const bpm = BPM_BASE + Math.min(this.waveLevel - 1, BPM_MAX_STEP) * 8
+    const stepDur = 60 / bpm / 2
     while (this.nextTime < this.ctx.currentTime + 0.12) {
       this.playStep(this.step % 32, this.nextTime, stepDur)
       this.nextTime += stepDur
@@ -140,7 +157,7 @@ class ChipTuneAudio {
 
   private playStep(s: number, t: number, dur: number): void {
     const bus = this.musicBus as GainNode
-    const lead = LEAD[s]
+    const lead = (this.waveLevel >= 3 ? LEAD_B : LEAD_A)[s]
     if (lead) this.tone('square', noteFreq(lead), t, dur * 0.92, 0.15, bus)
     const bass = BASS[s]
     if (bass) this.tone('triangle', noteFreq(bass), t, dur * 1.7, 0.24, bus)
@@ -234,6 +251,10 @@ class ChipTuneAudio {
         break
       case 'tick':
         this.tone('square', 1250, t, 0.045, 0.2, bus)
+        break
+      case 'penalty':
+        this.tone('square', 320, t, 0.2, 0.3, bus, 110)
+        this.tone('sawtooth', 180, t + 0.02, 0.15, 0.14, bus, 80)
         break
       case 'gameover':
         ;['C5', 'G4', 'E5', 'C5'].forEach((n, i) =>

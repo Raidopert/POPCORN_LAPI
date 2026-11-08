@@ -140,37 +140,64 @@ export function makeCupSprite(): Sprite {
   return renderGrid(g)
 }
 
-/* ================= Лапка куницы ================= */
+/* ================= Лапка куницы (большая и длинная, с пушистой лапой) ================= */
 
 export function makePawSprite(): Sprite {
-  const g = createGrid(16, 16)
+  const g = createGrid(18, 22)
   const fur = '#A2673D'
   const padPink = '#E89A6B'
   const beans = '#F6DCA8'
   const claw = '#5C3A1E'
 
+  // Пушистая лапа/рука снизу (длинная)
+  paintCircle(g, 9, 18, 4.6, fur)
+  paintCircle(g, 9, 20.5, 4.0, fur)
+  paintCircle(g, 6.4, 16.4, 2.6, fur)
+  paintCircle(g, 11.6, 16.4, 2.6, fur)
   // Основная подушечка
-  paintCircle(g, 8, 10, 4.4, fur)
+  paintCircle(g, 9, 11.5, 4.8, fur)
   // Три пальца
-  paintCircle(g, 4.6, 5.6, 2.2, fur)
-  paintCircle(g, 8, 4.4, 2.4, fur)
-  paintCircle(g, 11.4, 5.6, 2.2, fur)
+  paintCircle(g, 5, 6.2, 2.3, fur)
+  paintCircle(g, 9, 4.8, 2.5, fur)
+  paintCircle(g, 13, 6.2, 2.3, fur)
   // Мех между пальцами и ладонью
-  paintCircle(g, 6.2, 7.2, 1.7, fur)
-  paintCircle(g, 9.8, 7.2, 1.7, fur)
+  paintCircle(g, 6.8, 8.4, 1.8, fur)
+  paintCircle(g, 11.2, 8.4, 1.8, fur)
   // Коготки
-  paintCircle(g, 4.6, 3.0, 0.9, claw)
-  paintCircle(g, 8, 1.7, 0.9, claw)
-  paintCircle(g, 11.4, 3.0, 0.9, claw)
+  paintCircle(g, 5, 3.4, 0.9, claw)
+  paintCircle(g, 9, 1.9, 0.9, claw)
+  paintCircle(g, 13, 3.4, 0.9, claw)
   // Подушечка и «бобышки»
-  paintCircle(g, 8, 10.8, 2.9, padPink)
-  paintCircle(g, 4.6, 5.4, 1.1, beans)
-  paintCircle(g, 8, 4.2, 1.2, beans)
-  paintCircle(g, 11.4, 5.4, 1.1, beans)
-  // Тень на мехе
-  tintCircle(g, 10.4, 12.6, 2.3, '#8A5330')
+  paintCircle(g, 9, 12.2, 3.1, padPink)
+  paintCircle(g, 5, 6, 1.15, beans)
+  paintCircle(g, 9, 4.6, 1.25, beans)
+  paintCircle(g, 13, 6, 1.15, beans)
+  // Тень на мехе справа и на лапе
+  tintCircle(g, 11.6, 14.2, 2.6, '#8A5330')
+  tintCircle(g, 10.8, 19.4, 2.4, '#8A5330')
 
   outlineGrid(g, '#4E2C14')
+  return renderGrid(g)
+}
+
+/* ================= Зерно кукурузы (ловушка, минус балл) ================= */
+
+export function makeCornSprite(): Sprite {
+  const g = createGrid(12, 12)
+  const body = '#FFC93C'
+  const shade = '#E8960C'
+  const shine = '#FFF3B0'
+  const edge = '#C2410C' // красноватая обводка — сигнал «не трогай!»
+
+  // Овальное зерно
+  paintCircle(g, 6, 5.4, 3.6, body)
+  paintCircle(g, 6, 7.4, 3.1, body)
+  // Тень снизу-справа
+  tintCircle(g, 7.6, 8.2, 2.4, shade)
+  // Блик сверху-слева
+  tintCircle(g, 4.8, 4.2, 1.4, shine)
+
+  outlineGrid(g, edge)
   return renderGrid(g)
 }
 

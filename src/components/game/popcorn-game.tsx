@@ -329,8 +329,8 @@ export function PopcornGame() {
                   priority
                   className="pixelated animate-float-y mx-auto h-32 w-32 rounded-2xl border-4 border-[#E24B3B] bg-[#F8D8B8] object-cover shadow-lg [@media(max-height:700px)]:h-24 [@media(max-height:700px)]:w-24 sm:h-44 sm:w-44"
                 />
-                <h1 className="text-shadow-pixel mt-2 font-pixel text-2xl font-bold text-[#B33A26] [@media(max-height:700px)]:mt-1.5 sm:text-3xl">
-                  МАРТА И ПОПКОРН
+                <h1 className="text-shadow-pixel mt-2 font-pixel text-xl font-bold leading-tight text-[#B33A26] [@media(max-height:700px)]:mt-1.5 sm:text-2xl">
+                  КОШАЧИЙ ПОПКОРННЫЙ БЕСПРЕДЕЛ
                 </h1>
                 <p className="mt-1 font-pixel text-[11px] text-[#8a5330] sm:text-xs">
                   8-битная мини-игра · 60 секунд на рекорд
@@ -339,8 +339,9 @@ export function PopcornGame() {
                 <ul className="mt-3 space-y-1.5 text-left font-pixel text-[11px] leading-snug text-[#5C3A1E] [@media(max-height:700px)]:mt-2 sm:text-xs">
                   <HowToRow icon="👆">Веди лапку пальцем по экрану (на ПК — мышкой)</HowToRow>
                   <HowToRow icon="🍿">Подбирай зёрна — до 3 за раз. Золотое зерно = +5!</HowToRow>
+                  <HowToRow icon="🌽">Кукуруза — ловушка! Заденешь — минус балл</HowToRow>
                   <HowToRow icon="🥤">Поднеси лапку к стаканчику, чтобы высыпать добычу</HowToRow>
-                  <HowToRow icon="⏱">Каждая волна всё больше — собери как можно больше!</HowToRow>
+                  <HowToRow icon="⏱">Волны всё больше, музыка быстрее — успей собрать максимум!</HowToRow>
                 </ul>
 
                 {best > 0 && (
@@ -445,7 +446,7 @@ export function PopcornGame() {
       {/* Липкий футер */}
       <footer className="relative z-30 mt-auto border-t border-amber-100/10 bg-[#160c07] px-4 pb-[max(0.5rem,env(safe-area-inset-bottom))] pt-2 text-center">
         <p className="font-pixel text-[10px] tracking-wide text-amber-200/60 sm:text-xs">
-          🍿 Марта и Попкорн · 8-битная мини-игра · сделано с ❤️
+          🌽 Кошачий попкорнный Беспредел · 8-битная мини-игра · сделано с ❤️
         </p>
       </footer>
     </div>

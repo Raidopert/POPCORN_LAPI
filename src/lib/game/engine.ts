@@ -1,5 +1,5 @@
 /**
- * Игровой движок «Марта и Попкорн».
+ * Игровой движок «Кошачий попкорнный Беспредел».
  * Canvas + requestAnimationFrame, независим от React.
  */
 
@@ -9,6 +9,7 @@ import {
   makeCupSprite,
   makePawSprite,
   makeSparkleSprite,
+  makeCornSprite,
   drawSprite,
   easeOutBack,
   easeOutQuad,
@@ -33,11 +34,13 @@ export interface EngineCallbacks {
   onEnd?(r: EngineResult): void
 }
 
+type PieceKind = 'popcorn' | 'golden' | 'corn'
+
 interface FieldPiece {
   x: number
   y: number
   rot: number
-  golden: boolean
+  kind: PieceKind
   phase: number
   spawn: number
 }
@@ -79,6 +82,8 @@ const GAME_SECONDS = 60
 const CARRY_MAX = 3
 const WAVE_DELAY = 0.8
 const SPAWN_DUR = 0.35
+const CORN_CHANCE = 0.18 // доля кукурузы-ловушки среди спавнов
+const GOLDEN_CHANCE = 0.12 // доля золотых зёрен среди обычного попкорна
 
 /** Смещения «шапки» попкорна над стаканчиком (в единицах спрайта) */
 const PUFF_POS: Array<[number, number]> = [
@@ -117,7 +122,7 @@ export class PopcornEngine {
   private flying: Flying[] = []
   private particles: Particle[] = []
   private texts: FloatText[] = []
-  private paw = { x: 0, y: 0, tx: 0, ty: 0, seen: false, pulse: 0 }
+  private paw = { x: 0, y: 0, tx: 0, ty: 0, seen: false, pulse: 0, hurt: 0 }
   private cup = { x: 0, y: 0, squash: 0 }
   private banner = { text: '', t: 99 }
   private waveDelay = -1
@@ -130,6 +135,7 @@ export class PopcornEngine {
   private sp: {
     popcorn: Sprite
     golden: Sprite
+    corn: Sprite
     cup: Sprite
     paw: Sprite
     sparkle: Sprite
@@ -142,6 +148,7 @@ export class PopcornEngine {
     this.sp = {
       popcorn: makePopcornSprite(false),
       golden: makePopcornSprite(true),
+      corn: makeCornSprite(),
       cup: makeCupSprite(),
       paw: makePawSprite(),
       sparkle: makeSparkleSprite(),
@@ -181,12 +188,14 @@ export class PopcornEngine {
     this.waveDelay = -1
     this.lastSec = GAME_SECONDS
     this.banner = { text: 'ВОЛНА 1', t: 0 }
+    audio.setIntensity(1)
     if (!this.paw.seen) {
       this.paw.x = this.cup.x
       this.paw.y = this.H * 0.4
       this.paw.tx = this.paw.x
       this.paw.ty = this.paw.y
     }
+    this.paw.hurt = 0
     audio.play('wave')
     this.spawnWave()
     this.emitStats(true)
@@ -271,11 +280,13 @@ export class PopcornEngine {
       const dc = Math.hypot(x - this.cup.x, y - this.cup.y)
       if (dc > 135 * u) break
     }
+    const r = Math.random()
+    const kind: PieceKind = r < CORN_CHANCE ? 'corn' : r < CORN_CHANCE + GOLDEN_CHANCE ? 'golden' : 'popcorn'
     this.pieces.push({
       x,
       y,
       rot: (Math.random() - 0.5) * 0.7,
-      golden: Math.random() < 0.12,
+      kind,
       phase: Math.random() * Math.PI * 2,
       spawn: SPAWN_DUR + index * 0.045,
     })
@@ -297,17 +308,37 @@ export class PopcornEngine {
     this.paw.x = Math.max(22 * u, Math.min(this.W - 22 * u, this.paw.x))
     this.paw.y = Math.max(70, Math.min(this.H - 20 * u, this.paw.y))
 
-    // Подбор попкорна
+    // Подбор попкорна / ловушка-кукуруза
     for (let i = this.pieces.length - 1; i >= 0; i--) {
       const p = this.pieces[i]
       if (p.spawn > 0.12) continue
       const d = Math.hypot(this.paw.x - p.x, this.paw.y - p.y)
-      if (d < 40 * u && this.carried.length < CARRY_MAX) {
+      if (p.kind === 'corn') {
+        // Кукуруза — штраф: задел = минус балл (мгновенно, не переносится)
+        if (d < 38 * u) {
+          this.pieces.splice(i, 1)
+          this.score = Math.max(0, this.score - 1)
+          this.paw.hurt = 1
+          this.texts.push({
+            x: this.paw.x,
+            y: this.paw.y - 34 * u,
+            text: '-1',
+            color: '#FF6B5E',
+            t: 0,
+            dur: 0.9,
+            size: 24 * u,
+          })
+          this.crumbs(p.x, p.y, '#E8960C', 7)
+          audio.play('penalty')
+        }
+        continue
+      }
+      if (d < 44 * u && this.carried.length < CARRY_MAX) {
         this.pieces.splice(i, 1)
-        this.carried.push({ golden: p.golden, grabT: 0 })
+        this.carried.push({ golden: p.kind === 'golden', grabT: 0 })
         this.paw.pulse = 1
-        this.crumbs(p.x, p.y, p.golden ? '#FFE066' : '#FFF3D6', 6)
-        audio.play(p.golden ? 'golden' : 'pickup')
+        this.crumbs(p.x, p.y, p.kind === 'golden' ? '#FFE066' : '#FFF3D6', 6)
+        audio.play(p.kind === 'golden' ? 'golden' : 'pickup')
       }
     }
 
@@ -369,6 +400,7 @@ export class PopcornEngine {
       if (this.waveDelay <= 0) {
         this.waveDelay = -1
         this.wave++
+        audio.setIntensity(this.wave)
         this.banner = { text: `ВОЛНА ${this.wave}`, t: 0 }
         audio.play('wave')
         this.spawnWave()
@@ -390,6 +422,7 @@ export class PopcornEngine {
 
     // Косметика
     this.paw.pulse = Math.max(0, this.paw.pulse - dt * 5)
+    this.paw.hurt = Math.max(0, this.paw.hurt - dt * 2.2)
     this.cup.squash = Math.max(0, this.cup.squash - dt * 4)
     this.banner.t += dt
     for (const p of this.pieces) p.spawn = Math.max(0, p.spawn - dt)
@@ -525,7 +558,8 @@ export class PopcornEngine {
       const bob = Math.sin(ts * 0.004 + p.phase) * 2.5 * u
       const y = p.y + bob
       const pop = p.spawn > 0 ? easeOutBack(1 - p.spawn / (SPAWN_DUR + 0.5)) : 1
-      const scale = 2.6 * u * Math.max(0.05, pop)
+      const base = p.kind === 'corn' ? 2.3 : 2.6
+      const scale = base * u * Math.max(0.05, pop)
 
       // Тень
       ctx.fillStyle = 'rgba(0, 0, 0, 0.16)'
@@ -533,8 +567,9 @@ export class PopcornEngine {
       ctx.ellipse(p.x, p.y + 9 * u, 12 * u * pop, 4 * u * pop, 0, 0, Math.PI * 2)
       ctx.fill()
 
-      drawSprite(ctx, p.golden ? this.sp.golden : this.sp.popcorn, p.x, y, scale, { rot: p.rot })
-      if (p.golden) {
+      const sprite = p.kind === 'corn' ? this.sp.corn : p.kind === 'golden' ? this.sp.golden : this.sp.popcorn
+      drawSprite(ctx, sprite, p.x, y, scale, { rot: p.rot })
+      if (p.kind === 'golden') {
         drawSprite(ctx, this.sp.sparkle, p.x + 10 * u, y - 11 * u, 1.15 * u, {
           rot: ts * 0.004,
           alpha: 0.95,
@@ -563,20 +598,24 @@ export class PopcornEngine {
     const u = this.u
     if (!this.paw.seen && this.phase === 'idle') return
 
+    // Тряска при штрафе
+    const shake = Math.sin(ts * 0.055) * 5 * this.paw.hurt
+    const px = this.paw.x + shake
+
     // Тень лапки
     ctx.fillStyle = 'rgba(0, 0, 0, 0.18)'
     ctx.beginPath()
-    ctx.ellipse(this.paw.x, this.paw.y + 22 * u, 22 * u, 6.5 * u, 0, 0, Math.PI * 2)
+    ctx.ellipse(px, this.paw.y + 28 * u, 26 * u, 7 * u, 0, 0, Math.PI * 2)
     ctx.fill()
 
-    const s = 3.1 * u * (1 + 0.13 * this.paw.pulse)
-    drawSprite(ctx, this.sp.paw, this.paw.x, this.paw.y, s)
+    const s = 3.8 * u * (1 + 0.13 * this.paw.pulse)
+    drawSprite(ctx, this.sp.paw, px, this.paw.y, s)
 
     // Зёрна в лапке (стопкой над подушечкой)
     this.carried.forEach((c, i) => {
       const wig = Math.sin(ts * 0.012 + i * 2) * 1.6 * u
-      const y = this.paw.y - 22 * u - i * 13 * u + (1 - c.grabT) * 10 * u
-      drawSprite(ctx, c.golden ? this.sp.golden : this.sp.popcorn, this.paw.x + wig, y, 2.15 * u, {
+      const y = this.paw.y - 32 * u - i * 15 * u + (1 - c.grabT) * 10 * u
+      drawSprite(ctx, c.golden ? this.sp.golden : this.sp.popcorn, px + wig, y, 2.3 * u, {
         rot: Math.sin(ts * 0.006 + i) * 0.12,
       })
     })
