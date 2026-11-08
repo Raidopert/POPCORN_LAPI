@@ -151,41 +151,82 @@ export function makeCupSprite(): Sprite {
 
 /* ================= Лапка куницы (большая и длинная, с пушистой лапой) ================= */
 
-export function makePawSprite(): Sprite {
+/** Палитра окраса лапки (магазин скинов) */
+export interface PawPalette {
+  fur: string
+  furShade: string
+  pad: string
+  beans: string
+  claw: string
+  edge: string
+  /** Три пальца разного цвета (радужная лапка) */
+  fingers?: [string, string, string]
+  /** Пятнышки по шерсти (леопардовая лапка) */
+  spots?: string
+}
+
+const PAW_DEFAULT: PawPalette = {
+  fur: '#A2673D',
+  furShade: '#8A5330',
+  pad: '#E89A6B',
+  beans: '#F6DCA8',
+  claw: '#5C3A1E',
+  edge: '#4E2C14',
+}
+
+export function makePawSprite(pal: Partial<PawPalette> = {}): Sprite {
+  const p: PawPalette = { ...PAW_DEFAULT, ...pal }
   const g = createGrid(18, 22)
-  const fur = '#A2673D'
-  const padPink = '#E89A6B'
-  const beans = '#F6DCA8'
-  const claw = '#5C3A1E'
 
   // Пушистая лапа/рука снизу (длинная)
-  paintCircle(g, 9, 18, 4.6, fur)
-  paintCircle(g, 9, 20.5, 4.0, fur)
-  paintCircle(g, 6.4, 16.4, 2.6, fur)
-  paintCircle(g, 11.6, 16.4, 2.6, fur)
+  paintCircle(g, 9, 18, 4.6, p.fur)
+  paintCircle(g, 9, 20.5, 4.0, p.fur)
+  paintCircle(g, 6.4, 16.4, 2.6, p.fur)
+  paintCircle(g, 11.6, 16.4, 2.6, p.fur)
   // Основная подушечка
-  paintCircle(g, 9, 11.5, 4.8, fur)
+  paintCircle(g, 9, 11.5, 4.8, p.fur)
   // Три пальца
-  paintCircle(g, 5, 6.2, 2.3, fur)
-  paintCircle(g, 9, 4.8, 2.5, fur)
-  paintCircle(g, 13, 6.2, 2.3, fur)
+  paintCircle(g, 5, 6.2, 2.3, p.fur)
+  paintCircle(g, 9, 4.8, 2.5, p.fur)
+  paintCircle(g, 13, 6.2, 2.3, p.fur)
   // Мех между пальцами и ладонью
-  paintCircle(g, 6.8, 8.4, 1.8, fur)
-  paintCircle(g, 11.2, 8.4, 1.8, fur)
+  paintCircle(g, 6.8, 8.4, 1.8, p.fur)
+  paintCircle(g, 11.2, 8.4, 1.8, p.fur)
   // Коготки
-  paintCircle(g, 5, 3.4, 0.9, claw)
-  paintCircle(g, 9, 1.9, 0.9, claw)
-  paintCircle(g, 13, 3.4, 0.9, claw)
+  paintCircle(g, 5, 3.4, 0.9, p.claw)
+  paintCircle(g, 9, 1.9, 0.9, p.claw)
+  paintCircle(g, 13, 3.4, 0.9, p.claw)
   // Подушечка и «бобышки»
-  paintCircle(g, 9, 12.2, 3.1, padPink)
-  paintCircle(g, 5, 6, 1.15, beans)
-  paintCircle(g, 9, 4.6, 1.25, beans)
-  paintCircle(g, 13, 6, 1.15, beans)
+  paintCircle(g, 9, 12.2, 3.1, p.pad)
+  paintCircle(g, 5, 6, 1.15, p.beans)
+  paintCircle(g, 9, 4.6, 1.25, p.beans)
+  paintCircle(g, 13, 6, 1.15, p.beans)
   // Тень на мехе справа и на лапе
-  tintCircle(g, 11.6, 14.2, 2.6, '#8A5330')
-  tintCircle(g, 10.8, 19.4, 2.4, '#8A5330')
+  tintCircle(g, 11.6, 14.2, 2.6, p.furShade)
+  tintCircle(g, 10.8, 19.4, 2.4, p.furShade)
+  // Пятнистый окрас (леопард) — только по уже закрашенной шерсти
+  if (p.spots) {
+    const dots: Array<[number, number, number]> = [
+      [6.2, 9.8, 0.95],
+      [11.8, 12.4, 1.05],
+      [7.4, 16.8, 0.85],
+      [11.2, 16.2, 0.85],
+      [9.2, 8.2, 0.7],
+      [12.4, 19.6, 0.85],
+    ]
+    for (const [dx, dy, dr] of dots) tintCircle(g, dx, dy, dr, p.spots)
+  }
+  // Радужные пальцы — перекрашиваем поверх и возвращаем «бобышки»
+  if (p.fingers) {
+    paintCircle(g, 5, 6.2, 2.3, p.fingers[0])
+    paintCircle(g, 9, 4.8, 2.5, p.fingers[1])
+    paintCircle(g, 13, 6.2, 2.3, p.fingers[2])
+    paintCircle(g, 5, 6, 1.15, p.beans)
+    paintCircle(g, 9, 4.6, 1.25, p.beans)
+    paintCircle(g, 13, 6, 1.15, p.beans)
+  }
 
-  outlineGrid(g, '#4E2C14')
+  outlineGrid(g, p.edge)
   return renderGrid(g)
 }
 

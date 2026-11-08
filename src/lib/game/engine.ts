@@ -9,6 +9,7 @@
 
 import { audio } from './audio'
 import { quotaFor, type PerkId } from './perks'
+import { PAW_MAP, type PawBonus, type PawId } from './paws'
 import {
   makePopcornSprite,
   makeCupSprite,
@@ -171,6 +172,8 @@ export class PopcornEngine {
   private perk: PerkId | null = null
   private quota = 9
   private collected = 0
+  /** Постоянные улучшения из магазина лапок (действуют весь забег и все забеги) */
+  private pawBonus: PawBonus = {}
   private wave = 1
   private popPerWave = 10
   private cornPerWave = 3
@@ -232,6 +235,13 @@ export class PopcornEngine {
 
   /* ================= публичное API ================= */
 
+  /** Скин лапки из магазина: палитра спрайта + постоянные улучшения */
+  setPawSkin(id: PawId): void {
+    const def = PAW_MAP[id] ?? PAW_MAP.classic
+    this.pawBonus = def.bonus
+    this.sp.paw = makePawSprite(def.palette)
+  }
+
   /** Новый забег: счёт с нуля, уровень 1 без перка */
   startRun(opts: { fast?: boolean } = {}): void {
     this.debugFast = !!opts.fast
@@ -243,7 +253,8 @@ export class PopcornEngine {
   startLevel(level: number, perk: PerkId | null): void {
     this.lvl = level
     this.perk = perk
-    this.duration = perk === 'timeplus' ? LEVEL_SECONDS_PERK : LEVEL_SECONDS
+    this.duration =
+      (perk === 'timeplus' ? LEVEL_SECONDS_PERK : LEVEL_SECONDS) + (this.pawBonus.timePlus ?? 0)
     this.quota = this.debugFast ? 3 : quotaFor(level, perk === 'doublepoints')
     this.collected = 0
     this.wave = 1
@@ -253,7 +264,9 @@ export class PopcornEngine {
     this.popPerWave = Math.min(26, 10 + step * 3)
     this.cornPerWave = Math.min(11, 3 + step)
     if (perk === 'cornrain') this.cornPerWave = Math.min(14, this.cornPerWave * 2)
-    this.goldenChance = perk === 'goldenvein' ? 0.26 : 0.12
+    /* Лапка-оберег от мин: меньше кукурузы в каждой волне */
+    this.cornPerWave = Math.max(0, this.cornPerWave - (this.pawBonus.cornCut ?? 0))
+    this.goldenChance = perk === 'goldenvein' ? 0.26 : Math.min(0.3, 0.12 + (this.pawBonus.goldenAdd ?? 0))
     this.baseWaveDelay = Math.max(0.4, 0.8 - (level - 1) * 0.03)
 
     this.phase = 'playing'
@@ -396,9 +409,10 @@ export class PopcornEngine {
 
   /* ================= размеры и ступени сложности ================= */
 
-  /** Вместимость лапки: 3 зерна, после 5-го уровня — 4, после 10-го — 5 */
+  /** Вместимость лапки: 3 зерна, после 5-го уровня — 4, после 10-го — 5 (+скин) */
   private get carryMax(): number {
-    return this.lvl >= 11 ? 5 : this.lvl >= 6 ? 4 : 3
+    const base = this.lvl >= 11 ? 5 : this.lvl >= 6 ? 4 : 3
+    return base + (this.pawBonus.carryPlus ?? 0)
   }
 
   /** Попкорн каждые 5 уровней немного мельчает — на поле остаётся место */
@@ -575,12 +589,14 @@ export class PopcornEngine {
   private update(dt: number): void {
     const u = this.u
 
-    // Плавное следование лапки за пальцем/курсором («Тяжёлая лапа» — вдвое медленнее)
+    // Плавное следование лапки за пальцем/курсором («Тяжёлая лапа» — вдвое медленнее);
+    // скины магазина делают лапку проворнее
     if (!this.paw.seen) {
       this.paw.tx = this.cup.x + Math.sin(performance.now() * 0.001) * 80 * u
       this.paw.ty = this.H * 0.35
     }
-    const k = 1 - Math.exp(-dt * (this.perk === 'slowpaw' ? 6.5 : 14))
+    const spd = 14 * (this.pawBonus.speed ?? 1)
+    const k = 1 - Math.exp(-dt * (this.perk === 'slowpaw' ? spd * 0.46 : spd))
     this.paw.x += (this.paw.tx - this.paw.x) * k
     this.paw.y += (this.paw.ty - this.paw.y) * k
     this.paw.x = Math.max(22 * u, Math.min(this.W - 22 * u, this.paw.x))
@@ -592,8 +608,11 @@ export class PopcornEngine {
     if (this.perk === 'drift') this.driftPieces(dt)
     if (this.perk === 'magnet') this.magnetPull(dt)
 
-    // Радиус подбора зависит от перка лапки
-    const grabR = (this.perk === 'bigpaw' ? 58 : this.perk === 'smallpaw' ? 34 : 44) * u
+    // Радиус подбора зависит от перка лапки и скина из магазина
+    const grabR =
+      (this.perk === 'bigpaw' ? 58 : this.perk === 'smallpaw' ? 34 : 44) *
+      u *
+      (this.pawBonus.grabR ?? 1)
 
     // Подбор попкорна / ловушка-кукуруза
     for (let i = this.pieces.length - 1; i >= 0; i--) {
@@ -604,19 +623,35 @@ export class PopcornEngine {
         // Кукуруза-мина: чем толще мина, тем шире радиус задевания
         if (d < 38 * u * (0.7 + 0.3 * this.cornScale)) {
           this.pieces.splice(i, 1)
-          this.score = Math.max(0, this.score - 1)
-          this.paw.hurt = 1
-          this.texts.push({
-            x: this.paw.x,
-            y: this.paw.y - 34 * u,
-            text: '-1',
-            color: '#FF6B5E',
-            t: 0,
-            dur: 0.9,
-            size: 24 * u,
-          })
-          this.crumbs(p.x, p.y, '#E8960C', 7)
-          audio.play('penalty')
+          const guard = this.pawBonus.guard ?? 0
+          if (guard > 0 && Math.random() < guard) {
+            // «Коготки-обереги»: мина обезврежена без штрафа
+            this.texts.push({
+              x: this.paw.x,
+              y: this.paw.y - 34 * u,
+              text: 'ОБЕРЕГ!',
+              color: '#BFF3E6',
+              t: 0,
+              dur: 0.9,
+              size: 22 * u,
+            })
+            this.crumbs(p.x, p.y, '#BFF3E6', 6)
+            audio.play('click')
+          } else {
+            this.score = Math.max(0, this.score - 1)
+            this.paw.hurt = 1
+            this.texts.push({
+              x: this.paw.x,
+              y: this.paw.y - 34 * u,
+              text: '-1',
+              color: '#FF6B5E',
+              t: 0,
+              dur: 0.9,
+              size: 24 * u,
+            })
+            this.crumbs(p.x, p.y, '#E8960C', 7)
+            audio.play('penalty')
+          }
         }
         continue
       }

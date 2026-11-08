@@ -1,9 +1,9 @@
 'use client'
 
-import { useCallback, useEffect, useRef, useState, useSyncExternalStore } from 'react'
+import { useCallback, useEffect, useMemo, useRef, useState, useSyncExternalStore } from 'react'
 import Image from 'next/image'
 import { AnimatePresence, motion } from 'framer-motion'
-import { Pause, Popcorn, RotateCcw, Timer, Trophy, Volume2, VolumeX } from 'lucide-react'
+import { Heart, Pause, PawPrint, Popcorn, RotateCcw, Timer, Trophy, Volume2, VolumeX } from 'lucide-react'
 import { PopcornEngine, type EngineStats } from '@/lib/game/engine'
 import { audio } from '@/lib/game/audio'
 import {
@@ -15,7 +15,8 @@ import {
   type PerkId,
   type ScreenTransform,
 } from '@/lib/game/perks'
-import { makeChestSprite } from '@/lib/game/sprites'
+import { makeChestSprite, makePawSprite } from '@/lib/game/sprites'
+import { DEFAULT_PAW, PAWS, PAW_MAP, type PawDef, type PawId } from '@/lib/game/paws'
 
 type Phase = 'start' | 'playing' | 'paused' | 'chest' | 'ended'
 
@@ -23,6 +24,8 @@ interface ResultState {
   score: number
   level: number
   record: boolean
+  /** Место в топ-10 списка лидеров (−1 — не вошёл) */
+  rank: number
 }
 
 interface ClearState {
@@ -33,6 +36,17 @@ interface ClearState {
 const BEST_KEY = 'popcorn-best'
 const MUTE_KEY = 'popcorn-muted'
 const STORE_EVENT = 'popcorn-store-update'
+/* Мета-прогресс: очки попкорна = опыт, магазин лапок и список лидеров */
+const XP_KEY = 'popcorn-xp'
+const PAW_KEY = 'popcorn-paw'
+const OWNED_KEY = 'popcorn-owned'
+const LEADERS_KEY = 'popcorn-leaders'
+
+interface LeaderEntry {
+  score: number
+  level: number
+  date: number
+}
 
 const CONFETTI_COLORS = ['#E24B3B', '#FFE066', '#7BC47F', '#F2A65A', '#FFF6EC', '#E89A6B']
 
@@ -178,6 +192,269 @@ function ChestImg({ open }: { open: boolean }) {
   return <canvas ref={ref} aria-hidden className="pixelated h-auto w-16 sm:w-20" />
 }
 
+/** Пиксельная лапка выбранного окраса (магазин скинов) */
+function PawImg({ skinId, className = 'w-9' }: { skinId: PawId; className?: string }) {
+  const ref = useRef<HTMLCanvasElement | null>(null)
+  useEffect(() => {
+    const c = ref.current
+    if (!c) return
+    const spr = makePawSprite(PAW_MAP[skinId].palette)
+    const px = 5
+    c.width = spr.w * px
+    c.height = spr.h * px
+    const ctx = c.getContext('2d')
+    if (!ctx) return
+    ctx.imageSmoothingEnabled = false
+    ctx.clearRect(0, 0, c.width, c.height)
+    ctx.drawImage(spr.canvas, 0, 0, c.width, c.height)
+  }, [skinId])
+  return <canvas ref={ref} aria-hidden className={`pixelated h-auto shrink-0 ${className}`} />
+}
+
+/** Маленькая кнопка меню (лидеры / магазин / создатели) */
+function MenuSmallBtn({
+  onClick,
+  icon,
+  children,
+}: {
+  onClick: () => void
+  icon: React.ReactNode
+  children: React.ReactNode
+}) {
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      className="flex items-center justify-center gap-1 rounded-xl border-2 border-[#8a5330] bg-[#f3e2c8] px-1 py-2 font-pixel text-[11px] font-bold text-[#8a5330] transition hover:bg-[#eed7b4] active:scale-95"
+    >
+      {icon}
+      {children}
+    </button>
+  )
+}
+
+const OVERLAY_SCROLL =
+  '[scrollbar-width:thin] [&::-webkit-scrollbar]:w-1.5 [&::-webkit-scrollbar-thumb]:rounded-full [&::-webkit-scrollbar-thumb]:bg-[#d9b98c] [&::-webkit-scrollbar-track]:bg-transparent'
+
+/** Магазин лапок: покупка за опыт, экипировка навсегда */
+function ShopOverlay({
+  xp,
+  owned,
+  equipped,
+  onBuy,
+  onEquip,
+  onClose,
+}: {
+  xp: number
+  owned: PawId[]
+  equipped: PawId
+  onBuy: (def: PawDef) => void
+  onEquip: (id: PawId) => void
+  onClose: () => void
+}) {
+  return (
+    <motion.div
+      className="absolute inset-0 z-40 flex items-center justify-center overflow-y-auto bg-black/70 p-4 backdrop-blur-sm"
+      initial={{ opacity: 0 }}
+      animate={{ opacity: 1 }}
+      exit={{ opacity: 0 }}
+    >
+      <motion.div
+        className="my-auto w-full max-w-sm rounded-2xl border-4 border-[#8a5330] bg-[#FFF6E6] p-4 text-center shadow-[0_18px_50px_rgba(0,0,0,0.55)] sm:p-5"
+        initial={{ scale: 0.92, y: 14 }}
+        animate={{ scale: 1, y: 0 }}
+        exit={{ scale: 0.95, opacity: 0 }}
+        transition={{ type: 'spring', stiffness: 260, damping: 22 }}
+      >
+        <div aria-hidden className="text-3xl">
+          🛒
+        </div>
+        <h2 className="mt-0.5 font-pixel text-xl font-bold text-[#B33A26]">МАГАЗИН ЛАПОК</h2>
+        <p className="mt-1 font-ui text-xs font-medium text-[#8a5330]">
+          Опыт:{' '}
+          <span className="font-pixel text-sm font-bold text-[#5C3A1E] tabular-nums">{xp}</span>{' '}
+          🍿 · лапка и её бонус остаются навсегда
+        </p>
+        <ul
+          className={`mt-3 max-h-[46vh] space-y-2 overflow-y-auto pr-1 text-left sm:max-h-80 ${OVERLAY_SCROLL}`}
+        >
+          {PAWS.map((def) => {
+            const isOwned = owned.includes(def.id)
+            const isEquipped = equipped === def.id
+            const canBuy = !isOwned && xp >= def.price
+            return (
+              <li
+                key={def.id}
+                className={`flex items-center gap-2.5 rounded-xl border-2 p-2 ${
+                  isEquipped ? 'border-amber-400 bg-amber-50' : 'border-[#e3cba4] bg-[#fdf3e0]'
+                }`}
+              >
+                <PawImg skinId={def.id} />
+                <div className="min-w-0 flex-1">
+                  <div className="flex items-center gap-1.5">
+                    <span className="truncate font-pixel text-sm font-bold text-[#5C3A1E]">
+                      {def.name}
+                    </span>
+                    {def.price === 0 && (
+                      <span className="shrink-0 rounded-full bg-[#e3cba4] px-1.5 font-ui text-[9px] font-bold text-[#5C3A1E]">
+                        БАЗОВАЯ
+                      </span>
+                    )}
+                  </div>
+                  <div className="truncate font-ui text-[11px] leading-tight text-[#8a5330]" title={def.desc}>
+                    {def.bonusLabel}
+                  </div>
+                </div>
+                {isEquipped ? (
+                  <span className="shrink-0 rounded-full bg-amber-400 px-2.5 py-1.5 font-ui text-[10px] font-bold text-[#5C3A1E]">
+                    НАДЕТА
+                  </span>
+                ) : isOwned ? (
+                  <button
+                    type="button"
+                    onClick={() => onEquip(def.id)}
+                    className="shrink-0 rounded-lg border-2 border-[#8a5330] bg-[#FFF6E6] px-2.5 py-1.5 font-ui text-[11px] font-bold text-[#8a5330] transition hover:bg-[#f3e2c8] active:scale-95"
+                  >
+                    НАДЕТЬ
+                  </button>
+                ) : (
+                  <button
+                    type="button"
+                    disabled={!canBuy}
+                    onClick={() => onBuy(def)}
+                    title={def.desc}
+                    className={`shrink-0 rounded-lg px-2.5 py-1.5 font-ui text-[11px] font-bold transition active:scale-95 ${
+                      canBuy
+                        ? 'bg-[#E24B3B] text-white shadow-[0_3px_0_#9c2f22] hover:bg-[#ef5a4a]'
+                        : 'cursor-not-allowed bg-[#d9c6a8] text-[#8a755c]'
+                    }`}
+                  >
+                    🍿 {def.price}
+                  </button>
+                )}
+              </li>
+            )
+          })}
+        </ul>
+        <p className="mt-2 font-ui text-[10px] leading-snug text-[#a97c50]">
+          Очки попкорна = опыт: играй забеги и копи на лучшую лапку!
+        </p>
+        <div className="mt-2.5">
+          <GameButton onClick={onClose}>ЗАКРЫТЬ</GameButton>
+        </div>
+      </motion.div>
+    </motion.div>
+  )
+}
+
+/** Топ-10 забегов на этом устройстве */
+function LeadersOverlay({ leaders, onClose }: { leaders: LeaderEntry[]; onClose: () => void }) {
+  return (
+    <motion.div
+      className="absolute inset-0 z-40 flex items-center justify-center overflow-y-auto bg-black/70 p-4 backdrop-blur-sm"
+      initial={{ opacity: 0 }}
+      animate={{ opacity: 1 }}
+      exit={{ opacity: 0 }}
+    >
+      <motion.div
+        className="my-auto w-full max-w-sm rounded-2xl border-4 border-[#8a5330] bg-[#FFF6E6] p-4 text-center shadow-[0_18px_50px_rgba(0,0,0,0.55)] sm:p-5"
+        initial={{ scale: 0.92, y: 14 }}
+        animate={{ scale: 1, y: 0 }}
+        exit={{ scale: 0.95, opacity: 0 }}
+        transition={{ type: 'spring', stiffness: 260, damping: 22 }}
+      >
+        <div aria-hidden className="text-3xl">
+          🏆
+        </div>
+        <h2 className="mt-0.5 font-pixel text-xl font-bold text-[#B33A26]">СПИСОК ЛИДЕРОВ</h2>
+        <p className="mt-1 font-ui text-xs font-medium text-[#8a5330]">
+          Топ-10 забегов на этом устройстве
+        </p>
+        {leaders.length === 0 ? (
+          <p className="mt-4 font-ui text-sm font-medium text-[#5C3A1E]">
+            Пока пусто — поставь первый рекорд! 🍿
+          </p>
+        ) : (
+          <ol className={`mt-3 max-h-[46vh] space-y-1.5 overflow-y-auto pr-1 sm:max-h-80 ${OVERLAY_SCROLL}`}>
+            {leaders.map((e, i) => (
+              <li
+                key={`${e.date}-${e.score}-${i}`}
+                className={`flex items-center gap-2 rounded-xl border-2 px-2.5 py-1.5 ${
+                  i === 0 ? 'border-amber-400 bg-amber-50' : 'border-[#e3cba4] bg-[#fdf3e0]'
+                }`}
+              >
+                <span aria-hidden className="w-7 text-center font-pixel text-sm">
+                  {i < 3 ? ['🥇', '🥈', '🥉'][i] : i + 1}
+                </span>
+                <Popcorn className="h-4 w-4 shrink-0 text-amber-500" aria-hidden />
+                <span className="font-pixel text-base font-bold tabular-nums text-[#5C3A1E]">
+                  {e.score}
+                </span>
+                <span className="ml-auto font-ui text-[11px] text-[#8a5330]">
+                  ур. {e.level} · {new Date(e.date).toLocaleDateString('ru-RU')}
+                </span>
+              </li>
+            ))}
+          </ol>
+        )}
+        <div className="mt-3">
+          <GameButton onClick={onClose}>ЗАКРЫТЬ</GameButton>
+        </div>
+      </motion.div>
+    </motion.div>
+  )
+}
+
+/** Экран «Создатели» */
+function CreatorsOverlay({ onClose }: { onClose: () => void }) {
+  return (
+    <motion.div
+      className="absolute inset-0 z-40 flex items-center justify-center overflow-y-auto bg-black/70 p-4 backdrop-blur-sm"
+      initial={{ opacity: 0 }}
+      animate={{ opacity: 1 }}
+      exit={{ opacity: 0 }}
+    >
+      <motion.div
+        className="my-auto w-full max-w-sm rounded-2xl border-4 border-[#8a5330] bg-[#FFF6E6] p-5 text-center shadow-[0_18px_50px_rgba(0,0,0,0.55)] sm:p-6"
+        initial={{ scale: 0.92, y: 14 }}
+        animate={{ scale: 1, y: 0 }}
+        exit={{ scale: 0.95, opacity: 0 }}
+        transition={{ type: 'spring', stiffness: 260, damping: 22 }}
+      >
+        <div aria-hidden className="text-4xl">
+          🐱🍿🐈
+        </div>
+        <h2 className="mt-1 font-pixel text-xl font-bold text-[#B33A26]">СОЗДАТЕЛИ</h2>
+        <p className="mt-2 font-pixel text-lg font-bold leading-snug text-[#5C3A1E] sm:text-xl">
+          RaidoPert + HeyNANAhey
+        </p>
+        <motion.p
+          aria-hidden
+          className="mt-1 font-pixel text-3xl font-bold text-[#E24B3B]"
+          animate={{ scale: [1, 1.18, 1] }}
+          transition={{ repeat: Infinity, duration: 1.1 }}
+        >
+          !!!!
+        </motion.p>
+        <p className="mt-2 font-ui text-sm leading-relaxed text-[#5C3A1E]">
+          Мы сделали игру с любовью к кошкам, попкорну, куницам и друг другу!
+        </p>
+        <motion.p
+          aria-hidden
+          className="mt-2 text-2xl tracking-widest"
+          animate={{ scale: [1, 1.1, 1] }}
+          transition={{ repeat: Infinity, duration: 1.4, delay: 0.3 }}
+        >
+          ❤️🧡💛💚
+        </motion.p>
+        <div className="mt-4">
+          <GameButton onClick={onClose}>ОТЛИЧНО!</GameButton>
+        </div>
+      </motion.div>
+    </motion.div>
+  )
+}
+
 /* ---------- основной компонент ---------- */
 
 export function PopcornGame() {
@@ -188,6 +465,7 @@ export function PopcornGame() {
   const transformRef = useRef<ScreenTransform>('none')
   const layoutRef = useRef<() => void>(() => {})
   const devRef = useRef<{ fast: boolean; forced: PerkId | null }>({ fast: false, forced: null })
+  const equippedRef = useRef<PawId>(DEFAULT_PAW)
 
   const [phase, setPhase] = useState<Phase>('start')
   const [stats, setStats] = useState<EngineStats>({
@@ -213,6 +491,32 @@ export function PopcornGame() {
   const [runLevel, setRunLevel] = useState(2)
   const [perk, setPerk] = useState<PerkId | null>(null)
 
+  /* Мета-прогресс: опыт, магазин лапок и список лидеров */
+  const [xpRaw, storeXp] = useStoredValue(XP_KEY, '0')
+  const [pawRaw, storePaw] = useStoredValue(PAW_KEY, DEFAULT_PAW)
+  const [ownedRaw, storeOwned] = useStoredValue(OWNED_KEY, JSON.stringify([DEFAULT_PAW]))
+  const [leadersRaw] = useStoredValue(LEADERS_KEY, '[]')
+  const [overlay, setOverlay] = useState<'leaders' | 'shop' | 'creators' | null>(null)
+
+  const xp = Math.max(0, Number(xpRaw) || 0)
+  const equippedPaw: PawId = PAW_MAP[pawRaw as PawId] ? (pawRaw as PawId) : DEFAULT_PAW
+  const ownedPaws = useMemo<PawId[]>(() => {
+    try {
+      const v: unknown = JSON.parse(ownedRaw)
+      return Array.isArray(v) && v.includes(DEFAULT_PAW) ? (v as PawId[]) : [DEFAULT_PAW]
+    } catch {
+      return [DEFAULT_PAW]
+    }
+  }, [ownedRaw])
+  const leaders = useMemo<LeaderEntry[]>(() => {
+    try {
+      const v: unknown = JSON.parse(leadersRaw)
+      return Array.isArray(v) ? (v as LeaderEntry[]) : []
+    } catch {
+      return []
+    }
+  }, [leadersRaw])
+
   /* Скрытые dev-параметры URL: ?fast=1 (короткая норма) и ?perk=rot180 */
   useEffect(() => {
     const sp = new URLSearchParams(window.location.search)
@@ -227,6 +531,11 @@ export function PopcornGame() {
     mutedRef.current = muted
     audio.setMuted(muted)
   }, [muted])
+
+  /* Надетая лапка — в ref для колбэков без перезапуска эффектов */
+  useEffect(() => {
+    equippedRef.current = equippedPaw
+  }, [equippedPaw])
 
   /* Раскладка холста с учётом трансформации перка (ротация/зеркало) */
   const applyLayout = useCallback(() => {
@@ -280,7 +589,23 @@ export function PopcornGame() {
           storeBest(String(r.score))
           window.setTimeout(() => audio.play('record'), 700)
         }
-        setResult({ score: r.score, level: r.level, record })
+        /* Очки = опыт: пополняем банк и записываем забег в список лидеров */
+        const newXp = Number(window.localStorage.getItem(XP_KEY) ?? 0) + r.score
+        window.localStorage.setItem(XP_KEY, String(newXp))
+        const entry: LeaderEntry = { score: r.score, level: r.level, date: Date.now() }
+        let list: LeaderEntry[] = []
+        try {
+          const parsed: unknown = JSON.parse(window.localStorage.getItem(LEADERS_KEY) ?? '[]')
+          if (Array.isArray(parsed)) list = parsed as LeaderEntry[]
+        } catch {
+          list = []
+        }
+        list.push(entry)
+        list.sort((a, b) => b.score - a.score)
+        list = list.slice(0, 10)
+        window.localStorage.setItem(LEADERS_KEY, JSON.stringify(list))
+        window.dispatchEvent(new Event(STORE_EVENT))
+        setResult({ score: r.score, level: r.level, record, rank: list.indexOf(entry) })
         setPhase('ended')
       },
     })
@@ -371,6 +696,7 @@ export function PopcornGame() {
     audio.setMuted(mutedRef.current)
     audio.startMusic()
     audio.play('click')
+    engineRef.current?.setPawSkin(equippedRef.current)
     engineRef.current?.startRun({ fast: devRef.current.fast })
     setPhase('playing')
   }, [])
@@ -414,6 +740,37 @@ export function PopcornGame() {
     setOpenedIdx(i)
     window.setTimeout(() => audio.play('perk'), 380)
   }, [])
+
+  /** Надеть купленную лапку (действует и в текущем забеге) */
+  const equipPaw = useCallback(
+    (id: PawId) => {
+      if (!ownedPaws.includes(id)) return
+      audio.play('click')
+      storePaw(id)
+      engineRef.current?.setPawSkin(id)
+    },
+    [ownedPaws, storePaw],
+  )
+
+  /** Покупка лапки за накопленный опыт */
+  const buyPaw = useCallback(
+    (def: PawDef) => {
+      if (ownedPaws.includes(def.id)) {
+        equipPaw(def.id)
+        return
+      }
+      if (xp < def.price) {
+        audio.play('penalty')
+        return
+      }
+      audio.play('perk')
+      storeXp(String(xp - def.price))
+      storeOwned(JSON.stringify([...ownedPaws, def.id]))
+      storePaw(def.id)
+      engineRef.current?.setPawSkin(def.id)
+    },
+    [ownedPaws, xp, storeXp, storeOwned, storePaw, equipPaw],
+  )
 
   const sec = Math.ceil(stats.timeLeft)
   const urgent = sec <= 10
@@ -604,17 +961,51 @@ export function PopcornGame() {
                   <HowToRow icon="♾️">
                     Каждые 5 уровней попкорна и мин больше, зёрна мельчают, а мины толстеют. Держись!
                   </HowToRow>
+                  <HowToRow icon="🛒">
+                    Очки попкорна = опыт: копи и покупай лапки в магазине — их улучшения действуют постоянно!
+                  </HowToRow>
+                  <HowToRow icon="🏆">Лучшие забеги попадают в список лидеров в меню</HowToRow>
                 </ul>
 
-                {best > 0 && (
-                  <div className="mt-4 inline-flex items-center gap-1.5 rounded-full bg-amber-100 px-4 py-1.5 font-ui text-xs font-semibold text-[#8a5330] ring-2 ring-amber-200">
-                    <Trophy className="h-4 w-4 text-amber-500" aria-hidden />
-                    Рекорд: {best}
+                <div className="mt-4 flex flex-wrap items-center justify-center gap-2">
+                  {best > 0 && (
+                    <div className="inline-flex items-center gap-1.5 rounded-full bg-amber-100 px-3.5 py-1.5 font-ui text-xs font-semibold text-[#8a5330] ring-2 ring-amber-200">
+                      <Trophy className="h-4 w-4 text-amber-500" aria-hidden />
+                      Рекорд: {best}
+                    </div>
+                  )}
+                  <div className="inline-flex items-center gap-1.5 rounded-full bg-amber-100 px-3.5 py-1.5 font-ui text-xs font-semibold text-[#8a5330] ring-2 ring-amber-200">
+                    <Popcorn className="h-4 w-4 text-amber-500" aria-hidden />
+                    Опыт: {xp}
                   </div>
-                )}
+                  <div className="inline-flex items-center gap-1.5 rounded-full bg-amber-100 px-3.5 py-1.5 font-ui text-xs font-semibold text-[#8a5330] ring-2 ring-amber-200">
+                    <PawPrint className="h-4 w-4 text-amber-500" aria-hidden />
+                    {PAW_MAP[equippedPaw].name}
+                  </div>
+                </div>
 
                 <div className="mt-3 [@media(max-height:700px)]:mt-2.5">
                   <GameButton onClick={startGame}>▶ ИГРАТЬ</GameButton>
+                </div>
+                <div className="mt-2 grid grid-cols-3 gap-2">
+                  <MenuSmallBtn
+                    onClick={() => setOverlay('leaders')}
+                    icon={<Trophy className="h-4 w-4" aria-hidden />}
+                  >
+                    ЛИДЕРЫ
+                  </MenuSmallBtn>
+                  <MenuSmallBtn
+                    onClick={() => setOverlay('shop')}
+                    icon={<PawPrint className="h-4 w-4" aria-hidden />}
+                  >
+                    ЛАПКИ
+                  </MenuSmallBtn>
+                  <MenuSmallBtn
+                    onClick={() => setOverlay('creators')}
+                    icon={<Heart className="h-4 w-4" aria-hidden />}
+                  >
+                    СОЗДАТЕЛИ
+                  </MenuSmallBtn>
                 </div>
                 <p className="mt-2.5 font-ui text-[11px] leading-snug text-[#a97c50] [@media(max-height:700px)]:mt-1.5">
                   🎵 Лучше со звуком: музыка ускоряется на 30-й, 15-й и последних секундах!
@@ -751,10 +1142,17 @@ export function PopcornGame() {
                 </AnimatePresence>
 
                 {chosen && (
-                  <div className="mt-3">
+                  <div className="mt-3 space-y-2">
                     <GameButton onClick={() => beginLevel(runLevel, chosen.id)}>
                       ДАЛЬШЕ: УРОВЕНЬ {runLevel} ▶
                     </GameButton>
+                    <button
+                      type="button"
+                      onClick={() => setOverlay('shop')}
+                      className="w-full rounded-xl border-2 border-[#8a5330] bg-[#f3e2c8] px-4 py-2 font-pixel text-sm font-bold text-[#8a5330] transition hover:bg-[#eed7b4] active:scale-[0.98]"
+                    >
+                      🛒 МАГАЗИН ЛАПОК
+                    </button>
                   </div>
                 )}
               </motion.div>
@@ -792,6 +1190,14 @@ export function PopcornGame() {
                 <p className="mt-1 font-ui text-xs font-medium text-[#8a5330]">
                   очков · дошёл до уровня {result.level}
                 </p>
+                <p className="mt-1.5 font-ui text-xs font-bold text-[#5C3A1E]">
+                  🍿 +{result.score} опыта · всего: {xp}
+                </p>
+                {result.rank >= 0 && result.rank < 10 && (
+                  <p className="mt-1 font-ui text-xs font-bold text-[#B33A26]">
+                    🏆 Место {result.rank + 1} в списке лидеров!
+                  </p>
+                )}
 
                 {result.record ? (
                   <motion.div
@@ -818,6 +1224,24 @@ export function PopcornGame() {
               </motion.div>
             </motion.div>
           )}
+        </AnimatePresence>
+
+        {/* Оверлеи меню: список лидеров / магазин лапок / создатели */}
+        <AnimatePresence>
+          {overlay === 'leaders' && (
+            <LeadersOverlay leaders={leaders} onClose={() => setOverlay(null)} />
+          )}
+          {overlay === 'shop' && (
+            <ShopOverlay
+              xp={xp}
+              owned={ownedPaws}
+              equipped={equippedPaw}
+              onBuy={buyPaw}
+              onEquip={equipPaw}
+              onClose={() => setOverlay(null)}
+            />
+          )}
+          {overlay === 'creators' && <CreatorsOverlay onClose={() => setOverlay(null)} />}
         </AnimatePresence>
       </main>
 
