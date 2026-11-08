@@ -102,17 +102,19 @@ const LEVEL_SECONDS_PERK = 75 // перк «Кошачьи часы»
 const SPAWN_DUR = 0.35
 const CLEAR_DELAY = 0.5 // пауза до «уровень пройден», чтобы зёрна долетели
 const FREEZE_SECONDS = 5 // бонус кота: столько секунд стоит таймер
+const CAT_VISIT_SECONDS = 5 // сколько секунд кот ждёт в начале уровня, пока не ткнут в лапку
 
-/** Смещения «шапки» попкорна над стаканчиком (в единицах спрайта) */
-const PUFF_POS: Array<[number, number]> = [
-  [-14, -7],
-  [0, -10],
-  [14, -7],
-  [-7, -13],
-  [7, -13],
-  [0, -16],
-  [-15, 0],
-  [15, 0],
+/** Точки наполнения ВНУТРИ стаканчика (в единицах спрайта от центра).
+ *  Зёрна рисуются «за бумажной стенкой» — их не путают с попкорном на поле. */
+const CUP_FILL_POS: Array<[number, number]> = [
+  [-4, 7.4],
+  [4, 7.4],
+  [-6.5, 2.6],
+  [0.5, 3.2],
+  [6.8, 2.2],
+  [-3.4, -2.6],
+  [4.2, -3.2],
+  [0, -7.6],
 ]
 
 /** Пиксельный кот-бонус (голова + туловище + хвост), 20×16 клеток.
@@ -190,9 +192,8 @@ export class PopcornEngine {
   private audioStage = -1
   private lastStatsKey = ''
 
-  /* --- кот-бонус и фриз-тайм --- */
+  /* --- кот-помощник и фриз-тайм --- */
   private cat: { t: number; state: 'in' | 'idle' | 'happy' | 'out'; stateT: number } | null = null
-  private nextCatLevel = 4
   private freezeLeft = 0
   private lastFreezeSec = -1
 
@@ -220,7 +221,6 @@ export class PopcornEngine {
       paw: makePawSprite(),
       sparkle: makeSparkleSprite(),
     }
-    this.nextCatLevel = 3 + Math.floor(Math.random() * 5)
     this.lastTs = performance.now()
     this.raf = requestAnimationFrame(this.loop)
   }
@@ -236,8 +236,6 @@ export class PopcornEngine {
   startRun(opts: { fast?: boolean } = {}): void {
     this.debugFast = !!opts.fast
     this.score = 0
-    // Кот-бонус придёт на случайном уровне из диапазона 3–7
-    this.nextCatLevel = 3 + Math.floor(Math.random() * 5)
     this.startLevel(1, null)
   }
 
@@ -275,15 +273,10 @@ export class PopcornEngine {
     this.audioStage = 0
     this.freezeLeft = 0
     this.lastFreezeSec = -1
-    /* Кот-бонус: каждые 3–7 уровней в начале уровня прибегает кот —
-       ткни в лапку, чтобы заморозить таймер на 5 секунд и продумать маршрут */
-    if (level === this.nextCatLevel) {
-      this.cat = { t: 0, state: 'in', stateT: 0 }
-      this.nextCatLevel = level + 3 + Math.floor(Math.random() * 5)
-      audio.play('meow')
-    } else {
-      this.cat = null
-    }
+    /* Кот-помощник: в начале КАЖДОГО уровня съезжает сверху на своё место —
+       первые 5 секунд ткни в лапку, чтобы заморозить таймер и продумать маршрут */
+    this.cat = { t: 0, state: 'in', stateT: 0 }
+    audio.play('meow')
     if (!this.paw.seen) {
       this.paw.x = this.cup.x
       this.paw.y = this.H * 0.4
@@ -542,6 +535,14 @@ export class PopcornEngine {
     if (this.freezeLeft <= 0) {
       // Кот ждёт щелчка или уезжает вверх после отработанного фриза
       if (this.cat.state === 'out' && this.cat.stateT >= 0.5) this.cat = null
+      else if (
+        (this.cat.state === 'idle' || this.cat.state === 'in') &&
+        this.cat.t >= CAT_VISIT_SECONDS
+      ) {
+        // Кот-помощник висит только первые секунды уровня: не ткнул — уехал без бонуса
+        this.cat.state = 'out'
+        this.cat.stateT = 0
+      }
       return false
     }
 
@@ -972,19 +973,44 @@ export class PopcornEngine {
     )
     ctx.fill()
 
-    // «Шапка» попкорна растёт вместе с выполнением нормы
-    const progress = this.quota > 0 ? this.collected / this.quota : 0
-    const puffs = Math.min(PUFF_POS.length, Math.ceil(progress * PUFF_POS.length))
-    const mouthY = this.cup.y - 13 * s * sy
-    for (let i = 0; i < puffs; i++) {
-      const [ox, oy] = PUFF_POS[i]
-      drawSprite(ctx, this.sp.popcorn, this.cup.x + ox * s * 0.85, mouthY + oy * s * 0.75, s * 0.52, {
-        rot: i * 0.7,
-      })
-    }
-
-    // Корпус стаканчика
+    // Корпус стаканчика — без «шапки» зёрен сверху: она путала игрока
+    // одинаковой текстурой с попкорном, который надо собирать
     drawSprite(ctx, this.sp.cup, this.cup.x, this.cup.y, s, { sx, sy })
+
+    // Наполнение ВНУТРИ стаканчика: растёт вместе с выполнением нормы
+    const progress = this.quota > 0 ? this.collected / this.quota : 0
+    const fill = Math.min(CUP_FILL_POS.length, Math.ceil(progress * CUP_FILL_POS.length))
+    if (fill > 0) {
+      ctx.save()
+      // Внутренняя трапеция стаканчика — зёрна не выходят за бумажные стенки
+      const topY = this.cup.y - 11.2 * s * sy
+      const botY = this.cup.y + 11.2 * s * sy
+      const halfTop = 10.4 * s * sx
+      const halfBot = 6.4 * s * sx
+      ctx.beginPath()
+      ctx.moveTo(this.cup.x - halfTop, topY)
+      ctx.lineTo(this.cup.x + halfTop, topY)
+      ctx.lineTo(this.cup.x + halfBot, botY)
+      ctx.lineTo(this.cup.x - halfBot, botY)
+      ctx.closePath()
+      ctx.clip()
+      for (let i = 0; i < fill; i++) {
+        const [ox, oy] = CUP_FILL_POS[i]
+        drawSprite(
+          ctx,
+          this.sp.popcorn,
+          this.cup.x + ox * s * sx,
+          this.cup.y + oy * s * sy,
+          s * 0.44,
+          { rot: i * 0.9, alpha: 0.88 },
+        )
+      }
+      // Лёгкая притенённость — зёрна читаются «за стенкой», а не на поле
+      ctx.globalAlpha = 0.18
+      ctx.fillStyle = '#8a2f1d'
+      ctx.fillRect(this.cup.x - halfTop, topY, halfTop * 2, botY - topY)
+      ctx.restore()
+    }
   }
 
   private drawPieces(ts: number): void {

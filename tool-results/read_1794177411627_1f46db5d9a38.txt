@@ -1,0 +1,1118 @@
+     1→/**
+     2→ * Игровой движок «Кошачий попкорнный Беспредел» — рогалик-режим.
+     3→ * Canvas + requestAnimationFrame, независим от React.
+     4→ *
+     5→ * Игра бесконечна: каждый уровень = 60 секунд и норма (квота) попкорна.
+     6→ * Выполнил норму → уровень пройден, сундучок с перком, дальше сложнее.
+     7→ * Не успел → конец забега. Перки меняют правила одного уровня.
+     8→ */
+     9→
+    10→import { audio } from './audio'
+    11→import { quotaFor, type PerkId } from './perks'
+    12→import {
+    13→  makePopcornSprite,
+    14→  makeCupSprite,
+    15→  makePawSprite,
+    16→  makeSparkleSprite,
+    17→  makeCornSprite,
+    18→  drawSprite,
+    19→  easeOutBack,
+    20→  easeOutQuad,
+    21→  type Sprite,
+    22→} from './sprites'
+    23→
+    24→export interface EngineStats {
+    25→  score: number
+    26→  timeLeft: number
+    27→  duration: number
+    28→  level: number
+    29→  quota: number
+    30→  collected: number
+    31→  carrying: number
+    32→  carryMax: number
+    33→  freezeLeft: number
+    34→  paused: boolean
+    35→}
+    36→
+    37→export interface LevelResult {
+    38→  level: number
+    39→  score: number
+    40→  bonus: number
+    41→}
+    42→
+    43→export interface EndResult {
+    44→  score: number
+    45→  level: number
+    46→}
+    47→
+    48→export interface EngineCallbacks {
+    49→  onStats?(s: EngineStats): void
+    50→  onLevelComplete?(r: LevelResult): void
+    51→  onEnd?(r: EndResult): void
+    52→}
+    53→
+    54→type PieceKind = 'popcorn' | 'golden' | 'corn'
+    55→
+    56→interface FieldPiece {
+    57→  x: number
+    58→  y: number
+    59→  rot: number
+    60→  kind: PieceKind
+    61→  phase: number
+    62→  spawn: number
+    63→  /** угол дрейфа для перка «Скользкий пол» */
+    64→  dA: number
+    65→}
+    66→
+    67→interface Carried {
+    68→  golden: boolean
+    69→  grabT: number
+    70→}
+    71→
+    72→interface Flying {
+    73→  x0: number
+    74→  y0: number
+    75→  golden: boolean
+    76→  t: number
+    77→}
+    78→
+    79→interface Particle {
+    80→  x: number
+    81→  y: number
+    82→  vx: number
+    83→  vy: number
+    84→  t: number
+    85→  ttl: number
+    86→  color: string
+    87→  size: number
+    88→}
+    89→
+    90→interface FloatText {
+    91→  x: number
+    92→  y: number
+    93→  text: string
+    94→  color: string
+    95→  t: number
+    96→  dur: number
+    97→  size: number
+    98→}
+    99→
+   100→const LEVEL_SECONDS = 60
+   101→const LEVEL_SECONDS_PERK = 75 // перк «Кошачьи часы»
+   102→const SPAWN_DUR = 0.35
+   103→const CLEAR_DELAY = 0.5 // пауза до «уровень пройден», чтобы зёрна долетели
+   104→const FREEZE_SECONDS = 5 // бонус кота: столько секунд стоит таймер
+   105→
+   106→/** Смещения «шапки» попкорна над стаканчиком (в единицах спрайта) */
+   107→const PUFF_POS: Array<[number, number]> = [
+   108→  [-14, -7],
+   109→  [0, -10],
+   110→  [14, -7],
+   111→  [-7, -13],
+   112→  [7, -13],
+   113→  [0, -16],
+   114→  [-15, 0],
+   115→  [15, 0],
+   116→]
+   117→
+   118→/** Пиксельный кот-бонус (голова + туловище + хвост), 20×16 клеток.
+   119→ *  o — контур · O — шерсть · D — полоски · P — ушки · E — глаза · W — мордочка · N — нос */
+   120→const CAT_BODY: string[] = [
+   121→  '..oo............oo..',
+   122→  '.oPPo..........oPPo.',
+   123→  '.oPOooooooooooooPOo.',
+   124→  '..oOOOOOOOOOOOOOOo..',
+   125→  '..oODDOOOOOOOODDOo..',
+   126→  '..oOOOOOOOOOOOOOOo..',
+   127→  '..oOOEEOOOOOOEEOOo..',
+   128→  '..oOOEEOOOOOOEEOOo..',
+   129→  '..oOOOooWWWWooOOOo..',
+   130→  '..oOOOOWNNWWOOOOo...',
+   131→  '..oOOOOWWWWOOOOOo...',
+   132→  '..ooOOOOOOOOOOOOoo..',
+   133→  '...oOODDOOOODDOOo...',
+   134→  '...oOOOOOOOOOOOOo.oo',
+   135→  '...oOOOOOOOOOOOOooDo',
+   136→  '....oooooooooooo..o.',
+   137→]
+   138→
+   139→const CAT_COLORS: Record<string, string> = {
+   140→  o: '#46220C',
+   141→  O: '#F0A24A',
+   142→  D: '#D97F2B',
+   143→  P: '#E8746A',
+   144→  E: '#2B1408',
+   145→  W: '#FFF3E2',
+   146→  N: '#B4552D',
+   147→}
+   148→
+   149→export class PopcornEngine {
+   150→  private canvas: HTMLCanvasElement
+   151→  private ctx: CanvasRenderingContext2D
+   152→  private cb: EngineCallbacks
+   153→  private raf = 0
+   154→  private lastTs = 0
+   155→  private destroyed = false
+   156→
+   157→  private W = 0
+   158→  private H = 0
+   159→  private dpr = 1
+   160→  private u = 1
+   161→
+   162→  phase: 'idle' | 'playing' | 'clear' | 'ended' = 'idle'
+   163→  paused = false
+   164→
+   165→  private timeLeft = 0
+   166→  private duration = LEVEL_SECONDS
+   167→  private score = 0
+   168→  private lvl = 1
+   169→  private perk: PerkId | null = null
+   170→  private quota = 9
+   171→  private collected = 0
+   172→  private wave = 1
+   173→  private popPerWave = 10
+   174→  private cornPerWave = 3
+   175→  private goldenChance = 0.12
+   176→  private baseWaveDelay = 0.82
+   177→  private waveDelay = -1
+   178→  private pendingClear = -1
+   179→  private debugFast = false
+   180→
+   181→  private pieces: FieldPiece[] = []
+   182→  private carried: Carried[] = []
+   183→  private flying: Flying[] = []
+   184→  private particles: Particle[] = []
+   185→  private texts: FloatText[] = []
+   186→  private paw = { x: 0, y: 0, tx: 0, ty: 0, seen: false, pulse: 0, hurt: 0 }
+   187→  private cup = { x: 0, y: 0, squash: 0 }
+   188→  private banner = { text: '', t: 99 }
+   189→  private lastSec = -1
+   190→  private audioStage = -1
+   191→  private lastStatsKey = ''
+   192→
+   193→  /* --- кот-бонус и фриз-тайм --- */
+   194→  private cat: { t: number; state: 'in' | 'idle' | 'happy' | 'out'; stateT: number } | null = null
+   195→  private nextCatLevel = 4
+   196→  private freezeLeft = 0
+   197→  private lastFreezeSec = -1
+   198→
+   199→  private cupScale = 5
+   200→  private cupH = 0
+   201→
+   202→  private sp: {
+   203→    popcorn: Sprite
+   204→    golden: Sprite
+   205→    corn: Sprite
+   206→    cup: Sprite
+   207→    paw: Sprite
+   208→    sparkle: Sprite
+   209→  }
+   210→
+   211→  constructor(canvas: HTMLCanvasElement, cb: EngineCallbacks = {}) {
+   212→    this.canvas = canvas
+   213→    this.ctx = canvas.getContext('2d')!
+   214→    this.cb = cb
+   215→    this.sp = {
+   216→      popcorn: makePopcornSprite(false),
+   217→      golden: makePopcornSprite(true),
+   218→      corn: makeCornSprite(),
+   219→      cup: makeCupSprite(),
+   220→      paw: makePawSprite(),
+   221→      sparkle: makeSparkleSprite(),
+   222→    }
+   223→    this.nextCatLevel = 3 + Math.floor(Math.random() * 5)
+   224→    this.lastTs = performance.now()
+   225→    this.raf = requestAnimationFrame(this.loop)
+   226→  }
+   227→
+   228→  destroy(): void {
+   229→    this.destroyed = true
+   230→    cancelAnimationFrame(this.raf)
+   231→  }
+   232→
+   233→  /* ================= публичное API ================= */
+   234→
+   235→  /** Новый забег: счёт с нуля, уровень 1 без перка */
+   236→  startRun(opts: { fast?: boolean } = {}): void {
+   237→    this.debugFast = !!opts.fast
+   238→    this.score = 0
+   239→    // Кот-бонус придёт на случайном уровне из диапазона 3–7
+   240→    this.nextCatLevel = 3 + Math.floor(Math.random() * 5)
+   241→    this.startLevel(1, null)
+   242→  }
+   243→
+   244→  /** Следующий уровень забега (счёт сохраняется) */
+   245→  startLevel(level: number, perk: PerkId | null): void {
+   246→    this.lvl = level
+   247→    this.perk = perk
+   248→    this.duration = perk === 'timeplus' ? LEVEL_SECONDS_PERK : LEVEL_SECONDS
+   249→    this.quota = this.debugFast ? 3 : quotaFor(level, perk === 'doublepoints')
+   250→    this.collected = 0
+   251→    this.wave = 1
+   252→    /* Ступень сложности каждые 5 уровней: пропорционально больше попкорна
+   253→       и мин на волне — за 60 секунд нужно собирать всё больше, но без безумия */
+   254→    const step = Math.floor((level - 1) / 5)
+   255→    this.popPerWave = Math.min(26, 10 + step * 3)
+   256→    this.cornPerWave = Math.min(11, 3 + step)
+   257→    if (perk === 'cornrain') this.cornPerWave = Math.min(14, this.cornPerWave * 2)
+   258→    this.goldenChance = perk === 'goldenvein' ? 0.26 : 0.12
+   259→    this.baseWaveDelay = Math.max(0.4, 0.8 - (level - 1) * 0.03)
+   260→
+   261→    this.phase = 'playing'
+   262→    this.paused = false
+   263→    this.timeLeft = this.duration
+   264→    this.pendingClear = -1
+   265→    this.pieces = []
+   266→    this.carried = []
+   267→    this.flying = []
+   268→    this.particles = []
+   269→    this.texts = []
+   270→    this.waveDelay = -1
+   271→    this.lastSec = Math.ceil(this.timeLeft)
+   272→    this.banner = { text: `УРОВЕНЬ ${level}`, t: 0 }
+   273→    audio.setIntensity(0)
+   274→    audio.setMusicLevel(level >= 3 ? 1 : 0)
+   275→    this.audioStage = 0
+   276→    this.freezeLeft = 0
+   277→    this.lastFreezeSec = -1
+   278→    /* Кот-бонус: каждые 3–7 уровней в начале уровня прибегает кот —
+   279→       ткни в лапку, чтобы заморозить таймер на 5 секунд и продумать маршрут */
+   280→    if (level === this.nextCatLevel) {
+   281→      this.cat = { t: 0, state: 'in', stateT: 0 }
+   282→      this.nextCatLevel = level + 3 + Math.floor(Math.random() * 5)
+   283→      audio.play('meow')
+   284→    } else {
+   285→      this.cat = null
+   286→    }
+   287→    if (!this.paw.seen) {
+   288→      this.paw.x = this.cup.x
+   289→      this.paw.y = this.H * 0.4
+   290→      this.paw.tx = this.paw.x
+   291→      this.paw.ty = this.paw.y
+   292→    }
+   293→    this.paw.hurt = 0
+   294→    audio.play('wave')
+   295→    this.spawnWave()
+   296→    this.emitStats(true)
+   297→  }
+   298→
+   299→  setPaused(p: boolean): void {
+   300→    if (this.phase !== 'playing') return
+   301→    this.paused = p
+   302→    this.emitStats(true)
+   303→  }
+   304→
+   305→  /** Координаты в системе игрового поля (трансформации экрана считает компонент) */
+   306→  setPointer(x: number, y: number, lift = 0): void {
+   307→    if (this.phase !== 'playing' || this.paused) return
+   308→    /* Кот-бонус: ткнул в лапку — получил стоп-таймер */
+   309→    if (this.cat && this.freezeLeft <= 0 && this.catHit(x, y)) {
+   310→      this.startFreeze()
+   311→      return
+   312→    }
+   313→    this.paw.tx = x
+   314→    this.paw.ty = y - lift * this.u
+   315→    this.paw.seen = true
+   316→  }
+   317→
+   318→  /* ================= размеры ================= */
+   319→
+   320→  /** Размер игрового поля в CSS-пикселях (задаёт компонент с учётом перков) */
+   321→  handleResize(w: number, h: number): void {
+   322→    if (w === 0 || h === 0) return
+   323→
+   324→    const oldW = this.W
+   325→    const oldH = this.H
+   326→    this.dpr = Math.min(window.devicePixelRatio || 1, 2)
+   327→    this.W = w
+   328→    this.H = h
+   329→    this.canvas.width = Math.round(w * this.dpr)
+   330→    this.canvas.height = Math.round(h * this.dpr)
+   331→    this.ctx.setTransform(this.dpr, 0, 0, this.dpr, 0, 0)
+   332→    this.ctx.imageSmoothingEnabled = false
+   333→
+   334→    this.u = Math.max(0.7, Math.min(1.5, Math.min(w, h) / 420))
+   335→
+   336→    if (oldW > 0 && oldH > 0 && (oldW !== w || oldH !== h)) {
+   337→      const kx = w / oldW
+   338→      const ky = h / oldH
+   339→      for (const p of this.pieces) {
+   340→        p.x *= kx
+   341→        p.y *= ky
+   342→      }
+   343→      this.paw.x *= kx
+   344→      this.paw.y *= ky
+   345→      this.paw.tx *= kx
+   346→      this.paw.ty *= ky
+   347→    }
+   348→
+   349→    this.cupScale = 4.6 * this.u
+   350→    this.cupH = 26 * this.cupScale
+   351→    this.cup.x = w / 2
+   352→    this.cup.y = h - this.cupH / 2 - 12 * this.u
+   353→  }
+   354→
+   355→  /* ================= волны ================= */
+   356→
+   357→  private spawnWave(): void {
+   358→    /* Точный состав волны: норма попкорна + мины (ступень каждые 5 уровней) */
+   359→    const kinds: PieceKind[] = []
+   360→    for (let i = 0; i < this.popPerWave; i++) {
+   361→      kinds.push(Math.random() < this.goldenChance ? 'golden' : 'popcorn')
+   362→    }
+   363→    for (let i = 0; i < this.cornPerWave; i++) kinds.push('corn')
+   364→    for (let i = kinds.length - 1; i > 0; i--) {
+   365→      const j = Math.floor(Math.random() * (i + 1))
+   366→      ;[kinds[i], kinds[j]] = [kinds[j], kinds[i]]
+   367→    }
+   368→    kinds.forEach((kind, i) => this.spawnPiece(i, kind))
+   369→  }
+   370→
+   371→  private spawnPiece(index: number, kind: PieceKind): void {
+   372→    const u = this.u
+   373→    const mX = 46 * u
+   374→    const top = 80 + 16 * u
+   375→    const bottom = this.H - 46 * u
+   376→    let x = this.W / 2
+   377→    let y = this.H / 2
+   378→    for (let tries = 0; tries < 40; tries++) {
+   379→      x = mX + Math.random() * (this.W - mX * 2)
+   380→      y = top + Math.random() * Math.max(10, bottom - top)
+   381→      const dc = Math.hypot(x - this.cup.x, y - this.cup.y)
+   382→      if (dc <= 135 * u) continue
+   383→      // не даём зёрнам застрять в кластере — маршрут всегда проходим
+   384→      let crowded = false
+   385→      for (const q of this.pieces) {
+   386→        if (Math.hypot(x - q.x, y - q.y) < 40 * u) {
+   387→          crowded = true
+   388→          break
+   389→        }
+   390→      }
+   391→      if (!crowded) break
+   392→    }
+   393→    this.pieces.push({
+   394→      x,
+   395→      y,
+   396→      rot: (Math.random() - 0.5) * 0.7,
+   397→      kind,
+   398→      phase: Math.random() * Math.PI * 2,
+   399→      spawn: SPAWN_DUR + index * 0.045,
+   400→      dA: Math.random() * Math.PI * 2,
+   401→    })
+   402→  }
+   403→
+   404→  /* ================= размеры и ступени сложности ================= */
+   405→
+   406→  /** Вместимость лапки: 3 зерна, после 5-го уровня — 4, после 10-го — 5 */
+   407→  private get carryMax(): number {
+   408→    return this.lvl >= 11 ? 5 : this.lvl >= 6 ? 4 : 3
+   409→  }
+   410→
+   411→  /** Попкорн каждые 5 уровней немного мельчает — на поле остаётся место */
+   412→  private get popScale(): number {
+   413→    return Math.max(0.68, 1 - 0.035 * Math.floor((this.lvl - 1) / 5))
+   414→  }
+   415→
+   416→  /** Мины-кукурузины каждые 5 уровней, наоборот, толстеют */
+   417→  private get cornScale(): number {
+   418→    return Math.min(1.5, 1 + 0.09 * Math.floor((this.lvl - 1) / 5))
+   419→  }
+   420→
+   421→  /* ================= перки-механики ================= */
+   422→
+   423→  /** «Скользкий пол»: зёрна катаются по полу */
+   424→  private driftPieces(dt: number): void {
+   425→    const u = this.u
+   426→    const sp = 17 * u
+   427→    const mX = 34 * u
+   428→    const top = 90
+   429→    const bottom = this.H - 42 * u
+   430→    for (const p of this.pieces) {
+   431→      p.dA += (Math.random() - 0.5) * dt * 2.4
+   432→      p.x += Math.cos(p.dA) * sp * dt
+   433→      p.y += Math.sin(p.dA) * sp * dt
+   434→      if (p.x < mX) {
+   435→        p.x = mX
+   436→        p.dA = Math.PI - p.dA
+   437→      }
+   438→      if (p.x > this.W - mX) {
+   439→        p.x = this.W - mX
+   440→        p.dA = Math.PI - p.dA
+   441→      }
+   442→      if (p.y < top) {
+   443→        p.y = top
+   444→        p.dA = -p.dA
+   445→      }
+   446→      if (p.y > bottom) {
+   447→        p.y = bottom
+   448→        p.dA = -p.dA
+   449→      }
+   450→    }
+   451→  }
+   452→
+   453→  /** «Магнитная лапа»: попкорн сам тянется к лапке */
+   454→  private magnetPull(dt: number): void {
+   455→    const u = this.u
+   456→    const r = 115 * u
+   457→    const k = Math.min(1, dt * 3.4)
+   458→    for (const p of this.pieces) {
+   459→      if (p.kind === 'corn' || p.spawn > 0.12) continue
+   460→      const d = Math.hypot(this.paw.x - p.x, this.paw.y - p.y)
+   461→      if (d < r && d > 1) {
+   462→        p.x += (this.paw.x - p.x) * k
+   463→        p.y += (this.paw.y - p.y) * k
+   464→      }
+   465→    }
+   466→  }
+   467→
+   468→  /* ================= кот-бонус и фриз-тайм ================= */
+   469→
+   470→  /** Геометрия кота в мировых координатах (въезд сверху с пружинкой) */
+   471→  private catGeom(): { x: number; y: number; cell: number; slide: number } {
+   472→    const cell = 4.4 * this.u
+   473→    let slide = 0
+   474→    if (this.cat) {
+   475→      if (this.cat.state === 'in') {
+   476→        slide = (1 - easeOutBack(Math.min(1, this.cat.stateT / 0.55))) * -130 * this.u
+   477→      }
+   478→      if (this.cat.state === 'out') {
+   479→        slide = easeOutQuad(Math.min(1, this.cat.stateT / 0.45)) * -130 * this.u
+   480→      }
+   481→    }
+   482→    return { x: this.W / 2, y: 30 * this.u, cell, slide }
+   483→  }
+   484→
+   485→  /** Центры двух лапок кота (точки клика) */
+   486→  private catPawPoints(): Array<[number, number]> {
+   487→    const g = this.catGeom()
+   488→    const ox = g.x - 10 * g.cell
+   489→    const oy = g.y + g.slide
+   490→    return [
+   491→      [ox + 6.2 * g.cell, oy + 15.4 * g.cell],
+   492→      [ox + 13.8 * g.cell, oy + 15.4 * g.cell],
+   493→    ]
+   494→  }
+   495→
+   496→  /** Клик по лапке кота (учитываем зеркальные перки-трансформации) */
+   497→  private catHit(x: number, y: number): boolean {
+   498→    if (!this.cat || this.cat.state === 'out' || this.cat.state === 'happy') return false
+   499→    const r = 4.6 * this.catGeom().cell
+   500→    const cands: Array<[number, number]> = [[x, y]]
+   501→    if (this.perk === 'rot180') cands.push([this.W - x, this.H - y])
+   502→    if (this.perk === 'mirror') cands.push([this.W - x, y])
+   503→    return this.catPawPoints().some(([px, py]) =>
+   504→      cands.some(([cx, cy]) => Math.hypot(cx - px, cy - py) < r),
+   505→    )
+   506→  }
+   507→
+   508→  private startFreeze(): void {
+   509→    if (!this.cat || this.freezeLeft > 0) return
+   510→    this.freezeLeft = FREEZE_SECONDS
+   511→    this.lastFreezeSec = FREEZE_SECONDS + 1
+   512→    this.cat.state = 'happy'
+   513→    this.cat.stateT = 0
+   514→    const g = this.catGeom()
+   515→    this.crumbs(g.x, g.y + 7 * g.cell, '#FFE066', 12)
+   516→    this.crumbs(g.x, g.y + 7 * g.cell, '#BFF3E6', 8)
+   517→    this.texts.push({
+   518→      x: g.x,
+   519→      y: g.y - 8 * g.cell,
+   520→      text: 'СТОП-ТАЙМЕР!',
+   521→      color: '#BFF3E6',
+   522→      t: 0,
+   523→      dur: 1.4,
+   524→      size: 30 * this.u,
+   525→    })
+   526→    audio.play('meow')
+   527→    audio.setIntensity(0) // музыка затихает, пока игрок думает
+   528→    this.audioStage = -1
+   529→  }
+   530→
+   531→  /** Обновление кота/фриза. true — мир заморожен, остальной update пропускаем */
+   532→  private updateCat(dt: number): boolean {
+   533→    if (!this.cat) return false
+   534→    this.cat.t += dt
+   535→    this.cat.stateT += dt
+   536→
+   537→    if (this.cat.state === 'in' && this.cat.stateT >= 0.55) {
+   538→      this.cat.state = 'idle'
+   539→      this.cat.stateT = 0
+   540→    }
+   541→
+   542→    if (this.freezeLeft <= 0) {
+   543→      // Кот ждёт щелчка или уезжает вверх после отработанного фриза
+   544→      if (this.cat.state === 'out' && this.cat.stateT >= 0.5) this.cat = null
+   545→      return false
+   546→    }
+   547→
+   548→    /* Фриз: таймер уровня стоит, мир стоит, лапку можно двигать и планировать */
+   549→    this.freezeLeft -= dt
+   550→    const sec = Math.ceil(Math.max(0, this.freezeLeft))
+   551→    if (sec !== this.lastFreezeSec) {
+   552→      this.lastFreezeSec = sec
+   553→      if (sec > 0) audio.play('tick')
+   554→    }
+   555→    if (this.freezeLeft <= 0) {
+   556→      this.freezeLeft = 0
+   557→      this.cat.state = 'out'
+   558→      this.cat.stateT = 0
+   559→      this.banner = { text: 'ВПЕРЁД!', t: 0 }
+   560→      this.audioStage = -1 // пересчитать темп музыки по оставшемуся времени
+   561→      audio.play('wave')
+   562→      return false // мир оживает в этот же кадр
+   563→    }
+   564→    // Счастливый кот машет лапками, а в конце отсчёта уезжает вверх
+   565→    if (this.cat.state === 'happy' && this.freezeLeft <= 0.45) {
+   566→      this.cat.state = 'out'
+   567→      this.cat.stateT = 0
+   568→    }
+   569→    return true
+   570→  }
+   571→
+   572→  /* ================= обновление ================= */
+   573→
+   574→  private update(dt: number): void {
+   575→    const u = this.u
+   576→
+   577→    // Плавное следование лапки за пальцем/курсором («Тяжёлая лапа» — вдвое медленнее)
+   578→    if (!this.paw.seen) {
+   579→      this.paw.tx = this.cup.x + Math.sin(performance.now() * 0.001) * 80 * u
+   580→      this.paw.ty = this.H * 0.35
+   581→    }
+   582→    const k = 1 - Math.exp(-dt * (this.perk === 'slowpaw' ? 6.5 : 14))
+   583→    this.paw.x += (this.paw.tx - this.paw.x) * k
+   584→    this.paw.y += (this.paw.ty - this.paw.y) * k
+   585→    this.paw.x = Math.max(22 * u, Math.min(this.W - 22 * u, this.paw.x))
+   586→    this.paw.y = Math.max(70, Math.min(this.H - 20 * u, this.paw.y))
+   587→
+   588→    // Кот и фриз-тайм: пока таймер заморожен, мир стоит (лапку можно двигать)
+   589→    if (this.updateCat(dt)) return
+   590→
+   591→    if (this.perk === 'drift') this.driftPieces(dt)
+   592→    if (this.perk === 'magnet') this.magnetPull(dt)
+   593→
+   594→    // Радиус подбора зависит от перка лапки
+   595→    const grabR = (this.perk === 'bigpaw' ? 58 : this.perk === 'smallpaw' ? 34 : 44) * u
+   596→
+   597→    // Подбор попкорна / ловушка-кукуруза
+   598→    for (let i = this.pieces.length - 1; i >= 0; i--) {
+   599→      const p = this.pieces[i]
+   600→      if (p.spawn > 0.12) continue
+   601→      const d = Math.hypot(this.paw.x - p.x, this.paw.y - p.y)
+   602→      if (p.kind === 'corn') {
+   603→        // Кукуруза-мина: чем толще мина, тем шире радиус задевания
+   604→        if (d < 38 * u * (0.7 + 0.3 * this.cornScale)) {
+   605→          this.pieces.splice(i, 1)
+   606→          this.score = Math.max(0, this.score - 1)
+   607→          this.paw.hurt = 1
+   608→          this.texts.push({
+   609→            x: this.paw.x,
+   610→            y: this.paw.y - 34 * u,
+   611→            text: '-1',
+   612→            color: '#FF6B5E',
+   613→            t: 0,
+   614→            dur: 0.9,
+   615→            size: 24 * u,
+   616→          })
+   617→          this.crumbs(p.x, p.y, '#E8960C', 7)
+   618→          audio.play('penalty')
+   619→        }
+   620→        continue
+   621→      }
+   622→      if (d < grabR && this.carried.length < this.carryMax) {
+   623→        this.pieces.splice(i, 1)
+   624→        this.carried.push({ golden: p.kind === 'golden', grabT: 0 })
+   625→        this.paw.pulse = 1
+   626→        this.crumbs(p.x, p.y, p.kind === 'golden' ? '#FFE066' : '#FFF3D6', 6)
+   627→        audio.play(p.kind === 'golden' ? 'golden' : 'pickup')
+   628→      }
+   629→    }
+   630→
+   631→    // Высыпание в стаканчик
+   632→    if (this.carried.length > 0) {
+   633→      const dc = Math.hypot(this.paw.x - this.cup.x, this.paw.y - this.cup.y)
+   634→      if (dc < 78 * u) {
+   635→        let base = 0
+   636→        let hasGold = false
+   637→        for (const c of this.carried) {
+   638→          base += c.golden ? 5 : 1
+   639→          hasGold = hasGold || c.golden
+   640→        }
+   641→        const mult = this.perk === 'doublepoints' ? 2 : 1
+   642→        const sum = base * mult
+   643→        this.collected += this.carried.length
+   644→        this.carried.forEach((c, i) => {
+   645→          this.flying.push({
+   646→            x0: this.paw.x + (i - 1) * 8 * u,
+   647→            y0: this.paw.y - 20 * u - i * 10 * u,
+   648→            golden: c.golden,
+   649→            t: 0,
+   650→          })
+   651→        })
+   652→        this.carried = []
+   653→        this.score += sum
+   654→        this.cup.squash = 1
+   655→        this.texts.push({
+   656→          x: this.cup.x,
+   657→          y: this.cup.y - this.cupH * 0.8,
+   658→          text: `+${sum}`,
+   659→          color: hasGold ? '#FFC93C' : '#FFFFFF',
+   660→          t: 0,
+   661→          dur: 0.9,
+   662→          size: 26 * u,
+   663→        })
+   664→        audio.play('deposit')
+   665→      }
+   666→    }
+   667→
+   668→    // Летящие в стаканчик зёрна
+   669→    for (let i = this.flying.length - 1; i >= 0; i--) {
+   670→      const f = this.flying[i]
+   671→      f.t += dt / 0.3
+   672→      if (f.t >= 1) {
+   673→        this.flying.splice(i, 1)
+   674→        this.crumbs(this.cup.x, this.cup.y - this.cupH * 0.5, '#FFF6EC', 3)
+   675→      }
+   676→    }
+   677→
+   678→    // Вся волна собрана → следующая. Кукуруза-мины НЕ мешает: считаем только попкорн
+   679→    const hasPopcorn = this.pieces.some((p) => p.kind !== 'corn')
+   680→    if (
+   681→      this.waveDelay < 0 &&
+   682→      !hasPopcorn &&
+   683→      this.carried.length === 0 &&
+   684→      this.flying.length === 0
+   685→    ) {
+   686→      this.waveDelay = this.baseWaveDelay
+   687→    }
+   688→    if (this.waveDelay >= 0) {
+   689→      this.waveDelay -= dt
+   690→      if (this.waveDelay <= 0) {
+   691→        this.waveDelay = -1
+   692→        this.wave++
+   693→        this.banner = { text: `ВОЛНА ${this.wave}`, t: 0 }
+   694→        audio.play('wave')
+   695→        this.spawnWave()
+   696→      }
+   697→    }
+   698→
+   699→    // Норма выполнена → короткая пауза (зёрна долетают) → уровень пройден
+   700→    if (this.pendingClear < 0 && this.collected >= this.quota) {
+   701→      this.pendingClear = CLEAR_DELAY
+   702→    }
+   703→    if (this.pendingClear >= 0) {
+   704→      this.pendingClear -= dt
+   705→      if (this.pendingClear <= 0) {
+   706→        this.levelComplete()
+   707→        return
+   708→      }
+   709→    }
+   710→
+   711→    // Музыка зависит от оставшегося времени: >30с база, ≤30с +25%, ≤15с +40%, ≤5с 240 BPM
+   712→    const stage = this.timeLeft > 30 ? 0 : this.timeLeft > 15 ? 1 : this.timeLeft > 5 ? 2 : 3
+   713→    if (stage !== this.audioStage) {
+   714→      this.audioStage = stage
+   715→      audio.setIntensity(stage)
+   716→    }
+   717→
+   718→    // Таймер
+   719→    this.timeLeft -= dt
+   720→    const sec = Math.max(0, Math.ceil(this.timeLeft))
+   721→    if (sec !== this.lastSec) {
+   722→      this.lastSec = sec
+   723→      if (sec <= 5 && sec > 0) audio.play('tick')
+   724→    }
+   725→    if (this.timeLeft <= 0) {
+   726→      this.timeLeft = 0
+   727→      this.end()
+   728→      return
+   729→    }
+   730→
+   731→    // Косметика
+   732→    this.paw.pulse = Math.max(0, this.paw.pulse - dt * 5)
+   733→    this.paw.hurt = Math.max(0, this.paw.hurt - dt * 2.2)
+   734→    this.cup.squash = Math.max(0, this.cup.squash - dt * 4)
+   735→    this.banner.t += dt
+   736→    for (const p of this.pieces) p.spawn = Math.max(0, p.spawn - dt)
+   737→    for (const c of this.carried) c.grabT = Math.min(1, c.grabT + dt * 8)
+   738→    for (let i = this.particles.length - 1; i >= 0; i--) {
+   739→      const p = this.particles[i]
+   740→      p.t += dt
+   741→      p.vy += 900 * u * dt
+   742→      p.x += p.vx * dt
+   743→      p.y += p.vy * dt
+   744→      if (p.t >= p.ttl) this.particles.splice(i, 1)
+   745→    }
+   746→    for (let i = this.texts.length - 1; i >= 0; i--) {
+   747→      const t = this.texts[i]
+   748→      t.t += dt
+   749→      if (t.t >= t.dur) this.texts.splice(i, 1)
+   750→    }
+   751→  }
+   752→
+   753→  private levelComplete(): void {
+   754→    this.phase = 'clear'
+   755→    const bonus = Math.ceil(this.timeLeft)
+   756→    this.score += bonus
+   757→    audio.stopMusic()
+   758→    audio.play('levelwin')
+   759→    this.emitStats(true)
+   760→    this.cb.onLevelComplete?.({ level: this.lvl, score: this.score, bonus })
+   761→  }
+   762→
+   763→  private end(): void {
+   764→    this.phase = 'ended'
+   765→    audio.stopMusic()
+   766→    audio.play('gameover')
+   767→    this.emitStats(true)
+   768→    this.cb.onEnd?.({ score: this.score, level: this.lvl })
+   769→  }
+   770→
+   771→  private crumbs(x: number, y: number, color: string, n: number): void {
+   772→    const u = this.u
+   773→    for (let i = 0; i < n; i++) {
+   774→      const a = Math.random() * Math.PI * 2
+   775→      const sp = (60 + Math.random() * 120) * u
+   776→      this.particles.push({
+   777→        x,
+   778→        y,
+   779→        vx: Math.cos(a) * sp,
+   780→        vy: Math.sin(a) * sp - 60 * u,
+   781→        t: 0,
+   782→        ttl: 0.35 + Math.random() * 0.25,
+   783→        color,
+   784→        size: (2 + Math.random() * 2.5) * u,
+   785→      })
+   786→    }
+   787→  }
+   788→
+   789→  /* ================= цикл ================= */
+   790→
+   791→  private loop = (ts: number): void => {
+   792→    if (this.destroyed) return
+   793→    const dt = Math.min(0.05, (ts - this.lastTs) / 1000)
+   794→    this.lastTs = ts
+   795→    if (this.phase === 'playing' && !this.paused) {
+   796→      try {
+   797→        this.update(dt)
+   798→      } catch (err) {
+   799→        // Сбой кадра не должен замораживать игру — логируем и продолжаем
+   800→        console.error('[popcorn] update error:', err)
+   801→      }
+   802→    }
+   803→    this.render(ts)
+   804→    this.emitStats(false)
+   805→    this.raf = requestAnimationFrame(this.loop)
+   806→  }
+   807→
+   808→  private emitStats(force: boolean): void {
+   809→    if (!this.cb.onStats) return
+   810→    const sec = Math.ceil(this.timeLeft)
+   811→    const key = `${this.score}|${this.lvl}|${this.quota}|${this.collected}|${this.carried.length}|${sec}|${this.paused}|${Math.ceil(this.freezeLeft)}`
+   812→    if (!force && key === this.lastStatsKey) return
+   813→    this.lastStatsKey = key
+   814→    this.cb.onStats({
+   815→      score: this.score,
+   816→      timeLeft: this.timeLeft,
+   817→      duration: this.duration,
+   818→      level: this.lvl,
+   819→      quota: this.quota,
+   820→      collected: this.collected,
+   821→      carrying: this.carried.length,
+   822→      carryMax: this.carryMax,
+   823→      freezeLeft: this.freezeLeft,
+   824→      paused: this.paused,
+   825→    })
+   826→  }
+   827→
+   828→  /* ================= отрисовка ================= */
+   829→
+   830→  private render(ts: number): void {
+   831→    const { ctx } = this
+   832→    ctx.clearRect(0, 0, this.W, this.H)
+   833→    if (this.phase === 'idle') return
+   834→
+   835→    this.drawCup()
+   836→    this.drawPieces(ts)
+   837→    this.drawFlying()
+   838→    this.drawParticles()
+   839→    // Фриз-тайм: притемняем поле — большие красные цифры рисует React-оверлей
+   840→    if (this.freezeLeft > 0) {
+   841→      ctx.fillStyle = 'rgba(12, 18, 14, 0.5)'
+   842→      ctx.fillRect(0, 0, this.W, this.H)
+   843→    }
+   844→    this.drawPaw(ts)
+   845→    this.drawTexts()
+   846→    this.drawBanner()
+   847→    if (this.perk === 'fog' && this.phase === 'playing') this.drawFog()
+   848→    if (this.cat && this.phase === 'playing') this.drawCat(ts)
+   849→
+   850→    if (this.phase === 'ended' || this.phase === 'clear') {
+   851→      ctx.fillStyle = 'rgba(24, 10, 4, 0.35)'
+   852→      ctx.fillRect(0, 0, this.W, this.H)
+   853→    }
+   854→  }
+   855→
+   856→  /** Кот-бонус: пиксельный рыжий кот с двумя машущими лапками */
+   857→  private drawCat(ts: number): void {
+   858→    const cat = this.cat
+   859→    if (!cat) return
+   860→    const { ctx } = this
+   861→    const u = this.u
+   862→    const g = this.catGeom()
+   863→    const ox = g.x - 10 * g.cell
+   864→    const idleBob = cat.state === 'idle' ? Math.sin(ts * 0.003) * 2.2 * u : 0
+   865→    const oy = g.y + g.slide + idleBob
+   866→
+   867→    // Тело из пиксельной карты
+   868→    for (let ry = 0; ry < CAT_BODY.length; ry++) {
+   869→      const row = CAT_BODY[ry]
+   870→      for (let rx = 0; rx < row.length; rx++) {
+   871→        const color = CAT_COLORS[row[rx]]
+   872→        if (!color) continue
+   873→        ctx.fillStyle = color
+   874→        ctx.fillRect(ox + rx * g.cell, oy + ry * g.cell, g.cell + 0.5, g.cell + 0.5)
+   875→      }
+   876→    }
+   877→
+   878→    // Искры радости вокруг счастливого кота
+   879→    if (cat.state === 'happy') {
+   880→      drawSprite(ctx, this.sp.sparkle, ox + 2.4 * g.cell, oy + 2.2 * g.cell, 2.4 * u, {
+   881→        rot: ts * 0.01,
+   882→        alpha: 0.95,
+   883→      })
+   884→      drawSprite(ctx, this.sp.sparkle, ox + 17.6 * g.cell, oy + 3.1 * g.cell, 2 * u, {
+   885→        rot: -ts * 0.008,
+   886→        alpha: 0.95,
+   887→      })
+   888→    }
+   889→
+   890→    // Лапки машут поочерёдно (манэки-нэко)
+   891→    const wig = cat.state === 'idle' ? Math.sin(ts * 0.006) * 2.6 * u : 0
+   892→    const happyWig = cat.state === 'happy' ? Math.sin(ts * 0.03) * 4.5 * u : 0
+   893→    const paws = this.catPawPoints()
+   894→    paws.forEach(([px, py], i) => {
+   895→      const dy = (i === 0 ? -1 : 1) * (wig + happyWig)
+   896→      const w = 3.4 * g.cell
+   897→      const h = 4.2 * g.cell
+   898→      const x0 = px - w / 2
+   899→      const y0 = py - h / 2 + dy
+   900→      ctx.fillStyle = CAT_COLORS.o
+   901→      ctx.fillRect(x0 - g.cell * 0.22, y0 - g.cell * 0.22, w + g.cell * 0.44, h + g.cell * 0.44)
+   902→      ctx.fillStyle = '#F7B96B'
+   903→      ctx.fillRect(x0, y0, w, h)
+   904→      ctx.fillStyle = CAT_COLORS.D
+   905→      ctx.fillRect(x0 + w * 0.28, y0 + h * 0.16, g.cell * 0.42, h * 0.6)
+   906→      ctx.fillRect(x0 + w * 0.6, y0 + h * 0.16, g.cell * 0.42, h * 0.6)
+   907→    })
+   908→
+   909→    // Подсказка: пульсирующие кольца на лапках и текст
+   910→    if (cat.state === 'idle') {
+   911→      const pulse = 0.5 + 0.5 * Math.sin(ts * 0.008)
+   912→      ctx.lineWidth = 2.5 * u
+   913→      ctx.strokeStyle = `rgba(191, 243, 230, ${0.35 + 0.4 * pulse})`
+   914→      for (const [px, py] of paws) {
+   915→        ctx.beginPath()
+   916→        ctx.arc(px, py, (4.6 + 0.9 * pulse) * g.cell, 0, Math.PI * 2)
+   917→        ctx.stroke()
+   918→      }
+   919→      const hint = 'ТКНИ В ЛАПКУ — СТОП-ТАЙМЕР!'
+   920→      const size = Math.max(15, 19 * u)
+   921→      ctx.font = `700 ${size}px "Handjet", system-ui, sans-serif`
+   922→      ctx.textAlign = 'center'
+   923→      ctx.textBaseline = 'middle'
+   924→      ctx.globalAlpha = 0.8 + 0.2 * pulse
+   925→      ctx.lineWidth = 4 * u
+   926→      ctx.strokeStyle = 'rgba(46, 18, 6, 0.9)'
+   927→      ctx.strokeText(hint, g.x, oy - 11 * u)
+   928→      ctx.fillStyle = '#BFF3E6'
+   929→      ctx.fillText(hint, g.x, oy - 11 * u)
+   930→      ctx.globalAlpha = 1
+   931→    }
+   932→  }
+   933→
+   934→  /** «Попкорнный туман»: ступенчатые кольца темноты вокруг лапки (8-битный стиль) */
+   935→  private drawFog(): void {
+   936→    const { ctx } = this
+   937→    const u = this.u
+   938→    const rings: Array<[number, number]> = [
+   939→      [150, 0.86],
+   940→      [120, 0.8],
+   941→      [95, 0.66],
+   942→      [72, 0.45],
+   943→      [52, 0.22],
+   944→    ]
+   945→    for (const [r, a] of rings) {
+   946→      ctx.fillStyle = `rgba(12, 6, 2, ${a})`
+   947→      ctx.beginPath()
+   948→      ctx.rect(0, 0, this.W, this.H)
+   949→      ctx.arc(this.paw.x, this.paw.y, r * u, 0, Math.PI * 2)
+   950→      ctx.fill('evenodd')
+   951→    }
+   952→  }
+   953→
+   954→  private drawCup(): void {
+   955→    const { ctx } = this
+   956→    const s = this.cupScale
+   957→    const sq = this.cup.squash
+   958→    const sx = 1 + 0.08 * sq
+   959→    const sy = 1 - 0.1 * sq
+   960→
+   961→    // Тень
+   962→    ctx.fillStyle = 'rgba(0, 0, 0, 0.22)'
+   963→    ctx.beginPath()
+   964→    ctx.ellipse(
+   965→      this.cup.x,
+   966→      this.cup.y + (this.cupH / 2) * sy + 5 * this.u,
+   967→      48 * this.u * sx,
+   968→      10 * this.u,
+   969→      0,
+   970→      0,
+   971→      Math.PI * 2,
+   972→    )
+   973→    ctx.fill()
+   974→
+   975→    // «Шапка» попкорна растёт вместе с выполнением нормы
+   976→    const progress = this.quota > 0 ? this.collected / this.quota : 0
+   977→    const puffs = Math.min(PUFF_POS.length, Math.ceil(progress * PUFF_POS.length))
+   978→    const mouthY = this.cup.y - 13 * s * sy
+   979→    for (let i = 0; i < puffs; i++) {
+   980→      const [ox, oy] = PUFF_POS[i]
+   981→      drawSprite(ctx, this.sp.popcorn, this.cup.x + ox * s * 0.85, mouthY + oy * s * 0.75, s * 0.52, {
+   982→        rot: i * 0.7,
+   983→      })
+   984→    }
+   985→
+   986→    // Корпус стаканчика
+   987→    drawSprite(ctx, this.sp.cup, this.cup.x, this.cup.y, s, { sx, sy })
+   988→  }
+   989→
+   990→  private drawPieces(ts: number): void {
+   991→    const { ctx } = this
+   992→    const u = this.u
+   993→    for (const p of this.pieces) {
+   994→      // Мины-зерна статичны (никаких прыжков) — попкорн слегка «дышит»
+   995→      const bobAmp = p.kind === 'corn' ? 0 : 2.5
+   996→      const bob = Math.sin(ts * 0.004 + p.phase) * bobAmp * u
+   997→      const y = p.y + bob
+   998→      const pop = p.spawn > 0 ? easeOutBack(1 - p.spawn / (SPAWN_DUR + 0.5)) : 1
+   999→      // Попкорн мельчает, мины толстеют — ступени каждые 5 уровней
+  1000→      const base = p.kind === 'corn' ? 2.3 * this.cornScale : 2.6 * this.popScale
+  1001→      const scale = base * u * Math.max(0.05, pop)
+  1002→
+  1003→      // Тень
+  1004→      ctx.fillStyle = 'rgba(0, 0, 0, 0.16)'
+  1005→      ctx.beginPath()
+  1006→      ctx.ellipse(p.x, p.y + 9 * u, 12 * u * pop, 4 * u * pop, 0, 0, Math.PI * 2)
+  1007→      ctx.fill()
+  1008→
+  1009→      const sprite = p.kind === 'corn' ? this.sp.corn : p.kind === 'golden' ? this.sp.golden : this.sp.popcorn
+  1010→      drawSprite(ctx, sprite, p.x, y, scale, { rot: p.rot })
+  1011→      if (p.kind === 'golden') {
+  1012→        drawSprite(ctx, this.sp.sparkle, p.x + 10 * u, y - 11 * u, 1.15 * u, {
+  1013→          rot: ts * 0.004,
+  1014→          alpha: 0.95,
+  1015→        })
+  1016→      }
+  1017→    }
+  1018→  }
+  1019→
+  1020→  private drawFlying(): void {
+  1021→    const { ctx } = this
+  1022→    const u = this.u
+  1023→    const tx = this.cup.x
+  1024→    const ty = this.cup.y - 10 * this.cupScale
+  1025→    for (const f of this.flying) {
+  1026→      const q = easeOutQuad(f.t)
+  1027→      const x = f.x0 + (tx - f.x0) * q
+  1028→      const y = f.y0 + (ty - f.y0) * q - Math.sin(q * Math.PI) * 30 * u
+  1029→      drawSprite(ctx, f.golden ? this.sp.golden : this.sp.popcorn, x, y, 2.6 * u * this.popScale * (1 - 0.45 * q), {
+  1030→        rot: q * 3,
+  1031→      })
+  1032→    }
+  1033→  }
+  1034→
+  1035→  private drawPaw(ts: number): void {
+  1036→    const { ctx } = this
+  1037→    const u = this.u
+  1038→    if (!this.paw.seen && this.phase === 'idle') return
+  1039→
+  1040→    // Тряска при штрафе + сильная дрожь перка «Нервная лапа»
+  1041→    const shake = Math.sin(ts * 0.055) * 5 * this.paw.hurt
+  1042→    const shiver = this.perk === 'shaky'
+  1043→    const jx = shiver ? Math.sin(ts * 0.021) * 9 * u + Math.sin(ts * 0.047) * 6 * u : 0
+  1044→    const jy = shiver ? Math.cos(ts * 0.017) * 7 * u + Math.sin(ts * 0.053) * 4 * u : 0
+  1045→    const px = this.paw.x + shake + jx
+  1046→    const py = this.paw.y + jy
+  1047→
+  1048→    // Тень лапки
+  1049→    ctx.fillStyle = 'rgba(0, 0, 0, 0.18)'
+  1050→    ctx.beginPath()
+  1051→    ctx.ellipse(px, py + 28 * u, 26 * u, 7 * u, 0, 0, Math.PI * 2)
+  1052→    ctx.fill()
+  1053→
+  1054→    const basePaw = this.perk === 'bigpaw' ? 4.8 : this.perk === 'smallpaw' ? 2.9 : 3.8
+  1055→    const s = basePaw * u * (1 + 0.13 * this.paw.pulse)
+  1056→    drawSprite(ctx, this.sp.paw, px, py, s)
+  1057→
+  1058→    // Зёрна в лапке (стопкой над подушечкой)
+  1059→    this.carried.forEach((c, i) => {
+  1060→      const wig = Math.sin(ts * 0.012 + i * 2) * 1.6 * u
+  1061→      const y = py - 30 * u - i * 14 * u * this.popScale + (1 - c.grabT) * 10 * u
+  1062→      drawSprite(ctx, c.golden ? this.sp.golden : this.sp.popcorn, px + wig, y, 2.3 * u * this.popScale, {
+  1063→        rot: Math.sin(ts * 0.006 + i) * 0.12,
+  1064→      })
+  1065→    })
+  1066→  }
+  1067→
+  1068→  private drawParticles(): void {
+  1069→    const { ctx } = this
+  1070→    for (const p of this.particles) {
+  1071→      ctx.globalAlpha = 1 - p.t / p.ttl
+  1072→      ctx.fillStyle = p.color
+  1073→      ctx.fillRect(p.x - p.size / 2, p.y - p.size / 2, p.size, p.size)
+  1074→    }
+  1075→    ctx.globalAlpha = 1
+  1076→  }
+  1077→
+  1078→  private drawTexts(): void {
+  1079→    const { ctx } = this
+  1080→    for (const t of this.texts) {
+  1081→      const q = t.t / t.dur
+  1082→      const alpha = q < 0.15 ? q / 0.15 : 1 - Math.max(0, (q - 0.55) / 0.45)
+  1083→      const y = t.y - 42 * this.u * q
+  1084→      ctx.save()
+  1085→      ctx.globalAlpha = Math.max(0, Math.min(1, alpha))
+  1086→      ctx.font = `600 ${t.size}px "Handjet", system-ui, sans-serif`
+  1087→      ctx.textAlign = 'center'
+  1088→      ctx.textBaseline = 'middle'
+  1089→      ctx.lineWidth = Math.max(3, t.size * 0.16)
+  1090→      ctx.strokeStyle = 'rgba(46, 18, 6, 0.9)'
+  1091→      ctx.strokeText(t.text, t.x, y)
+  1092→      ctx.fillStyle = t.color
+  1093→      ctx.fillText(t.text, t.x, y)
+  1094→      ctx.restore()
+  1095→    }
+  1096→  }
+  1097→
+  1098→  private drawBanner(): void {
+  1099→    if (this.banner.t > 1.5) return
+  1100→    const { ctx } = this
+  1101→    const t = this.banner.t
+  1102→    const alpha = t < 0.2 ? t / 0.2 : t > 1.1 ? Math.max(0, (1.5 - t) / 0.4) : 1
+  1103→    const pop = 1 + Math.max(0, 1 - t / 0.25) * 0.5
+  1104→    const size = 34 * this.u * pop
+  1105→    ctx.save()
+  1106→    ctx.globalAlpha = alpha
+  1107→    ctx.font = `700 ${size}px "Handjet", system-ui, sans-serif`
+  1108→    ctx.textAlign = 'center'
+  1109→    ctx.textBaseline = 'middle'
+  1110→    ctx.lineWidth = Math.max(4, size * 0.18)
+  1111→    ctx.strokeStyle = 'rgba(46, 18, 6, 0.9)'
+  1112→    ctx.strokeText(this.banner.text, this.W / 2, this.H * 0.3)
+  1113→    ctx.fillStyle = '#FFE066'
+  1114→    ctx.fillText(this.banner.text, this.W / 2, this.H * 0.3)
+  1115→    ctx.restore()
+  1116→  }
+  1117→}
+  1118→
