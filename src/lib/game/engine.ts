@@ -308,6 +308,24 @@ export class PopcornEngine {
     this.emitStats(true)
   }
 
+  /** «Конец игры»: мгновенно свернуть забег и вернуться в меню (без экрана результатов).
+      Опыт при этом НЕ сгорает — компонент начисляет очки в банк по ходу забега. */
+  abort(): void {
+    this.phase = 'idle'
+    this.paused = false
+    this.pieces = []
+    this.carried = []
+    this.flying = []
+    this.particles = []
+    this.texts = []
+    this.cat = null
+    this.freezeLeft = 0
+    this.banner = { text: '', t: 99 }
+    audio.stopMusic()
+    audio.setIntensity(0)
+    this.emitStats(true)
+  }
+
   /** Координаты в системе игрового поля (трансформации экрана считает компонент) */
   setPointer(x: number, y: number, lift = 0): void {
     if (this.phase !== 'playing' || this.paused) return

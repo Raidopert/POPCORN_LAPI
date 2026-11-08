@@ -405,6 +405,64 @@ function LeadersOverlay({ leaders, onClose }: { leaders: LeaderEntry[]; onClose:
   )
 }
 
+/** Экран «Правила»: подробный список механик (вынесен из главного меню) */
+function RulesOverlay({ onClose }: { onClose: () => void }) {
+  return (
+    <motion.div
+      className="absolute inset-0 z-40 flex items-center justify-center overflow-y-auto bg-black/70 p-4 backdrop-blur-sm"
+      initial={{ opacity: 0 }}
+      animate={{ opacity: 1 }}
+      exit={{ opacity: 0 }}
+    >
+      <motion.div
+        className="my-auto w-full max-w-sm rounded-2xl border-4 border-[#8a5330] bg-[#FFF6E6] p-4 text-center shadow-[0_18px_50px_rgba(0,0,0,0.55)] sm:p-5"
+        initial={{ scale: 0.92, y: 14 }}
+        animate={{ scale: 1, y: 0 }}
+        exit={{ scale: 0.95, opacity: 0 }}
+        transition={{ type: 'spring', stiffness: 260, damping: 22 }}
+      >
+        <div aria-hidden className="text-3xl">
+          📖
+        </div>
+        <h2 className="mt-0.5 font-pixel text-xl font-bold text-[#B33A26]">ПРАВИЛА</h2>
+        <ul
+          className={`mt-3 max-h-[52vh] space-y-2 overflow-y-auto pr-1 text-left font-ui text-xs leading-snug text-[#5C3A1E] sm:max-h-80 sm:text-sm ${OVERLAY_SCROLL}`}
+        >
+          <HowToRow icon="👆">Веди лапку пальцем по экрану (на ПК — мышкой)</HowToRow>
+          <HowToRow icon="🍿">Собирай попкорн в стаканчик. Золотое зерно = +5!</HowToRow>
+          <HowToRow icon="🌽">Кукуруза — мины: обходи, заденешь — минус балл</HowToRow>
+          <HowToRow icon="🎯">Собери норму за 60 секунд — и уровень пройден!</HowToRow>
+          <HowToRow icon="🐱">
+            Кот-помощник: в начале каждого уровня выглядывает наверху и первые 5 секунд ждёт — ткни
+            в лапку, и таймер замрёт на 5 секунд: продумай маршрут!
+          </HowToRow>
+          <HowToRow icon="🐾">
+            Лапка растёт: сначала несёт 3 зерна, после 5-го уровня — 4, после 10-го — 5!
+          </HowToRow>
+          <HowToRow icon="🎁">Между уровнями открывай сундучок со случайным перком: бывают бонусы и проклятья</HowToRow>
+          <HowToRow icon="♾️">
+            Каждые 5 уровней попкорна и мин больше, зёрна мельчают, а мины толстеют. Держись!
+          </HowToRow>
+          <HowToRow icon="🛒">
+            Очки попкорна = опыт: капают в банк сразу, играй и покупай лапки в магазине — их
+            улучшения действуют постоянно!
+          </HowToRow>
+          <HowToRow icon="⏹">
+            Кнопка «КОНЕЦ ИГРЫ» справа внизу — сразу в меню. Собранный опыт сохраняется!
+          </HowToRow>
+          <HowToRow icon="🏆">Лучшие забеги попадают в список лидеров в меню</HowToRow>
+        </ul>
+        <p className="mt-2.5 font-ui text-[11px] leading-snug text-[#a97c50]">
+          🎵 Лучше со звуком: музыка ускоряется на 30-й, 15-й и последних секундах!
+        </p>
+        <div className="mt-3">
+          <GameButton onClick={onClose}>ПОНЯТНО!</GameButton>
+        </div>
+      </motion.div>
+    </motion.div>
+  )
+}
+
 /** Экран «Создатели» */
 function CreatorsOverlay({ onClose }: { onClose: () => void }) {
   return (
@@ -466,6 +524,8 @@ export function PopcornGame() {
   const layoutRef = useRef<() => void>(() => {})
   const devRef = useRef<{ fast: boolean; forced: PerkId | null }>({ fast: false, forced: null })
   const equippedRef = useRef<PawId>(DEFAULT_PAW)
+  /** Счёт забега, уже зачисленный в банк опыта (очки = опыт) */
+  const lastScoreRef = useRef(0)
 
   const [phase, setPhase] = useState<Phase>('start')
   const [stats, setStats] = useState<EngineStats>({
@@ -496,7 +556,7 @@ export function PopcornGame() {
   const [pawRaw, storePaw] = useStoredValue(PAW_KEY, DEFAULT_PAW)
   const [ownedRaw, storeOwned] = useStoredValue(OWNED_KEY, JSON.stringify([DEFAULT_PAW]))
   const [leadersRaw] = useStoredValue(LEADERS_KEY, '[]')
-  const [overlay, setOverlay] = useState<'leaders' | 'shop' | 'creators' | null>(null)
+  const [overlay, setOverlay] = useState<'leaders' | 'shop' | 'creators' | 'rules' | null>(null)
 
   const xp = Math.max(0, Number(xpRaw) || 0)
   const equippedPaw: PawId = PAW_MAP[pawRaw as PawId] ? (pawRaw as PawId) : DEFAULT_PAW
@@ -568,13 +628,31 @@ export function PopcornGame() {
     layoutRef.current = applyLayout
   }, [applyLayout])
 
+  /** Начислить дельту очков в банк опыта сразу — очки попкорна = опыт */
+  const addXpDelta = useCallback((delta: number) => {
+    if (!delta) return
+    const cur = Math.max(0, Number(window.localStorage.getItem(XP_KEY) ?? 0) || 0)
+    const next = Math.max(0, cur + delta)
+    window.localStorage.setItem(XP_KEY, String(next))
+    window.dispatchEvent(new Event(STORE_EVENT))
+  }, [])
+
   /* Инициализация движка */
   useEffect(() => {
     const canvas = canvasRef.current
     if (!canvas) return
 
     const engine = new PopcornEngine(canvas, {
-      onStats: (s) => setStats(s),
+      onStats: (s) => {
+        setStats(s)
+        /* Очки = опыт: зачисляем каждую дельту счёта в банк сразу,
+           чтобы магазин лапок работал уже между уровнями */
+        const delta = s.score - lastScoreRef.current
+        if (delta !== 0) {
+          lastScoreRef.current = s.score
+          addXpDelta(delta)
+        }
+      },
       onLevelComplete: (r) => {
         setClearInfo({ level: r.level, bonus: r.bonus })
         setOffers(rollPerkOffer(3, devRef.current.forced ?? undefined))
@@ -589,9 +667,7 @@ export function PopcornGame() {
           storeBest(String(r.score))
           window.setTimeout(() => audio.play('record'), 700)
         }
-        /* Очки = опыт: пополняем банк и записываем забег в список лидеров */
-        const newXp = Number(window.localStorage.getItem(XP_KEY) ?? 0) + r.score
-        window.localStorage.setItem(XP_KEY, String(newXp))
+        /* Опыт уже зачислен по ходу забега (onStats) — здесь только список лидеров */
         const entry: LeaderEntry = { score: r.score, level: r.level, date: Date.now() }
         let list: LeaderEntry[] = []
         try {
@@ -618,7 +694,7 @@ export function PopcornGame() {
       engineRef.current = null
       delete (window as unknown as { __popcornEngine?: PopcornEngine }).__popcornEngine
     }
-  }, [storeBest])
+  }, [storeBest, addXpDelta])
 
   /* Следим за размером контейнера */
   useEffect(() => {
@@ -639,6 +715,8 @@ export function PopcornGame() {
     const onPointer = (e: PointerEvent) => {
       const eng = engineRef.current
       if (!eng) return
+      /* Кнопки HUD (пауза, звук, конец игры) не должны двигать лапку */
+      if (e.target instanceof Element && e.target.closest('button')) return
       const r = main.getBoundingClientRect()
       const sx = e.clientX - r.left
       const sy = e.clientY - r.top
@@ -689,6 +767,7 @@ export function PopcornGame() {
     setResult(null)
     setClearInfo(null)
     setPerk(null)
+    lastScoreRef.current = 0
     transformRef.current = 'none'
     const canvas = canvasRef.current
     if (canvas) canvas.style.filter = ''
@@ -731,6 +810,22 @@ export function PopcornGame() {
     setPhase('paused')
   }, [])
 
+  /** «КОНЕЦ ИГРЫ»: сразу в меню. Собранный попкорн уже лежит в банке опыта. */
+  const quitToMenu = useCallback(() => {
+    audio.play('click')
+    audio.stopMusic()
+    engineRef.current?.abort()
+    setResult(null)
+    setClearInfo(null)
+    setPerk(null)
+    setOpenedIdx(null)
+    transformRef.current = 'none'
+    const canvas = canvasRef.current
+    if (canvas) canvas.style.filter = ''
+    layoutRef.current()
+    setPhase('start')
+  }, [])
+
   const toggleMute = useCallback(() => {
     storeMuted(muted ? '0' : '1')
   }, [muted, storeMuted])
@@ -759,17 +854,19 @@ export function PopcornGame() {
         equipPaw(def.id)
         return
       }
-      if (xp < def.price) {
+      /* Читаем банк прямо из localStorage: очки капают в него в реальном времени */
+      const bank = Math.max(0, Number(window.localStorage.getItem(XP_KEY) ?? 0) || 0)
+      if (bank < def.price) {
         audio.play('penalty')
         return
       }
       audio.play('perk')
-      storeXp(String(xp - def.price))
+      storeXp(String(bank - def.price))
       storeOwned(JSON.stringify([...ownedPaws, def.id]))
       storePaw(def.id)
       engineRef.current?.setPawSkin(def.id)
     },
-    [ownedPaws, xp, storeXp, storeOwned, storePaw, equipPaw],
+    [ownedPaws, storeXp, storeOwned, storePaw, equipPaw],
   )
 
   const sec = Math.ceil(stats.timeLeft)
@@ -913,6 +1010,17 @@ export function PopcornGame() {
           </div>
         </div>
 
+        {/* Кнопка «Конец игры»: справа внизу, всегда под рукой во время уровня */}
+        {phase === 'playing' && (
+          <button
+            type="button"
+            onClick={quitToMenu}
+            className="absolute bottom-[max(0.75rem,env(safe-area-inset-bottom))] right-3 z-20 flex items-center gap-1.5 rounded-xl border-2 border-red-300/50 bg-black/55 px-3 py-2 font-pixel text-[11px] font-bold text-red-200 backdrop-blur-sm transition hover:bg-black/75 active:scale-95 sm:text-xs"
+          >
+            <span aria-hidden>⏹</span> КОНЕЦ ИГРЫ
+          </button>
+        )}
+
         {/* Оверлеи */}
         <AnimatePresence>
           {phase === 'start' && (
@@ -931,62 +1039,48 @@ export function PopcornGame() {
                 transition={{ type: 'spring', stiffness: 260, damping: 22 }}
               >
                 <Image
-                  src="/marten-mascot.png"
-                  alt="Куница Марта держит стаканчик с попкорном"
-                  width={220}
-                  height={220}
+                  src="/cat-menu.png"
+                  alt="Рыжий кот держит ведро с попкорном"
+                  width={1024}
+                  height={1024}
                   priority
-                  className="pixelated animate-float-y mx-auto h-28 w-28 rounded-2xl border-4 border-[#E24B3B] bg-[#F8D8B8] object-cover shadow-lg [@media(max-height:700px)]:h-20 [@media(max-height:700px)]:w-20 sm:h-40 sm:w-40"
+                  className="animate-float-y mx-auto h-44 w-44 rounded-2xl border-4 border-[#E24B3B] object-cover shadow-lg sm:h-56 sm:w-56"
                 />
-                <h1 className="text-shadow-pixel mt-2 font-pixel text-2xl font-bold leading-tight text-[#B33A26] [@media(max-height:700px)]:mt-1.5 sm:text-3xl">
+                <h1 className="text-shadow-pixel mt-2.5 font-pixel text-2xl font-bold leading-tight text-[#B33A26] sm:text-3xl">
                   КОШАЧИЙ ПОПКОРННЫЙ БЕСПРЕДЕЛ
                 </h1>
                 <p className="mt-1 font-ui text-xs font-medium text-[#8a5330] sm:text-sm">
                   8-битный рогалик-аркада · бесконечные уровни
                 </p>
 
-                <ul className="mt-3 space-y-1.5 text-left font-ui text-xs leading-snug text-[#5C3A1E] [@media(max-height:700px)]:mt-2 sm:text-sm">
-                  <HowToRow icon="👆">Веди лапку пальцем по экрану (на ПК — мышкой)</HowToRow>
-                  <HowToRow icon="🍿">Собирай попкорн в стаканчик. Золотое зерно = +5!</HowToRow>
-                  <HowToRow icon="🌽">Кукуруза — мины: обходи, заденешь — минус балл</HowToRow>
-                  <HowToRow icon="🎯">Собери норму за 60 секунд — и уровень пройден!</HowToRow>
-                  <HowToRow icon="🐱">
-                    Кот-помощник: в начале каждого уровня выглядывает наверху и первые 5 секунд
-                    ждёт — ткни в лапку, и таймер замрёт на 5 секунд: продумай маршрут!
-                  </HowToRow>
-                  <HowToRow icon="🐾">
-                    Лапка растёт: сначала несёт 3 зерна, после 5-го уровня — 4, после 10-го — 5!
-                  </HowToRow>
-                  <HowToRow icon="🎁">Между уровнями открывай сундучок со случайным перком: бывают бонусы и проклятья</HowToRow>
-                  <HowToRow icon="♾️">
-                    Каждые 5 уровней попкорна и мин больше, зёрна мельчают, а мины толстеют. Держись!
-                  </HowToRow>
-                  <HowToRow icon="🛒">
-                    Очки попкорна = опыт: копи и покупай лапки в магазине — их улучшения действуют постоянно!
-                  </HowToRow>
-                  <HowToRow icon="🏆">Лучшие забеги попадают в список лидеров в меню</HowToRow>
-                </ul>
-
-                <div className="mt-4 flex flex-wrap items-center justify-center gap-2">
+                <div className="mt-2.5 flex flex-wrap items-center justify-center gap-1.5">
                   {best > 0 && (
-                    <div className="inline-flex items-center gap-1.5 rounded-full bg-amber-100 px-3.5 py-1.5 font-ui text-xs font-semibold text-[#8a5330] ring-2 ring-amber-200">
+                    <div className="inline-flex items-center gap-1.5 rounded-full bg-amber-100 px-3 py-1 font-ui text-xs font-semibold text-[#8a5330] ring-2 ring-amber-200">
                       <Trophy className="h-4 w-4 text-amber-500" aria-hidden />
                       Рекорд: {best}
                     </div>
                   )}
-                  <div className="inline-flex items-center gap-1.5 rounded-full bg-amber-100 px-3.5 py-1.5 font-ui text-xs font-semibold text-[#8a5330] ring-2 ring-amber-200">
+                  <div className="inline-flex items-center gap-1.5 rounded-full bg-amber-100 px-3 py-1 font-ui text-xs font-semibold text-[#8a5330] ring-2 ring-amber-200">
                     <Popcorn className="h-4 w-4 text-amber-500" aria-hidden />
                     Опыт: {xp}
                   </div>
-                  <div className="inline-flex items-center gap-1.5 rounded-full bg-amber-100 px-3.5 py-1.5 font-ui text-xs font-semibold text-[#8a5330] ring-2 ring-amber-200">
+                  <div className="inline-flex items-center gap-1.5 rounded-full bg-amber-100 px-3 py-1 font-ui text-xs font-semibold text-[#8a5330] ring-2 ring-amber-200">
                     <PawPrint className="h-4 w-4 text-amber-500" aria-hidden />
                     {PAW_MAP[equippedPaw].name}
                   </div>
                 </div>
 
-                <div className="mt-3 [@media(max-height:700px)]:mt-2.5">
+                <div className="mt-3 grid grid-cols-[1.5fr_1fr] gap-2">
                   <GameButton onClick={startGame}>▶ ИГРАТЬ</GameButton>
+                  <button
+                    type="button"
+                    onClick={() => setOverlay('rules')}
+                    className="rounded-xl border-[3px] border-[#8a5330] bg-[#f3e2c8] px-2 py-3 font-pixel text-sm font-bold text-[#8a5330] shadow-[0_5px_0_#c9a97a] transition-all hover:bg-[#eed7b4] active:translate-y-[3px] active:shadow-[0_2px_0_#c9a97a] sm:text-base"
+                  >
+                    📖 ПРАВИЛА
+                  </button>
                 </div>
+
                 <div className="mt-2 grid grid-cols-3 gap-2">
                   <MenuSmallBtn
                     onClick={() => setOverlay('leaders')}
@@ -1007,9 +1101,6 @@ export function PopcornGame() {
                     СОЗДАТЕЛИ
                   </MenuSmallBtn>
                 </div>
-                <p className="mt-2.5 font-ui text-[11px] leading-snug text-[#a97c50] [@media(max-height:700px)]:mt-1.5">
-                  🎵 Лучше со звуком: музыка ускоряется на 30-й, 15-й и последних секундах!
-                </p>
               </motion.div>
             </motion.div>
           )}
@@ -1035,6 +1126,13 @@ export function PopcornGame() {
                 <div className="mt-5">
                   <GameButton onClick={resumeGame}>▶ ПРОДОЛЖИТЬ</GameButton>
                 </div>
+                <button
+                  type="button"
+                  onClick={quitToMenu}
+                  className="mt-2 w-full rounded-xl border-2 border-[#8a5330] bg-[#f3e2c8] px-4 py-2 font-pixel text-sm font-bold text-[#8a5330] transition hover:bg-[#eed7b4] active:scale-[0.98]"
+                >
+                  ⏹ КОНЕЦ ИГРЫ — В МЕНЮ
+                </button>
               </motion.div>
             </motion.div>
           )}
@@ -1153,6 +1251,13 @@ export function PopcornGame() {
                     >
                       🛒 МАГАЗИН ЛАПОК
                     </button>
+                    <button
+                      type="button"
+                      onClick={quitToMenu}
+                      className="w-full rounded-xl px-4 py-1.5 font-ui text-[11px] font-semibold text-[#a97c50] transition hover:text-[#8a5330] hover:underline"
+                    >
+                      ⏹ КОНЕЦ ИГРЫ — выйти в меню (опыт сохранится)
+                    </button>
                   </div>
                 )}
               </motion.div>
@@ -1220,13 +1325,20 @@ export function PopcornGame() {
                       <RotateCcw className="h-5 w-5" aria-hidden /> ЗАБЕГ ЗАНОВО
                     </span>
                   </GameButton>
+                  <button
+                    type="button"
+                    onClick={quitToMenu}
+                    className="w-full rounded-xl border-2 border-[#8a5330] bg-[#f3e2c8] px-4 py-2 font-pixel text-sm font-bold text-[#8a5330] transition hover:bg-[#eed7b4] active:scale-[0.98]"
+                  >
+                    В МЕНЮ
+                  </button>
                 </div>
               </motion.div>
             </motion.div>
           )}
         </AnimatePresence>
 
-        {/* Оверлеи меню: список лидеров / магазин лапок / создатели */}
+        {/* Оверлеи меню: список лидеров / магазин лапок / создатели / правила */}
         <AnimatePresence>
           {overlay === 'leaders' && (
             <LeadersOverlay leaders={leaders} onClose={() => setOverlay(null)} />
@@ -1242,6 +1354,7 @@ export function PopcornGame() {
             />
           )}
           {overlay === 'creators' && <CreatorsOverlay onClose={() => setOverlay(null)} />}
+          {overlay === 'rules' && <RulesOverlay onClose={() => setOverlay(null)} />}
         </AnimatePresence>
       </main>
 
