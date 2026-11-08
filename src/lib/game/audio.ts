@@ -61,8 +61,9 @@ const BASS: (string | null)[] = [
   'C3', null, 'G2', null, 'C3', null, 'G2', null,
 ]
 
-const BPM_BASE = 140
-const BPM_MAX_STEP = 8 // +8 BPM за волну, максимум +64
+/* Темп по уровням напряжённости (от оставшегося времени):
+   0 — база 140 · 1 — +25% (175) · 2 — +40% (196) · 3 — финиш 240 BPM */
+const TEMPOS = [140, 175, 196, 240]
 
 class ChipTuneAudio {
   private ctx: AudioContext | null = null
@@ -75,11 +76,11 @@ class ChipTuneAudio {
   private nextTime = 0
   private playingMusic = false
   private _muted = false
-  private waveLevel = 1
+  private level = 0
 
-  /** Сложность: темп и мелодия зависят от волны */
-  setIntensity(wave: number): void {
-    this.waveLevel = Math.max(1, wave)
+  /** Уровень напряжённости 0–3: темп и мелодия зависят от оставшегося времени */
+  setIntensity(level: number): void {
+    this.level = Math.max(0, Math.min(3, level))
   }
 
   /** Создаёт/возобновляет AudioContext. Вызывать по жесту пользователя. */
@@ -146,7 +147,7 @@ class ChipTuneAudio {
 
   private schedule(): void {
     if (!this.ctx || !this.playingMusic) return
-    const bpm = BPM_BASE + Math.min(this.waveLevel - 1, BPM_MAX_STEP) * 8
+    const bpm = TEMPOS[this.level]
     const stepDur = 60 / bpm / 2
     while (this.nextTime < this.ctx.currentTime + 0.12) {
       this.playStep(this.step % 32, this.nextTime, stepDur)
@@ -157,7 +158,7 @@ class ChipTuneAudio {
 
   private playStep(s: number, t: number, dur: number): void {
     const bus = this.musicBus as GainNode
-    const lead = (this.waveLevel >= 3 ? LEAD_B : LEAD_A)[s]
+    const lead = (this.level >= 2 ? LEAD_B : LEAD_A)[s]
     if (lead) this.tone('square', noteFreq(lead), t, dur * 0.92, 0.15, bus)
     const bass = BASS[s]
     if (bass) this.tone('triangle', noteFreq(bass), t, dur * 1.7, 0.24, bus)

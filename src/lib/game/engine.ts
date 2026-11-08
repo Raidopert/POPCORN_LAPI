@@ -82,8 +82,9 @@ const GAME_SECONDS = 60
 const CARRY_MAX = 3
 const WAVE_DELAY = 0.8
 const SPAWN_DUR = 0.35
-const CORN_CHANCE = 0.18 // доля кукурузы-ловушки среди спавнов
+const CORN_CHANCE = 0.18 // доля кукурузы-мин среди новых спавнов
 const GOLDEN_CHANCE = 0.12 // доля золотых зёрен среди обычного попкорна
+const CORN_MAX = 10 // максимум мин одновременно на поле
 
 /** Смещения «шапки» попкорна над стаканчиком (в единицах спрайта) */
 const PUFF_POS: Array<[number, number]> = [
@@ -127,6 +128,7 @@ export class PopcornEngine {
   private banner = { text: '', t: 99 }
   private waveDelay = -1
   private lastSec = -1
+  private audioLevel = -1
   private lastStatsKey = ''
 
   private cupScale = 5
@@ -188,7 +190,8 @@ export class PopcornEngine {
     this.waveDelay = -1
     this.lastSec = GAME_SECONDS
     this.banner = { text: 'ВОЛНА 1', t: 0 }
-    audio.setIntensity(1)
+    audio.setIntensity(0)
+    this.audioLevel = 0
     if (!this.paw.seen) {
       this.paw.x = this.cup.x
       this.paw.y = this.H * 0.4
@@ -264,24 +267,42 @@ export class PopcornEngine {
 
   private spawnWave(): void {
     const count = Math.min(15, 8 + this.wave)
-    for (let i = 0; i < count; i++) this.spawnPiece(i)
+    let cornOnField = this.pieces.filter((p) => p.kind === 'corn').length
+    for (let i = 0; i < count; i++) {
+      const kind = this.decideKind(cornOnField)
+      if (kind === 'corn') cornOnField++
+      this.spawnPiece(i, kind)
+    }
   }
 
-  private spawnPiece(index: number): void {
+  private decideKind(cornOnField: number): PieceKind {
+    const r = Math.random()
+    if (r < CORN_CHANCE && cornOnField < CORN_MAX) return 'corn'
+    return Math.random() < GOLDEN_CHANCE ? 'golden' : 'popcorn'
+  }
+
+  private spawnPiece(index: number, kind: PieceKind): void {
     const u = this.u
     const mX = 46 * u
     const top = 80 + 16 * u
     const bottom = this.H - 46 * u
     let x = this.W / 2
     let y = this.H / 2
-    for (let tries = 0; tries < 30; tries++) {
+    for (let tries = 0; tries < 40; tries++) {
       x = mX + Math.random() * (this.W - mX * 2)
       y = top + Math.random() * Math.max(10, bottom - top)
       const dc = Math.hypot(x - this.cup.x, y - this.cup.y)
-      if (dc > 135 * u) break
+      if (dc <= 135 * u) continue
+      // не даём зернам застрять в кластере мин — маршрут всегда проходим
+      let crowded = false
+      for (const q of this.pieces) {
+        if (Math.hypot(x - q.x, y - q.y) < 40 * u) {
+          crowded = true
+          break
+        }
+      }
+      if (!crowded) break
     }
-    const r = Math.random()
-    const kind: PieceKind = r < CORN_CHANCE ? 'corn' : r < CORN_CHANCE + GOLDEN_CHANCE ? 'golden' : 'popcorn'
     this.pieces.push({
       x,
       y,
@@ -386,10 +407,11 @@ export class PopcornEngine {
       }
     }
 
-    // Волна собрана → следующая
+    // Вся волна собрана → следующая. Кукуруза-мины НЕ мешает: считаем только попкорн
+    const hasPopcorn = this.pieces.some((p) => p.kind !== 'corn')
     if (
       this.waveDelay < 0 &&
-      this.pieces.length === 0 &&
+      !hasPopcorn &&
       this.carried.length === 0 &&
       this.flying.length === 0
     ) {
@@ -400,11 +422,17 @@ export class PopcornEngine {
       if (this.waveDelay <= 0) {
         this.waveDelay = -1
         this.wave++
-        audio.setIntensity(this.wave)
         this.banner = { text: `ВОЛНА ${this.wave}`, t: 0 }
         audio.play('wave')
         this.spawnWave()
       }
+    }
+
+    // Музыка зависит от оставшегося времени: >30с база, ≤30с +25%, ≤15с +40%, ≤5с 240 BPM
+    const level = this.timeLeft > 30 ? 0 : this.timeLeft > 15 ? 1 : this.timeLeft > 5 ? 2 : 3
+    if (level !== this.audioLevel) {
+      this.audioLevel = level
+      audio.setIntensity(level)
     }
 
     // Таймер
@@ -639,7 +667,7 @@ export class PopcornEngine {
       const y = t.y - 42 * this.u * q
       ctx.save()
       ctx.globalAlpha = Math.max(0, Math.min(1, alpha))
-      ctx.font = `700 ${t.size}px "Pixelify Sans", system-ui, sans-serif`
+      ctx.font = `600 ${t.size}px "Handjet", system-ui, sans-serif`
       ctx.textAlign = 'center'
       ctx.textBaseline = 'middle'
       ctx.lineWidth = Math.max(3, t.size * 0.16)
@@ -660,7 +688,7 @@ export class PopcornEngine {
     const size = 34 * this.u * pop
     ctx.save()
     ctx.globalAlpha = alpha
-    ctx.font = `700 ${size}px "Pixelify Sans", system-ui, sans-serif`
+    ctx.font = `700 ${size}px "Handjet", system-ui, sans-serif`
     ctx.textAlign = 'center'
     ctx.textBaseline = 'middle'
     ctx.lineWidth = Math.max(4, size * 0.18)

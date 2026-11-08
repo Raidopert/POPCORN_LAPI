@@ -121,11 +121,18 @@
   }
 }
 
-/* ================= Марта и Попкорн ================= */
+/* ================= Кошачий попкорнный Беспредел ================= */
 
+/* Пиксельный дисплейный шрифт (заголовки, цифры) — Handjet: ровная кириллица */
 .font-pixel {
-  font-family: var(--font-pixel), 'Pixelify Sans', 'Comic Sans MS', system-ui, sans-serif;
-  letter-spacing: 0.02em;
+  font-family: var(--font-pixel), 'Handjet', 'Trebuchet MS', system-ui, sans-serif;
+  letter-spacing: 0.04em;
+}
+
+/* Читаемый текст интерфейса (инструкции, подписи) — системный шрифт, без «прыгающих» букв */
+.font-ui {
+  font-family: ui-sans-serif, system-ui, -apple-system, 'Segoe UI', Roboto, 'Helvetica Neue',
+    Arial, sans-serif;
 }
 
 .text-shadow-pixel {

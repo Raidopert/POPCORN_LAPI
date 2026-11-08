@@ -59,7 +59,7 @@ function Pill({
 }) {
   return (
     <div
-      className={`flex items-center gap-1.5 rounded-full border border-white/15 bg-black/45 px-3 py-1.5 font-pixel text-xs text-white backdrop-blur-sm sm:text-sm ${className}`}
+      className={`flex items-center gap-1.5 rounded-full border border-white/15 bg-black/45 px-3 py-1.5 font-ui text-xs font-semibold text-white backdrop-blur-sm sm:text-sm ${className}`}
     >
       {children}
     </div>
@@ -270,7 +270,7 @@ export function PopcornGame() {
               <>
                 <Pill>
                   <Popcorn className="h-4 w-4 text-amber-300" aria-hidden />
-                  <span className="min-w-6 tabular-nums">{stats.score}</span>
+                  <span className="min-w-6 font-pixel text-base tabular-nums">{stats.score}</span>
                 </Pill>
                 <Pill className={`relative overflow-hidden ${urgent ? 'animate-pulse border-red-400/60' : ''}`}>
                   <span
@@ -285,7 +285,7 @@ export function PopcornGame() {
             ) : (
               <Pill>
                 <Trophy className="h-4 w-4 text-amber-300" aria-hidden />
-                <span className="tabular-nums">{best}</span>
+                <span className="font-pixel text-base tabular-nums">{best}</span>
               </Pill>
             )}
           </div>
@@ -329,23 +329,23 @@ export function PopcornGame() {
                   priority
                   className="pixelated animate-float-y mx-auto h-32 w-32 rounded-2xl border-4 border-[#E24B3B] bg-[#F8D8B8] object-cover shadow-lg [@media(max-height:700px)]:h-24 [@media(max-height:700px)]:w-24 sm:h-44 sm:w-44"
                 />
-                <h1 className="text-shadow-pixel mt-2 font-pixel text-xl font-bold leading-tight text-[#B33A26] [@media(max-height:700px)]:mt-1.5 sm:text-2xl">
+                <h1 className="text-shadow-pixel mt-2 font-pixel text-2xl font-bold leading-tight text-[#B33A26] [@media(max-height:700px)]:mt-1.5 sm:text-3xl">
                   КОШАЧИЙ ПОПКОРННЫЙ БЕСПРЕДЕЛ
                 </h1>
-                <p className="mt-1 font-pixel text-[11px] text-[#8a5330] sm:text-xs">
+                <p className="mt-1 font-ui text-xs font-medium text-[#8a5330] sm:text-sm">
                   8-битная мини-игра · 60 секунд на рекорд
                 </p>
 
-                <ul className="mt-3 space-y-1.5 text-left font-pixel text-[11px] leading-snug text-[#5C3A1E] [@media(max-height:700px)]:mt-2 sm:text-xs">
+                <ul className="mt-3 space-y-1.5 text-left font-ui text-xs leading-snug text-[#5C3A1E] [@media(max-height:700px)]:mt-2 sm:text-sm">
                   <HowToRow icon="👆">Веди лапку пальцем по экрану (на ПК — мышкой)</HowToRow>
-                  <HowToRow icon="🍿">Подбирай зёрна — до 3 за раз. Золотое зерно = +5!</HowToRow>
-                  <HowToRow icon="🌽">Кукуруза — ловушка! Заденешь — минус балл</HowToRow>
-                  <HowToRow icon="🥤">Поднеси лапку к стаканчику, чтобы высыпать добычу</HowToRow>
-                  <HowToRow icon="⏱">Волны всё больше, музыка быстрее — успей собрать максимум!</HowToRow>
+                  <HowToRow icon="🍿">Собирай попкорн — до 3 зёрен за раз. Золотое зерно = +5!</HowToRow>
+                  <HowToRow icon="🌽">Кукуруза — мины: обходи, заденешь — минус балл</HowToRow>
+                  <HowToRow icon="🥤">Высыпай добычу в стаканчик внизу экрана</HowToRow>
+                  <HowToRow icon="🏁">Волна пройдена, когда собран весь попкорн. Мины остаются!</HowToRow>
                 </ul>
 
                 {best > 0 && (
-                  <div className="mt-4 inline-flex items-center gap-1.5 rounded-full bg-amber-100 px-4 py-1.5 font-pixel text-xs text-[#8a5330] ring-2 ring-amber-200">
+                  <div className="mt-4 inline-flex items-center gap-1.5 rounded-full bg-amber-100 px-4 py-1.5 font-ui text-xs font-semibold text-[#8a5330] ring-2 ring-amber-200">
                     <Trophy className="h-4 w-4 text-amber-500" aria-hidden />
                     Рекорд: {best}
                   </div>
@@ -354,8 +354,8 @@ export function PopcornGame() {
                 <div className="mt-3 [@media(max-height:700px)]:mt-2.5">
                   <GameButton onClick={startGame}>▶ ИГРАТЬ</GameButton>
                 </div>
-                <p className="mt-2.5 font-pixel text-[10px] text-[#a97c50] [@media(max-height:700px)]:mt-1.5">
-                  🎵 Лучше со звуком — играет 8-битная музыка!
+                <p className="mt-2.5 font-ui text-[11px] leading-snug text-[#a97c50] [@media(max-height:700px)]:mt-1.5">
+                  🎵 Лучше со звуком: музыка ускоряется на 30-й, 15-й и последних секундах!
                 </p>
               </motion.div>
             </motion.div>
@@ -376,7 +376,7 @@ export function PopcornGame() {
                 exit={{ scale: 0.94, opacity: 0 }}
               >
                 <h2 className="font-pixel text-2xl font-bold text-[#B33A26]">ПАУЗА</h2>
-                <p className="mt-2 font-pixel text-xs text-[#8a5330]">
+                <p className="mt-2 font-ui text-xs font-medium text-[#8a5330]">
                   Счёт: {stats.score} · Волна {stats.wave}
                 </p>
                 <div className="mt-5">
@@ -411,20 +411,20 @@ export function PopcornGame() {
                     {result.score}
                   </span>
                 </div>
-                <p className="mt-1 font-pixel text-xs text-[#8a5330]">
+                <p className="mt-1 font-ui text-xs font-medium text-[#8a5330]">
                   зёрен собрано · волна {result.waves}
                 </p>
 
                 {result.record ? (
                   <motion.div
-                    className="mt-4 inline-block rounded-full bg-amber-400 px-4 py-2 font-pixel text-xs font-bold text-[#5C3A1E] shadow-md"
+                    className="mt-4 inline-block rounded-full bg-amber-400 px-4 py-2 font-ui text-xs font-bold text-[#5C3A1E] shadow-md"
                     animate={{ scale: [1, 1.08, 1] }}
                     transition={{ repeat: Infinity, duration: 0.9 }}
                   >
                     🎉 НОВЫЙ РЕКОРД!
                   </motion.div>
                 ) : (
-                  <div className="mt-4 inline-flex items-center gap-1.5 rounded-full bg-amber-100 px-4 py-1.5 font-pixel text-xs text-[#8a5330] ring-2 ring-amber-200">
+                  <div className="mt-4 inline-flex items-center gap-1.5 rounded-full bg-amber-100 px-4 py-1.5 font-ui text-xs font-semibold text-[#8a5330] ring-2 ring-amber-200">
                     <Trophy className="h-4 w-4 text-amber-500" aria-hidden />
                     Рекорд: {best}
                   </div>
@@ -445,7 +445,7 @@ export function PopcornGame() {
 
       {/* Липкий футер */}
       <footer className="relative z-30 mt-auto border-t border-amber-100/10 bg-[#160c07] px-4 pb-[max(0.5rem,env(safe-area-inset-bottom))] pt-2 text-center">
-        <p className="font-pixel text-[10px] tracking-wide text-amber-200/60 sm:text-xs">
+        <p className="font-ui text-[11px] tracking-wide text-amber-200/70 sm:text-xs">
           🌽 Кошачий попкорнный Беспредел · 8-битная мини-игра · сделано с ❤️
         </p>
       </footer>

@@ -1,5 +1,5 @@
 import type { Metadata, Viewport } from "next";
-import { Geist, Geist_Mono, Pixelify_Sans } from "next/font/google";
+import { Geist, Geist_Mono, Handjet } from "next/font/google";
 import "./globals.css";
 import { Toaster } from "@/components/ui/toaster";
 
@@ -13,7 +13,7 @@ const geistMono = Geist_Mono({
   subsets: ["latin"],
 });
 
-const pixelSans = Pixelify_Sans({
+const pixelSans = Handjet({
   variable: "--font-pixel",
   subsets: ["latin", "cyrillic"],
   weight: ["400", "500", "600", "700"],
