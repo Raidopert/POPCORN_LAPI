@@ -156,6 +156,13 @@ class ChipTuneAudio {
 
   private schedule(): void {
     if (!this.ctx || !this.playingMusic) return
+    // Защита от «завала» нот: если вкладка была свёрнута и таймер троттилился,
+    // nextTime отстаёт от currentTime — при возврате цикл создавал бы тысячи
+    // осцилляторов разом и крашил вкладку. Просто перескакиваем пропущенное.
+    if (this.nextTime < this.ctx.currentTime - 0.25) {
+      this.nextTime = this.ctx.currentTime + 0.05
+      this.step = 0
+    }
     const bpm = TEMPOS[this.level]
     const stepDur = 60 / bpm / 2
     while (this.nextTime < this.ctx.currentTime + 0.12) {

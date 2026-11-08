@@ -283,11 +283,13 @@ export function PopcornGame() {
       },
     })
     engineRef.current = engine
+    ;(window as unknown as { __popcornEngine?: PopcornEngine }).__popcornEngine = engine
     layoutRef.current()
 
     return () => {
       engine.destroy()
       engineRef.current = null
+      delete (window as unknown as { __popcornEngine?: PopcornEngine }).__popcornEngine
     }
   }, [storeBest])
 
@@ -300,7 +302,10 @@ export function PopcornGame() {
     return () => ro.disconnect()
   }, [])
 
-  /* Ввод: координаты переводим в систему поля с учётом трансформации перка */
+  /* Ввод: инверсия управления для перков-трансформаций.
+     rot180/mirror — сырые координаты: CSS-зеркало переворачивает картинку,
+     и лапка на экране идёт в противоположную сторону от пальца.
+     rot90 — мир повёрнут с заменой измерений, поэтому даём развёрнутую инверсию. */
   useEffect(() => {
     const main = mainRef.current
     if (!main) return
@@ -312,18 +317,9 @@ export function PopcornGame() {
       const sy = e.clientY - r.top
       let x = sx
       let y = sy
-      switch (transformRef.current) {
-        case 'rot180':
-          x = r.width - sx
-          y = r.height - sy
-          break
-        case 'mirror':
-          x = r.width - sx
-          break
-        case 'rot90':
-          x = sy
-          y = r.width - sx
-          break
+      if (transformRef.current === 'rot90') {
+        x = r.height - sy
+        y = sx
       }
       eng.setPointer(x, y, e.pointerType === 'touch' ? 64 : 0)
     }
@@ -346,12 +342,16 @@ export function PopcornGame() {
     layoutRef.current()
   }, [perk, phase])
 
-  /* Автопауза при сворачивании вкладки */
+  /* Автопауза при сворачивании вкладки: игру и музыку ставим на паузу,
+     чтобы троттлинг таймеров не копил отставание аудио-планировщика */
   useEffect(() => {
     const onVisibility = () => {
       if (document.hidden) {
+        audio.stopMusic()
         engineRef.current?.setPaused(true)
         setPhase((p) => (p === 'playing' ? 'paused' : p))
+      } else if (engineRef.current?.phase === 'playing') {
+        audio.startMusic()
       }
     }
     document.addEventListener('visibilitychange', onVisibility)
@@ -391,12 +391,14 @@ export function PopcornGame() {
 
   const resumeGame = useCallback(() => {
     audio.play('click')
+    audio.startMusic()
     engineRef.current?.setPaused(false)
     setPhase('playing')
   }, [])
 
   const pauseGame = useCallback(() => {
     audio.play('click')
+    audio.stopMusic()
     engineRef.current?.setPaused(true)
     setPhase('paused')
   }, [])

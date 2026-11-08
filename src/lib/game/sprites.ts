@@ -189,22 +189,26 @@ export function makePawSprite(): Sprite {
   return renderGrid(g)
 }
 
-/* ================= Зерно кукурузы (ловушка, минус балл) ================= */
+/* ================= Зерно-мина (ловушка, минус балл) — красно-белое, ЯРКОЕ ================= */
 
 export function makeCornSprite(): Sprite {
   const g = createGrid(12, 12)
-  const body = '#FFC93C'
-  const shade = '#E8960C'
-  const shine = '#FFF3B0'
-  const edge = '#C2410C' // красноватая обводка — сигнал «не трогай!»
+  const body = '#E5342E' // ярко-красный — сигнал опасности
+  const dark = '#9E1512' // тёмно-красная тень
+  const white = '#FFF6EC'
+  const edge = '#570606' // тёмно-красная обводка
 
   // Овальное зерно
   paintCircle(g, 6, 5.4, 3.6, body)
   paintCircle(g, 6, 7.4, 3.1, body)
   // Тень снизу-справа
-  tintCircle(g, 7.6, 8.2, 2.4, shade)
-  // Блик сверху-слева
-  tintCircle(g, 4.8, 4.2, 1.4, shine)
+  tintCircle(g, 7.8, 8.4, 2.4, dark)
+  // Белые «предупреждающие» полосы и блики
+  tintCircle(g, 4.6, 4.0, 1.5, white)
+  g[6][3] = white
+  g[6][4] = white
+  g[7][3] = white
+  g[3][7] = white
 
   outlineGrid(g, edge)
   return renderGrid(g)

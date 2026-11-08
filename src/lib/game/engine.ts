@@ -609,7 +609,14 @@ export class PopcornEngine {
     if (this.destroyed) return
     const dt = Math.min(0.05, (ts - this.lastTs) / 1000)
     this.lastTs = ts
-    if (this.phase === 'playing' && !this.paused) this.update(dt)
+    if (this.phase === 'playing' && !this.paused) {
+      try {
+        this.update(dt)
+      } catch (err) {
+        // Сбой кадра не должен замораживать игру — логируем и продолжаем
+        console.error('[popcorn] update error:', err)
+      }
+    }
     this.render(ts)
     this.emitStats(false)
     this.raf = requestAnimationFrame(this.loop)
@@ -715,7 +722,9 @@ export class PopcornEngine {
     const { ctx } = this
     const u = this.u
     for (const p of this.pieces) {
-      const bob = Math.sin(ts * 0.004 + p.phase) * 2.5 * u
+      // Мины-зерна статичны (никаких прыжков) — попкорн слегка «дышит»
+      const bobAmp = p.kind === 'corn' ? 0 : 2.5
+      const bob = Math.sin(ts * 0.004 + p.phase) * bobAmp * u
       const y = p.y + bob
       const pop = p.spawn > 0 ? easeOutBack(1 - p.spawn / (SPAWN_DUR + 0.5)) : 1
       const base = p.kind === 'corn' ? 2.3 : 2.6
@@ -758,11 +767,11 @@ export class PopcornEngine {
     const u = this.u
     if (!this.paw.seen && this.phase === 'idle') return
 
-    // Тряска при штрафе + дрожь перка «Нервная лапа»
+    // Тряска при штрафе + сильная дрожь перка «Нервная лапа»
     const shake = Math.sin(ts * 0.055) * 5 * this.paw.hurt
     const shiver = this.perk === 'shaky'
-    const jx = shiver ? Math.sin(ts * 0.021) * 4 * u + Math.sin(ts * 0.047) * 2.5 * u : 0
-    const jy = shiver ? Math.cos(ts * 0.033) * 3 * u : 0
+    const jx = shiver ? Math.sin(ts * 0.021) * 9 * u + Math.sin(ts * 0.047) * 6 * u : 0
+    const jy = shiver ? Math.cos(ts * 0.017) * 7 * u + Math.sin(ts * 0.053) * 4 * u : 0
     const px = this.paw.x + shake + jx
     const py = this.paw.y + jy
 
