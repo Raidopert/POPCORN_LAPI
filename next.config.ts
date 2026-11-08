@@ -1,8 +1,8 @@
 import type { NextConfig } from "next";
 
 const nextConfig: NextConfig = {
-  output: "standalone",
-  /* config options here */
+  // output: "standalone" убран — чтобы `npm run build` + `npm run start`
+  // одинаково работали на Windows, macOS, Linux и Vercel
   typescript: {
     ignoreBuildErrors: true,
   },
