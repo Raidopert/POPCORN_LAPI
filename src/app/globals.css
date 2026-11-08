@@ -120,3 +120,39 @@
     @apply bg-background text-foreground;
   }
 }
+
+/* ================= Марта и Попкорн ================= */
+
+.font-pixel {
+  font-family: var(--font-pixel), 'Pixelify Sans', 'Comic Sans MS', system-ui, sans-serif;
+  letter-spacing: 0.02em;
+}
+
+.text-shadow-pixel {
+  text-shadow: 2px 2px 0 rgba(90, 40, 15, 0.28);
+}
+
+img.pixelated {
+  image-rendering: pixelated;
+}
+
+@keyframes float-y {
+  0%,
+  100% {
+    transform: translateY(0);
+  }
+  50% {
+    transform: translateY(-7px);
+  }
+}
+
+.animate-float-y {
+  animation: float-y 3s ease-in-out infinite;
+}
+
+/* Запрет «резинового» скролла и выделения при игре */
+html,
+body {
+  overscroll-behavior: none;
+  -webkit-tap-highlight-color: transparent;
+}
