@@ -52,3 +52,17 @@ prompt
 server.log
 # Skills directory
 /skills/
+# --- sandbox/service files (не нужны для публикации игры) ---
+.env*
+!.env.example
+.zscripts/
+Caddyfile
+db/
+download/
+examples/
+mini-services/
+tests/
+tool-results/
+skills/
+dev.log
+*.log
