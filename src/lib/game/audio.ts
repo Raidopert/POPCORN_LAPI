@@ -16,6 +16,7 @@ export type SfxName =
   | 'chest'
   | 'perk'
   | 'levelwin'
+  | 'meow'
 
 const NOTE_OFFSETS: Record<string, number> = {
   C: 0,
@@ -308,6 +309,11 @@ class ChipTuneAudio {
         ;['C6', 'E6', 'G6', 'C7'].forEach((n) =>
           this.tone('square', noteFreq(n), t + 0.5, 0.4, 0.1, bus),
         )
+        break
+      case 'meow':
+        // «Мяу!» кота-бонуса: два скольжения квадратной волной
+        this.tone('square', 740, t, 0.11, 0.18, bus, 1080)
+        this.tone('square', 900, t + 0.13, 0.2, 0.18, bus, 430)
         break
     }
   }

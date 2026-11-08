@@ -29,6 +29,8 @@ export interface EngineStats {
   quota: number
   collected: number
   carrying: number
+  carryMax: number
+  freezeLeft: number
   paused: boolean
 }
 
@@ -97,10 +99,9 @@ interface FloatText {
 
 const LEVEL_SECONDS = 60
 const LEVEL_SECONDS_PERK = 75 // перк «Кошачьи часы»
-const CARRY_MAX = 3
 const SPAWN_DUR = 0.35
-const CORN_MAX = 12 // максимум мин одновременно на поле
 const CLEAR_DELAY = 0.5 // пауза до «уровень пройден», чтобы зёрна долетели
+const FREEZE_SECONDS = 5 // бонус кота: столько секунд стоит таймер
 
 /** Смещения «шапки» попкорна над стаканчиком (в единицах спрайта) */
 const PUFF_POS: Array<[number, number]> = [
@@ -113,6 +114,37 @@ const PUFF_POS: Array<[number, number]> = [
   [-15, 0],
   [15, 0],
 ]
+
+/** Пиксельный кот-бонус (голова + туловище + хвост), 20×16 клеток.
+ *  o — контур · O — шерсть · D — полоски · P — ушки · E — глаза · W — мордочка · N — нос */
+const CAT_BODY: string[] = [
+  '..oo............oo..',
+  '.oPPo..........oPPo.',
+  '.oPOooooooooooooPOo.',
+  '..oOOOOOOOOOOOOOOo..',
+  '..oODDOOOOOOOODDOo..',
+  '..oOOOOOOOOOOOOOOo..',
+  '..oOOEEOOOOOOEEOOo..',
+  '..oOOEEOOOOOOEEOOo..',
+  '..oOOOooWWWWooOOOo..',
+  '..oOOOOWNNWWOOOOo...',
+  '..oOOOOWWWWOOOOOo...',
+  '..ooOOOOOOOOOOOOoo..',
+  '...oOODDOOOODDOOo...',
+  '...oOOOOOOOOOOOOo.oo',
+  '...oOOOOOOOOOOOOooDo',
+  '....oooooooooooo..o.',
+]
+
+const CAT_COLORS: Record<string, string> = {
+  o: '#46220C',
+  O: '#F0A24A',
+  D: '#D97F2B',
+  P: '#E8746A',
+  E: '#2B1408',
+  W: '#FFF3E2',
+  N: '#B4552D',
+}
 
 export class PopcornEngine {
   private canvas: HTMLCanvasElement
@@ -135,11 +167,11 @@ export class PopcornEngine {
   private score = 0
   private lvl = 1
   private perk: PerkId | null = null
-  private quota = 10
+  private quota = 9
   private collected = 0
   private wave = 1
-  private waveSize = 7
-  private cornChance = 0.12
+  private popPerWave = 10
+  private cornPerWave = 3
   private goldenChance = 0.12
   private baseWaveDelay = 0.82
   private waveDelay = -1
@@ -157,6 +189,12 @@ export class PopcornEngine {
   private lastSec = -1
   private audioStage = -1
   private lastStatsKey = ''
+
+  /* --- кот-бонус и фриз-тайм --- */
+  private cat: { t: number; state: 'in' | 'idle' | 'happy' | 'out'; stateT: number } | null = null
+  private nextCatLevel = 4
+  private freezeLeft = 0
+  private lastFreezeSec = -1
 
   private cupScale = 5
   private cupH = 0
@@ -182,6 +220,7 @@ export class PopcornEngine {
       paw: makePawSprite(),
       sparkle: makeSparkleSprite(),
     }
+    this.nextCatLevel = 3 + Math.floor(Math.random() * 5)
     this.lastTs = performance.now()
     this.raf = requestAnimationFrame(this.loop)
   }
@@ -197,6 +236,8 @@ export class PopcornEngine {
   startRun(opts: { fast?: boolean } = {}): void {
     this.debugFast = !!opts.fast
     this.score = 0
+    // Кот-бонус придёт на случайном уровне из диапазона 3–7
+    this.nextCatLevel = 3 + Math.floor(Math.random() * 5)
     this.startLevel(1, null)
   }
 
@@ -208,11 +249,14 @@ export class PopcornEngine {
     this.quota = this.debugFast ? 3 : quotaFor(level, perk === 'doublepoints')
     this.collected = 0
     this.wave = 1
-    this.waveSize = Math.min(16, 7 + Math.floor(level * 0.8))
-    this.cornChance = Math.min(0.3, 0.12 + (level - 1) * 0.02)
-    if (perk === 'cornrain') this.cornChance = Math.min(0.5, this.cornChance * 2)
+    /* Ступень сложности каждые 5 уровней: пропорционально больше попкорна
+       и мин на волне — за 60 секунд нужно собирать всё больше, но без безумия */
+    const step = Math.floor((level - 1) / 5)
+    this.popPerWave = Math.min(26, 10 + step * 3)
+    this.cornPerWave = Math.min(11, 3 + step)
+    if (perk === 'cornrain') this.cornPerWave = Math.min(14, this.cornPerWave * 2)
     this.goldenChance = perk === 'goldenvein' ? 0.26 : 0.12
-    this.baseWaveDelay = Math.max(0.35, 0.82 - (level - 1) * 0.04)
+    this.baseWaveDelay = Math.max(0.4, 0.8 - (level - 1) * 0.03)
 
     this.phase = 'playing'
     this.paused = false
@@ -229,6 +273,17 @@ export class PopcornEngine {
     audio.setIntensity(0)
     audio.setMusicLevel(level >= 3 ? 1 : 0)
     this.audioStage = 0
+    this.freezeLeft = 0
+    this.lastFreezeSec = -1
+    /* Кот-бонус: каждые 3–7 уровней в начале уровня прибегает кот —
+       ткни в лапку, чтобы заморозить таймер на 5 секунд и продумать маршрут */
+    if (level === this.nextCatLevel) {
+      this.cat = { t: 0, state: 'in', stateT: 0 }
+      this.nextCatLevel = level + 3 + Math.floor(Math.random() * 5)
+      audio.play('meow')
+    } else {
+      this.cat = null
+    }
     if (!this.paw.seen) {
       this.paw.x = this.cup.x
       this.paw.y = this.H * 0.4
@@ -250,6 +305,11 @@ export class PopcornEngine {
   /** Координаты в системе игрового поля (трансформации экрана считает компонент) */
   setPointer(x: number, y: number, lift = 0): void {
     if (this.phase !== 'playing' || this.paused) return
+    /* Кот-бонус: ткнул в лапку — получил стоп-таймер */
+    if (this.cat && this.freezeLeft <= 0 && this.catHit(x, y)) {
+      this.startFreeze()
+      return
+    }
     this.paw.tx = x
     this.paw.ty = y - lift * this.u
     this.paw.seen = true
@@ -295,18 +355,17 @@ export class PopcornEngine {
   /* ================= волны ================= */
 
   private spawnWave(): void {
-    let cornOnField = this.pieces.filter((p) => p.kind === 'corn').length
-    for (let i = 0; i < this.waveSize; i++) {
-      const kind = this.decideKind(cornOnField)
-      if (kind === 'corn') cornOnField++
-      this.spawnPiece(i, kind)
+    /* Точный состав волны: норма попкорна + мины (ступень каждые 5 уровней) */
+    const kinds: PieceKind[] = []
+    for (let i = 0; i < this.popPerWave; i++) {
+      kinds.push(Math.random() < this.goldenChance ? 'golden' : 'popcorn')
     }
-  }
-
-  private decideKind(cornOnField: number): PieceKind {
-    const r = Math.random()
-    if (r < this.cornChance && cornOnField < CORN_MAX) return 'corn'
-    return Math.random() < this.goldenChance ? 'golden' : 'popcorn'
+    for (let i = 0; i < this.cornPerWave; i++) kinds.push('corn')
+    for (let i = kinds.length - 1; i > 0; i--) {
+      const j = Math.floor(Math.random() * (i + 1))
+      ;[kinds[i], kinds[j]] = [kinds[j], kinds[i]]
+    }
+    kinds.forEach((kind, i) => this.spawnPiece(i, kind))
   }
 
   private spawnPiece(index: number, kind: PieceKind): void {
@@ -340,6 +399,23 @@ export class PopcornEngine {
       spawn: SPAWN_DUR + index * 0.045,
       dA: Math.random() * Math.PI * 2,
     })
+  }
+
+  /* ================= размеры и ступени сложности ================= */
+
+  /** Вместимость лапки: 3 зерна, после 5-го уровня — 4, после 10-го — 5 */
+  private get carryMax(): number {
+    return this.lvl >= 11 ? 5 : this.lvl >= 6 ? 4 : 3
+  }
+
+  /** Попкорн каждые 5 уровней немного мельчает — на поле остаётся место */
+  private get popScale(): number {
+    return Math.max(0.68, 1 - 0.035 * Math.floor((this.lvl - 1) / 5))
+  }
+
+  /** Мины-кукурузины каждые 5 уровней, наоборот, толстеют */
+  private get cornScale(): number {
+    return Math.min(1.5, 1 + 0.09 * Math.floor((this.lvl - 1) / 5))
   }
 
   /* ================= перки-механики ================= */
@@ -389,6 +465,110 @@ export class PopcornEngine {
     }
   }
 
+  /* ================= кот-бонус и фриз-тайм ================= */
+
+  /** Геометрия кота в мировых координатах (въезд сверху с пружинкой) */
+  private catGeom(): { x: number; y: number; cell: number; slide: number } {
+    const cell = 4.4 * this.u
+    let slide = 0
+    if (this.cat) {
+      if (this.cat.state === 'in') {
+        slide = (1 - easeOutBack(Math.min(1, this.cat.stateT / 0.55))) * -130 * this.u
+      }
+      if (this.cat.state === 'out') {
+        slide = easeOutQuad(Math.min(1, this.cat.stateT / 0.45)) * -130 * this.u
+      }
+    }
+    return { x: this.W / 2, y: 30 * this.u, cell, slide }
+  }
+
+  /** Центры двух лапок кота (точки клика) */
+  private catPawPoints(): Array<[number, number]> {
+    const g = this.catGeom()
+    const ox = g.x - 10 * g.cell
+    const oy = g.y + g.slide
+    return [
+      [ox + 6.2 * g.cell, oy + 15.4 * g.cell],
+      [ox + 13.8 * g.cell, oy + 15.4 * g.cell],
+    ]
+  }
+
+  /** Клик по лапке кота (учитываем зеркальные перки-трансформации) */
+  private catHit(x: number, y: number): boolean {
+    if (!this.cat || this.cat.state === 'out' || this.cat.state === 'happy') return false
+    const r = 4.6 * this.catGeom().cell
+    const cands: Array<[number, number]> = [[x, y]]
+    if (this.perk === 'rot180') cands.push([this.W - x, this.H - y])
+    if (this.perk === 'mirror') cands.push([this.W - x, y])
+    return this.catPawPoints().some(([px, py]) =>
+      cands.some(([cx, cy]) => Math.hypot(cx - px, cy - py) < r),
+    )
+  }
+
+  private startFreeze(): void {
+    if (!this.cat || this.freezeLeft > 0) return
+    this.freezeLeft = FREEZE_SECONDS
+    this.lastFreezeSec = FREEZE_SECONDS + 1
+    this.cat.state = 'happy'
+    this.cat.stateT = 0
+    const g = this.catGeom()
+    this.crumbs(g.x, g.y + 7 * g.cell, '#FFE066', 12)
+    this.crumbs(g.x, g.y + 7 * g.cell, '#BFF3E6', 8)
+    this.texts.push({
+      x: g.x,
+      y: g.y - 8 * g.cell,
+      text: 'СТОП-ТАЙМЕР!',
+      color: '#BFF3E6',
+      t: 0,
+      dur: 1.4,
+      size: 30 * this.u,
+    })
+    audio.play('meow')
+    audio.setIntensity(0) // музыка затихает, пока игрок думает
+    this.audioStage = -1
+  }
+
+  /** Обновление кота/фриза. true — мир заморожен, остальной update пропускаем */
+  private updateCat(dt: number): boolean {
+    if (!this.cat) return false
+    this.cat.t += dt
+    this.cat.stateT += dt
+
+    if (this.cat.state === 'in' && this.cat.stateT >= 0.55) {
+      this.cat.state = 'idle'
+      this.cat.stateT = 0
+    }
+
+    if (this.freezeLeft <= 0) {
+      // Кот ждёт щелчка или уезжает вверх после отработанного фриза
+      if (this.cat.state === 'out' && this.cat.stateT >= 0.5) this.cat = null
+      return false
+    }
+
+    /* Фриз: таймер уровня стоит, мир стоит, лапку можно двигать и планировать */
+    this.freezeLeft -= dt
+    const sec = Math.ceil(Math.max(0, this.freezeLeft))
+    if (sec !== this.lastFreezeSec) {
+      this.lastFreezeSec = sec
+      if (sec > 0) audio.play('tick')
+    }
+    if (this.freezeLeft <= 0) {
+      this.freezeLeft = 0
+      this.cat.state = 'out'
+      this.cat.stateT = 0
+      this.banner = { text: 'ВПЕРЁД!', t: 0 }
+      this.audioStage = -1 // пересчитать темп музыки по оставшемуся времени
+      audio.play('wave')
+      return false // мир оживает в этот же кадр
+    }
+    // Счастливый кот машет лапками, а в конце отсчёта уезжает вверх
+    if (this.cat.state === 'happy' && this.freezeLeft <= 0.45) {
+      this.cat.state = 'out'
+      this.cat.stateT = 0
+    }
+    return true
+  }
+
   /* ================= обновление ================= */
 
   private update(dt: number): void {
@@ -405,6 +585,9 @@ export class PopcornEngine {
     this.paw.x = Math.max(22 * u, Math.min(this.W - 22 * u, this.paw.x))
     this.paw.y = Math.max(70, Math.min(this.H - 20 * u, this.paw.y))
 
+    // Кот и фриз-тайм: пока таймер заморожен, мир стоит (лапку можно двигать)
+    if (this.updateCat(dt)) return
+
     if (this.perk === 'drift') this.driftPieces(dt)
     if (this.perk === 'magnet') this.magnetPull(dt)
 
@@ -417,8 +600,8 @@ export class PopcornEngine {
       if (p.spawn > 0.12) continue
       const d = Math.hypot(this.paw.x - p.x, this.paw.y - p.y)
       if (p.kind === 'corn') {
-        // Кукуруза — мина: задел = минус балл
-        if (d < 38 * u) {
+        // Кукуруза-мина: чем толще мина, тем шире радиус задевания
+        if (d < 38 * u * (0.7 + 0.3 * this.cornScale)) {
           this.pieces.splice(i, 1)
           this.score = Math.max(0, this.score - 1)
           this.paw.hurt = 1
@@ -436,7 +619,7 @@ export class PopcornEngine {
         }
         continue
       }
-      if (d < grabR && this.carried.length < CARRY_MAX) {
+      if (d < grabR && this.carried.length < this.carryMax) {
         this.pieces.splice(i, 1)
         this.carried.push({ golden: p.kind === 'golden', grabT: 0 })
         this.paw.pulse = 1
@@ -625,7 +808,7 @@ export class PopcornEngine {
   private emitStats(force: boolean): void {
     if (!this.cb.onStats) return
     const sec = Math.ceil(this.timeLeft)
-    const key = `${this.score}|${this.lvl}|${this.quota}|${this.collected}|${this.carried.length}|${sec}|${this.paused}`
+    const key = `${this.score}|${this.lvl}|${this.quota}|${this.collected}|${this.carried.length}|${sec}|${this.paused}|${Math.ceil(this.freezeLeft)}`
     if (!force && key === this.lastStatsKey) return
     this.lastStatsKey = key
     this.cb.onStats({
@@ -636,6 +819,8 @@ export class PopcornEngine {
       quota: this.quota,
       collected: this.collected,
       carrying: this.carried.length,
+      carryMax: this.carryMax,
+      freezeLeft: this.freezeLeft,
       paused: this.paused,
     })
   }
@@ -651,14 +836,98 @@ export class PopcornEngine {
     this.drawPieces(ts)
     this.drawFlying()
     this.drawParticles()
+    // Фриз-тайм: притемняем поле — большие красные цифры рисует React-оверлей
+    if (this.freezeLeft > 0) {
+      ctx.fillStyle = 'rgba(12, 18, 14, 0.5)'
+      ctx.fillRect(0, 0, this.W, this.H)
+    }
     this.drawPaw(ts)
     this.drawTexts()
     this.drawBanner()
     if (this.perk === 'fog' && this.phase === 'playing') this.drawFog()
+    if (this.cat && this.phase === 'playing') this.drawCat(ts)
 
     if (this.phase === 'ended' || this.phase === 'clear') {
       ctx.fillStyle = 'rgba(24, 10, 4, 0.35)'
       ctx.fillRect(0, 0, this.W, this.H)
+    }
+  }
+
+  /** Кот-бонус: пиксельный рыжий кот с двумя машущими лапками */
+  private drawCat(ts: number): void {
+    const cat = this.cat
+    if (!cat) return
+    const { ctx } = this
+    const u = this.u
+    const g = this.catGeom()
+    const ox = g.x - 10 * g.cell
+    const idleBob = cat.state === 'idle' ? Math.sin(ts * 0.003) * 2.2 * u : 0
+    const oy = g.y + g.slide + idleBob
+
+    // Тело из пиксельной карты
+    for (let ry = 0; ry < CAT_BODY.length; ry++) {
+      const row = CAT_BODY[ry]
+      for (let rx = 0; rx < row.length; rx++) {
+        const color = CAT_COLORS[row[rx]]
+        if (!color) continue
+        ctx.fillStyle = color
+        ctx.fillRect(ox + rx * g.cell, oy + ry * g.cell, g.cell + 0.5, g.cell + 0.5)
+      }
+    }
+
+    // Искры радости вокруг счастливого кота
+    if (cat.state === 'happy') {
+      drawSprite(ctx, this.sp.sparkle, ox + 2.4 * g.cell, oy + 2.2 * g.cell, 2.4 * u, {
+        rot: ts * 0.01,
+        alpha: 0.95,
+      })
+      drawSprite(ctx, this.sp.sparkle, ox + 17.6 * g.cell, oy + 3.1 * g.cell, 2 * u, {
+        rot: -ts * 0.008,
+        alpha: 0.95,
+      })
+    }
+
+    // Лапки машут поочерёдно (манэки-нэко)
+    const wig = cat.state === 'idle' ? Math.sin(ts * 0.006) * 2.6 * u : 0
+    const happyWig = cat.state === 'happy' ? Math.sin(ts * 0.03) * 4.5 * u : 0
+    const paws = this.catPawPoints()
+    paws.forEach(([px, py], i) => {
+      const dy = (i === 0 ? -1 : 1) * (wig + happyWig)
+      const w = 3.4 * g.cell
+      const h = 4.2 * g.cell
+      const x0 = px - w / 2
+      const y0 = py - h / 2 + dy
+      ctx.fillStyle = CAT_COLORS.o
+      ctx.fillRect(x0 - g.cell * 0.22, y0 - g.cell * 0.22, w + g.cell * 0.44, h + g.cell * 0.44)
+      ctx.fillStyle = '#F7B96B'
+      ctx.fillRect(x0, y0, w, h)
+      ctx.fillStyle = CAT_COLORS.D
+      ctx.fillRect(x0 + w * 0.28, y0 + h * 0.16, g.cell * 0.42, h * 0.6)
+      ctx.fillRect(x0 + w * 0.6, y0 + h * 0.16, g.cell * 0.42, h * 0.6)
+    })
+
+    // Подсказка: пульсирующие кольца на лапках и текст
+    if (cat.state === 'idle') {
+      const pulse = 0.5 + 0.5 * Math.sin(ts * 0.008)
+      ctx.lineWidth = 2.5 * u
+      ctx.strokeStyle = `rgba(191, 243, 230, ${0.35 + 0.4 * pulse})`
+      for (const [px, py] of paws) {
+        ctx.beginPath()
+        ctx.arc(px, py, (4.6 + 0.9 * pulse) * g.cell, 0, Math.PI * 2)
+        ctx.stroke()
+      }
+      const hint = 'ТКНИ В ЛАПКУ — СТОП-ТАЙМЕР!'
+      const size = Math.max(15, 19 * u)
+      ctx.font = `700 ${size}px "Handjet", system-ui, sans-serif`
+      ctx.textAlign = 'center'
+      ctx.textBaseline = 'middle'
+      ctx.globalAlpha = 0.8 + 0.2 * pulse
+      ctx.lineWidth = 4 * u
+      ctx.strokeStyle = 'rgba(46, 18, 6, 0.9)'
+      ctx.strokeText(hint, g.x, oy - 11 * u)
+      ctx.fillStyle = '#BFF3E6'
+      ctx.fillText(hint, g.x, oy - 11 * u)
+      ctx.globalAlpha = 1
     }
   }
 
@@ -727,7 +996,8 @@ export class PopcornEngine {
       const bob = Math.sin(ts * 0.004 + p.phase) * bobAmp * u
       const y = p.y + bob
       const pop = p.spawn > 0 ? easeOutBack(1 - p.spawn / (SPAWN_DUR + 0.5)) : 1
-      const base = p.kind === 'corn' ? 2.3 : 2.6
+      // Попкорн мельчает, мины толстеют — ступени каждые 5 уровней
+      const base = p.kind === 'corn' ? 2.3 * this.cornScale : 2.6 * this.popScale
       const scale = base * u * Math.max(0.05, pop)
 
       // Тень
@@ -756,7 +1026,7 @@ export class PopcornEngine {
       const q = easeOutQuad(f.t)
       const x = f.x0 + (tx - f.x0) * q
       const y = f.y0 + (ty - f.y0) * q - Math.sin(q * Math.PI) * 30 * u
-      drawSprite(ctx, f.golden ? this.sp.golden : this.sp.popcorn, x, y, 2.6 * u * (1 - 0.45 * q), {
+      drawSprite(ctx, f.golden ? this.sp.golden : this.sp.popcorn, x, y, 2.6 * u * this.popScale * (1 - 0.45 * q), {
         rot: q * 3,
       })
     }
@@ -788,8 +1058,8 @@ export class PopcornEngine {
     // Зёрна в лапке (стопкой над подушечкой)
     this.carried.forEach((c, i) => {
       const wig = Math.sin(ts * 0.012 + i * 2) * 1.6 * u
-      const y = py - 32 * u - i * 15 * u + (1 - c.grabT) * 10 * u
-      drawSprite(ctx, c.golden ? this.sp.golden : this.sp.popcorn, px + wig, y, 2.3 * u, {
+      const y = py - 30 * u - i * 14 * u * this.popScale + (1 - c.grabT) * 10 * u
+      drawSprite(ctx, c.golden ? this.sp.golden : this.sp.popcorn, px + wig, y, 2.3 * u * this.popScale, {
         rot: Math.sin(ts * 0.006 + i) * 0.12,
       })
     })

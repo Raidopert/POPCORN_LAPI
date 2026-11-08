@@ -17,6 +17,9 @@ const pixelSans = Handjet({
   variable: "--font-pixel",
   subsets: ["latin", "cyrillic"],
   weight: ["400", "500", "600", "700"],
+  // block вместо swap: пока пиксельный шрифт не загружен, текст не мигает
+  // запасным шрифтом — буквы не «прыгают» при подмене метрик
+  display: "block",
 });
 
 export const metadata: Metadata = {

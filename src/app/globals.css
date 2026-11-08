@@ -131,6 +131,9 @@
   font-synthesis: none;
   font-variant-ligatures: none;
   text-rendering: optimizeLegibility;
+  /* пиксельный шрифт без сглаживания: чёткие буквы без дрожания контуров */
+  -webkit-font-smoothing: none;
+  font-smooth: never;
 }
 
 /* Читаемый текст интерфейса (инструкции, подписи) — системный шрифт, без «прыгающих» букв */

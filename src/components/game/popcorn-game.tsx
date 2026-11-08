@@ -195,9 +195,11 @@ export function PopcornGame() {
     timeLeft: 60,
     duration: 60,
     level: 1,
-    quota: 10,
+    quota: 9,
     collected: 0,
     carrying: 0,
+    carryMax: 3,
+    freezeLeft: 0,
     paused: false,
   })
   const [bestRaw, storeBest] = useStoredValue(BEST_KEY, '0')
@@ -444,6 +446,30 @@ export function PopcornGame() {
           onContextMenu={(e) => e.preventDefault()}
         />
 
+        {/* Фриз-тайм кота: большие красные цифры отсчёта на фоне */}
+        {playing && stats.freezeLeft > 0 && (
+          <div
+            aria-hidden
+            className="pointer-events-none absolute inset-0 z-[15] flex flex-col items-center justify-center gap-2"
+          >
+            <span className="rounded-full bg-black/45 px-3 py-1 font-pixel text-sm font-bold tracking-widest text-emerald-100 ring-1 ring-emerald-200/40 sm:text-base">
+              ТАЙМЕР ЗАМОРОЖЕН · ПРОДУМАЙ МАРШРУТ
+            </span>
+            <AnimatePresence mode="popLayout">
+              <motion.span
+                key={Math.ceil(stats.freezeLeft)}
+                initial={{ scale: 1.7, opacity: 0 }}
+                animate={{ scale: 1, opacity: 1 }}
+                exit={{ scale: 0.6, opacity: 0 }}
+                transition={{ duration: 0.16 }}
+                className="font-pixel text-[44vw] font-bold leading-none text-red-500/90 drop-shadow-[0_6px_0_rgba(0,0,0,0.45)] sm:text-[230px]"
+              >
+                {Math.ceil(stats.freezeLeft)}
+              </motion.span>
+            </AnimatePresence>
+          </div>
+        )}
+
         {/* HUD */}
         <div className="pointer-events-none absolute inset-x-0 top-0 z-20 flex items-start justify-between gap-2 p-3 pt-[max(0.75rem,env(safe-area-inset-top))]">
           <div className="flex flex-col gap-2">
@@ -464,6 +490,13 @@ export function PopcornGame() {
                       className="absolute inset-y-0 left-0 rounded-full bg-amber-300 transition-[width] duration-200"
                       style={{ width: `${quotaPct}%` }}
                     />
+                  </span>
+                </Pill>
+                {/* Вместимость лапки: 3 → 4 → 5 зёрен за раз */}
+                <Pill>
+                  <span aria-hidden>🐾</span>
+                  <span className="tabular-nums">
+                    {stats.carrying}/{stats.carryMax}
                   </span>
                 </Pill>
                 <Pill className={`relative overflow-hidden ${urgent ? 'animate-pulse border-red-400/60' : ''}`}>
@@ -560,8 +593,17 @@ export function PopcornGame() {
                   <HowToRow icon="🍿">Собирай попкорн в стаканчик. Золотое зерно = +5!</HowToRow>
                   <HowToRow icon="🌽">Кукуруза — мины: обходи, заденешь — минус балл</HowToRow>
                   <HowToRow icon="🎯">Собери норму за 60 секунд — и уровень пройден!</HowToRow>
+                  <HowToRow icon="🐱">
+                    Кот-бонус: каждые 3–7 уровней в начале уровня прибегает кот — ткни в лапку и
+                    получи 5 секунд стоп-таймера, чтобы продумать маршрут!
+                  </HowToRow>
+                  <HowToRow icon="🐾">
+                    Лапка растёт: сначала несёт 3 зерна, после 5-го уровня — 4, после 10-го — 5!
+                  </HowToRow>
                   <HowToRow icon="🎁">Между уровнями открывай сундучок со случайным перком: бывают бонусы и проклятья</HowToRow>
-                  <HowToRow icon="♾️">Уровни бесконечны: норма, скорость и мины растут. Держись!</HowToRow>
+                  <HowToRow icon="♾️">
+                    Каждые 5 уровней попкорна и мин больше, зёрна мельчают, а мины толстеют. Держись!
+                  </HowToRow>
                 </ul>
 
                 {best > 0 && (
