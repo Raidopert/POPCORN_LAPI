@@ -838,6 +838,24 @@ const T: Record<string, Row> = {
     'Hicimos este juego con amor a los gatos, las palomitas, las martas y entre nosotros!',
   ],
   'creators.ok': ['ОТЛИЧНО!', 'AWESOME!', 'SUPER!', '¡GENIAL!'],
+  'creators.author': ['Автор и правообладатель', 'Author & copyright holder', 'Autor & Urheber', 'Autor y propietario'],
+  'creators.muse': ['муза и соавтор', 'muse & co-author', 'Muse & Mitautorin', 'musa y coautora'],
+  'creators.contact': ['Связаться с автором:', 'Contact the author:', 'Autor kontaktieren:', 'Contacta al autor:'],
+  'creators.support': ['💛 ПОДДЕРЖАТЬ АВТОРА', '💛 SUPPORT THE AUTHOR', '💛 AUTOR UNTERSTÜTZEN', '💛 APOYA AL AUTOR'],
+  'creators.donateHint': [
+    'Наведи камеру банковского приложения на QR — банк спросит, сколько перевести. Или тапни по номеру карты, чтобы скопировать.',
+    'Point your banking app camera at the QR — the bank will ask how much to transfer. Or tap the card number to copy it.',
+    'Richte die Kamera deiner Bank-App auf den QR — die Bank fragt nach dem Betrag. Oder tippe zum Kopieren auf die Kartennummer.',
+    'Apunta la cámara de tu banco al QR: el banco preguntará cuánto transferir. O toca el número para copiarlo.',
+  ],
+  'creators.card': ['Карта МИР', 'MIR card', 'MIR-Karte', 'Tarjeta MIR'],
+  'creators.copied': ['✅ Скопировано! Вставь в приложении банка', '✅ Copied! Paste it in your banking app', '✅ Kopiert! In der Bank-App einfügen', '✅ ¡Copiado! Pégalo en tu banco'],
+  'creators.donateThanks': [
+    'Каждый перевод — новая комната для котиков 🐾',
+    'Every donation means a new room for the cats 🐾',
+    'Jede Spende bedeutet einen neuen Raum für die Katzen 🐾',
+    'Cada donación significa una nueva sala para los gatos 🐾',
+  ],
 
   /* ---------- настройки ---------- */
   'set.title': ['НАСТРОЙКИ', 'SETTINGS', 'EINSTELLUNGEN', 'AJUSTES'],

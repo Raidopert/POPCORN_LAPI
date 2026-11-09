@@ -2,7 +2,7 @@
 
 Инструкция по запуску игры в Docker на **своей машине**. Игра собрана из
 репозитория [Raidopert/POPCORN_LAPI](https://github.com/Raidopert/POPCORN_LAPI),
-версия **pre-alpha 0.0.2**.
+версия **pre-alpha 0.0.3**.
 
 ---
 

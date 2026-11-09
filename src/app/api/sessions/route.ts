@@ -26,7 +26,8 @@ export async function GET() {
 export async function POST() {
   const launches = await bumpStat('launches')
   if (launches === null) {
-    return NextResponse.json({ ok: false, online: false }, { status: 503 })
+    // Без базы — не ошибка клиента: игра работает офлайн, счётчик просто не растёт.
+    return NextResponse.json({ ok: false, online: false })
   }
   const stats = await fetchWorldStats()
   return NextResponse.json({

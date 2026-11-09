@@ -49,6 +49,7 @@ import {
   unlockMany,
   type AchId,
 } from '@/lib/game/achievements'
+import QRCode from 'react-qr-code'
 import { ROOMS, roomForLevel, roomSrcForLevel } from '@/lib/game/rooms'
 import { GAME_VERSION_LABEL } from '@/lib/game/version'
 import { tFor, LANGS, LOCALES, type Lang, type TranslateFn } from '@/lib/game/i18n'
@@ -63,6 +64,47 @@ import {
 } from '@/lib/game/settings'
 
 type Phase = 'start' | 'playing' | 'paused' | 'chest' | 'ended'
+
+/* ---------- автор и донаты (см. LICENSE / AUTHORS.md в корне репо) ---------- */
+/** Ник автора-правообладателя */
+const AUTHOR_NICK = 'RaidoPert'
+/** Муза и соавтор проекта */
+const AUTHOR_MUSE = 'Kate HeyNANAhey'
+/** Страница автора ВКонтакте */
+const AUTHOR_VK = 'https://vk.ru/raido_pert'
+/** Почта автора (коммерческие предложения и связь) */
+const AUTHOR_EMAIL = 'raidopert@gmail.com'
+/** Номер карты МИР для донатов (формат для отображения) */
+const AUTHOR_CARD = '2200 7020 0120 0364'
+/** Номер карты без пробелов — его кодирует QR-код и получает копирование */
+const AUTHOR_CARD_RAW = '2200702001200364'
+
+/** Скопировать номер карты в буфер (с fallback для старых браузеров) */
+function copyCardNumber(): void {
+  const done = () => {
+    try {
+      if (navigator.clipboard?.writeText) {
+        void navigator.clipboard.writeText(AUTHOR_CARD_RAW)
+        return
+      }
+    } catch {
+      /* переходим к fallback */
+    }
+    try {
+      const ta = document.createElement('textarea')
+      ta.value = AUTHOR_CARD_RAW
+      ta.style.position = 'fixed'
+      ta.style.opacity = '0'
+      document.body.appendChild(ta)
+      ta.select()
+      document.execCommand('copy')
+      document.body.removeChild(ta)
+    } catch {
+      /* совсем без буфера — ничего не делаем */
+    }
+  }
+  done()
+}
 
 interface ResultState {
   score: number
@@ -875,8 +917,27 @@ function RulesOverlay({ t, onClose }: { t: TranslateFn; onClose: () => void }) {
   )
 }
 
-/** Экран «Создатели» */
+/** Экран «Создатели»: авторство, контакты и поддержка автора (QR + карта) */
 function CreatorsOverlay({ t, onClose }: { t: TranslateFn; onClose: () => void }) {
+  const [copied, setCopied] = useState(false)
+  const copiedTimer = useRef<number | null>(null)
+
+  /** Тап по номеру карты / QR: копируем и показываем подсказку */
+  const onDonateTap = useCallback(() => {
+    copyCardNumber()
+    audio.play('click')
+    setCopied(true)
+    if (copiedTimer.current) window.clearTimeout(copiedTimer.current)
+    copiedTimer.current = window.setTimeout(() => setCopied(false), 2600)
+  }, [])
+
+  useEffect(
+    () => () => {
+      if (copiedTimer.current) window.clearTimeout(copiedTimer.current)
+    },
+    [],
+  )
+
   return (
     <motion.div
       className="absolute inset-0 z-40 flex items-center justify-center overflow-y-auto bg-black/70 p-4 backdrop-blur-sm"
@@ -895,9 +956,22 @@ function CreatorsOverlay({ t, onClose }: { t: TranslateFn; onClose: () => void }
           🐱🍿🐈
         </div>
         <h2 className="mt-1 font-pixel text-xl font-bold text-[#B33A26]">{t('creators.title')}</h2>
-        <p className="mt-2 font-pixel text-lg font-bold leading-snug text-[#5C3A1E] sm:text-xl">
-          RaidoPert + HeyNANAhey
-        </p>
+
+        {/* Авторство */}
+        <div className="mt-3 rounded-xl bg-[#fdf3e0] px-3 py-2.5 ring-1 ring-[#e3cba4]">
+          <p className="font-pixel text-lg font-bold leading-snug text-[#5C3A1E] sm:text-xl">
+            {AUTHOR_NICK}
+          </p>
+          <p className="mt-0.5 font-ui text-[11px] font-semibold text-[#8a5330]">
+            {t('creators.author')}
+          </p>
+          <p className="mt-1.5 font-pixel text-sm font-bold leading-snug text-[#B33A26]">
+            {AUTHOR_MUSE}
+          </p>
+          <p className="font-ui text-[11px] font-semibold text-[#8a5330]">
+            {t('creators.muse')}
+          </p>
+        </div>
         <motion.p
           aria-hidden
           className="mt-1 font-pixel text-3xl font-bold text-[#E24B3B]"
@@ -906,15 +980,86 @@ function CreatorsOverlay({ t, onClose }: { t: TranslateFn; onClose: () => void }
         >
           !!!!
         </motion.p>
-        <p className="mt-2 font-ui text-sm leading-relaxed text-[#5C3A1E]">{t('creators.text')}</p>
+        <p className="mt-1.5 font-ui text-sm leading-relaxed text-[#5C3A1E]">{t('creators.text')}</p>
         <motion.p
           aria-hidden
-          className="mt-2 text-2xl tracking-widest"
+          className="mt-1.5 text-2xl tracking-widest"
           animate={{ scale: [1, 1.1, 1] }}
           transition={{ repeat: Infinity, duration: 1.4, delay: 0.3 }}
         >
           ❤️🧡💛💚
         </motion.p>
+
+        {/* Контакты автора */}
+        <div className="mt-3 rounded-xl bg-[#fdf3e0] px-3 py-2.5 ring-1 ring-[#e3cba4]">
+          <p className="font-ui text-[11px] font-bold uppercase tracking-wide text-[#8a5330]">
+            {t('creators.contact')}
+          </p>
+          <div className="mt-1.5 flex items-center justify-center gap-2">
+            <a
+              href={AUTHOR_VK}
+              target="_blank"
+              rel="noopener noreferrer"
+              onClick={() => audio.play('click')}
+              className="inline-flex min-h-[36px] items-center gap-1.5 rounded-full bg-[#E24B3B] px-3 py-1.5 font-ui text-xs font-bold text-white shadow-[0_2px_0_#9c2f22] transition hover:bg-[#c73d2e] active:scale-95"
+            >
+              💬 VK
+            </a>
+            <a
+              href={`mailto:${AUTHOR_EMAIL}`}
+              onClick={() => audio.play('click')}
+              className="inline-flex min-h-[36px] items-center gap-1.5 rounded-full bg-[#8a5330] px-3 py-1.5 font-ui text-xs font-bold text-white shadow-[0_2px_0_#5f3a20] transition hover:bg-[#6f4426] active:scale-95"
+            >
+              ✉️ Email
+            </a>
+          </div>
+        </div>
+
+        {/* Донаты: QR + номер карты МИР (тап — копирование) */}
+        <div className="mt-3 rounded-xl border-2 border-amber-300 bg-gradient-to-b from-amber-50 to-[#fdf3e0] px-3 py-3">
+          <p className="font-pixel text-sm font-bold text-[#B33A26]">{t('creators.support')}</p>
+          <button
+            type="button"
+            onClick={onDonateTap}
+            aria-label={`${t('creators.card')}: ${AUTHOR_CARD}`}
+            className="mx-auto mt-2 block w-fit rounded-xl bg-white p-2 shadow-[0_3px_10px_rgba(0,0,0,0.18)] ring-2 ring-amber-200 transition active:scale-95"
+          >
+            <QRCode
+              value={AUTHOR_CARD_RAW}
+              size={104}
+              bgColor="#ffffff"
+              fgColor="#3d2412"
+              aria-hidden
+            />
+          </button>
+          <p className="mt-2 font-ui text-[11px] font-medium leading-snug text-[#8a5330]">
+            {t('creators.donateHint')}
+          </p>
+          <button
+            type="button"
+            onClick={onDonateTap}
+            className={`mt-2 inline-flex min-h-[40px] w-full items-center justify-center gap-2 rounded-xl px-3 py-2 font-ui font-bold transition active:scale-95 ${
+              copied
+                ? 'bg-emerald-500 text-white shadow-[0_2px_0_#047857]'
+                : 'bg-amber-100 text-[#5C3A1E] ring-2 ring-amber-300 hover:bg-amber-200'
+            }`}
+          >
+            <span className="font-mono text-base tracking-wider">{AUTHOR_CARD}</span>
+          </button>
+          <p
+            className={`mt-1.5 font-ui text-[11px] font-semibold ${
+              copied ? 'text-emerald-600' : 'text-transparent'
+            }`}
+            role="status"
+            aria-live="polite"
+          >
+            {copied ? t('creators.copied') : '·'}
+          </p>
+          <p className="font-ui text-[10px] font-medium text-[#a97c50]">
+            {t('creators.card')} · {t('creators.donateThanks')}
+          </p>
+        </div>
+
         <div className="mt-4">
           <GameButton onClick={onClose}>{t('creators.ok')}</GameButton>
         </div>
