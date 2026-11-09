@@ -115,36 +115,75 @@ export function makePopcornSprite(golden = false): Sprite {
   return renderGrid(g)
 }
 
-/* ================= Бумажный стаканчик ================= */
+/* ================= Бумажный стаканчик (детальный, 48×54 — пиксели вдвое мельче) ================= */
 
 export function makeCupSprite(): Sprite {
-  const cols = 24
-  const rows = 26
+  const cols = 48
+  const rows = 54
   const g = createGrid(cols, rows)
   const red = '#E24B3B'
-  const white = '#FFF6EC'
-  const dark = '#C43A2A'
+  const redLight = '#F2685A' // блик слева
+  const redDark = '#C43A2A' // тень справа
+  const redCrease = '#D94432' // смятие бумаги
+  const cream = '#FFF6EC'
+  const creamDark = '#F0DFC8'
+  const rimShadow = '#E3C9B4' // тень под ободком
+  const base = '#C43A2A'
+  const baseDark = '#A32E20'
   const edge = '#572014'
 
-  for (let y = 0; y < rows; y++) {
+  /* Трапеция: ширина 44 сверху → 26 снизу */
+  const halfSpan = (y: number): { x0: number; x1: number } => {
     const t = y / (rows - 1)
-    const w = Math.round(cols - 9 * t) // сужение книзу: 24 → 15
+    const w = Math.round(44 - 18 * t)
     const x0 = Math.floor((cols - w) / 2)
-    for (let x = x0; x < x0 + w; x++) {
+    return { x0, x1: x0 + w - 1 }
+  }
+
+  for (let y = 0; y < rows; y++) {
+    const { x0, x1 } = halfSpan(y)
+    for (let x = x0; x <= x1; x++) {
+      const rel = (x - x0) / Math.max(1, x1 - x0) // 0 слева → 1 справа
       let col: string
-      if (y <= 1) {
-        col = white // белый ободок
-      } else if (y >= rows - 2) {
-        col = dark // тёмное дно
+      if (y === 0) {
+        col = '#FFFFFF' // верхняя кромка ободка
+      } else if (y <= 3) {
+        col = cream // белый ободок
+        if (y === 3 && rel > 0.06 && rel < 0.94) col = rimShadow
+      } else if (y >= rows - 4) {
+        col = y >= rows - 2 ? baseDark : base // тёмное дно
+      } else if (y >= 27 && y <= 40) {
+        // кремовая лента с логотипом
+        col = rel < 0.12 ? redLight : rel > 0.86 ? redDark : cream
+        if (col === cream && rel > 0.78) col = creamDark
       } else {
-        const rel = (x - x0) / w
-        const idx = Math.floor(rel * 7)
-        col = idx % 2 === 0 ? red : white
-        if (y === 2) col = idx % 2 === 0 ? dark : white // тень под ободком
+        const abs = x - 2
+        const stripe = Math.floor(abs / 7) % 2 === 0
+        col = stripe ? red : cream
+        // объём цилиндра: свет слева, тень справа
+        if (rel < 0.12) col = stripe ? redLight : cream
+        else if (rel > 0.84) col = stripe ? redDark : creamDark
+        // сгибы бумаги на верхней половине
+        if ((y === 21 || y === 22) && stripe) col = redCrease
+        if ((y === 21 || y === 22) && !stripe) col = creamDark
+        // «открытое горлышко»: тень первых рядов под ободком
+        if ((y === 4 || y === 5) && rel > 0.06 && rel < 0.94) {
+          col = stripe ? redDark : rimShadow
+        }
       }
       g[y][x] = col
     }
   }
+
+  // Логотип: три пухлых попкорн-облачка на ленте
+  paintCircle(g, 24, 31.5, 3.4, '#FFFDF4')
+  paintCircle(g, 19.2, 34.2, 2.7, '#FFFDF4')
+  paintCircle(g, 28.8, 34.2, 2.7, '#FFFDF4')
+  tintCircle(g, 26, 33.4, 2.4, '#F7D97B')
+  tintCircle(g, 20.6, 35.4, 1.7, '#F7D97B')
+  tintCircle(g, 30, 35.4, 1.7, '#F7D97B')
+  tintCircle(g, 23.2, 29.8, 1.3, '#FFF3D6')
+
   outlineGrid(g, edge)
   return renderGrid(g)
 }
@@ -232,12 +271,14 @@ export function makePawSprite(pal: Partial<PawPalette> = {}): Sprite {
 
 /* ================= Зерно-мина (ловушка, минус балл) — красно-белое, ЯРКОЕ ================= */
 
-export function makeCornSprite(): Sprite {
+export function makeCornSprite(colorblind = false): Sprite {
   const g = createGrid(12, 12)
-  const body = '#E5342E' // ярко-красный — сигнал опасности
-  const dark = '#9E1512' // тёмно-красная тень
+  // Обычный режим: красное зерно-мина. Режим дальтоников: сине-оранжевая
+  // палитра — красный-зелёный контраст заменён на сине-жёлтый
+  const body = colorblind ? '#3D7BFF' : '#E5342E' // яркий сигнал опасности
+  const dark = colorblind ? '#274F99' : '#9E1512' // тёмная тень
   const white = '#FFF6EC'
-  const edge = '#570606' // тёмно-красная обводка
+  const edge = colorblind ? '#12275C' : '#570606' // тёмная обводка
 
   // Овальное зерно
   paintCircle(g, 6, 5.4, 3.6, body)

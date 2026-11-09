@@ -5,7 +5,6 @@ import Image from 'next/image'
 import { AnimatePresence, motion } from 'framer-motion'
 import {
   Cat,
-  Globe2,
   Heart,
   Pause,
   Pencil,
@@ -13,6 +12,7 @@ import {
   Popcorn,
   RotateCcw,
   Share2,
+  Settings,
   Smartphone,
   Timer,
   Trophy,
@@ -49,6 +49,16 @@ import {
   type AchId,
 } from '@/lib/game/achievements'
 import { ROOMS, roomForLevel, roomSrcForLevel } from '@/lib/game/rooms'
+import { tFor, LANGS, LOCALES, type Lang, type TranslateFn } from '@/lib/game/i18n'
+import {
+  DEFAULT_SETTINGS,
+  parseSettingsRaw,
+  saveSettings,
+  SETTINGS_EVENT,
+  SETTINGS_KEY,
+  type GameSettings,
+  type Orientation,
+} from '@/lib/game/settings'
 
 type Phase = 'start' | 'playing' | 'paused' | 'chest' | 'ended'
 
@@ -131,6 +141,35 @@ function useStoredValue(key: string, fallback: string): [string, (v: string) => 
   return [value, setValue]
 }
 
+/* Кэш разобранных настроек: getSnapshot должен быть стабильным между рендерами */
+let settingsCacheRaw: string | null = null
+let settingsCache: GameSettings = DEFAULT_SETTINGS
+
+function snapshotSettings(): GameSettings {
+  const raw = window.localStorage.getItem(SETTINGS_KEY)
+  if (raw !== settingsCacheRaw) {
+    settingsCacheRaw = raw
+    settingsCache = parseSettingsRaw(raw ?? '')
+  }
+  return settingsCache
+}
+
+function subscribeSettings(onChange: () => void): () => void {
+  window.addEventListener(SETTINGS_EVENT, onChange)
+  window.addEventListener('storage', onChange)
+  return () => {
+    window.removeEventListener(SETTINGS_EVENT, onChange)
+    window.removeEventListener('storage', onChange)
+  }
+}
+
+/** Настройки как внешний стор: localStorage + событие, сервер — дефолты */
+function useSettings(): [GameSettings, (s: GameSettings) => void] {
+  const value = useSyncExternalStore(subscribeSettings, snapshotSettings, () => DEFAULT_SETTINGS)
+  const setValue = useCallback((s: GameSettings) => saveSettings(s), [])
+  return [value, setValue]
+}
+
 /* ---------- вспомогательные UI-элементы ---------- */
 
 function Pill({
@@ -154,18 +193,21 @@ function Pill({
 function IconBtn({
   onClick,
   label,
+  size = 'md',
   children,
 }: {
   onClick: () => void
   label: string
+  size?: 'md' | 'sm'
   children: React.ReactNode
 }) {
+  const dim = size === 'sm' ? 'h-9 w-9' : 'h-11 w-11'
   return (
     <button
       type="button"
       aria-label={label}
       onClick={onClick}
-      className="pointer-events-auto flex h-11 w-11 items-center justify-center rounded-full border border-white/15 bg-black/60 text-white transition hover:bg-black/75 active:scale-90"
+      className={`flex ${dim} shrink-0 items-center justify-center rounded-full border border-white/15 bg-black/60 text-white transition hover:bg-black/75 active:scale-90`}
     >
       {children}
     </button>
@@ -289,6 +331,92 @@ function MenuSmallBtn({
   )
 }
 
+/** Компактная пилюля панели статистики (над игровой зоной, поле не перекрывает) */
+function StatPill({
+  children,
+  className = '',
+}: {
+  children: React.ReactNode
+  className?: string
+}) {
+  return (
+    <span
+      className={`flex items-center gap-1 rounded-full border border-white/15 bg-[#231108]/90 px-2 py-1 font-ui text-[11px] font-semibold text-white ${className}`}
+    >
+      {children}
+    </span>
+  )
+}
+
+/** Сегментный переключатель (сложность / качество / ориентация / язык) */
+function Seg({
+  options,
+  cur,
+  onPick,
+}: {
+  options: Array<{ v: string; label: string }>
+  cur: string
+  onPick: (v: string) => void
+}) {
+  return (
+    <div className="grid gap-1 rounded-xl bg-[#f3e2c8] p-1" style={{ gridTemplateColumns: `repeat(${options.length}, minmax(0, 1fr))` }}>
+      {options.map((o) => (
+        <button
+          key={o.v}
+          type="button"
+          onClick={() => onPick(o.v)}
+          className={`rounded-lg px-1.5 py-1.5 font-pixel text-[11px] font-bold transition ${
+            cur === o.v
+              ? 'bg-[#E24B3B] text-white shadow-[0_2px_0_#9c2f22]'
+              : 'text-[#8a5330] hover:bg-[#eed7b4]'
+          }`}
+        >
+          {o.label}
+        </button>
+      ))}
+    </div>
+  )
+}
+
+/** Строка-переключатель в настройках */
+function ToggleRow({
+  label,
+  hint,
+  value,
+  onChange,
+}: {
+  label: string
+  hint?: string
+  value: boolean
+  onChange: (v: boolean) => void
+}) {
+  return (
+    <div className="flex items-center justify-between gap-2 rounded-xl border-2 border-[#e3cba4] bg-[#fdf3e0] px-3 py-2">
+      <div className="min-w-0">
+        <div className="font-pixel text-[12px] font-bold text-[#5C3A1E]">{label}</div>
+        {hint && <div className="font-ui text-[10px] leading-tight text-[#a97c50]">{hint}</div>}
+      </div>
+      <button
+        type="button"
+        role="switch"
+        aria-checked={value}
+        aria-label={label}
+        onClick={() => onChange(!value)}
+        className={`relative h-7 w-12 shrink-0 rounded-full border-2 transition ${
+          value ? 'border-[#9c2f22] bg-[#E24B3B]' : 'border-[#c9a97a] bg-[#e3cba4]'
+        }`}
+      >
+        <span
+          className={`absolute top-0.5 h-4.5 w-4.5 rounded-full bg-white shadow transition-all ${
+            value ? 'left-[1.4rem]' : 'left-0.5'
+          }`}
+          style={{ height: 18, width: 18 }}
+        />
+      </button>
+    </div>
+  )
+}
+
 const OVERLAY_SCROLL =
   '[scrollbar-width:thin] [&::-webkit-scrollbar]:w-1.5 [&::-webkit-scrollbar-thumb]:rounded-full [&::-webkit-scrollbar-thumb]:bg-[#d9b98c] [&::-webkit-scrollbar-track]:bg-transparent'
 
@@ -298,6 +426,7 @@ function ShopOverlay({
   owned,
   equipped,
   upgrades,
+  t,
   onBuy,
   onEquip,
   onBuyUpgrade,
@@ -307,12 +436,22 @@ function ShopOverlay({
   owned: PawId[]
   equipped: PawId
   upgrades: UpgradeState
+  t: TranslateFn
   onBuy: (def: PawDef) => void
   onEquip: (id: PawId) => void
   onBuyUpgrade: (id: UpgradeId) => void
   onClose: () => void
 }) {
   const [tab, setTab] = useState<'paws' | 'upgrades'>('paws')
+  const effectText = (id: UpgradeId, level: number): string => {
+    if (id === 'capacity') {
+      return level > 0 ? t('upg.capacity.effect', { n: level }) : t('upg.none')
+    }
+    if (id === 'life') {
+      return level > 0 ? t('upg.life.effect') : t('upg.life.effectNone')
+    }
+    return level > 0 ? t('upg.startperk.effect') : t('upg.startperk.effectNone')
+  }
   return (
     <motion.div
       className="absolute inset-0 z-40 flex items-center justify-center overflow-y-auto bg-black/70 p-4 backdrop-blur-sm"
@@ -330,19 +469,17 @@ function ShopOverlay({
         <div aria-hidden className="text-3xl">
           🛒
         </div>
-        <h2 className="mt-0.5 font-pixel text-xl font-bold text-[#B33A26]">МАГАЗИН</h2>
+        <h2 className="mt-0.5 font-pixel text-xl font-bold text-[#B33A26]">{t('shop.title')}</h2>
         <p className="mt-1 font-ui text-xs font-medium text-[#8a5330]">
-          Опыт:{' '}
-          <span className="font-pixel text-sm font-bold text-[#5C3A1E] tabular-nums">{xp}</span>{' '}
-          🍿 · покупки остаются навсегда
+          {t('shop.xp', { n: xp })}
         </p>
 
         {/* Вкладки: ЛАПКИ / АПГРЕЙДЫ */}
         <div className="mt-2.5 grid grid-cols-2 gap-1.5 rounded-xl bg-[#f3e2c8] p-1">
           {(
             [
-              ['paws', '🐾 ЛАПКИ'],
-              ['upgrades', '🛠 АПГРЕЙДЫ'],
+              ['paws', t('shop.tab.paws')],
+              ['upgrades', t('shop.tab.upgrades')],
             ] as const
           ).map(([id, label]) => (
             <button
@@ -379,21 +516,24 @@ function ShopOverlay({
                   <div className="min-w-0 flex-1">
                     <div className="flex items-center gap-1.5">
                       <span className="truncate font-pixel text-sm font-bold text-[#5C3A1E]">
-                        {def.name}
+                        {t(`paw.${def.id}.name`)}
                       </span>
                       {def.price === 0 && (
                         <span className="shrink-0 rounded-full bg-[#e3cba4] px-1.5 font-ui text-[9px] font-bold text-[#5C3A1E]">
-                          БАЗОВАЯ
+                          {t('shop.badge.base')}
                         </span>
                       )}
                     </div>
-                    <div className="truncate font-ui text-[11px] leading-tight text-[#8a5330]" title={def.desc}>
-                      {def.bonusLabel}
+                    <div
+                      className="truncate font-ui text-[11px] leading-tight text-[#8a5330]"
+                      title={t(`paw.${def.id}.desc`)}
+                    >
+                      {t(`paw.${def.id}.bonus`)}
                     </div>
                   </div>
                   {isEquipped ? (
                     <span className="shrink-0 rounded-full bg-amber-400 px-2.5 py-1.5 font-ui text-[10px] font-bold text-[#5C3A1E]">
-                      НАДЕТА
+                      {t('shop.equipped')}
                     </span>
                   ) : isOwned ? (
                     <button
@@ -401,14 +541,14 @@ function ShopOverlay({
                       onClick={() => onEquip(def.id)}
                       className="shrink-0 rounded-lg border-2 border-[#8a5330] bg-[#FFF6E6] px-2.5 py-1.5 font-ui text-[11px] font-bold text-[#8a5330] transition hover:bg-[#f3e2c8] active:scale-95"
                     >
-                      НАДЕТЬ
+                      {t('shop.equip')}
                     </button>
                   ) : (
                     <button
                       type="button"
                       disabled={!canBuy}
                       onClick={() => onBuy(def)}
-                      title={def.desc}
+                      title={t(`paw.${def.id}.desc`)}
                       className={`shrink-0 rounded-lg px-2.5 py-1.5 font-ui text-[11px] font-bold transition active:scale-95 ${
                         canBuy
                           ? 'bg-[#E24B3B] text-white shadow-[0_3px_0_#9c2f22] hover:bg-[#ef5a4a]'
@@ -441,9 +581,11 @@ function ShopOverlay({
                       {def.icon}
                     </span>
                     <div className="min-w-0 flex-1">
-                      <div className="font-pixel text-sm font-bold text-[#5C3A1E]">{def.name}</div>
+                      <div className="font-pixel text-sm font-bold text-[#5C3A1E]">
+                        {t(`upg.${def.id}.name`)}
+                      </div>
                       <div className="font-ui text-[11px] leading-tight text-[#8a5330]">
-                        {def.effectLabel(level)}
+                        {effectText(def.id, level)}
                       </div>
                     </div>
                     {/* Ступени */}
@@ -455,11 +597,13 @@ function ShopOverlay({
                       ))}
                     </span>
                   </div>
-                  <p className="mt-1 font-ui text-[10px] leading-tight text-[#a97c50]">{def.desc}</p>
+                  <p className="mt-1 font-ui text-[10px] leading-tight text-[#a97c50]">
+                    {t(`upg.${def.id}.desc`)}
+                  </p>
                   <div className="mt-1.5 text-right">
                     {maxed ? (
                       <span className="inline-block rounded-full bg-amber-400 px-2.5 py-1.5 font-ui text-[10px] font-bold text-[#5C3A1E]">
-                        МАКСИМУМ
+                        {t('shop.max')}
                       </span>
                     ) : (
                       <button
@@ -481,11 +625,9 @@ function ShopOverlay({
             })}
           </ul>
         )}
-        <p className="mt-2 font-ui text-[10px] leading-snug text-[#a97c50]">
-          Очки попкорна = опыт: играй забеги и копи на улучшения!
-        </p>
+        <p className="mt-2 font-ui text-[10px] leading-snug text-[#a97c50]">{t('shop.note')}</p>
         <div className="mt-2.5">
-          <GameButton onClick={onClose}>ЗАКРЫТЬ</GameButton>
+          <GameButton onClick={onClose}>{t('shop.close')}</GameButton>
         </div>
       </motion.div>
     </motion.div>
@@ -496,10 +638,14 @@ function ShopOverlay({
 function LeadersOverlay({
   leaders,
   myName,
+  lang,
+  t,
   onClose,
 }: {
   leaders: LeaderEntry[]
   myName: string
+  lang: Lang
+  t: TranslateFn
   onClose: () => void
 }) {
   const [world, setWorld] = useState<{
@@ -549,14 +695,14 @@ function LeadersOverlay({
         <div aria-hidden className="text-3xl">
           🏆
         </div>
-        <h2 className="mt-0.5 font-pixel text-xl font-bold text-[#B33A26]">ЛИДЕРЫ</h2>
+        <h2 className="mt-0.5 font-pixel text-xl font-bold text-[#B33A26]">{t('lead.title')}</h2>
 
         {world.status === 'on' ? (
           <div className="mt-2.5 grid grid-cols-2 gap-1.5 rounded-xl bg-[#f3e2c8] p-1">
             {(
               [
-                ['world', '🌐 МИР'],
-                ['local', '📱 МОЙ ТЕЛЕФОН'],
+                ['world', t('lead.world')],
+                ['local', t('lead.local')],
               ] as const
             ).map(([id, label]) => (
               <button
@@ -575,17 +721,13 @@ function LeadersOverlay({
           </div>
         ) : (
           <p className="mt-1 font-ui text-xs font-medium text-[#8a5330]">
-            {world.status === 'loading'
-              ? 'Проверяем мировую таблицу…'
-              : 'Топ-10 забегов на этом устройстве · мировая таблица скоро!'}
+            {world.status === 'loading' ? t('lead.checking') : t('lead.offline')}
           </p>
         )}
 
         {tab === 'local' || world.status !== 'on' ? (
           leaders.length === 0 ? (
-            <p className="mt-4 font-ui text-sm font-medium text-[#5C3A1E]">
-              Пока пусто — поставь первый рекорд! 🍿
-            </p>
+            <p className="mt-4 font-ui text-sm font-medium text-[#5C3A1E]">{t('lead.emptyLocal')}</p>
           ) : (
             <ol className={`mt-3 max-h-[42vh] space-y-1.5 overflow-y-auto pr-1 sm:max-h-72 ${OVERLAY_SCROLL}`}>
               {leaders.map((e, i) => (
@@ -603,16 +745,15 @@ function LeadersOverlay({
                     {e.score}
                   </span>
                   <span className="ml-auto font-ui text-[11px] text-[#8a5330]">
-                    ур. {e.level} · {new Date(e.date).toLocaleDateString('ru-RU')}
+                    {t('lead.lvl', { n: e.level })} ·{' '}
+                    {new Date(e.date).toLocaleDateString(LOCALES[lang])}
                   </span>
                 </li>
               ))}
             </ol>
           )
         ) : world.rows.length === 0 ? (
-          <p className="mt-4 font-ui text-sm font-medium text-[#5C3A1E]">
-            Мировая таблица ждёт первый рекорд — стань первым! 🌍
-          </p>
+          <p className="mt-4 font-ui text-sm font-medium text-[#5C3A1E]">{t('lead.emptyWorld')}</p>
         ) : (
           <ol className={`mt-3 max-h-[42vh] space-y-1.5 overflow-y-auto pr-1 sm:max-h-72 ${OVERLAY_SCROLL}`}>
             {world.rows.map((e, i) => {
@@ -634,20 +775,22 @@ function LeadersOverlay({
                   </span>
                   <span className="min-w-0 flex-1 truncate text-left font-pixel text-sm font-bold text-[#5C3A1E]">
                     {e.name}
-                    {mine && <span className="ml-1 font-ui text-[10px] text-[#B33A26]">← ты!</span>}
+                    {mine && <span className="ml-1 font-ui text-[10px] text-[#B33A26]">{t('lead.you')}</span>}
                   </span>
                   <Popcorn className="h-4 w-4 shrink-0 text-amber-500" aria-hidden />
                   <span className="font-pixel text-base font-bold tabular-nums text-[#5C3A1E]">
                     {e.score}
                   </span>
-                  <span className="shrink-0 font-ui text-[11px] text-[#8a5330]">ур. {e.level}</span>
+                  <span className="shrink-0 font-ui text-[11px] text-[#8a5330]">
+                    {t('lead.lvl', { n: e.level })}
+                  </span>
                 </li>
               )
             })}
           </ol>
         )}
         <div className="mt-3">
-          <GameButton onClick={onClose}>ЗАКРЫТЬ</GameButton>
+          <GameButton onClick={onClose}>{t('shop.close')}</GameButton>
         </div>
       </motion.div>
     </motion.div>
@@ -655,7 +798,23 @@ function LeadersOverlay({
 }
 
 /** Экран «Правила»: подробный список механик (вынесен из главного меню) */
-function RulesOverlay({ onClose }: { onClose: () => void }) {
+function RulesOverlay({ t, onClose }: { t: TranslateFn; onClose: () => void }) {
+  const rows: Array<[string, string]> = [
+    ['👆', 'rules.r1'],
+    ['🍿', 'rules.r2'],
+    ['🌽', 'rules.r3'],
+    ['🎯', 'rules.r4'],
+    ['🐾', 'rules.r5'],
+    ['🎁', 'rules.r6'],
+    ['🔥', 'rules.r7'],
+    ['🐦', 'rules.r8'],
+    ['♾️', 'rules.r9'],
+    ['🛒', 'rules.r10'],
+    ['🗺️', 'rules.r11'],
+    ['🏅', 'rules.r12'],
+    ['⏹', 'rules.r13'],
+    ['🏆', 'rules.r14'],
+  ]
   return (
     <motion.div
       className="absolute inset-0 z-40 flex items-center justify-center overflow-y-auto bg-black/70 p-4 backdrop-blur-sm"
@@ -673,49 +832,23 @@ function RulesOverlay({ onClose }: { onClose: () => void }) {
         <div aria-hidden className="text-3xl">
           📖
         </div>
-        <h2 className="mt-0.5 font-pixel text-xl font-bold text-[#B33A26]">ПРАВИЛА</h2>
+        <h2 className="mt-0.5 font-pixel text-xl font-bold text-[#B33A26]">{t('rules.title')}</h2>
         <ul
           className={`mt-3 max-h-[52vh] space-y-2 overflow-y-auto pr-1 text-left font-ui text-xs leading-snug text-[#5C3A1E] sm:max-h-80 sm:text-sm ${OVERLAY_SCROLL}`}
         >
-          <HowToRow icon="👆">Веди лапку пальцем по экрану (на ПК — мышкой)</HowToRow>
-          <HowToRow icon="🍿">Собирай попкорн в стаканчик. Золотое зерно = +5!</HowToRow>
-          <HowToRow icon="🌽">Кукуруза — мины: обходи, заденешь — минус балл</HowToRow>
-          <HowToRow icon="🎯">Собери норму за 60 секунд — и уровень пройден!</HowToRow>
-          <HowToRow icon="🐱">
-            Кот-помощник: в начале каждого уровня выглядывает наверху и первые 5 секунд ждёт — ткни
-            в лапку, и таймер замрёт на 5 секунд: продумай маршрут!
-          </HowToRow>
-          <HowToRow icon="🐾">
-            Лапка растёт: сначала несёт 3 зерна, после 5-го уровня — 4, после 10-го — 5!
-          </HowToRow>
-          <HowToRow icon="🎁">Между уровнями открывай сундучок со случайным перком: бывают бонусы и проклятья</HowToRow>
-          <HowToRow icon="🔥">
-            Комбо: за каждую сдачу без мины растёт серия — множитель доходит до ×5! Мина или голубь сбрасывают серию
-          </HowToRow>
-          <HowToRow icon="🐦">
-            С 3-го уровня прилетает голубь-воришка: он таскает попкорн из стаканчика — отпугни лапкой и получи +2!
-          </HowToRow>
-          <HowToRow icon="♾️">
-            Каждые 5 уровней попкорна и мин больше, зёрна мельчают, а мины толстеют. Держись!
-          </HowToRow>
-          <HowToRow icon="🛒">
-            Очки попкорна = опыт: капают в банк сразу. В магазине — лапки и постоянные апгрейды: большой стаканчик, вторая жизнь, стартовый перк!
-          </HowToRow>
-          <HowToRow icon="🗺️">
-            Каждый уровень — новая локация: кинозал, кухня пиццерии, ночной двор, аркадный зал, крыша, парк, чердак и кладовка!
-          </HowToRow>
-          <HowToRow icon="🏅">Выполняй достижения — они открываются в меню навсегда</HowToRow>
-          <HowToRow icon="⏹">
-            Кнопка «КОНЕЦ ИГРЫ» справа внизу — сразу в меню. Собранный опыт сохраняется!
-          </HowToRow>
-          <HowToRow icon="🏆">Лучшие забеги попадают в мировую таблицу лидеров под твоим ником (меняется в меню)</HowToRow>
+          {rows.map(([icon, key]) => (
+            <HowToRow key={key} icon={icon}>
+              {t(key)}
+            </HowToRow>
+          ))}
         </ul>
         <p className="mt-2.5 font-ui text-[11px] leading-snug text-[#a97c50]">
-          🎵 Лучше со звуком: музыка ускоряется на 30-й, 15-й и последних секундах!
-          <br />📱 На iPhone: «Поделиться» → «На экран „Домой“» — игра установится как приложение.
+          {t('rules.note')}
+          <br />
+          {t('rules.ios')}
         </p>
         <div className="mt-3">
-          <GameButton onClick={onClose}>ПОНЯТНО!</GameButton>
+          <GameButton onClick={onClose}>{t('rules.ok')}</GameButton>
         </div>
       </motion.div>
     </motion.div>
@@ -723,7 +856,7 @@ function RulesOverlay({ onClose }: { onClose: () => void }) {
 }
 
 /** Экран «Создатели» */
-function CreatorsOverlay({ onClose }: { onClose: () => void }) {
+function CreatorsOverlay({ t, onClose }: { t: TranslateFn; onClose: () => void }) {
   return (
     <motion.div
       className="absolute inset-0 z-40 flex items-center justify-center overflow-y-auto bg-black/70 p-4 backdrop-blur-sm"
@@ -741,7 +874,7 @@ function CreatorsOverlay({ onClose }: { onClose: () => void }) {
         <div aria-hidden className="text-4xl">
           🐱🍿🐈
         </div>
-        <h2 className="mt-1 font-pixel text-xl font-bold text-[#B33A26]">СОЗДАТЕЛИ</h2>
+        <h2 className="mt-1 font-pixel text-xl font-bold text-[#B33A26]">{t('creators.title')}</h2>
         <p className="mt-2 font-pixel text-lg font-bold leading-snug text-[#5C3A1E] sm:text-xl">
           RaidoPert + HeyNANAhey
         </p>
@@ -753,9 +886,7 @@ function CreatorsOverlay({ onClose }: { onClose: () => void }) {
         >
           !!!!
         </motion.p>
-        <p className="mt-2 font-ui text-sm leading-relaxed text-[#5C3A1E]">
-          Мы сделали игру с любовью к кошкам, попкорну, куницам и друг другу!
-        </p>
+        <p className="mt-2 font-ui text-sm leading-relaxed text-[#5C3A1E]">{t('creators.text')}</p>
         <motion.p
           aria-hidden
           className="mt-2 text-2xl tracking-widest"
@@ -765,7 +896,7 @@ function CreatorsOverlay({ onClose }: { onClose: () => void }) {
           ❤️🧡💛💚
         </motion.p>
         <div className="mt-4">
-          <GameButton onClick={onClose}>ОТЛИЧНО!</GameButton>
+          <GameButton onClick={onClose}>{t('creators.ok')}</GameButton>
         </div>
       </motion.div>
     </motion.div>
@@ -775,9 +906,11 @@ function CreatorsOverlay({ onClose }: { onClose: () => void }) {
 /** Экран «Достижения»: медали за игровые подвиги */
 function AchievementsOverlay({
   unlocked,
+  t,
   onClose,
 }: {
   unlocked: AchId[]
+  t: TranslateFn
   onClose: () => void
 }) {
   return (
@@ -797,9 +930,9 @@ function AchievementsOverlay({
         <div aria-hidden className="text-3xl">
           🏅
         </div>
-        <h2 className="mt-0.5 font-pixel text-xl font-bold text-[#B33A26]">ДОСТИЖЕНИЯ</h2>
+        <h2 className="mt-0.5 font-pixel text-xl font-bold text-[#B33A26]">{t('ach.title')}</h2>
         <p className="mt-1 font-ui text-xs font-medium text-[#8a5330]">
-          Открыто {unlocked.length} из {ACHIEVEMENTS.length}
+          {t('ach.progress', { a: unlocked.length, b: ACHIEVEMENTS.length })}
         </p>
         <div
           className={`mt-3 grid max-h-[42vh] grid-cols-2 gap-2 overflow-y-auto pr-1 text-left sm:max-h-72 ${OVERLAY_SCROLL}`}
@@ -822,20 +955,231 @@ function AchievementsOverlay({
                   <span
                     className={`truncate font-pixel text-[11px] font-bold ${got ? 'text-[#5C3A1E]' : 'text-[#a97c50]'}`}
                   >
-                    {a.name}
+                    {t(`ach.${a.id}.name`)}
                   </span>
                 </div>
                 <p
                   className={`mt-1 font-ui text-[10px] leading-tight ${got ? 'text-[#8a5330]' : 'text-[#b39a76]'}`}
                 >
-                  {a.desc}
+                  {t(`ach.${a.id}.desc`)}
                 </p>
               </div>
             )
           })}
         </div>
         <div className="mt-3">
-          <GameButton onClick={onClose}>ЗАКРЫТЬ</GameButton>
+          <GameButton onClick={onClose}>{t('shop.close')}</GameButton>
+        </div>
+      </motion.div>
+    </motion.div>
+  )
+}
+
+/** Экран «Настройки»: язык, сложность, качество, ориентация, перки, экран, вибрация */
+function SettingsOverlay({
+  settings,
+  onChange,
+  t,
+  onClose,
+}: {
+  settings: GameSettings
+  onChange: (s: GameSettings) => void
+  t: TranslateFn
+  onClose: () => void
+}) {
+  const set = (patch: Partial<GameSettings>) => onChange({ ...settings, ...patch })
+  return (
+    <motion.div
+      className="absolute inset-0 z-[60] flex items-center justify-center overflow-y-auto bg-black/80 p-4 backdrop-blur-sm"
+      initial={{ opacity: 0 }}
+      animate={{ opacity: 1 }}
+      exit={{ opacity: 0 }}
+    >
+      <motion.div
+        className="my-auto w-full max-w-sm rounded-2xl border-4 border-[#8a5330] bg-[#FFF6E6] p-4 text-center shadow-[0_18px_50px_rgba(0,0,0,0.55)] sm:p-5"
+        initial={{ scale: 0.92, y: 14 }}
+        animate={{ scale: 1, y: 0 }}
+        exit={{ scale: 0.95, opacity: 0 }}
+        transition={{ type: 'spring', stiffness: 260, damping: 22 }}
+      >
+        <div aria-hidden className="text-3xl">
+          ⚙️
+        </div>
+        <h2 className="mt-0.5 font-pixel text-xl font-bold text-[#B33A26]">{t('set.title')}</h2>
+
+        <div
+          className={`mt-3 max-h-[56vh] space-y-3 overflow-y-auto pr-1 text-left ${OVERLAY_SCROLL}`}
+        >
+          {/* Язык */}
+          <section>
+            <div className="mb-1 font-pixel text-[12px] font-bold text-[#8a5330]">
+              🌐 {t('set.lang')}
+            </div>
+            <div className="grid grid-cols-4 gap-1 rounded-xl bg-[#f3e2c8] p-1">
+              {LANGS.map((l) => (
+                <button
+                  key={l.id}
+                  type="button"
+                  onClick={() => set({ lang: l.id })}
+                  className={`rounded-lg px-1 py-1.5 font-pixel text-[11px] font-bold transition ${
+                    settings.lang === l.id
+                      ? 'bg-[#E24B3B] text-white shadow-[0_2px_0_#9c2f22]'
+                      : 'text-[#8a5330] hover:bg-[#eed7b4]'
+                  }`}
+                  aria-label={l.label}
+                >
+                  {l.flag} {l.id.toUpperCase()}
+                </button>
+              ))}
+            </div>
+          </section>
+
+          {/* Сложность */}
+          <section>
+            <div className="mb-1 font-pixel text-[12px] font-bold text-[#8a5330]">
+              🎯 {t('set.diff')}
+            </div>
+            <Seg
+              cur={settings.difficulty}
+              onPick={(v) => set({ difficulty: v as GameSettings['difficulty'] })}
+              options={[
+                { v: 'easy', label: t('set.diff.easy') },
+                { v: 'normal', label: t('set.diff.normal') },
+                { v: 'hard', label: t('set.diff.hard') },
+              ]}
+            />
+            <p className="mt-1 font-ui text-[10px] leading-tight text-[#a97c50]">
+              {t('set.diffHint')}
+            </p>
+          </section>
+
+          {/* Качество */}
+          <section>
+            <div className="mb-1 font-pixel text-[12px] font-bold text-[#8a5330]">
+              ✨ {t('set.quality')}
+            </div>
+            <Seg
+              cur={settings.quality}
+              onPick={(v) => set({ quality: v as GameSettings['quality'] })}
+              options={[
+                { v: 'low', label: t('set.quality.low') },
+                { v: 'medium', label: t('set.quality.medium') },
+                { v: 'high', label: t('set.quality.high') },
+              ]}
+            />
+            <p className="mt-1 font-ui text-[10px] leading-tight text-[#a97c50]">
+              {t('set.qualityHint')}
+            </p>
+          </section>
+
+          {/* Ориентация */}
+          <section>
+            <div className="mb-1 font-pixel text-[12px] font-bold text-[#8a5330]">
+              📱 {t('set.orient')}
+            </div>
+            <Seg
+              cur={settings.orientation}
+              onPick={(v) => set({ orientation: v as Orientation })}
+              options={[
+                { v: 'portrait', label: t('set.orient.portrait') },
+                { v: 'landscape', label: t('set.orient.landscape') },
+                { v: 'auto', label: t('set.orient.auto') },
+              ]}
+            />
+          </section>
+
+          {/* Игровые механики */}
+          <section className="space-y-1.5">
+            <div className="font-pixel text-[12px] font-bold text-[#8a5330]">🎲</div>
+            <ToggleRow
+              label={t('set.perksCurse')}
+              value={settings.perksCurse}
+              onChange={(v) => set({ perksCurse: v })}
+            />
+            <ToggleRow
+              label={t('set.perksBonus')}
+              value={settings.perksBonus}
+              onChange={(v) => set({ perksBonus: v })}
+            />
+            <ToggleRow
+              label={t('set.pigeon')}
+              value={settings.pigeon}
+              onChange={(v) => set({ pigeon: v })}
+            />
+          </section>
+
+          {/* Экран и отклик */}
+          <section className="space-y-1.5">
+            <div className="font-pixel text-[12px] font-bold text-[#8a5330]">
+              🖥 {t('set.shake')}/{t('set.vibro')}/{t('set.colorblind')}
+            </div>
+            <ToggleRow
+              label={t('set.shake')}
+              value={settings.shake}
+              onChange={(v) => set({ shake: v })}
+            />
+            <ToggleRow
+              label={t('set.vibro')}
+              value={settings.vibration}
+              onChange={(v) => set({ vibration: v })}
+            />
+            <ToggleRow
+              label={t('set.colorblind')}
+              hint={t('set.colorblindHint')}
+              value={settings.colorblind}
+              onChange={(v) => set({ colorblind: v })}
+            />
+          </section>
+
+          {/* Яркость и контраст */}
+          <section className="space-y-2">
+            <div className="font-pixel text-[12px] font-bold text-[#8a5330]">
+              🔅 {t('set.bright')} / {t('set.contrast')}
+            </div>
+            <label className="block rounded-xl border-2 border-[#e3cba4] bg-[#fdf3e0] px-3 py-2">
+              <span className="flex items-center justify-between font-ui text-[11px] font-semibold text-[#5C3A1E]">
+                {t('set.bright')}
+                <span className="tabular-nums">{Math.round(settings.brightness * 100)}%</span>
+              </span>
+              <input
+                type="range"
+                min={0.6}
+                max={1.4}
+                step={0.05}
+                value={settings.brightness}
+                onChange={(e) => set({ brightness: Number(e.target.value) })}
+                className="mt-1 w-full accent-[#E24B3B]"
+                aria-label={t('set.bright')}
+              />
+            </label>
+            <label className="block rounded-xl border-2 border-[#e3cba4] bg-[#fdf3e0] px-3 py-2">
+              <span className="flex items-center justify-between font-ui text-[11px] font-semibold text-[#5C3A1E]">
+                {t('set.contrast')}
+                <span className="tabular-nums">{Math.round(settings.contrast * 100)}%</span>
+              </span>
+              <input
+                type="range"
+                min={0.6}
+                max={1.6}
+                step={0.05}
+                value={settings.contrast}
+                onChange={(e) => set({ contrast: Number(e.target.value) })}
+                className="mt-1 w-full accent-[#E24B3B]"
+                aria-label={t('set.contrast')}
+              />
+            </label>
+          </section>
+        </div>
+
+        <div className="mt-3 space-y-2">
+          <GameButton onClick={onClose}>{t('set.close')}</GameButton>
+          <button
+            type="button"
+            onClick={() => onChange({ ...DEFAULT_SETTINGS, lang: settings.lang })}
+            className="w-full rounded-xl px-4 py-1.5 font-ui text-[11px] font-semibold text-[#a97c50] transition hover:text-[#8a5330] hover:underline"
+          >
+            ↺ {t('set.reset')}
+          </button>
         </div>
       </motion.div>
     </motion.div>
@@ -848,11 +1192,13 @@ function AchievementsOverlay({
 function NickDialog({
   mode,
   current,
+  t,
   onDone,
   onClose,
 }: {
   mode: 'gate' | 'edit'
   current: string
+  t: TranslateFn
   onDone: (name: string) => void
   onClose: () => void
 }) {
@@ -880,16 +1226,14 @@ function NickDialog({
           🐱
         </div>
         <h2 className="mt-1 font-pixel text-xl font-bold text-[#B33A26]">
-          {mode === 'gate' ? 'КАК ТЕБЯ ЗОВУТ?' : 'СМЕНИТЬ НИК'}
+          {mode === 'gate' ? t('nick.gate.title') : t('nick.edit.title')}
         </h2>
         {mode === 'gate' ? (
           <p className="mt-1 font-ui text-xs font-medium leading-snug text-[#8a5330]">
-            Введи имя кота-ловца — под ним ты попадёшь в мировую таблицу лидеров! 🌍
+            {t('nick.gate.desc')}
           </p>
         ) : (
-          <p className="mt-1 font-ui text-xs font-medium text-[#8a5330]">
-            Новое имя появится в мировом рейтинге после следующего забега
-          </p>
+          <p className="mt-1 font-ui text-xs font-medium text-[#8a5330]">{t('nick.edit.desc')}</p>
         )}
         <input
           autoFocus
@@ -902,15 +1246,15 @@ function NickDialog({
           onKeyDown={(e) => {
             if (e.key === 'Enter' && valid) submit()
           }}
-          placeholder="Мурзик"
-          aria-label="Никнейм для мировой таблицы лидеров"
+          placeholder={t('nick.placeholder')}
+          aria-label={t('nick.aria')}
           className="mt-3 w-full rounded-xl border-[3px] border-[#e3cba4] bg-white px-3 py-2.5 text-center font-pixel text-lg font-bold text-[#5C3A1E] outline-none transition placeholder:text-[#c9a97a] focus:border-amber-400"
         />
-        <p className="mt-1.5 font-ui text-[11px] text-[#a97c50]">От 2 до 24 символов</p>
+        <p className="mt-1.5 font-ui text-[11px] text-[#a97c50]">{t('nick.hint')}</p>
         <div className="mt-3 space-y-2">
           {valid ? (
             <GameButton onClick={submit}>
-              {mode === 'gate' ? 'ЭТО Я! ▶' : 'СОХРАНИТЬ'}
+              {mode === 'gate' ? t('nick.confirm') : t('nick.save')}
             </GameButton>
           ) : (
             <button
@@ -918,16 +1262,16 @@ function NickDialog({
               disabled
               className="w-full cursor-not-allowed rounded-xl bg-[#d9c6a8] px-6 py-3.5 font-pixel text-base text-[#8a755c] sm:text-lg"
             >
-              ВВЕДИ ИМЯ
+              {t('nick.enter')}
             </button>
           )}
           {mode === 'gate' ? (
             <button
               type="button"
-              onClick={() => onDone('Котик')}
+              onClick={() => onDone(t('nick.default'))}
               className="w-full rounded-xl px-4 py-1.5 font-ui text-[11px] font-semibold text-[#a97c50] transition hover:text-[#8a5330] hover:underline"
             >
-              ОСТАВИТЬСЯ АНОНИМНЫМ КОТИКОМ
+              {t('nick.anon')}
             </button>
           ) : (
             <button
@@ -935,7 +1279,7 @@ function NickDialog({
               onClick={onClose}
               className="w-full rounded-xl px-4 py-1.5 font-ui text-[11px] font-semibold text-[#a97c50] transition hover:text-[#8a5330] hover:underline"
             >
-              ОТМЕНА
+              {t('nick.cancel')}
             </button>
           )}
         </div>
@@ -946,8 +1290,13 @@ function NickDialog({
 
 /* ---------- шаринг рекорда: картинка-карточка + Web Share API ---------- */
 
-async function shareResult(score: number, level: number, best: number): Promise<'shared' | 'copied' | 'fail'> {
-  const text = `Я набрал ${score} очков (уровень ${level}) в «Кошачьем попкорнном Беспределе»! 🐱🍿`
+async function shareResult(
+  score: number,
+  level: number,
+  best: number,
+  t: TranslateFn,
+): Promise<'shared' | 'copied' | 'fail'> {
+  const text = t('share.text', { s: score, l: level })
   const url = typeof window !== 'undefined' ? window.location.origin : ''
   try {
     // Рисуем праздничную карточку результата
@@ -967,15 +1316,15 @@ async function shareResult(score: number, level: number, best: number): Promise<
     c.drawImage(spr.canvas, 300 - 80, 66, 160, 160)
     c.textAlign = 'center'
     c.fillStyle = '#B33A26'
-    c.font = '700 46px "Handjet", system-ui, sans-serif'
-    c.fillText('КОШАЧИЙ ПОПКОРННЫЙ', 300, 282)
-    c.fillText('БЕСПРЕДЕЛ', 300, 326)
+    c.font = '700 44px "Handjet", system-ui, sans-serif'
+    c.fillText(t('app.title').split(' ').slice(0, 2).join(' '), 300, 282)
+    c.fillText(t('app.title').split(' ').slice(2).join(' ') || ' ', 300, 326)
     c.fillStyle = '#5C3A1E'
     c.font = '700 150px "Handjet", system-ui, sans-serif'
     c.fillText(String(score), 300, 480)
     c.fillStyle = '#8a5330'
     c.font = '600 32px "Handjet", system-ui, sans-serif'
-    c.fillText(`уровень ${level} · рекорд ${best}`, 300, 532)
+    c.fillText(t('share.cardLevel', { l: level, b: best }), 300, 532)
     c.fillStyle = '#E24B3B'
     c.font = '600 28px "Handjet", system-ui, sans-serif'
     c.fillText(url.replace(/^https?:\/\//, '') || 'popcorn-lapi.vercel.app', 300, 574)
@@ -986,13 +1335,13 @@ async function shareResult(score: number, level: number, best: number): Promise<
     if (file && nav.canShare?.({ files: [file] })) {
       await navigator.share({
         files: [file],
-        title: 'Кошачий попкорнный Беспредел',
+        title: t('app.title'),
         text,
       })
       return 'shared'
     }
     if (navigator.share) {
-      await navigator.share({ title: 'Кошачий попкорнный Беспредел', text: `${text}\n${url}` })
+      await navigator.share({ title: t('app.title'), text: `${text}\n${url}` })
       return 'shared'
     }
     try {
@@ -1035,6 +1384,10 @@ export function PopcornGame() {
   /** Счёт забега, уже зачисленный в банк опыта (очки = опыт) */
   const lastScoreRef = useRef(0)
 
+  /* Настройки: язык, сложность, качество, ориентация, перки, экран, вибрация */
+  const [settings, setSettings] = useSettings()
+  const settingsRef = useRef(settings)
+
   const [phase, setPhase] = useState<Phase>('start')
   const [stats, setStats] = useState<EngineStats>({
     score: 0,
@@ -1045,7 +1398,6 @@ export function PopcornGame() {
     collected: 0,
     carrying: 0,
     carryMax: 3,
-    freezeLeft: 0,
     paused: false,
     streak: 0,
     comboMult: 1,
@@ -1073,7 +1425,9 @@ export function PopcornGame() {
   const [nameRaw, storeName] = useStoredValue(NAME_KEY, 'Котик')
   const [nickSetRaw, storeNickSet] = useStoredValue(NICKSET_KEY, '0')
   const [nickEdit, setNickEdit] = useState(false)
-  const [overlay, setOverlay] = useState<'leaders' | 'shop' | 'creators' | 'rules' | 'ach' | null>(null)
+  const [overlay, setOverlay] = useState<
+    'leaders' | 'shop' | 'creators' | 'rules' | 'ach' | 'settings' | null
+  >(null)
   const [achToast, setAchToast] = useState<{ icon: string; name: string } | null>(null)
   const [shareNote, setShareNote] = useState<string | null>(null)
   const installRef = useRef<InstallPromptEvent | null>(null)
@@ -1107,6 +1461,9 @@ export function PopcornGame() {
     }
   }, [leadersRaw])
 
+  /* Функция перевода текущего языка */
+  const t = useMemo(() => tFor(settings.lang), [settings.lang])
+
   /* Скрытые dev-параметры URL: ?fast=1 (короткая норма) и ?perk=rot180 */
   useEffect(() => {
     const sp = new URLSearchParams(window.location.search)
@@ -1115,6 +1472,21 @@ export function PopcornGame() {
       forced: (sp.get('perk') as PerkId | null) ?? null,
     }
   }, [])
+
+  /* Настройки → ref + движок (язык, сложность, качество, отклик). Сам стор
+     сохраняет в localStorage уже при записи — эффект только применяет к движку */
+  useEffect(() => {
+    settingsRef.current = settings
+    engineRef.current?.setOptions({
+      difficulty: settings.difficulty,
+      quality: settings.quality,
+      shake: settings.shake,
+      vibration: settings.vibration,
+      colorblind: settings.colorblind,
+      pigeon: settings.pigeon,
+    })
+    engineRef.current?.setLang(settings.lang)
+  }, [settings])
 
   /* Синхронизируем состояние звука с аудио-движком (внешняя система) */
   useEffect(() => {
@@ -1152,6 +1524,27 @@ export function PopcornGame() {
     equippedRef.current = equippedPaw
   }, [equippedPaw])
 
+  /** Блокировка ориентации экрана во время игры (настройка, где поддерживается) */
+  const lockOrientation = useCallback((o: Orientation) => {
+    try {
+      if (o === 'auto') return
+      const so = window.screen?.orientation as
+        | (ScreenOrientation & { lock?: (x: string) => Promise<void> })
+        | undefined
+      void so?.lock?.(o)?.catch?.(() => {})
+    } catch {
+      /* блокировка не поддерживается — играем как есть */
+    }
+  }, [])
+
+  const unlockOrientation = useCallback(() => {
+    try {
+      window.screen?.orientation?.unlock?.()
+    } catch {
+      /* не поддерживается — не страшно */
+    }
+  }, [])
+
   /* Раскладка холста с учётом трансформации перка (ротация/зеркало) */
   const applyLayout = useCallback(() => {
     const main = mainRef.current
@@ -1160,8 +1553,8 @@ export function PopcornGame() {
     const cw = main.clientWidth
     const ch = main.clientHeight
     if (cw === 0 || ch === 0) return
-    const t = transformRef.current
-    const rot90 = t === 'rot90'
+    const tr = transformRef.current
+    const rot90 = tr === 'rot90'
     const gw = rot90 ? ch : cw
     const gh = rot90 ? cw : ch
     engineRef.current?.handleResize(gw, gh)
@@ -1175,13 +1568,33 @@ export function PopcornGame() {
       canvas.style.left = '0'
       canvas.style.top = '0'
       canvas.style.transform =
-        t === 'rot180' ? 'rotate(180deg)' : t === 'mirror' ? 'scaleX(-1)' : 'none'
+        tr === 'rot180' ? 'rotate(180deg)' : tr === 'mirror' ? 'scaleX(-1)' : 'none'
     }
   }, [])
 
   useEffect(() => {
     layoutRef.current = applyLayout
   }, [applyLayout])
+
+  /** Случайные перки для сундучков с учётом настроек (проклятья/бонусы можно выключить) */
+  const rollOffers = useCallback((n: number, force?: PerkId): PerkDef[] => {
+    const s = settingsRef.current
+    return rollPerkOffer(n, force, (p) => (p.curse ? s.perksCurse : s.perksBonus))
+  }, [])
+
+  /** Открыть достижения с тостом и фанфарой */
+  const announceAch = useCallback(
+    (ids: AchId[]) => {
+      if (ids.length === 0) return
+      const fresh = unlockMany(ids)
+      if (fresh.length === 0) return
+      const def = ACH_MAP[fresh[0]]
+      setAchToast({ icon: def.icon, name: t(`ach.${fresh[0]}.name`) })
+      audio.play('record')
+      window.setTimeout(() => setAchToast(null), 3200)
+    },
+    [t],
+  )
 
   /** Начислить дельту очков в банк опыта сразу — очки попкорна = опыт */
   const addXpDelta = useCallback((delta: number) => {
@@ -1190,17 +1603,6 @@ export function PopcornGame() {
     const next = Math.max(0, cur + delta)
     window.localStorage.setItem(XP_KEY, String(next))
     window.dispatchEvent(new Event(STORE_EVENT))
-  }, [])
-
-  /** Открыть достижения с тостом и фанфарой */
-  const announceAch = useCallback((ids: AchId[]) => {
-    if (ids.length === 0) return
-    const fresh = unlockMany(ids)
-    if (fresh.length === 0) return
-    const def = ACH_MAP[fresh[0]]
-    setAchToast({ icon: def.icon, name: def.name })
-    audio.play('record')
-    window.setTimeout(() => setAchToast(null), 3200)
   }, [])
 
   /* PWA: ловим событие установки и регистрируем service worker (только прод) */
@@ -1254,7 +1656,7 @@ export function PopcornGame() {
       },
       onLevelComplete: (r) => {
         setClearInfo({ level: r.level, bonus: r.bonus })
-        setOffers(rollPerkOffer(3, devRef.current.forced ?? undefined))
+        setOffers(rollOffers(3, devRef.current.forced ?? undefined))
         setOpenedIdx(null)
         setRunLevel(r.level + 1)
         setPhase('chest')
@@ -1304,6 +1706,17 @@ export function PopcornGame() {
     })
     engineRef.current = engine
     ;(window as unknown as { __popcornEngine?: PopcornEngine }).__popcornEngine = engine
+    /* Применяем сохранённые настройки сразу после создания движка */
+    const s = settingsRef.current
+    engine.setOptions({
+      difficulty: s.difficulty,
+      quality: s.quality,
+      shake: s.shake,
+      vibration: s.vibration,
+      colorblind: s.colorblind,
+      pigeon: s.pigeon,
+    })
+    engine.setLang(s.lang)
     layoutRef.current()
 
     return () => {
@@ -1311,7 +1724,7 @@ export function PopcornGame() {
       engineRef.current = null
       delete (window as unknown as { __popcornEngine?: PopcornEngine }).__popcornEngine
     }
-  }, [storeBest, addXpDelta, announceAch])
+  }, [storeBest, addXpDelta, announceAch, rollOffers])
 
   /* Следим за размером контейнера */
   useEffect(() => {
@@ -1337,7 +1750,7 @@ export function PopcornGame() {
     const onPointer = (e: PointerEvent) => {
       const eng = engineRef.current
       if (!eng) return
-      /* Кнопки HUD (пауза, звук, конец игры) не должны двигать лапку */
+      /* Кнопки панели не должны двигать лапку */
       if (e.target instanceof Element && e.target.closest('button')) return
       let r = rectRef.current
       if (e.type === 'pointerdown' || !r) {
@@ -1413,31 +1826,36 @@ export function PopcornGame() {
     const ups = parseUpgrades(window.localStorage.getItem(UPG_KEY))
     engineRef.current?.setUpgrades({ carryPlus: ups.capacity })
     let startPerk: PerkId | null = null
-    if (ups.startperk > 0) {
+    if (ups.startperk > 0 && settingsRef.current.perksBonus) {
       const bonusPool = PERKS.filter((p) => !p.curse)
       startPerk = bonusPool[Math.floor(Math.random() * bonusPool.length)]?.id ?? null
     }
     engineRef.current?.setPawSkin(equippedRef.current)
     engineRef.current?.startRun({ fast: devRef.current.fast, perk: startPerk })
     setPerk(startPerk)
+    lockOrientation(settingsRef.current.orientation)
     setPhase('playing')
-  }, [])
+  }, [lockOrientation])
 
-  const beginLevel = useCallback((lvl: number, perkId: PerkId | null) => {
-    audio.ensure()
-    audio.setMuted(mutedRef.current)
-    audio.startMusic('game')
-    audio.play('click')
-    transformRef.current = transformFor(perkId)
-    const canvas = canvasRef.current
-    if (canvas) {
-      canvas.style.filter = perkId === 'grayscale' ? 'grayscale(1) contrast(1.05)' : ''
-    }
-    layoutRef.current()
-    engineRef.current?.startLevel(lvl, perkId)
-    setPerk(perkId)
-    setPhase('playing')
-  }, [])
+  const beginLevel = useCallback(
+    (lvl: number, perkId: PerkId | null) => {
+      audio.ensure()
+      audio.setMuted(mutedRef.current)
+      audio.startMusic('game')
+      audio.play('click')
+      transformRef.current = transformFor(perkId)
+      const canvas = canvasRef.current
+      if (canvas) {
+        canvas.style.filter = perkId === 'grayscale' ? 'grayscale(1) contrast(1.05)' : ''
+      }
+      layoutRef.current()
+      engineRef.current?.startLevel(lvl, perkId)
+      setPerk(perkId)
+      lockOrientation(settingsRef.current.orientation)
+      setPhase('playing')
+    },
+    [lockOrientation],
+  )
 
   const resumeGame = useCallback(() => {
     audio.play('click')
@@ -1465,9 +1883,10 @@ export function PopcornGame() {
     transformRef.current = 'none'
     const canvas = canvasRef.current
     if (canvas) canvas.style.filter = ''
+    unlockOrientation()
     layoutRef.current()
     setPhase('start')
-  }, [])
+  }, [unlockOrientation])
 
   const toggleMute = useCallback(() => {
     storeMuted(muted ? '0' : '1')
@@ -1499,12 +1918,12 @@ export function PopcornGame() {
   const handleShare = useCallback(async () => {
     if (!result) return
     audio.play('click')
-    const r = await shareResult(result.score, result.level, best)
-    if (r === 'copied') setShareNote('Текст скопирован!')
-    else if (r === 'shared') setShareNote('Отправлено!')
-    else setShareNote('Не удалось — расскажите друзьям словами 🐾')
+    const r = await shareResult(result.score, result.level, best, t)
+    if (r === 'copied') setShareNote(t('share.copied'))
+    else if (r === 'shared') setShareNote(t('share.sent'))
+    else setShareNote(t('share.fail'))
     window.setTimeout(() => setShareNote(null), 2600)
-  }, [result, best])
+  }, [result, best, t])
 
   const openChest = useCallback((i: number) => {
     audio.play('chest')
@@ -1572,20 +1991,107 @@ export function PopcornGame() {
 
   const sec = Math.ceil(stats.timeLeft)
   const urgent = sec <= 10
-  const playing = phase === 'playing' || phase === 'paused'
+  const onLevel = phase === 'playing' || phase === 'paused'
   const quotaPct = Math.min(100, (stats.collected / Math.max(1, stats.quota)) * 100)
   const chosen: PerkDef | null = openedIdx !== null ? (offers[openedIdx] ?? null) : null
   const activePerk = perk ? PERK_MAP[perk] : null
   /* Локация уровня: в меню — кинозал, в игре — комната по номеру уровня */
   const activeRoom = roomForLevel(stats.level)
   const roomSrc = phase === 'start' ? ROOMS[0].src : roomSrcForLevel(stats.level)
+  /* Яркость/контраст из настроек: применяем фильтр только если он не 100% */
+  const needsFilter =
+    Math.abs(settings.brightness - 1) > 0.001 || Math.abs(settings.contrast - 1) > 0.001
 
   return (
-    <div className="flex h-dvh flex-col overflow-hidden bg-[#1d110b] select-none">
+    <div
+      className="flex h-dvh flex-col overflow-hidden bg-[#1d110b] select-none"
+      style={needsFilter ? { filter: `brightness(${settings.brightness}) contrast(${settings.contrast})` } : undefined}
+    >
+      {/* Панель статистики НАД игровой зоной: поле остаётся чистым */}
+      {onLevel && (
+        <div className="relative z-30 flex flex-wrap items-center gap-1.5 border-b border-white/10 bg-[#160c07] px-2 pb-1.5 pt-[max(0.45rem,env(safe-area-inset-top))]">
+          <StatPill className="font-pixel text-[13px]">
+            <Popcorn className="h-3.5 w-3.5 text-amber-300" aria-hidden />
+            <span className="tabular-nums">{stats.score}</span>
+          </StatPill>
+          <StatPill>
+            <span aria-hidden>🥤</span>
+            <span className="tabular-nums">
+              {stats.collected}/{stats.quota}
+            </span>
+            <span className="relative h-1.5 w-9 overflow-hidden rounded-full bg-white/15">
+              <span
+                className="absolute inset-y-0 left-0 rounded-full bg-amber-300 transition-[width] duration-200"
+                style={{ width: `${quotaPct}%` }}
+              />
+            </span>
+          </StatPill>
+          <StatPill>
+            <span aria-hidden>🐾</span>
+            <span className="tabular-nums">
+              {stats.carrying}/{stats.carryMax}
+            </span>
+          </StatPill>
+          {stats.comboMult > 1 && (
+            <StatPill className="border-amber-300/60 text-amber-200">
+              <span aria-hidden>🔥</span>
+              <span className="font-pixel tabular-nums">×{stats.comboMult}</span>
+              <span className="text-[10px] opacity-80">
+                {t('hud.streak', { n: stats.streak })}
+              </span>
+            </StatPill>
+          )}
+          <StatPill className={urgent ? 'animate-pulse border-red-400/60 text-red-200' : ''}>
+            <Timer className={`h-3.5 w-3.5 ${urgent ? 'text-red-400' : 'text-amber-300'}`} aria-hidden />
+            <span className="tabular-nums">{sec}</span>
+          </StatPill>
+          <StatPill className="font-pixel">{t('hud.level', { n: stats.level })}</StatPill>
+          <StatPill className="max-w-40 sm:max-w-none">
+            <span aria-hidden>{activeRoom.icon}</span>
+            <span className="truncate">{t(`room.${activeRoom.id}.name`)}</span>
+          </StatPill>
+          {activePerk && (
+            <StatPill
+              className={
+                activePerk.curse
+                  ? 'border-red-400/50 text-red-200'
+                  : 'border-emerald-300/50 text-emerald-200'
+              }
+            >
+              <span aria-hidden>{activePerk.icon}</span>
+              <span className="max-w-28 truncate sm:max-w-none">{t(`perk.${activePerk.id}.name`)}</span>
+            </StatPill>
+          )}
+          <span className="ml-auto flex items-center gap-1.5">
+            {phase === 'playing' && (
+              <IconBtn size="sm" onClick={pauseGame} label={t('hud.pause')}>
+                <Pause className="h-4 w-4" aria-hidden />
+              </IconBtn>
+            )}
+            <IconBtn size="sm" onClick={toggleMute} label={muted ? t('hud.unmute') : t('hud.mute')}>
+              {muted ? (
+                <VolumeX className="h-4 w-4" aria-hidden />
+              ) : (
+                <Volume2 className="h-4 w-4" aria-hidden />
+              )}
+            </IconBtn>
+            {phase === 'playing' && (
+              <button
+                type="button"
+                onClick={quitToMenu}
+                className="rounded-lg border-2 border-red-300/50 bg-black/60 px-2 py-1.5 font-pixel text-[10px] font-bold text-red-200 transition hover:bg-black/80 active:scale-95"
+              >
+                {t('quit.short')}
+              </button>
+            )}
+          </span>
+        </div>
+      )}
+
       <main
         ref={mainRef}
         className="relative min-h-0 flex-1 touch-none overflow-hidden"
-        aria-label="Игровое поле: соберите рассыпанный попкорн в стаканчик лапкой куницы"
+        aria-label={t('main.aria')}
       >
         {/* Фон — комната уровня: 8 локаций с кроссфейдом при смене */}
         <div aria-hidden className="absolute inset-0 overflow-hidden">
@@ -1613,141 +2119,14 @@ export function PopcornGame() {
           onContextMenu={(e) => e.preventDefault()}
         />
 
-        {/* Фриз-тайм кота: большие красные цифры отсчёта на фоне */}
-        {playing && stats.freezeLeft > 0 && (
-          <div
-            aria-hidden
-            className="pointer-events-none absolute inset-0 z-[15] flex flex-col items-center justify-center gap-2"
-          >
-            <span className="rounded-full bg-black/45 px-3 py-1 font-pixel text-sm font-bold tracking-widest text-emerald-100 ring-1 ring-emerald-200/40 sm:text-base">
-              ТАЙМЕР ЗАМОРОЖЕН · ПРОДУМАЙ МАРШРУТ
-            </span>
-            <AnimatePresence mode="popLayout">
-              <motion.span
-                key={Math.ceil(stats.freezeLeft)}
-                initial={{ scale: 1.7, opacity: 0 }}
-                animate={{ scale: 1, opacity: 1 }}
-                exit={{ scale: 0.6, opacity: 0 }}
-                transition={{ duration: 0.16 }}
-                className="font-pixel text-[44vw] font-bold leading-none text-red-500/90 drop-shadow-[0_6px_0_rgba(0,0,0,0.45)] sm:text-[230px]"
-              >
-                {Math.ceil(stats.freezeLeft)}
-              </motion.span>
-            </AnimatePresence>
+        {/* HUD в меню (вне забега): рекорд слева сверху */}
+        {phase === 'start' && (
+          <div className="pointer-events-none absolute inset-x-0 top-0 z-20 flex items-start justify-start p-3 pt-[max(0.75rem,env(safe-area-inset-top))]">
+            <Pill>
+              <Trophy className="h-4 w-4 text-amber-300" aria-hidden />
+              <span className="font-pixel text-base tabular-nums">{best}</span>
+            </Pill>
           </div>
-        )}
-
-        {/* HUD */}
-        <div className="pointer-events-none absolute inset-x-0 top-0 z-20 flex items-start justify-between gap-2 p-3 pt-[max(0.75rem,env(safe-area-inset-top))]">
-          <div className="flex flex-col gap-2">
-            {playing ? (
-              <>
-                <Pill>
-                  <Popcorn className="h-4 w-4 text-amber-300" aria-hidden />
-                  <span className="min-w-6 font-pixel text-base tabular-nums">{stats.score}</span>
-                </Pill>
-                {/* Полоска нормы: наполняемость стаканчика */}
-                <Pill className="w-36 sm:w-40">
-                  <Popcorn className="h-4 w-4 shrink-0 text-amber-300" aria-hidden />
-                  <span className="tabular-nums">
-                    {stats.collected}/{stats.quota}
-                  </span>
-                  <span className="relative ml-auto h-2.5 w-12 overflow-hidden rounded-full bg-white/15 sm:w-14">
-                    <span
-                      className="absolute inset-y-0 left-0 rounded-full bg-amber-300 transition-[width] duration-200"
-                      style={{ width: `${quotaPct}%` }}
-                    />
-                  </span>
-                </Pill>
-                {/* Вместимость лапки: 3 → 4 → 5 зёрен за раз */}
-                <Pill>
-                  <span aria-hidden>🐾</span>
-                  <span className="tabular-nums">
-                    {stats.carrying}/{stats.carryMax}
-                  </span>
-                </Pill>
-                {/* Комбо: множитель за серию сдач без мины */}
-                {stats.comboMult > 1 && (
-                  <Pill className="border-amber-300/60 text-amber-200">
-                    <span aria-hidden>🔥</span>
-                    <span className="font-pixel tabular-nums">×{stats.comboMult}</span>
-                    <span className="text-[10px] opacity-80">серия {stats.streak}</span>
-                  </Pill>
-                )}
-                <Pill className={`relative overflow-hidden ${urgent ? 'animate-pulse border-red-400/60' : ''}`}>
-                  <span
-                    aria-hidden
-                    className="absolute inset-y-0 left-0 bg-red-400/25"
-                    style={{
-                      width: `${Math.max(0, Math.min(100, (stats.timeLeft / Math.max(1, stats.duration)) * 100))}%`,
-                    }}
-                  />
-                  <Timer
-                    className={`relative h-4 w-4 ${urgent ? 'text-red-400' : 'text-amber-300'}`}
-                    aria-hidden
-                  />
-                  <span className="relative tabular-nums">{sec} с</span>
-                </Pill>
-              </>
-            ) : (
-              <Pill>
-                <Trophy className="h-4 w-4 text-amber-300" aria-hidden />
-                <span className="font-pixel text-base tabular-nums">{best}</span>
-              </Pill>
-            )}
-          </div>
-          <div className="flex flex-col items-end gap-2">
-            {playing && (
-              <>
-                <Pill>
-                  <span className="font-pixel text-sm">УР. {stats.level}</span>
-                </Pill>
-                {activePerk && (
-                  <Pill
-                    className={
-                      activePerk.curse
-                        ? 'border-red-400/50 text-red-200'
-                        : 'border-emerald-300/50 text-emerald-200'
-                    }
-                  >
-                    <span aria-hidden>{activePerk.icon}</span>
-                    <span className="max-w-36 truncate text-[11px] sm:max-w-none sm:text-xs">
-                      {activePerk.name}
-                    </span>
-                  </Pill>
-                )}
-              </>
-            )}
-            <div className="flex gap-2">
-              {phase === 'playing' && (
-                <IconBtn onClick={pauseGame} label="Пауза">
-                  <Pause className="h-5 w-5" aria-hidden />
-                </IconBtn>
-              )}
-              <IconBtn onClick={toggleMute} label={muted ? 'Включить звук' : 'Выключить звук'}>
-                {muted ? <VolumeX className="h-5 w-5" aria-hidden /> : <Volume2 className="h-5 w-5" aria-hidden />}
-              </IconBtn>
-            </div>
-          </div>
-        </div>
-
-        {/* Локация уровня: слева внизу, показывает где мы играем */}
-        {playing && (
-          <div className="pointer-events-none absolute bottom-[max(0.75rem,env(safe-area-inset-bottom))] left-3 z-20 flex items-center gap-1.5 rounded-full border border-white/15 bg-black/60 px-3 py-1.5 font-ui text-[11px] font-semibold text-white/85">
-            <span aria-hidden>{activeRoom.icon}</span>
-            <span className="max-w-36 truncate sm:max-w-none">{activeRoom.name}</span>
-          </div>
-        )}
-
-        {/* Кнопка «Конец игры»: справа внизу, всегда под рукой во время уровня */}
-        {phase === 'playing' && (
-          <button
-            type="button"
-            onClick={quitToMenu}
-            className="absolute bottom-[max(0.75rem,env(safe-area-inset-bottom))] right-3 z-20 flex items-center gap-1.5 rounded-xl border-2 border-red-300/50 bg-black/65 px-3 py-2 font-pixel text-[11px] font-bold text-red-200 transition hover:bg-black/80 active:scale-95 sm:text-xs"
-          >
-            <span aria-hidden>⏹</span> КОНЕЦ ИГРЫ
-          </button>
         )}
 
         {/* Оверлеи */}
@@ -1769,33 +2148,33 @@ export function PopcornGame() {
               >
                 <Image
                   src="/cat-menu.png"
-                  alt="Рыжий кот держит ведро с попкорном"
+                  alt={t('img.catMenu')}
                   width={1024}
                   height={1024}
                   priority
                   className="animate-float-y mx-auto h-44 w-44 rounded-2xl border-4 border-[#E24B3B] object-cover shadow-lg sm:h-56 sm:w-56"
                 />
                 <h1 className="text-shadow-pixel mt-2.5 font-pixel text-2xl font-bold leading-tight text-[#B33A26] sm:text-3xl">
-                  КОШАЧИЙ ПОПКОРННЫЙ БЕСПРЕДЕЛ
+                  {t('app.title')}
                 </h1>
                 <p className="mt-1 font-ui text-xs font-medium text-[#8a5330] sm:text-sm">
-                  8-битный рогалик-аркада · бесконечные уровни
+                  {t('app.tagline')}
                 </p>
 
                 <div className="mt-2.5 flex flex-wrap items-center justify-center gap-1.5">
                   {best > 0 && (
                     <div className="inline-flex items-center gap-1.5 rounded-full bg-amber-100 px-3 py-1 font-ui text-xs font-semibold text-[#8a5330] ring-2 ring-amber-200">
                       <Trophy className="h-4 w-4 text-amber-500" aria-hidden />
-                      Рекорд: {best}
+                      {t('menu.record', { n: best })}
                     </div>
                   )}
                   <div className="inline-flex items-center gap-1.5 rounded-full bg-amber-100 px-3 py-1 font-ui text-xs font-semibold text-[#8a5330] ring-2 ring-amber-200">
                     <Popcorn className="h-4 w-4 text-amber-500" aria-hidden />
-                    Опыт: {xp}
+                    {t('menu.xp', { n: xp })}
                   </div>
                   <div className="inline-flex items-center gap-1.5 rounded-full bg-amber-100 px-3 py-1 font-ui text-xs font-semibold text-[#8a5330] ring-2 ring-amber-200">
                     <PawPrint className="h-4 w-4 text-amber-500" aria-hidden />
-                    {PAW_MAP[equippedPaw].name}
+                    {t(`paw.${equippedPaw}.name`)}
                   </div>
                   {/* Ник для мировой таблицы: тап — сменить */}
                   <button
@@ -1804,7 +2183,7 @@ export function PopcornGame() {
                       audio.play('click')
                       setNickEdit(true)
                     }}
-                    title="Сменить ник для мировой таблицы"
+                    title={t('nick.editHint')}
                     className="inline-flex items-center gap-1.5 rounded-full bg-amber-100 px-3 py-1 font-ui text-xs font-semibold text-[#8a5330] ring-2 ring-amber-200 transition hover:bg-amber-200 active:scale-95"
                   >
                     <Cat className="h-4 w-4 text-amber-500" aria-hidden />
@@ -1814,13 +2193,13 @@ export function PopcornGame() {
                 </div>
 
                 <div className="mt-3 grid grid-cols-[1.5fr_1fr] gap-2">
-                  <GameButton onClick={startGame}>▶ ИГРАТЬ</GameButton>
+                  <GameButton onClick={startGame}>{t('menu.play')}</GameButton>
                   <button
                     type="button"
                     onClick={() => setOverlay('rules')}
                     className="rounded-xl border-[3px] border-[#8a5330] bg-[#f3e2c8] px-2 py-3 font-pixel text-sm font-bold text-[#8a5330] shadow-[0_5px_0_#c9a97a] transition-all hover:bg-[#eed7b4] active:translate-y-[3px] active:shadow-[0_2px_0_#c9a97a] sm:text-base"
                   >
-                    📖 ПРАВИЛА
+                    {t('menu.rules')}
                   </button>
                 </div>
 
@@ -1829,26 +2208,61 @@ export function PopcornGame() {
                     onClick={() => setOverlay('leaders')}
                     icon={<Trophy className="h-4 w-4" aria-hidden />}
                   >
-                    ЛИДЕРЫ
+                    {t('menu.leaders')}
                   </MenuSmallBtn>
                   <MenuSmallBtn
                     onClick={() => setOverlay('shop')}
                     icon={<PawPrint className="h-4 w-4" aria-hidden />}
                   >
-                    ЛАПКИ
+                    {t('menu.paws')}
                   </MenuSmallBtn>
                   <MenuSmallBtn
                     onClick={() => setOverlay('ach')}
                     icon={<span aria-hidden className="text-sm">🏅</span>}
                   >
-                    АЧИВКИ
+                    {t('menu.ach')}
                   </MenuSmallBtn>
                   <MenuSmallBtn
                     onClick={() => setOverlay('creators')}
                     icon={<Heart className="h-4 w-4" aria-hidden />}
                   >
-                    СОЗДАТЕЛИ
+                    {t('menu.creators')}
                   </MenuSmallBtn>
+                </div>
+
+                {/* Языки + настройки */}
+                <div className="mt-2 flex items-center gap-1.5">
+                  <div className="grid flex-1 grid-cols-4 gap-1 rounded-xl bg-[#f3e2c8] p-1">
+                    {LANGS.map((l) => (
+                      <button
+                        key={l.id}
+                        type="button"
+                        onClick={() => {
+                          audio.play('click')
+                          setSettings({ ...settings, lang: l.id })
+                        }}
+                        aria-label={l.label}
+                        className={`rounded-lg px-1 py-1.5 font-pixel text-[11px] font-bold transition ${
+                          settings.lang === l.id
+                            ? 'bg-[#E24B3B] text-white shadow-[0_2px_0_#9c2f22]'
+                            : 'text-[#8a5330] hover:bg-[#eed7b4]'
+                        }`}
+                      >
+                        {l.flag} {l.id.toUpperCase()}
+                      </button>
+                    ))}
+                  </div>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      audio.play('click')
+                      setOverlay('settings')
+                    }}
+                    aria-label={t('menu.settings')}
+                    className="flex h-9 w-11 shrink-0 items-center justify-center rounded-xl border-2 border-[#8a5330] bg-[#f3e2c8] text-[#8a5330] transition hover:bg-[#eed7b4] active:scale-95"
+                  >
+                    <Settings className="h-4.5 w-4.5" aria-hidden />
+                  </button>
                 </div>
 
                 {canInstall && (
@@ -1857,7 +2271,7 @@ export function PopcornGame() {
                     onClick={() => void handleInstall()}
                     className="mt-2 flex w-full items-center justify-center gap-2 rounded-xl border-2 border-[#8a5330] bg-[#f3e2c8] px-4 py-2 font-pixel text-sm font-bold text-[#8a5330] transition hover:bg-[#eed7b4] active:scale-[0.98]"
                   >
-                    <Smartphone className="h-4 w-4" aria-hidden /> УСТАНОВИТЬ НА ТЕЛЕФОН
+                    <Smartphone className="h-4 w-4" aria-hidden /> {t('menu.install')}
                   </button>
                 )}
               </motion.div>
@@ -1878,19 +2292,34 @@ export function PopcornGame() {
                 animate={{ scale: 1 }}
                 exit={{ scale: 0.94, opacity: 0 }}
               >
-                <h2 className="font-pixel text-2xl font-bold text-[#B33A26]">ПАУЗА</h2>
+                <h2 className="font-pixel text-2xl font-bold text-[#B33A26]">{t('pause.title')}</h2>
                 <p className="mt-2 font-ui text-xs font-medium text-[#8a5330]">
-                  Уровень {stats.level} · Счёт: {stats.score} · Норма {stats.collected}/{stats.quota}
+                  {t('pause.info', {
+                    l: stats.level,
+                    s: stats.score,
+                    c: stats.collected,
+                    q: stats.quota,
+                  })}
                 </p>
                 <div className="mt-5">
-                  <GameButton onClick={resumeGame}>▶ ПРОДОЛЖИТЬ</GameButton>
+                  <GameButton onClick={resumeGame}>{t('pause.resume')}</GameButton>
                 </div>
                 <button
                   type="button"
-                  onClick={quitToMenu}
+                  onClick={() => {
+                    audio.play('click')
+                    setOverlay('settings')
+                  }}
                   className="mt-2 w-full rounded-xl border-2 border-[#8a5330] bg-[#f3e2c8] px-4 py-2 font-pixel text-sm font-bold text-[#8a5330] transition hover:bg-[#eed7b4] active:scale-[0.98]"
                 >
-                  ⏹ КОНЕЦ ИГРЫ — В МЕНЮ
+                  {t('menu.settings')}
+                </button>
+                <button
+                  type="button"
+                  onClick={quitToMenu}
+                  className="mt-2 w-full rounded-xl px-4 py-1.5 font-ui text-[11px] font-semibold text-[#a97c50] transition hover:text-[#8a5330] hover:underline"
+                >
+                  {t('quit.pauseMenu')}
                 </button>
               </motion.div>
             </motion.div>
@@ -1915,107 +2344,140 @@ export function PopcornGame() {
                   🎁
                 </div>
                 <h2 className="mt-1 font-pixel text-xl font-bold text-[#B33A26] sm:text-2xl">
-                  УРОВЕНЬ {clearInfo.level} ПРОЙДЕН!
+                  {t('chest.title', { n: clearInfo.level })}
                 </h2>
                 <p className="mt-1 font-ui text-xs font-medium text-[#8a5330]">
-                  Бонус за скорость: +{clearInfo.bonus} · Счёт: {stats.score}
+                  {t('chest.bonus', { b: clearInfo.bonus, s: stats.score })}
                 </p>
-                <p className="mt-2 font-ui text-xs text-[#5C3A1E]">
-                  Выбери сундучок — он решит судьбу следующего уровня
-                </p>
-
-                <div className="mt-3 flex items-end justify-center gap-2 sm:gap-4">
-                  {offers.map((p, i) => {
-                    const isOpen = openedIdx === i
-                    const dimmed = openedIdx !== null && !isOpen
-                    return (
-                      <motion.button
-                        key={p.id}
-                        type="button"
-                        aria-label={`Открыть сундучок ${i + 1}`}
-                        disabled={openedIdx !== null}
-                        onClick={() => openChest(i)}
-                        className={`flex flex-col items-center rounded-xl border-4 px-3 pb-1.5 pt-2.5 transition-colors sm:px-4 ${
-                          isOpen
-                            ? 'border-amber-400 bg-amber-100'
-                            : dimmed
-                              ? 'border-[#c9a97a] bg-[#f3e2c8] opacity-40'
-                              : 'border-[#8a5330] bg-[#f3e2c8] hover:bg-[#eed7b4] active:scale-95'
-                        }`}
-                        animate={isOpen ? { rotate: [0, -7, 7, -4, 0], y: [0, -8, 0] } : {}}
-                        transition={{ duration: 0.45 }}
-                      >
-                        <ChestImg open={isOpen} />
-                        <span className="font-pixel text-[10px] text-[#8a5330] sm:text-xs">
-                          {isOpen ? 'ОТКРЫТ' : 'СУНДУК'}
-                        </span>
-                      </motion.button>
-                    )
-                  })}
-                </div>
-
-                <AnimatePresence mode="wait">
-                  {chosen && (
-                    <motion.div
-                      key={chosen.id}
-                      className={`mt-3 rounded-xl border-2 p-3 ${
-                        chosen.curse
-                          ? 'border-red-300 bg-red-50'
-                          : 'border-emerald-300 bg-emerald-50'
-                      }`}
-                      initial={{ opacity: 0, y: 12, scale: 0.94 }}
-                      animate={{ opacity: 1, y: 0, scale: 1 }}
-                      exit={{ opacity: 0, y: -8 }}
-                      transition={{ type: 'spring', stiffness: 300, damping: 22 }}
-                    >
-                      <div className="flex items-center justify-center gap-2">
-                        <span aria-hidden className="text-3xl">
-                          {chosen.icon}
-                        </span>
-                        <div className="text-left">
-                          <div className="font-pixel text-base font-bold text-[#5C3A1E] sm:text-lg">
-                            {chosen.name}
-                          </div>
-                          <span
-                            className={`inline-block rounded-full px-2 py-0.5 font-ui text-[10px] font-bold ${
-                              chosen.curse
-                                ? 'bg-red-200 text-red-800'
-                                : 'bg-emerald-200 text-emerald-800'
+                {offers.length > 0 ? (
+                  <>
+                    <p className="mt-2 font-ui text-xs text-[#5C3A1E]">{t('chest.choose')}</p>
+                    <div className="mt-3 flex items-end justify-center gap-2 sm:gap-4">
+                      {offers.map((p, i) => {
+                        const isOpen = openedIdx === i
+                        const dimmed = openedIdx !== null && !isOpen
+                        return (
+                          <motion.button
+                            key={p.id}
+                            type="button"
+                            aria-label={t('chest.openN', { n: i + 1 })}
+                            disabled={openedIdx !== null}
+                            onClick={() => openChest(i)}
+                            className={`flex flex-col items-center rounded-xl border-4 px-3 pb-1.5 pt-2.5 transition-colors sm:px-4 ${
+                              isOpen
+                                ? 'border-amber-400 bg-amber-100'
+                                : dimmed
+                                  ? 'border-[#c9a97a] bg-[#f3e2c8] opacity-40'
+                                  : 'border-[#8a5330] bg-[#f3e2c8] hover:bg-[#eed7b4] active:scale-95'
                             }`}
+                            animate={isOpen ? { rotate: [0, -7, 7, -4, 0], y: [0, -8, 0] } : {}}
+                            transition={{ duration: 0.45 }}
                           >
-                            {chosen.curse ? '☠ ПРОКЛЯТЬЕ' : '✨ БОНУС'}
-                          </span>
-                        </div>
-                      </div>
-                      <p className="mt-2 font-ui text-xs leading-snug text-[#5C3A1E]">
-                        {chosen.desc}
-                      </p>
-                      <p className="mt-1.5 font-ui text-[11px] text-[#8a5330]">
-                        Уровень {runLevel}: норма {quotaFor(runLevel, chosen.id === 'doublepoints')}{' '}
-                        🍿 за {chosen.id === 'timeplus' ? 75 : 60} сек
-                      </p>
-                    </motion.div>
-                  )}
-                </AnimatePresence>
+                            <ChestImg open={isOpen} />
+                            <span className="font-pixel text-[10px] text-[#8a5330] sm:text-xs">
+                              {isOpen ? t('chest.opened') : t('chest.chest')}
+                            </span>
+                          </motion.button>
+                        )
+                      })}
+                    </div>
+
+                    <AnimatePresence mode="wait">
+                      {chosen && (
+                        <motion.div
+                          key={chosen.id}
+                          className={`mt-3 rounded-xl border-2 p-3 ${
+                            chosen.curse
+                              ? 'border-red-300 bg-red-50'
+                              : 'border-emerald-300 bg-emerald-50'
+                          }`}
+                          initial={{ opacity: 0, y: 12, scale: 0.94 }}
+                          animate={{ opacity: 1, y: 0, scale: 1 }}
+                          exit={{ opacity: 0, y: -8 }}
+                          transition={{ type: 'spring', stiffness: 300, damping: 22 }}
+                        >
+                          <div className="flex items-center justify-center gap-2">
+                            <span aria-hidden className="text-3xl">
+                              {chosen.icon}
+                            </span>
+                            <div className="text-left">
+                              <div className="font-pixel text-base font-bold text-[#5C3A1E] sm:text-lg">
+                                {t(`perk.${chosen.id}.name`)}
+                              </div>
+                              <span
+                                className={`inline-block rounded-full px-2 py-0.5 font-ui text-[10px] font-bold ${
+                                  chosen.curse
+                                    ? 'bg-red-200 text-red-800'
+                                    : 'bg-emerald-200 text-emerald-800'
+                                }`}
+                              >
+                                {chosen.curse ? t('perk.tag.curse') : t('perk.tag.bonus')}
+                              </span>
+                            </div>
+                          </div>
+                          <p className="mt-2 font-ui text-xs leading-snug text-[#5C3A1E]">
+                            {t(`perk.${chosen.id}.desc`)}
+                          </p>
+                          <p className="mt-1.5 font-ui text-[11px] text-[#8a5330]">
+                            {t('chest.quotaInfo', {
+                              n: runLevel,
+                              q: Math.round(
+                                quotaFor(runLevel, chosen.id === 'doublepoints') *
+                                  (settings.difficulty === 'easy'
+                                    ? 0.8
+                                    : settings.difficulty === 'hard'
+                                      ? 1.2
+                                      : 1),
+                              ),
+                              s:
+                                (chosen.id === 'timeplus' ? 75 : 60) +
+                                (settings.difficulty === 'easy'
+                                  ? 10
+                                  : settings.difficulty === 'hard'
+                                    ? -10
+                                    : 0),
+                            })}
+                          </p>
+                        </motion.div>
+                      )}
+                    </AnimatePresence>
+                  </>
+                ) : (
+                  <p className="mt-2 font-ui text-xs text-[#5C3A1E]">{t('chest.noperks')}</p>
+                )}
 
                 {chosen && (
                   <div className="mt-3 space-y-2">
                     <GameButton onClick={() => beginLevel(runLevel, chosen.id)}>
-                      ДАЛЬШЕ: УРОВЕНЬ {runLevel} ▶
+                      {t('chest.next', { n: runLevel })}
                     </GameButton>
                     <button
                       type="button"
                       onClick={() => setOverlay('shop')}
                       className="w-full rounded-xl border-2 border-[#8a5330] bg-[#f3e2c8] px-4 py-2 font-pixel text-sm font-bold text-[#8a5330] transition hover:bg-[#eed7b4] active:scale-[0.98]"
                     >
-                      🛒 МАГАЗИН ЛАПОК
+                      {t('chest.shop')}
                     </button>
                     <button
                       type="button"
                       onClick={quitToMenu}
                       className="w-full rounded-xl px-4 py-1.5 font-ui text-[11px] font-semibold text-[#a97c50] transition hover:text-[#8a5330] hover:underline"
                     >
-                      ⏹ КОНЕЦ ИГРЫ — выйти в меню (опыт сохранится)
+                      {t('quit.button')}
+                    </button>
+                  </div>
+                )}
+                {offers.length === 0 && (
+                  <div className="mt-3 space-y-2">
+                    <GameButton onClick={() => beginLevel(runLevel, null)}>
+                      {t('chest.next', { n: runLevel })}
+                    </GameButton>
+                    <button
+                      type="button"
+                      onClick={quitToMenu}
+                      className="w-full rounded-xl px-4 py-1.5 font-ui text-[11px] font-semibold text-[#a97c50] transition hover:text-[#8a5330] hover:underline"
+                    >
+                      {t('quit.button')}
                     </button>
                   </div>
                 )}
@@ -2040,10 +2502,10 @@ export function PopcornGame() {
               >
                 {result.record && <Confetti />}
                 <h2 className="font-pixel text-xl font-bold text-[#B33A26] sm:text-2xl">
-                  КВОТА ПРОВАЛЕНА!
+                  {t('over.title')}
                 </h2>
                 <p className="mt-1 font-ui text-xs font-medium text-[#8a5330]">
-                  Время вышло на {result.level} уровне
+                  {t('over.timeup', { n: result.level })}
                 </p>
                 <div className="mt-3 flex items-center justify-center gap-2">
                   <Popcorn className="h-8 w-8 text-amber-500" aria-hidden />
@@ -2052,14 +2514,14 @@ export function PopcornGame() {
                   </span>
                 </div>
                 <p className="mt-1 font-ui text-xs font-medium text-[#8a5330]">
-                  очков · дошёл до уровня {result.level}
+                  {t('over.points', { n: result.level })}
                 </p>
                 <p className="mt-1.5 font-ui text-xs font-bold text-[#5C3A1E]">
-                  🍿 +{result.score} опыта · всего: {xp}
+                  {t('over.xp', { s: result.score, t: xp })}
                 </p>
                 {result.rank >= 0 && result.rank < 10 && (
                   <p className="mt-1 font-ui text-xs font-bold text-[#B33A26]">
-                    🏆 Место {result.rank + 1} в списке лидеров!
+                    {t('over.rank', { n: result.rank + 1 })}
                   </p>
                 )}
 
@@ -2069,7 +2531,7 @@ export function PopcornGame() {
                     htmlFor="leader-name"
                     className="font-ui text-[10px] font-semibold text-[#8a5330]"
                   >
-                    Имя в мировой таблице:
+                    {t('over.nameLabel')}
                   </label>
                   <input
                     id="leader-name"
@@ -2078,7 +2540,7 @@ export function PopcornGame() {
                     maxLength={24}
                     value={nameRaw}
                     onChange={(e) => storeName(e.target.value.slice(0, 24))}
-                    placeholder="Котик"
+                    placeholder={t('nick.default')}
                     className="mt-1 w-full rounded-lg border-2 border-[#e3cba4] bg-white/70 px-2.5 py-1.5 font-ui text-sm text-[#5C3A1E] outline-none transition focus:border-amber-400"
                   />
                 </div>
@@ -2089,22 +2551,22 @@ export function PopcornGame() {
                     animate={{ scale: [1, 1.08, 1] }}
                     transition={{ repeat: Infinity, duration: 0.9 }}
                   >
-                    🎉 НОВЫЙ РЕКОРД!
+                    {t('over.newRecord')}
                   </motion.div>
                 ) : (
                   <div className="mt-4 inline-flex items-center gap-1.5 rounded-full bg-amber-100 px-4 py-1.5 font-ui text-xs font-semibold text-[#8a5330] ring-2 ring-amber-200">
                     <Trophy className="h-4 w-4 text-amber-500" aria-hidden />
-                    Рекорд: {best}
+                    {t('menu.record', { n: best })}
                   </div>
                 )}
 
                 <div className="mt-5 space-y-2">
                   {result.canRevive && (
-                    <GameButton onClick={reviveRun}>❤️ ВТОРОЙ ШАНС · +15 СЕК</GameButton>
+                    <GameButton onClick={reviveRun}>{t('over.revive')}</GameButton>
                   )}
                   <GameButton onClick={startGame}>
                     <span className="inline-flex items-center justify-center gap-2">
-                      <RotateCcw className="h-5 w-5" aria-hidden /> ЗАБЕГ ЗАНОВО
+                      <RotateCcw className="h-5 w-5" aria-hidden /> {t('over.retry')}
                     </span>
                   </GameButton>
                   <button
@@ -2112,7 +2574,7 @@ export function PopcornGame() {
                     onClick={() => void handleShare()}
                     className="flex w-full items-center justify-center gap-2 rounded-xl border-2 border-[#8a5330] bg-[#f3e2c8] px-4 py-2 font-pixel text-sm font-bold text-[#8a5330] transition hover:bg-[#eed7b4] active:scale-[0.98]"
                   >
-                    <Share2 className="h-4 w-4" aria-hidden /> ПОДЕЛИТЬСЯ РЕКОРДОМ
+                    <Share2 className="h-4 w-4" aria-hidden /> {t('over.share')}
                   </button>
                   {shareNote && (
                     <p className="font-ui text-[11px] font-semibold text-emerald-700">{shareNote}</p>
@@ -2122,7 +2584,7 @@ export function PopcornGame() {
                     onClick={quitToMenu}
                     className="w-full rounded-xl border-2 border-[#8a5330] bg-[#f3e2c8] px-4 py-2 font-pixel text-sm font-bold text-[#8a5330] transition hover:bg-[#eed7b4] active:scale-[0.98]"
                   >
-                    В МЕНЮ
+                    {t('over.menu')}
                   </button>
                 </div>
               </motion.div>
@@ -2133,7 +2595,13 @@ export function PopcornGame() {
         {/* Оверлеи меню: список лидеров / магазин / достижения / создатели / правила */}
         <AnimatePresence>
           {overlay === 'leaders' && (
-            <LeadersOverlay leaders={leaders} myName={nameRaw} onClose={() => setOverlay(null)} />
+            <LeadersOverlay
+              leaders={leaders}
+              myName={nameRaw}
+              lang={settings.lang}
+              t={t}
+              onClose={() => setOverlay(null)}
+            />
           )}
           {overlay === 'shop' && (
             <ShopOverlay
@@ -2141,6 +2609,7 @@ export function PopcornGame() {
               owned={ownedPaws}
               equipped={equippedPaw}
               upgrades={upgrades}
+              t={t}
               onBuy={buyPaw}
               onEquip={equipPaw}
               onBuyUpgrade={buyUpgrade}
@@ -2148,60 +2617,73 @@ export function PopcornGame() {
             />
           )}
           {overlay === 'ach' && (
-            <AchievementsOverlay unlocked={unlockedAch} onClose={() => setOverlay(null)} />
+            <AchievementsOverlay unlocked={unlockedAch} t={t} onClose={() => setOverlay(null)} />
           )}
-          {overlay === 'creators' && <CreatorsOverlay onClose={() => setOverlay(null)} />}
-          {overlay === 'rules' && <RulesOverlay onClose={() => setOverlay(null)} />}
+          {overlay === 'creators' && <CreatorsOverlay t={t} onClose={() => setOverlay(null)} />}
+          {overlay === 'rules' && <RulesOverlay t={t} onClose={() => setOverlay(null)} />}
         </AnimatePresence>
 
         {/* Вход по никнейму (первый визит) и смена ника из меню */}
         <AnimatePresence>
           {phase === 'start' && nickSetRaw !== '1' && (
-            <NickDialog mode="gate" current="" onDone={handleNickDone} onClose={() => {}} />
+            <NickDialog mode="gate" current="" t={t} onDone={handleNickDone} onClose={() => {}} />
           )}
           {nickEdit && (
             <NickDialog
               mode="edit"
               current={nameRaw === 'Котик' ? '' : nameRaw}
+              t={t}
               onDone={handleNickDone}
               onClose={() => setNickEdit(false)}
             />
           )}
         </AnimatePresence>
+      </main>
 
-        {/* Тост нового достижения */}
-        <AnimatePresence>
-          {achToast && (
-            <motion.div
-              key={`${achToast.name}-${unlockedAch.length}`}
-              className="absolute bottom-16 left-1/2 z-50 -translate-x-1/2"
-              initial={{ opacity: 0, y: 24, scale: 0.9 }}
-              animate={{ opacity: 1, y: 0, scale: 1 }}
-              exit={{ opacity: 0, y: 12, scale: 0.95 }}
-              transition={{ type: 'spring', stiffness: 320, damping: 24 }}
-            >
-              <div className="flex items-center gap-2 rounded-full border-2 border-amber-300 bg-[#2b1a0e]/95 px-4 py-2 shadow-[0_8px_24px_rgba(0,0,0,0.6)]">
-                <span aria-hidden className="text-xl">
-                  {achToast.icon}
-                </span>
-                <div>
-                  <div className="font-ui text-[9px] font-bold uppercase tracking-wider text-amber-300">
-                    Достижение открыто!
-                  </div>
-                  <div className="font-pixel text-sm font-bold leading-tight text-white">
-                    {achToast.name}
-                  </div>
+      {/* Настройки: поверх всего (включая панель статистики и паузу) */}
+      <AnimatePresence>
+        {overlay === 'settings' && (
+          <SettingsOverlay
+            settings={settings}
+            onChange={(s) => setSettings(s)}
+            t={t}
+            onClose={() => setOverlay(null)}
+          />
+        )}
+      </AnimatePresence>
+
+      {/* Тост нового достижения */}
+      <AnimatePresence>
+        {achToast && (
+          <motion.div
+            key={`${achToast.name}-${unlockedAch.length}`}
+            className="absolute bottom-16 left-1/2 z-50 -translate-x-1/2"
+            initial={{ opacity: 0, y: 24, scale: 0.9 }}
+            animate={{ opacity: 1, y: 0, scale: 1 }}
+            exit={{ opacity: 0, y: 12, scale: 0.95 }}
+            transition={{ type: 'spring', stiffness: 320, damping: 24 }}
+          >
+            <div className="flex items-center gap-2 rounded-full border-2 border-amber-300 bg-[#2b1a0e]/95 px-4 py-2 shadow-[0_8px_24px_rgba(0,0,0,0.6)]">
+              <span aria-hidden className="text-xl">
+                {achToast.icon}
+              </span>
+              <div>
+                <div className="font-ui text-[9px] font-bold uppercase tracking-wider text-amber-300">
+                  {t('ach.toast')}
+                </div>
+                <div className="font-pixel text-sm font-bold leading-tight text-white">
+                  {achToast.name}
                 </div>
               </div>
-            </motion.div>
-          )}
-        </AnimatePresence>
-      </main>
+            </div>
+          </motion.div>
+        )}
+      </AnimatePresence>
 
       {/* Липкий футер */}
       <footer className="relative z-30 mt-auto border-t border-amber-100/10 bg-[#160c07] px-4 pb-[max(0.5rem,env(safe-area-inset-bottom))] pt-2 text-center">
         <p className="font-ui text-[11px] tracking-wide text-amber-200/70 sm:text-xs">
-          🌽 Кошачий попкорнный Беспредел · 8-битный рогалик · сделано с ❤️
+          {t('footer.text')}
         </p>
       </footer>
     </div>

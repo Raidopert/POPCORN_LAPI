@@ -168,15 +168,21 @@ export const PERK_MAP: Record<PerkId, PerkDef> = Object.fromEntries(
   PERKS.map((p) => [p.id, p]),
 ) as Record<PerkId, PerkDef>
 
-/** Случайные N различных перков для сундучков (force — перк, который гарантированно входит) */
-export function rollPerkOffer(count = 3, force?: PerkId): PerkDef[] {
-  const pool = [...PERKS]
+/** Случайные N различных перков для сундучков.
+    force — перк, который гарантированно входит;
+    allow — фильтр из настроек (проклятья/бонусы можно отключать) */
+export function rollPerkOffer(
+  count = 3,
+  force?: PerkId,
+  allow?: (p: PerkDef) => boolean,
+): PerkDef[] {
+  const pool = allow ? PERKS.filter(allow) : [...PERKS]
   for (let i = pool.length - 1; i > 0; i--) {
     const j = Math.floor(Math.random() * (i + 1))
     ;[pool[i], pool[j]] = [pool[j], pool[i]]
   }
   const picked: PerkDef[] = []
-  if (force && PERK_MAP[force]) picked.push(PERK_MAP[force])
+  if (force && PERK_MAP[force] && (!allow || allow(PERK_MAP[force]))) picked.push(PERK_MAP[force])
   for (const p of pool) {
     if (picked.length >= count) break
     if (picked.some((q) => q.id === p.id)) continue

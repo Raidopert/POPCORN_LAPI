@@ -22,6 +22,8 @@ import {
   easeOutQuad,
   type Sprite,
 } from './sprites'
+import { tFor, type Lang, type TranslateFn } from './i18n'
+import type { Difficulty, Quality } from './settings'
 
 export interface EngineStats {
   score: number
@@ -32,7 +34,6 @@ export interface EngineStats {
   collected: number
   carrying: number
   carryMax: number
-  freezeLeft: number
   paused: boolean
   /** Комбо: серия удачных сдач подряд (сбрасывается миной или голубем) */
   streak: number
@@ -124,56 +125,46 @@ const LEVEL_SECONDS = 60
 const LEVEL_SECONDS_PERK = 75 // перк «Кошачьи часы»
 const SPAWN_DUR = 0.35
 const CLEAR_DELAY = 0.5 // пауза до «уровень пройден», чтобы зёрна долетели
-const FREEZE_SECONDS = 5 // бонус кота: столько секунд стоит таймер
-const CAT_VISIT_SECONDS = 5 // сколько секунд кот ждёт в начале уровня, пока не ткнут в лапку
 const PIGEON_FIRST_AT = 11 // голубь прилетает на этом отрезке уровня (с 3-го уровня)
 const PIGEON_PECK_EVERY = 2.2 // раз в сколько секунд голубь таскает зерно
 const PIGEON_RESPAWN = [18, 30] // диапазон возврата после прогона, секунд
 const REVIVE_SECONDS = 15 // «девятая жизнь»: столько секунд даёт второй шанс
 
-/** Точки наполнения ВНУТРИ стаканчика (в единицах спрайта от центра).
+/** Настройки игрового процесса, управляемые из меню настроек */
+export interface EngineOptions {
+  difficulty: Difficulty
+  quality: Quality
+  /** Тряска экрана при минах и голубе */
+  shake: boolean
+  /** Вибрация на телефоне */
+  vibration: boolean
+  /** Режим дальтоников: сине-оранжевые мины с меткой */
+  colorblind: boolean
+  /** Голубь-воришка включён */
+  pigeon: boolean
+}
+
+const DEFAULT_OPTIONS: EngineOptions = {
+  difficulty: 'normal',
+  quality: 'medium',
+  shake: true,
+  vibration: true,
+  colorblind: false,
+  pigeon: true,
+}
+
+/** Точки наполнения ВНУТРИ стаканчика (в единицах спрайта от центра, спрайт 48×54).
  *  Зёрна рисуются «за бумажной стенкой» — их не путают с попкорном на поле. */
 const CUP_FILL_POS: Array<[number, number]> = [
-  [-4, 7.4],
-  [4, 7.4],
-  [-6.5, 2.6],
-  [0.5, 3.2],
-  [6.8, 2.2],
-  [-3.4, -2.6],
-  [4.2, -3.2],
-  [0, -7.6],
+  [-8, 14.8],
+  [8, 14.8],
+  [-13, 5.2],
+  [1, 6.4],
+  [13.6, 4.4],
+  [-6.8, -5.2],
+  [8.4, -6.4],
+  [0, -15.2],
 ]
-
-/** Пиксельный кот-бонус (голова + туловище + хвост), 20×16 клеток.
- *  o — контур · O — шерсть · D — полоски · P — ушки · E — глаза · W — мордочка · N — нос */
-const CAT_BODY: string[] = [
-  '..oo............oo..',
-  '.oPPo..........oPPo.',
-  '.oPOooooooooooooPOo.',
-  '..oOOOOOOOOOOOOOOo..',
-  '..oODDOOOOOOOODDOo..',
-  '..oOOOOOOOOOOOOOOo..',
-  '..oOOEEOOOOOOEEOOo..',
-  '..oOOEEOOOOOOEEOOo..',
-  '..oOOOooWWWWooOOOo..',
-  '..oOOOOWNNWWOOOOo...',
-  '..oOOOOWWWWOOOOOo...',
-  '..ooOOOOOOOOOOOOoo..',
-  '...oOODDOOOODDOOo...',
-  '...oOOOOOOOOOOOOo.oo',
-  '...oOOOOOOOOOOOOooDo',
-  '....oooooooooooo..o.',
-]
-
-const CAT_COLORS: Record<string, string> = {
-  o: '#46220C',
-  O: '#F0A24A',
-  D: '#D97F2B',
-  P: '#E8746A',
-  E: '#2B1408',
-  W: '#FFF3E2',
-  N: '#B4552D',
-}
 
 export class PopcornEngine {
   private canvas: HTMLCanvasElement
@@ -240,18 +231,30 @@ export class PopcornEngine {
   /* --- «Девятая жизнь»: второй шанс уже использован в этом забеге? --- */
   private lifeUsed = false
 
-  /* --- кот-помощник и фриз-тайм --- */
-  private cat: { t: number; state: 'in' | 'idle' | 'happy' | 'out'; stateT: number } | null = null
-  private freezeLeft = 0
-  private lastFreezeSec = -1
-
   private cupScale = 5
   private cupH = 0
+  /** Уровень столешницы: стаканчик стоит на деревянном столике, а не висит в воздухе */
+  private tableY = 0
+
+  /* --- настройки из меню (сложность/качество/тряска/вибрация/дальтоник/голубь) --- */
+  private opts: EngineOptions = { ...DEFAULT_OPTIONS }
+  /** Язык внутриигровых надписей (баннеры, всплывающие тексты) */
+  private L: TranslateFn = tFor('ru')
+
+  /* --- анимация наполнения стаканчика: возраст каждого зёрнышка в кадре --- */
+  private fillPop: number[] = []
+  private lastFill = 0
+  /** Свечение-искра над стаканчиком после сданного золотого зерна */
+  private cupGlow = 0
+  /** Тряска экрана (настройка «Тряска») */
+  private shakeT = 0
+  private shakeAmp = 0
 
   private sp: {
     popcorn: Sprite
     golden: Sprite
     corn: Sprite
+    cornCB: Sprite
     cup: Sprite
     paw: Sprite
     sparkle: Sprite
@@ -270,7 +273,8 @@ export class PopcornEngine {
     this.sp = {
       popcorn: makePopcornSprite(false),
       golden: makePopcornSprite(true),
-      corn: makeCornSprite(),
+      corn: makeCornSprite(false),
+      cornCB: makeCornSprite(true),
       cup: makeCupSprite(),
       paw: makePawSprite(),
       sparkle: makeSparkleSprite(),
@@ -300,6 +304,16 @@ export class PopcornEngine {
     this.upgCarry = u.carryPlus ?? 0
   }
 
+  /** Настройки из меню: сложность, качество, тряска, вибрация, дальтоник, голубь */
+  setOptions(o: Partial<EngineOptions>): void {
+    this.opts = { ...this.opts, ...o }
+  }
+
+  /** Язык внутриигровых надписей (баннеры «УРОВЕНЬ 2», «УКРАЛ!», «КОМБО ×3»…) */
+  setLang(lang: Lang): void {
+    this.L = tFor(lang)
+  }
+
   /** Новый забег: счёт с нуля, уровень 1 (старт-апгрейд может дать бонусный перк) */
   startRun(opts: { fast?: boolean; perk?: PerkId | null } = {}): void {
     this.debugFast = !!opts.fast
@@ -315,19 +329,33 @@ export class PopcornEngine {
   startLevel(level: number, perk: PerkId | null): void {
     this.lvl = level
     this.perk = perk
+    /* Сложность из настроек: лёгкая (+10 сек), сложная (−10 сек) */
+    const diffTime = this.opts.difficulty === 'easy' ? 10 : this.opts.difficulty === 'hard' ? -10 : 0
     this.duration =
-      (perk === 'timeplus' ? LEVEL_SECONDS_PERK : LEVEL_SECONDS) + (this.pawBonus.timePlus ?? 0)
+      Math.max(
+        40,
+        (perk === 'timeplus' ? LEVEL_SECONDS_PERK : LEVEL_SECONDS) +
+          (this.pawBonus.timePlus ?? 0) +
+          diffTime,
+      )
     this.quota = this.debugFast ? 3 : quotaFor(level, perk === 'doublepoints')
+    /* Сложность: лёгкая — норма ×0.8, сложная — ×1.2 */
+    if (!this.debugFast && this.opts.difficulty !== 'normal') {
+      this.quota = Math.max(3, Math.round(this.quota * (this.opts.difficulty === 'easy' ? 0.8 : 1.2)))
+    }
     this.collected = 0
     this.wave = 1
     /* Ступень сложности каждые 5 уровней: пропорционально больше попкорна
-       и мин на волне — за 60 секунд нужно собирать всё больше, но без безумия */
+       и мин на волне — за отведённое время нужно собирать всё больше, но без безумия */
     const step = Math.floor((level - 1) / 5)
     this.popPerWave = Math.min(26, 10 + step * 3)
     this.cornPerWave = Math.min(11, 3 + step)
     if (perk === 'cornrain') this.cornPerWave = Math.min(14, this.cornPerWave * 2)
     /* Лапка-оберег от мин: меньше кукурузы в каждой волне */
     this.cornPerWave = Math.max(0, this.cornPerWave - (this.pawBonus.cornCut ?? 0))
+    /* Сложность: лёгкая — на мину меньше, сложная — на мину больше */
+    if (this.opts.difficulty === 'easy') this.cornPerWave = Math.max(0, this.cornPerWave - 1)
+    if (this.opts.difficulty === 'hard') this.cornPerWave = Math.min(15, this.cornPerWave + 1)
     this.goldenChance = perk === 'goldenvein' ? 0.26 : Math.min(0.3, 0.12 + (this.pawBonus.goldenAdd ?? 0))
     this.baseWaveDelay = Math.max(0.4, 0.8 - (level - 1) * 0.03)
 
@@ -342,20 +370,21 @@ export class PopcornEngine {
     this.texts = []
     this.waveDelay = -1
     this.lastSec = Math.ceil(this.timeLeft)
-    this.banner = { text: `УРОВЕНЬ ${level}`, t: 0 }
+    this.banner = { text: this.L('banner.level', { n: level }), t: 0 }
     audio.setIntensity(0)
     audio.setMusicLevel(level >= 3 ? 1 : 0)
     this.audioStage = 0
-    this.freezeLeft = 0
-    this.lastFreezeSec = -1
     this.shieldLeft = perk === 'shield' ? 1 : 0
-    /* Голубь-воришка: с 3-го уровня прилетает через ~11 секунд */
+    /* Голубь-воришка: с 3-го уровня прилетает через ~11 секунд (можно отключить в настройках) */
     this.pigeon = null
-    this.pigeonTimer = level >= 3 ? PIGEON_FIRST_AT + Math.random() * 4 : -1
-    /* Кот-помощник: в начале КАЖДОГО уровня съезжает сверху на своё место —
-       первые 5 секунд ткни в лапку, чтобы заморозить таймер и продумать маршрут */
-    this.cat = { t: 0, state: 'in', stateT: 0 }
-    audio.play('meow')
+    this.pigeonTimer =
+      this.opts.pigeon && level >= 3 ? PIGEON_FIRST_AT + Math.random() * 4 : -1
+    /* Наполнение стаканчика сбрасывается: анимация зёрен заново */
+    this.fillPop = []
+    this.lastFill = 0
+    this.cupGlow = 0
+    this.shakeT = 0
+    this.shakeAmp = 0
     if (!this.paw.seen) {
       this.paw.x = this.cup.x
       this.paw.y = this.H * 0.4
@@ -384,10 +413,10 @@ export class PopcornEngine {
     this.flying = []
     this.particles = []
     this.texts = []
-    this.cat = null
-    this.freezeLeft = 0
     this.pigeon = null
     this.banner = { text: '', t: 99 }
+    this.shakeT = 0
+    this.shakeAmp = 0
     audio.stopMusic()
     audio.setIntensity(0)
     this.emitStats(true)
@@ -405,7 +434,7 @@ export class PopcornEngine {
     this.lastSec = Math.ceil(this.timeLeft)
     this.audioStage = -1
     this.pendingClear = -1
-    this.banner = { text: 'ВТОРОЙ ШАНС!', t: 0 }
+    this.banner = { text: this.L('banner.revive'), t: 0 }
     audio.play('wave')
     this.emitStats(true)
     return true
@@ -419,11 +448,6 @@ export class PopcornEngine {
   /** Координаты в системе игрового поля (трансформации экрана считает компонент) */
   setPointer(x: number, y: number, lift = 0): void {
     if (this.phase !== 'playing' || this.paused) return
-    /* Кот-бонус: ткнул в лапку — получил стоп-таймер */
-    if (this.cat && this.freezeLeft <= 0 && this.catHit(x, y)) {
-      this.startFreeze()
-      return
-    }
     this.paw.tx = x
     this.paw.ty = y - lift * this.u
     this.paw.seen = true
@@ -438,11 +462,10 @@ export class PopcornEngine {
     const oldW = this.W
     const oldH = this.H
     /* На телефонах полноэкранный canvas в DPR 2 съедает кадровый бюджет:
-       ограничиваем 1.6 — пиксель-арт от этого только выигрывает */
-    this.dpr = Math.min(
-      window.devicePixelRatio || 1,
-      this.coarse ? 1.6 : 2,
-    )
+       ограничиваем (качество из настроек: низкое — 1.2, высокое — 2) */
+    const dprCap =
+      this.opts.quality === 'low' ? 1.2 : this.opts.quality === 'high' ? 2 : this.coarse ? 1.6 : 2
+    this.dpr = Math.min(window.devicePixelRatio || 1, dprCap)
     this.W = w
     this.H = h
     this.canvas.width = Math.round(w * this.dpr)
@@ -465,10 +488,13 @@ export class PopcornEngine {
       this.paw.ty *= ky
     }
 
-    this.cupScale = 4.6 * this.u
-    this.cupH = 26 * this.cupScale
+    /* Детальный стаканчик 48×54: пиксели вдвое мельче при том же размере */
+    this.cupScale = 2.3 * this.u
+    this.cupH = 54 * this.cupScale
     this.cup.x = w / 2
-    this.cup.y = h - this.cupH / 2 - 12 * this.u
+    /* Столик внизу: стаканчик стоит на столешнице, а не висит в воздухе */
+    this.tableY = h - 30 * this.u
+    this.cup.y = this.tableY - this.cupH / 2
   }
 
   /* ================= волны ================= */
@@ -490,8 +516,10 @@ export class PopcornEngine {
   private spawnPiece(index: number, kind: PieceKind): void {
     const u = this.u
     const mX = 46 * u
-    const top = 80 + 16 * u
-    const bottom = this.H - 46 * u
+    /* Статистика вынесена в панель над полем — верх больше не перекрыт: зёрна
+       заспавниваются выше, игровая зона больше */
+    const top = 46 + 4 * u
+    const bottom = this.H - 52 * u
     let x = this.W / 2
     let y = this.H / 2
     for (let tries = 0; tries < 40; tries++) {
@@ -555,8 +583,8 @@ export class PopcornEngine {
     const u = this.u
     const sp = 17 * u
     const mX = 34 * u
-    const top = 90
-    const bottom = this.H - 42 * u
+    const top = 50
+    const bottom = this.H - 56 * u
     for (const p of this.pieces) {
       p.dA += (Math.random() - 0.5) * dt * 2.4
       p.x += Math.cos(p.dA) * sp * dt
@@ -595,118 +623,6 @@ export class PopcornEngine {
     }
   }
 
-  /* ================= кот-бонус и фриз-тайм ================= */
-
-  /** Геометрия кота в мировых координатах (въезд сверху с пружинкой) */
-  private catGeom(): { x: number; y: number; cell: number; slide: number } {
-    const cell = 4.4 * this.u
-    let slide = 0
-    if (this.cat) {
-      if (this.cat.state === 'in') {
-        slide = (1 - easeOutBack(Math.min(1, this.cat.stateT / 0.55))) * -130 * this.u
-      }
-      if (this.cat.state === 'out') {
-        slide = easeOutQuad(Math.min(1, this.cat.stateT / 0.45)) * -130 * this.u
-      }
-    }
-    return { x: this.W / 2, y: 30 * this.u, cell, slide }
-  }
-
-  /** Центры двух лапок кота (точки клика) */
-  private catPawPoints(): Array<[number, number]> {
-    const g = this.catGeom()
-    const ox = g.x - 10 * g.cell
-    const oy = g.y + g.slide
-    return [
-      [ox + 6.2 * g.cell, oy + 15.4 * g.cell],
-      [ox + 13.8 * g.cell, oy + 15.4 * g.cell],
-    ]
-  }
-
-  /** Клик по лапке кота (учитываем зеркальные перки-трансформации) */
-  private catHit(x: number, y: number): boolean {
-    if (!this.cat || this.cat.state === 'out' || this.cat.state === 'happy') return false
-    const r = 4.6 * this.catGeom().cell
-    const cands: Array<[number, number]> = [[x, y]]
-    if (this.perk === 'rot180') cands.push([this.W - x, this.H - y])
-    if (this.perk === 'mirror') cands.push([this.W - x, y])
-    return this.catPawPoints().some(([px, py]) =>
-      cands.some(([cx, cy]) => Math.hypot(cx - px, cy - py) < r),
-    )
-  }
-
-  private startFreeze(): void {
-    if (!this.cat || this.freezeLeft > 0) return
-    this.freezeLeft = FREEZE_SECONDS
-    this.lastFreezeSec = FREEZE_SECONDS + 1
-    this.cat.state = 'happy'
-    this.cat.stateT = 0
-    const g = this.catGeom()
-    this.crumbs(g.x, g.y + 7 * g.cell, '#FFE066', 12)
-    this.crumbs(g.x, g.y + 7 * g.cell, '#BFF3E6', 8)
-    this.texts.push({
-      x: g.x,
-      y: g.y - 8 * g.cell,
-      text: 'СТОП-ТАЙМЕР!',
-      color: '#BFF3E6',
-      t: 0,
-      dur: 1.4,
-      size: 30 * this.u,
-    })
-    audio.play('meow')
-    audio.setIntensity(0) // музыка затихает, пока игрок думает
-    this.audioStage = -1
-  }
-
-  /** Обновление кота/фриза. true — мир заморожен, остальной update пропускаем */
-  private updateCat(dt: number): boolean {
-    if (!this.cat) return false
-    this.cat.t += dt
-    this.cat.stateT += dt
-
-    if (this.cat.state === 'in' && this.cat.stateT >= 0.55) {
-      this.cat.state = 'idle'
-      this.cat.stateT = 0
-    }
-
-    if (this.freezeLeft <= 0) {
-      // Кот ждёт щелчка или уезжает вверх после отработанного фриза
-      if (this.cat.state === 'out' && this.cat.stateT >= 0.5) this.cat = null
-      else if (
-        (this.cat.state === 'idle' || this.cat.state === 'in') &&
-        this.cat.t >= CAT_VISIT_SECONDS
-      ) {
-        // Кот-помощник висит только первые секунды уровня: не ткнул — уехал без бонуса
-        this.cat.state = 'out'
-        this.cat.stateT = 0
-      }
-      return false
-    }
-
-    /* Фриз: таймер уровня стоит, мир стоит, лапку можно двигать и планировать */
-    this.freezeLeft -= dt
-    const sec = Math.ceil(Math.max(0, this.freezeLeft))
-    if (sec !== this.lastFreezeSec) {
-      this.lastFreezeSec = sec
-      if (sec > 0) audio.play('tick')
-    }
-    if (this.freezeLeft <= 0) {
-      this.freezeLeft = 0
-      this.cat.state = 'out'
-      this.cat.stateT = 0
-      this.banner = { text: 'ВПЕРЁД!', t: 0 }
-      this.audioStage = -1 // пересчитать темп музыки по оставшемуся времени
-      audio.play('wave')
-      return false // мир оживает в этот же кадр
-    }
-    // Счастливый кот машет лапками, а в конце отсчёта уезжает вверх
-    if (this.cat.state === 'happy' && this.freezeLeft <= 0.45) {
-      this.cat.state = 'out'
-      this.cat.stateT = 0
-    }
-    return true
-  }
-
   /* ================= обновление ================= */
 
   private update(dt: number): void {
@@ -722,11 +638,10 @@ export class PopcornEngine {
     const k = 1 - Math.exp(-dt * (this.perk === 'slowpaw' ? spd * 0.46 : spd))
     this.paw.x += (this.paw.tx - this.paw.x) * k
     this.paw.y += (this.paw.ty - this.paw.y) * k
+    /* Статистика теперь в панели над полем: лапке доступен весь экран,
+       снизу — до столика со стаканчиком */
     this.paw.x = Math.max(22 * u, Math.min(this.W - 22 * u, this.paw.x))
-    this.paw.y = Math.max(70, Math.min(this.H - 20 * u, this.paw.y))
-
-    // Кот и фриз-тайм: пока таймер заморожен, мир стоит (лапку можно двигать)
-    if (this.updateCat(dt)) return
+    this.paw.y = Math.max(46, Math.min(this.H - 42 * u, this.paw.y))
 
     if (this.perk === 'drift') this.driftPieces(dt)
     if (this.perk === 'magnet') this.magnetPull(dt)
@@ -755,7 +670,7 @@ export class PopcornEngine {
             this.texts.push({
               x: this.paw.x,
               y: this.paw.y - 34 * u,
-              text: 'ОБЕРЕГ!',
+              text: this.L('txt.guard'),
               color: '#BFF3E6',
               t: 0,
               dur: 0.9,
@@ -769,7 +684,7 @@ export class PopcornEngine {
             this.texts.push({
               x: this.paw.x,
               y: this.paw.y - 34 * u,
-              text: 'ЩИТ!',
+              text: this.L('txt.shield'),
               color: '#BFF3E6',
               t: 0,
               dur: 0.9,
@@ -782,6 +697,7 @@ export class PopcornEngine {
             this.streak = 0 // мина сбрасывает комбо
             this.score = Math.max(0, this.score - 1)
             this.paw.hurt = 1
+            this.doShake(7) // тряска экрана (отключается в настройках)
             this.texts.push({
               x: this.paw.x,
               y: this.paw.y - 34 * u,
@@ -836,6 +752,7 @@ export class PopcornEngine {
         this.carried = []
         this.score += sum
         this.cup.squash = 1
+        if (hasGold) this.cupGlow = 1 // искра над стаканчиком
         this.texts.push({
           x: this.cup.x,
           y: this.cup.y - this.cupH * 0.8,
@@ -849,7 +766,7 @@ export class PopcornEngine {
           this.texts.push({
             x: this.paw.x,
             y: this.paw.y - 44 * u,
-            text: `КОМБО ×${cm}`,
+            text: this.L('txt.combo', { n: cm }),
             color: '#FFE066',
             t: 0,
             dur: 1,
@@ -861,14 +778,28 @@ export class PopcornEngine {
       }
     }
 
-    // Летящие в стаканчик зёрна
+    // Летящие в стаканчик зёрна: каждое приземление — «плюх» и лёгкий подскок
     for (let i = this.flying.length - 1; i >= 0; i--) {
       const f = this.flying[i]
       f.t += dt / 0.3
       if (f.t >= 1) {
         this.flying.splice(i, 1)
         this.crumbs(this.cup.x, this.cup.y - this.cupH * 0.5, '#FFF6EC', 3)
+        // Звук падения зёрнышка на дно (у золотого — повыше и со искрой)
+        audio.play(f.golden ? 'plopGold' : 'plop')
+        this.cup.squash = Math.min(1, Math.max(this.cup.squash, 0.35))
       }
+    }
+
+    /* Наполнение стаканчика: синхронизируем анимацию зёрен с прогрессом нормы */
+    const fillN = Math.min(
+      CUP_FILL_POS.length,
+      this.quota > 0 ? Math.ceil((this.collected / this.quota) * CUP_FILL_POS.length) : 0,
+    )
+    if (fillN !== this.lastFill) {
+      for (let i = this.lastFill; i < fillN; i++) this.fillPop[i] = 0 // новые зёрна — с пружинкой
+      this.fillPop.length = Math.max(this.fillPop.length, fillN)
+      this.lastFill = fillN
     }
 
     // Вся волна собрана → следующая. Кукуруза-мины НЕ мешает: считаем только попкорн
@@ -886,7 +817,7 @@ export class PopcornEngine {
       if (this.waveDelay <= 0) {
         this.waveDelay = -1
         this.wave++
-        this.banner = { text: `ВОЛНА ${this.wave}`, t: 0 }
+        this.banner = { text: this.L('banner.wave', { n: this.wave }), t: 0 }
         audio.play('wave')
         this.spawnWave()
       }
@@ -928,9 +859,13 @@ export class PopcornEngine {
     this.paw.pulse = Math.max(0, this.paw.pulse - dt * 5)
     this.paw.hurt = Math.max(0, this.paw.hurt - dt * 2.2)
     this.cup.squash = Math.max(0, this.cup.squash - dt * 4)
+    this.cupGlow = Math.max(0, this.cupGlow - dt * 1.6)
+    this.shakeT = Math.max(0, this.shakeT - dt)
+    if (this.shakeT <= 0) this.shakeAmp = 0
     this.banner.t += dt
     for (const p of this.pieces) p.spawn = Math.max(0, p.spawn - dt)
     for (const c of this.carried) c.grabT = Math.min(1, c.grabT + dt * 8)
+    for (let i = 0; i < this.fillPop.length; i++) this.fillPop[i] += dt
     for (let i = this.particles.length - 1; i >= 0; i--) {
       const p = this.particles[i]
       p.t += dt
@@ -986,9 +921,11 @@ export class PopcornEngine {
     }
   }
 
-  /** Лёгкая вибрация на телефоне: только по событиям, коротко и не чаще 80 мс */
+  /** Лёгкая вибрация на телефоне: только по событиям, коротко и не чаще 80 мс.
+      Полностью отключается в настройках. */
   private buzz(ms: number | number[]): void {
     try {
+      if (!this.opts.vibration) return
       if (typeof navigator === 'undefined' || !('vibrate' in navigator)) return
       const now = performance.now()
       if (now - this.lastBuzzAt < 80) return
@@ -997,6 +934,13 @@ export class PopcornEngine {
     } catch {
       /* вибрация недоступна — не страшно */
     }
+  }
+
+  /** Тряска экрана при минах и голубе (отключается в настройках) */
+  private doShake(amp: number): void {
+    if (!this.opts.shake) return
+    this.shakeAmp = Math.max(this.shakeAmp, amp * this.u)
+    this.shakeT = 0.3
   }
 
   /* ================= голубь-воришка ================= */
@@ -1017,7 +961,7 @@ export class PopcornEngine {
     this.texts.push({
       x: this.W / 2,
       y: this.H * 0.22,
-      text: 'ЖУХ-ЖУХ! ГОЛУБЬ!',
+      text: this.L('txt.pigeon'),
       color: '#C8CFD8',
       t: 0,
       dur: 1.6,
@@ -1025,6 +969,7 @@ export class PopcornEngine {
     })
     audio.play('pigeon')
     this.buzz(30)
+    this.doShake(4)
   }
 
   /** Голубь летит к стаканчику и таскает попкорн; ткнуть лапкой — прогнать (+2) */
@@ -1078,7 +1023,7 @@ export class PopcornEngine {
       this.texts.push({
         x: g.x,
         y: g.y - 30 * u,
-        text: '+2 КЫШ!',
+        text: this.L('txt.shoo'),
         color: '#BFF3E6',
         t: 0,
         dur: 1.1,
@@ -1098,10 +1043,11 @@ export class PopcornEngine {
       this.streak = 0 // воришка сбивает серию
       this.pendingClear = -1 // украденное зерно отменяет близкое «уровень пройден»
       this.cup.squash = 1
+      this.doShake(5)
       this.texts.push({
         x: this.cup.x,
         y: this.cup.y - this.cupH * 0.9,
-        text: 'УКРАЛ!',
+        text: this.L('txt.stole'),
         color: '#FF6B5E',
         t: 0,
         dur: 1,
@@ -1114,7 +1060,7 @@ export class PopcornEngine {
       this.texts.push({
         x: this.cup.x,
         y: this.cup.y - this.cupH * 0.9,
-        text: 'ПУСТО!',
+        text: this.L('txt.empty'),
         color: '#C8CFD8',
         t: 0,
         dur: 0.8,
@@ -1145,7 +1091,7 @@ export class PopcornEngine {
   private emitStats(force: boolean): void {
     if (!this.cb.onStats) return
     const sec = Math.ceil(this.timeLeft)
-    const key = `${this.score}|${this.lvl}|${this.quota}|${this.collected}|${this.carried.length}|${sec}|${this.paused}|${Math.ceil(this.freezeLeft)}|${this.streak}|${this.goldenCount}|${this.pigeonsRun}`
+    const key = `${this.score}|${this.lvl}|${this.quota}|${this.collected}|${this.carried.length}|${sec}|${this.paused}|${this.streak}|${this.goldenCount}|${this.pigeonsRun}`
     if (!force && key === this.lastStatsKey) return
     this.lastStatsKey = key
     this.cb.onStats({
@@ -1157,7 +1103,6 @@ export class PopcornEngine {
       collected: this.collected,
       carrying: this.carried.length,
       carryMax: this.carryMax,
-      freezeLeft: this.freezeLeft,
       paused: this.paused,
       streak: this.streak,
       comboMult: this.comboMult,
@@ -1173,104 +1118,28 @@ export class PopcornEngine {
     ctx.clearRect(0, 0, this.W, this.H)
     if (this.phase === 'idle') return
 
-    this.drawCup()
+    ctx.save()
+    /* Тряска экрана при минах/голубе (настройка «Тряска экрана») */
+    if (this.opts.shake && this.shakeT > 0 && this.shakeAmp > 0) {
+      const a = this.shakeAmp * (this.shakeT / 0.3)
+      ctx.translate((Math.random() - 0.5) * 2 * a, (Math.random() - 0.5) * 2 * a)
+    }
+
+    this.drawCup(ts)
     this.drawPieces(ts)
     if (this.pigeon && this.phase === 'playing') this.drawPigeon(ts)
     this.drawFlying()
     this.drawParticles()
-    // Фриз-тайм: притемняем поле — большие красные цифры рисует React-оверлей
-    if (this.freezeLeft > 0) {
-      ctx.fillStyle = 'rgba(12, 18, 14, 0.5)'
-      ctx.fillRect(0, 0, this.W, this.H)
-    }
     this.drawPaw(ts)
     this.drawTexts()
     this.drawBanner()
     if (this.perk === 'fog' && this.phase === 'playing') this.drawFog()
-    if (this.cat && this.phase === 'playing') this.drawCat(ts)
 
     if (this.phase === 'ended' || this.phase === 'clear') {
       ctx.fillStyle = 'rgba(24, 10, 4, 0.35)'
       ctx.fillRect(0, 0, this.W, this.H)
     }
-  }
-
-  /** Кот-бонус: пиксельный рыжий кот с двумя машущими лапками */
-  private drawCat(ts: number): void {
-    const cat = this.cat
-    if (!cat) return
-    const { ctx } = this
-    const u = this.u
-    const g = this.catGeom()
-    const ox = g.x - 10 * g.cell
-    const idleBob = cat.state === 'idle' ? Math.sin(ts * 0.003) * 2.2 * u : 0
-    const oy = g.y + g.slide + idleBob
-
-    // Тело из пиксельной карты
-    for (let ry = 0; ry < CAT_BODY.length; ry++) {
-      const row = CAT_BODY[ry]
-      for (let rx = 0; rx < row.length; rx++) {
-        const color = CAT_COLORS[row[rx]]
-        if (!color) continue
-        ctx.fillStyle = color
-        ctx.fillRect(ox + rx * g.cell, oy + ry * g.cell, g.cell + 0.5, g.cell + 0.5)
-      }
-    }
-
-    // Искры радости вокруг счастливого кота
-    if (cat.state === 'happy') {
-      drawSprite(ctx, this.sp.sparkle, ox + 2.4 * g.cell, oy + 2.2 * g.cell, 2.4 * u, {
-        rot: ts * 0.01,
-        alpha: 0.95,
-      })
-      drawSprite(ctx, this.sp.sparkle, ox + 17.6 * g.cell, oy + 3.1 * g.cell, 2 * u, {
-        rot: -ts * 0.008,
-        alpha: 0.95,
-      })
-    }
-
-    // Лапки машут поочерёдно (манэки-нэко)
-    const wig = cat.state === 'idle' ? Math.sin(ts * 0.006) * 2.6 * u : 0
-    const happyWig = cat.state === 'happy' ? Math.sin(ts * 0.03) * 4.5 * u : 0
-    const paws = this.catPawPoints()
-    paws.forEach(([px, py], i) => {
-      const dy = (i === 0 ? -1 : 1) * (wig + happyWig)
-      const w = 3.4 * g.cell
-      const h = 4.2 * g.cell
-      const x0 = px - w / 2
-      const y0 = py - h / 2 + dy
-      ctx.fillStyle = CAT_COLORS.o
-      ctx.fillRect(x0 - g.cell * 0.22, y0 - g.cell * 0.22, w + g.cell * 0.44, h + g.cell * 0.44)
-      ctx.fillStyle = '#F7B96B'
-      ctx.fillRect(x0, y0, w, h)
-      ctx.fillStyle = CAT_COLORS.D
-      ctx.fillRect(x0 + w * 0.28, y0 + h * 0.16, g.cell * 0.42, h * 0.6)
-      ctx.fillRect(x0 + w * 0.6, y0 + h * 0.16, g.cell * 0.42, h * 0.6)
-    })
-
-    // Подсказка: пульсирующие кольца на лапках и текст
-    if (cat.state === 'idle') {
-      const pulse = 0.5 + 0.5 * Math.sin(ts * 0.008)
-      ctx.lineWidth = 2.5 * u
-      ctx.strokeStyle = `rgba(191, 243, 230, ${0.35 + 0.4 * pulse})`
-      for (const [px, py] of paws) {
-        ctx.beginPath()
-        ctx.arc(px, py, (4.6 + 0.9 * pulse) * g.cell, 0, Math.PI * 2)
-        ctx.stroke()
-      }
-      const hint = 'ТКНИ В ЛАПКУ — СТОП-ТАЙМЕР!'
-      const size = Math.max(15, 19 * u)
-      ctx.font = `700 ${size}px "Handjet", system-ui, sans-serif`
-      ctx.textAlign = 'center'
-      ctx.textBaseline = 'middle'
-      ctx.globalAlpha = 0.8 + 0.2 * pulse
-      ctx.lineWidth = 4 * u
-      ctx.strokeStyle = 'rgba(46, 18, 6, 0.9)'
-      ctx.strokeText(hint, g.x, oy - 11 * u)
-      ctx.fillStyle = '#BFF3E6'
-      ctx.fillText(hint, g.x, oy - 11 * u)
-      ctx.globalAlpha = 1
-    }
+    ctx.restore()
   }
 
   /** Голубь-воришка: пиксельный, с двумя кадрами взмаха */
@@ -1320,41 +1189,47 @@ export class PopcornEngine {
     }
   }
 
-  private drawCup(): void {
+  /** Деревянный столик + детальный стаканчик с анимацией наполнения.
+      Корзина больше не «висит в воздухе»: стоит на столешнице. */
+  private drawCup(ts: number): void {
     const { ctx } = this
+    const u = this.u
     const s = this.cupScale
     const sq = this.cup.squash
+    // «Дыхание» стаканчика: лёгкое покачивание в такт музыке (кроме подскока при сдаче)
+    const breathe = 1 + Math.sin(ts * 0.0023) * 0.012
     const sx = 1 + 0.08 * sq
-    const sy = 1 - 0.1 * sq
+    const sy = breathe - 0.1 * sq
 
-    // Тень
-    ctx.fillStyle = 'rgba(0, 0, 0, 0.22)'
+    /* --- столик: ножки и столешница --- */
+    const tableY = this.tableY
+    ctx.fillStyle = '#8a5330' // ножки
+    ctx.fillRect(this.cup.x - 56 * u, tableY + 6 * u, 9 * u, 24 * u)
+    ctx.fillRect(this.cup.x + 47 * u, tableY + 6 * u, 9 * u, 24 * u)
+    ctx.fillStyle = '#B07A3F' // столешница
+    ctx.fillRect(this.cup.x - 66 * u, tableY - 4 * u, 132 * u, 10 * u)
+    ctx.fillStyle = '#6B421F' // тёмная кромка столешницы
+    ctx.fillRect(this.cup.x - 66 * u, tableY + 4 * u, 132 * u, 3 * u)
+
+    /* --- тень стаканчика на столешнице --- */
+    ctx.fillStyle = 'rgba(0, 0, 0, 0.24)'
     ctx.beginPath()
-    ctx.ellipse(
-      this.cup.x,
-      this.cup.y + (this.cupH / 2) * sy + 5 * this.u,
-      48 * this.u * sx,
-      10 * this.u,
-      0,
-      0,
-      Math.PI * 2,
-    )
+    ctx.ellipse(this.cup.x, tableY + 2 * u, 46 * u * sx, 5 * u, 0, 0, Math.PI * 2)
     ctx.fill()
 
-    // Корпус стаканчика — без «шапки» зёрен сверху: она путала игрока
-    // одинаковой текстурой с попкорном, который надо собирать
+    /* --- корпус стаканчика (детальный спрайт 48×54) --- */
     drawSprite(ctx, this.sp.cup, this.cup.x, this.cup.y, s, { sx, sy })
 
-    // Наполнение ВНУТРИ стаканчика: растёт вместе с выполнением нормы
+    /* --- наполнение ВНУТРИ стаканчика: растёт вместе с выполнением нормы --- */
     const progress = this.quota > 0 ? this.collected / this.quota : 0
     const fill = Math.min(CUP_FILL_POS.length, Math.ceil(progress * CUP_FILL_POS.length))
     if (fill > 0) {
       ctx.save()
       // Внутренняя трапеция стаканчика — зёрна не выходят за бумажные стенки
-      const topY = this.cup.y - 11.2 * s * sy
-      const botY = this.cup.y + 11.2 * s * sy
-      const halfTop = 10.4 * s * sx
-      const halfBot = 6.4 * s * sx
+      const topY = this.cup.y - 22.4 * s * sy
+      const botY = this.cup.y + 22.4 * s * sy
+      const halfTop = 20.8 * s * sx
+      const halfBot = 12.8 * s * sx
       ctx.beginPath()
       ctx.moveTo(this.cup.x - halfTop, topY)
       ctx.lineTo(this.cup.x + halfTop, topY)
@@ -1364,13 +1239,16 @@ export class PopcornEngine {
       ctx.clip()
       for (let i = 0; i < fill; i++) {
         const [ox, oy] = CUP_FILL_POS[i]
+        // Каждое новое зёрнышко «пружинит» при появлении (easeOutBack)
+        const age = this.fillPop[i] ?? 1
+        const pop = easeOutBack(Math.min(1, age / 0.3))
         drawSprite(
           ctx,
           this.sp.popcorn,
           this.cup.x + ox * s * sx,
           this.cup.y + oy * s * sy,
-          s * 0.44,
-          { rot: i * 0.9, alpha: 0.88 },
+          s * 0.88 * (0.55 + 0.45 * pop),
+          { rot: i * 0.9 + (1 - pop) * 1.1, alpha: Math.min(1, age * 3 + 0.25) * 0.88 },
         )
       }
       // Лёгкая притенённость — зёрна читаются «за стенкой», а не на поле
@@ -1378,6 +1256,14 @@ export class PopcornEngine {
       ctx.fillStyle = '#8a2f1d'
       ctx.fillRect(this.cup.x - halfTop, topY, halfTop * 2, botY - topY)
       ctx.restore()
+    }
+
+    /* --- искра над стаканчиком после сданного золотого зерна --- */
+    if (this.cupGlow > 0.01) {
+      drawSprite(ctx, this.sp.sparkle, this.cup.x + 14 * u, this.cup.y - this.cupH * 0.62, 1.6 * u, {
+        rot: ts * 0.006,
+        alpha: Math.min(1, this.cupGlow) * 0.95,
+      })
     }
   }
 
@@ -1400,8 +1286,28 @@ export class PopcornEngine {
       ctx.ellipse(p.x, p.y + 9 * u, 12 * u * pop, 4 * u * pop, 0, 0, Math.PI * 2)
       ctx.fill()
 
-      const sprite = p.kind === 'corn' ? this.sp.corn : p.kind === 'golden' ? this.sp.golden : this.sp.popcorn
+      const sprite = p.kind === 'corn'
+        ? this.opts.colorblind
+          ? this.sp.cornCB // дальтоник: сине-оранжевая мина
+          : this.sp.corn
+        : p.kind === 'golden'
+          ? this.sp.golden
+          : this.sp.popcorn
       drawSprite(ctx, sprite, p.x, y, scale, { rot: p.rot })
+      // Режим дальтоников: пульсирующая белая метка над миной
+      if (p.kind === 'corn' && this.opts.colorblind) {
+        const blink = 0.6 + 0.4 * Math.sin(ts * 0.008 + p.phase)
+        ctx.globalAlpha = blink
+        ctx.font = `700 ${Math.round(15 * u)}px system-ui, sans-serif`
+        ctx.textAlign = 'center'
+        ctx.textBaseline = 'middle'
+        ctx.lineWidth = 3 * u
+        ctx.strokeStyle = 'rgba(18, 39, 92, 0.95)'
+        ctx.strokeText('!', p.x, y - 16 * u)
+        ctx.fillStyle = '#FFFFFF'
+        ctx.fillText('!', p.x, y - 16 * u)
+        ctx.globalAlpha = 1
+      }
       if (p.kind === 'golden') {
         drawSprite(ctx, this.sp.sparkle, p.x + 10 * u, y - 11 * u, 1.15 * u, {
           rot: ts * 0.004,
@@ -1415,7 +1321,7 @@ export class PopcornEngine {
     const { ctx } = this
     const u = this.u
     const tx = this.cup.x
-    const ty = this.cup.y - 10 * this.cupScale
+    const ty = this.cup.y - 26 * this.cupScale // горлышко стаканчика
     for (const f of this.flying) {
       const q = easeOutQuad(f.t)
       const x = f.x0 + (tx - f.x0) * q

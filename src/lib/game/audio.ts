@@ -19,6 +19,8 @@ export type SfxName =
   | 'meow'
   | 'pigeon'
   | 'shoo'
+  | 'plop'
+  | 'plopGold'
 
 const NOTE_OFFSETS: Record<string, number> = {
   C: 0,
@@ -374,6 +376,17 @@ class ChipTuneAudio {
         this.tone('square', 480, t, 0.1, 0.24, bus, 1050)
         this.noise(t + 0.05, 0.22, 0.16, 'bandpass', 2400, bus)
         this.tone('triangle', 700, t + 0.12, 0.18, 0.18, bus, 1500)
+        break
+      case 'plop':
+        // Зёрнышко упало на дно стаканчика: глухой «плюх» + лёгкий шелест бумаги
+        this.tone('sine', 300, t, 0.09, 0.32, bus, 120)
+        this.noise(t, 0.045, 0.09, 'bandpass', 1500, bus)
+        break
+      case 'plopGold':
+        // Золотое зёрнышко: плюх повыше и звонкая искра
+        this.tone('sine', 430, t, 0.09, 0.32, bus, 170)
+        this.tone('square', noteFreq('E6'), t + 0.05, 0.08, 0.14, bus)
+        this.noise(t, 0.045, 0.09, 'bandpass', 1500, bus)
         break
     }
   }

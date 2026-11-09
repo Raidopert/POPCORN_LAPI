@@ -2,26 +2,29 @@
  * Фоны уровней «Кошачьего попкорнного Беспредела».
  * 8 локаций в едином 16-битном стиле: кинозал + 7 новых комнат.
  * Уровень N играет в комнате (N-1) % 8 — круг замыкается каждые 8 уровней.
+ * Название локации локализуется через i18n: room.<id>.name.
  */
 
 export interface RoomDef {
+  /** Идентификатор локации (ключ перевода room.<id>.name) */
+  id: 'cinema' | 'kitchen' | 'yard' | 'arcade' | 'roof' | 'park' | 'attic' | 'basement'
   /** Путь к картинке (webp, сжатая) */
   src: string
-  /** Название локации для плашек и правил */
+  /** Русское название (fallback, если перевод не найден) */
   name: string
   /** Эмодзи-подсказка локации */
   icon: string
 }
 
 export const ROOMS: RoomDef[] = [
-  { src: '/rooms/cinema.webp', name: 'Кинозал', icon: '🎬' },
-  { src: '/rooms/kitchen.webp', name: 'Кухня пиццерии', icon: '🍕' },
-  { src: '/rooms/yard.webp', name: 'Ночной двор', icon: '🌙' },
-  { src: '/rooms/arcade.webp', name: 'Аркадный зал', icon: '🕹️' },
-  { src: '/rooms/roof.webp', name: 'Крыша на закате', icon: '🌇' },
-  { src: '/rooms/park.webp', name: 'Дневной парк', icon: '🌳' },
-  { src: '/rooms/attic.webp', name: 'Чердак', icon: '📦' },
-  { src: '/rooms/basement.webp', name: 'Кладовка', icon: '🫙' },
+  { id: 'cinema', src: '/rooms/cinema.webp', name: 'Кинозал', icon: '🎬' },
+  { id: 'kitchen', src: '/rooms/kitchen.webp', name: 'Кухня пиццерии', icon: '🍕' },
+  { id: 'yard', src: '/rooms/yard.webp', name: 'Ночной двор', icon: '🌙' },
+  { id: 'arcade', src: '/rooms/arcade.webp', name: 'Аркадный зал', icon: '🕹️' },
+  { id: 'roof', src: '/rooms/roof.webp', name: 'Крыша на закате', icon: '🌇' },
+  { id: 'park', src: '/rooms/park.webp', name: 'Дневной парк', icon: '🌳' },
+  { id: 'attic', src: '/rooms/attic.webp', name: 'Чердак', icon: '📦' },
+  { id: 'basement', src: '/rooms/basement.webp', name: 'Кладовка', icon: '🫙' },
 ]
 
 const FALLBACK = ROOMS[0]
