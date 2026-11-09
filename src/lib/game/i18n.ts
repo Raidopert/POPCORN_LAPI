@@ -688,6 +688,18 @@ const T: Record<string, Row> = {
 
   /* ---------- лидеры ---------- */
   'lead.title': ['ЛИДЕРЫ', 'RANKING', 'BESTENLISTE', 'RÉCORDS'],
+  'lead.stats': [
+    '🚀 Запусков: {{n}} · 🎬 Забегов: {{r}} · 🐱 Котиков: {{p}}',
+    '🚀 Launches: {{n}} · 🎬 Runs: {{r}} · 🐱 Cats: {{p}}',
+    '🚀 Starts: {{n}} · 🎬 Läufe: {{r}} · 🐱 Katzen: {{p}}',
+    '🚀 Inicios: {{n}} · 🎬 Partidas: {{r}} · 🐱 Gatos: {{p}}',
+  ],
+  'menu.worldLaunches': [
+    '🚀 {{n}} запусков в мире',
+    '🚀 {{n}} launches worldwide',
+    '🚀 {{n}} Starts weltweit',
+    '🚀 {{n}} inicios en el mundo',
+  ],
   'lead.world': ['🌐 МИР', '🌐 WORLD', '🌐 WELT', '🌐 MUNDO'],
   'lead.local': ['📱 МОЙ ТЕЛЕФОН', '📱 MY PHONE', '📱 MEIN HANDY', '📱 MI MÓVIL'],
   'lead.checking': [
@@ -835,10 +847,10 @@ const T: Record<string, Row> = {
   'set.diff.normal': ['Нормальная', 'Normal', 'Normal', 'Normal'],
   'set.diff.hard': ['Сложная', 'Hard', 'Schwer', 'Difícil'],
   'set.diffHint': [
-    'лёгкая: меньше мин и больше времени · сложная: наоборот',
-    'easy: fewer mines and more time · hard: the opposite',
-    'Leicht: weniger Minen, mehr Zeit · Schwer: umgekehrt',
-    'fácil: menos minas y más tiempo · difícil: al revés',
+    'лёгкая: −1 мина в волне · норма ×0.8 · +10 сек к таймеру · сложная: +1 мина · норма ×1.2 · −10 сек',
+    'easy: −1 mine per wave · quota ×0.8 · +10 sec · hard: +1 mine · quota ×1.2 · −10 sec',
+    'Leicht: −1 Mine pro Welle · Quote ×0.8 · +10 Sek. · Schwer: +1 Mine · Quote ×1.2 · −10 Sek.',
+    'fácil: −1 mina por oleada · cuota ×0.8 · +10 seg · difícil: +1 mina · cuota ×1.2 · −10 seg',
   ],
   'set.quality': ['Качество', 'Quality', 'Qualität', 'Calidad'],
   'set.quality.low': ['Низкое', 'Low', 'Niedrig', 'Baja'],
@@ -863,6 +875,15 @@ const T: Record<string, Row> = {
   'set.perksBonus': ['Бонусные перки', 'Bonus perks', 'Bonus-Perks', 'Perks de bonus'],
   'set.pigeon': ['Голубь-воришка', 'Thieving pigeon', 'Klauernde Taube', 'Paloma ladrona'],
   'set.shake': ['Тряска экрана', 'Screen shake', 'Bildschirmwackeln', 'Sacudida de pantalla'],
+  'set.sound': ['🔊 Звук', '🔊 Sound', '🔊 Ton', '🔊 Sonido'],
+  'set.music': ['Музыка', 'Music', 'Musik', 'Música'],
+  'set.sfx': ['Звуки и эффекты', 'Sound effects', 'Soundeffekte', 'Efectos de sonido'],
+  'set.soundHint': [
+    'двигайте ползунки — звук меняется сразу · кнопка 🔈 в шапке выключает всё',
+    'move the sliders — sound changes instantly · the 🔈 button in the top bar mutes everything',
+    'Schieberegler wirken sofort · die 🔈-Taste oben schaltet alles stumm',
+    'mueve los deslizadores — el sonido cambia al instante · el botón 🔈 arriba silencia todo',
+  ],
   'set.vibro': ['Вибрация', 'Vibration', 'Vibration', 'Vibración'],
   'set.colorblind': ['Режим для дальтоников', 'Colorblind mode', 'Farbenblind-Modus', 'Modo daltónico'],
   'set.colorblindHint': [

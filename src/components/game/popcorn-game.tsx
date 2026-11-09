@@ -6,6 +6,7 @@ import { AnimatePresence, motion } from 'framer-motion'
 import {
   Cat,
   Heart,
+  Music,
   Pause,
   Pencil,
   PawPrint,
@@ -652,6 +653,7 @@ function LeadersOverlay({
   const [world, setWorld] = useState<{
     status: 'loading' | 'on' | 'off'
     rows: OnlineLeader[]
+    stats?: { launches: number; runs: number; players: number }
   }>({ status: 'loading', rows: [] })
   const [tab, setTab] = useState<'world' | 'local'>('world')
 
@@ -659,16 +661,22 @@ function LeadersOverlay({
     let alive = true
     fetch('/api/leaders')
       .then((r) => r.json())
-      .then((d: { online?: boolean; leaders?: OnlineLeader[] }) => {
-        if (!alive) return
-        if (d?.online && Array.isArray(d.leaders)) {
-          setWorld({ status: 'on', rows: d.leaders })
-          setTab('world')
-        } else {
-          setWorld({ status: 'off', rows: [] })
-          setTab('local')
-        }
-      })
+      .then(
+        (d: {
+          online?: boolean
+          leaders?: OnlineLeader[]
+          stats?: { launches: number; runs: number; players: number }
+        }) => {
+          if (!alive) return
+          if (d?.online && Array.isArray(d.leaders)) {
+            setWorld({ status: 'on', rows: d.leaders, stats: d.stats })
+            setTab('world')
+          } else {
+            setWorld({ status: 'off', rows: [] })
+            setTab('local')
+          }
+        },
+      )
       .catch(() => {
         if (!alive) return
         setWorld({ status: 'off', rows: [] })
@@ -723,6 +731,17 @@ function LeadersOverlay({
         ) : (
           <p className="mt-1 font-ui text-xs font-medium text-[#8a5330]">
             {world.status === 'loading' ? t('lead.checking') : t('lead.offline')}
+          </p>
+        )}
+
+        {/* Мировая статистика: счётчик запусков, забегов и уникальных котиков */}
+        {world.status === 'on' && world.stats && (
+          <p className="mt-2 rounded-xl bg-[#fdf3e0] px-2.5 py-1.5 font-ui text-[10px] font-semibold leading-snug text-[#8a5330] ring-1 ring-[#e3cba4]">
+            {t('lead.stats', {
+              n: world.stats.launches,
+              r: world.stats.runs,
+              p: world.stats.players,
+            })}
           </p>
         )}
 
@@ -1132,6 +1151,62 @@ function SettingsOverlay({
             />
           </section>
 
+          {/* Громкость: музыка и звуки отдельно — живой эффект */}
+          <section className="space-y-2">
+            <div className="font-pixel text-[12px] font-bold text-[#8a5330]">
+              {t('set.sound')}
+            </div>
+            <label className="block rounded-xl border-2 border-[#e3cba4] bg-[#fdf3e0] px-3 py-2">
+              <span className="flex items-center justify-between font-ui text-[11px] font-semibold text-[#5C3A1E]">
+                <span className="flex items-center gap-1.5">
+                  <Music className="h-3.5 w-3.5 text-[#B33A26]" aria-hidden />
+                  {t('set.music')}
+                </span>
+                <span className="tabular-nums">
+                  {Math.round(settings.volumeMusic * 100)}%
+                </span>
+              </span>
+              <input
+                type="range"
+                min={0}
+                max={1}
+                step={0.05}
+                value={settings.volumeMusic}
+                onChange={(e) => set({ volumeMusic: Number(e.target.value) })}
+                className="mt-1 w-full accent-[#E24B3B]"
+                aria-label={t('set.music')}
+              />
+            </label>
+            <label className="block rounded-xl border-2 border-[#e3cba4] bg-[#fdf3e0] px-3 py-2">
+              <span className="flex items-center justify-between font-ui text-[11px] font-semibold text-[#5C3A1E]">
+                <span className="flex items-center gap-1.5">
+                  <Volume2 className="h-3.5 w-3.5 text-[#B33A26]" aria-hidden />
+                  {t('set.sfx')}
+                </span>
+                <span className="tabular-nums">
+                  {Math.round(settings.volumeSfx * 100)}%
+                </span>
+              </span>
+              <input
+                type="range"
+                min={0}
+                max={1}
+                step={0.05}
+                value={settings.volumeSfx}
+                onChange={(e) => {
+                  set({ volumeSfx: Number(e.target.value) })
+                  // мгновенный отклик: пробный «клик» при изменении громкости звуков
+                  audio.play('tick')
+                }}
+                className="mt-1 w-full accent-[#E24B3B]"
+                aria-label={t('set.sfx')}
+              />
+            </label>
+            <p className="font-ui text-[10px] leading-tight text-[#a97c50]">
+              {t('set.soundHint')}
+            </p>
+          </section>
+
           {/* Яркость и контраст */}
           <section className="space-y-2">
             <div className="font-pixel text-[12px] font-bold text-[#8a5330]">
@@ -1431,6 +1506,12 @@ export function PopcornGame() {
   >(null)
   const [achToast, setAchToast] = useState<{ icon: string; name: string } | null>(null)
   const [shareNote, setShareNote] = useState<string | null>(null)
+  /* Мировая статистика: счётчик запусков/забегов/котиков (null — офлайн или ещё грузится) */
+  const [worldStats, setWorldStats] = useState<{
+    launches: number
+    runs: number
+    players: number
+  } | null>(null)
   const installRef = useRef<InstallPromptEvent | null>(null)
   const [canInstall, setCanInstall] = useState(false)
 
@@ -1487,7 +1568,28 @@ export function PopcornGame() {
       pigeon: settings.pigeon,
     })
     engineRef.current?.setLang(settings.lang)
+    /* Громкость музыки и звуков из настроек — живой эффект, без перезагрузки */
+    audio.setVolumes(settings.volumeMusic, settings.volumeSfx)
   }, [settings])
+
+  /* Счётчик мировых запусков: один раз за открытие страницы.
+     Без сети/базы просто не учитывается — игра работает офлайн. */
+  const sessionCountedRef = useRef(false)
+  useEffect(() => {
+    if (sessionCountedRef.current) return
+    sessionCountedRef.current = true
+    fetch('/api/sessions', { method: 'POST' })
+      .then((r) => r.json())
+      .then(
+        (d: {
+          ok?: boolean
+          stats?: { launches: number; runs: number; players: number }
+        }) => {
+          if (d?.stats) setWorldStats(d.stats)
+        },
+      )
+      .catch(() => {})
+  }, [])
 
   /* Синхронизируем состояние звука с аудио-движком (внешняя система) */
   useEffect(() => {
@@ -2173,6 +2275,18 @@ export function PopcornGame() {
                     <Popcorn className="h-4 w-4 text-amber-500" aria-hidden />
                     {t('menu.xp', { n: xp })}
                   </div>
+                  {worldStats && (
+                    <div
+                      className="inline-flex items-center gap-1.5 rounded-full bg-amber-100 px-3 py-1 font-ui text-xs font-semibold text-[#8a5330] ring-2 ring-amber-200"
+                      title={t('lead.stats', {
+                        n: worldStats.launches,
+                        r: worldStats.runs,
+                        p: worldStats.players,
+                      })}
+                    >
+                      {t('menu.worldLaunches', { n: worldStats.launches })}
+                    </div>
+                  )}
                   <div className="inline-flex items-center gap-1.5 rounded-full bg-amber-100 px-3 py-1 font-ui text-xs font-semibold text-[#8a5330] ring-2 ring-amber-200">
                     <PawPrint className="h-4 w-4 text-amber-500" aria-hidden />
                     {t(`paw.${equippedPaw}.name`)}

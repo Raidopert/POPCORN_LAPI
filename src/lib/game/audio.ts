@@ -101,6 +101,9 @@ class ChipTuneAudio {
   private nextTime = 0
   private playingMusic = false
   private _muted = false
+  /** Громкость музыки и звуков (0..1) — из настроек, применяются к шинам */
+  private _volMusic = 1
+  private _volSfx = 1
   private level = 0
   private stage = 0
   /** Какая тема играет: игровая (ускоряется) или заглавная меню */
@@ -134,11 +137,11 @@ class ChipTuneAudio {
       this.master.connect(this.ctx.destination)
 
       this.musicBus = this.ctx.createGain()
-      this.musicBus.gain.value = 0.55
+      this.musicBus.gain.value = 0.55 * this._volMusic
       this.musicBus.connect(this.master)
 
       this.sfxBus = this.ctx.createGain()
-      this.sfxBus.gain.value = 0.9
+      this.sfxBus.gain.value = 0.9 * this._volSfx
       this.sfxBus.connect(this.master)
 
       // Белый шум для перкуссии (буфер на 1 секунду)
@@ -159,6 +162,16 @@ class ChipTuneAudio {
     this._muted = m
     if (this.ctx && this.master) {
       this.master.gain.setTargetAtTime(m ? 0 : 0.5, this.ctx.currentTime, 0.02)
+    }
+  }
+
+  /** Громкость музыки и звуков по отдельности (0..1). Живой плавный переход без щелчков. */
+  setVolumes(music: number, sfx: number): void {
+    this._volMusic = Math.max(0, Math.min(1, music))
+    this._volSfx = Math.max(0, Math.min(1, sfx))
+    if (this.ctx && this.musicBus && this.sfxBus) {
+      this.musicBus.gain.setTargetAtTime(0.55 * this._volMusic, this.ctx.currentTime, 0.02)
+      this.sfxBus.gain.setTargetAtTime(0.9 * this._volSfx, this.ctx.currentTime, 0.02)
     }
   }
 

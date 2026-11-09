@@ -116,3 +116,65 @@ export async function insertScore(s: SubmitScore): Promise<boolean> {
     return false
   }
 }
+
+/* ---------- счётчики мировой статистики ---------- */
+
+export interface WorldStats {
+  /** Сколько раз игру запускали (открыли сайт) */
+  launches: number
+  /** Сколько забегов завершилось (записаны в таблицу) */
+  runs: number
+  /** Сколько уникальных котиков играло */
+  players: number
+}
+
+/** Таблица счётчиков создаётся автоматически, как и leaders */
+async function ensureStatsTable(sql: Sql): Promise<void> {
+  await sql`
+    CREATE TABLE IF NOT EXISTS stats (
+      key varchar(24) PRIMARY KEY,
+      value bigint NOT NULL DEFAULT 0
+    )
+  `
+}
+
+/** +1 к счётчику (запуск игры, завершённый забег); возвращает новое значение или null без базы */
+export async function bumpStat(key: string): Promise<number | null> {
+  const sql = await getSql()
+  if (!sql) return null
+  try {
+    await ensureStatsTable(sql)
+    await sql`INSERT INTO stats (key, value) VALUES (${key}, 0) ON CONFLICT (key) DO NOTHING`
+    const rows = await sql<{ value: string }[]>`
+      UPDATE stats SET value = value + 1 WHERE key = ${key} RETURNING value
+    `
+    return Number(rows[0]?.value ?? 0)
+  } catch (err) {
+    console.error('[leaders] bumpStat failed:', err)
+    return null
+  }
+}
+
+/** Прочитать мировую статистику (null — база недоступна) */
+export async function fetchWorldStats(): Promise<WorldStats | null> {
+  const sql = await getSql()
+  if (!sql) return null
+  try {
+    await ensureStatsTable(sql)
+    const counters = await sql<{ key: string; value: string }[]>`
+      SELECT key, value FROM stats WHERE key IN ('launches', 'runs')
+    `
+    const distinct = await sql<{ n: string }[]>`
+      SELECT COUNT(DISTINCT name) AS n FROM leaders
+    `
+    const get = (k: string) => Number(counters.find((c) => c.key === k)?.value ?? 0)
+    return {
+      launches: get('launches'),
+      runs: get('runs'),
+      players: Number(distinct[0]?.n ?? 0),
+    }
+  } catch (err) {
+    console.error('[leaders] fetchWorldStats failed:', err)
+    return null
+  }
+}

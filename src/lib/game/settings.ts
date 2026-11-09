@@ -30,6 +30,10 @@ export interface GameSettings {
   shake: boolean
   /** Вибрация на телефоне */
   vibration: boolean
+  /** Громкость музыки 0..1 */
+  volumeMusic: number
+  /** Громкость звуков/эффектов 0..1 */
+  volumeSfx: number
   /** Режим для дальтоников: сине-оранжевые мины с меткой */
   colorblind: boolean
   /** Яркость 0.6..1.4 */
@@ -48,6 +52,8 @@ export const DEFAULT_SETTINGS: GameSettings = {
   pigeon: true,
   shake: true,
   vibration: true,
+  volumeMusic: 1,
+  volumeSfx: 1,
   colorblind: false,
   brightness: 1,
   contrast: 1,
@@ -89,6 +95,8 @@ export function parseSettingsRaw(raw: string): GameSettings {
       pigeon: o.pigeon !== false,
       shake: o.shake !== false,
       vibration: o.vibration !== false,
+      volumeMusic: clamp(o.volumeMusic as number, 0, 1, 1),
+      volumeSfx: clamp(o.volumeSfx as number, 0, 1, 1),
       colorblind: o.colorblind === true,
       brightness: clamp(o.brightness as number, 0.6, 1.4, 1),
       contrast: clamp(o.contrast as number, 0.6, 1.6, 1),
