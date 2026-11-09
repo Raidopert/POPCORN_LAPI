@@ -10,6 +10,7 @@ import {
   Home,
   MonitorDown,
   Music,
+  Network,
   Pause,
   Pencil,
   PawPrint,
@@ -27,6 +28,21 @@ import {
 } from 'lucide-react'
 import { PopcornEngine, type EngineStats } from '@/lib/game/engine'
 import { audio } from '@/lib/game/audio'
+import {
+  TREE_NODES,
+  TREE_KEY,
+  TREE_MAP,
+  buyNode,
+  canBuy,
+  capGain,
+  parseTreeRaw,
+  treeBonuses,
+  treePoints,
+  treeSpent,
+  type TreeBuyError,
+  type TreeId,
+  type TreeState,
+} from '@/lib/game/skill-tree'
 import {
   PERKS,
   PERK_MAP,
@@ -409,12 +425,15 @@ function MenuSmallBtn({
 function StatPill({
   children,
   className = '',
+  'aria-label': ariaLabel,
 }: {
   children: React.ReactNode
   className?: string
+  'aria-label'?: string
 }) {
   return (
     <span
+      aria-label={ariaLabel}
       className={`flex items-center gap-1 rounded-full border border-white/15 bg-[#231108]/90 px-2 py-1 font-ui text-[11px] font-semibold text-white ${className}`}
     >
       {children}
@@ -1066,6 +1085,206 @@ function InstallOverlay({
           {t('install.where')}
         </p>
         <div className="mt-3">
+          <GameButton onClick={onClose}>{t('install.close')}</GameButton>
+        </div>
+      </motion.div>
+    </motion.div>
+  )
+}
+
+/** Позиции узлов древа на SVG-сетке (в процентах контейнера): корень → 3 ветки → 3 вершины */
+const TREE_POS: Record<TreeId, { x: number; y: number }> = {
+  harvest: { x: 50, y: 10 },
+  swift: { x: 18, y: 45 },
+  cap: { x: 50, y: 45 },
+  seeds: { x: 82, y: 45 },
+  feverluck: { x: 16, y: 81 },
+  shield: { x: 50, y: 81 },
+  goldluck: { x: 84, y: 81 },
+}
+
+/** Ветки дерева: корень расходится на 3 ветки, каждая ведёт к своей вершине */
+const TREE_LINKS: Array<{ to: TreeId; d: string }> = [
+  { to: 'swift', d: 'M50,10 Q31,24 18,45' },
+  { to: 'cap', d: 'M50,10 Q50,26 50,45' },
+  { to: 'seeds', d: 'M50,10 Q69,24 82,45' },
+  { to: 'feverluck', d: 'M18,45 Q12,62 16,81' },
+  { to: 'shield', d: 'M50,45 Q50,62 50,81' },
+  { to: 'goldluck', d: 'M82,45 Q88,62 84,81' },
+]
+
+/** Число в подсказке узла: суммарный эффект на текущем уровне
+    (для не купленных — эффект первой покупки) */
+function treeEffectN(id: TreeId, lvl: number): number {
+  if (id === 'harvest') return 5 * Math.max(lvl, 1) // +5% за каждый уровень
+  if (id === 'cap') return capGain(Math.max(lvl, 1)) // +1, +3, +6, +10 зерна всего
+  return Math.max(lvl, 1) // щит: 1/2/3 щита за забег
+}
+
+/** Экран «Древо улучшений» (тестовая ветка): постоянные бонусы за очки
+    уровня котика. Корень +5% зёрен за уровень, ветки на скорость,
+    вместимость/засев и щит/удачу */
+function TreeOverlay({
+  t,
+  tree,
+  points,
+  totalXp,
+  onClose,
+}: {
+  t: TranslateFn
+  tree: TreeState
+  points: number
+  totalXp: number
+  onClose: () => void
+}) {
+  const [err, setErr] = useState<string | null>(null)
+  const errTimer = useRef<number | null>(null)
+
+  const showErr = useCallback((msg: string) => {
+    audio.play('penalty')
+    setErr(msg)
+    if (errTimer.current) window.clearTimeout(errTimer.current)
+    errTimer.current = window.setTimeout(() => setErr(null), 2000)
+  }, [])
+
+  useEffect(
+    () => () => {
+      if (errTimer.current) window.clearTimeout(errTimer.current)
+    },
+    [],
+  )
+
+  const onNode = useCallback(
+    (id: TreeId) => {
+      const check = canBuy(id, tree, totalXp)
+      if (check !== 'ok') {
+        const def = TREE_MAP[id]
+        if (check === 'root') showErr(t('tree.needRoot'))
+        else if (check === 'points') showErr(t('tree.needPoints'))
+        else if (check === 'level') showErr(t('tree.needLevel', { n: def.reqLevel }))
+        else showErr(t('tree.maxed'))
+        return
+      }
+      audio.play('record')
+      buyNode(id)
+    },
+    [tree, totalXp, showErr, t],
+  )
+
+  const nodeState = (id: TreeId): 'bought' | 'ready' | 'idle' | 'locked' => {
+    const lvl = tree[id] ?? 0
+    if (lvl >= TREE_MAP[id].maxLevel) return 'bought'
+    if (lvl > 0) return 'ready' // «Урожай» докупается за новые очки
+    const check = canBuy(id, tree, totalXp)
+    if (check === 'ok') return 'ready'
+    if (check === 'level' || check === 'root') return 'locked'
+    return 'idle'
+  }
+
+  const styles: Record<'bought' | 'ready' | 'idle' | 'locked', string> = {
+    bought: 'border-[#5C8A3A] bg-[#eaf3dd] text-[#3f6b28] shadow-[0_4px_0_#b9d29b]',
+    ready: 'border-[#E2A23B] bg-amber-100 text-[#8a5330] shadow-[0_4px_0_#e9c98a] animate-pulse',
+    idle: 'border-[#c9a97a] bg-[#f3e2c8]/80 text-[#a97c50] opacity-90',
+    locked: 'border-[#b0a08c] bg-[#e8e2d8] text-[#8d7f6d] opacity-80 grayscale',
+  }
+
+  return (
+    <motion.div
+      className="absolute inset-0 z-40 flex items-center justify-center overflow-y-auto bg-black/70 p-4 backdrop-blur-sm"
+      initial={{ opacity: 0 }}
+      animate={{ opacity: 1 }}
+      exit={{ opacity: 0 }}
+    >
+      <motion.div
+        className="my-auto w-full max-w-sm rounded-2xl border-4 border-[#8a5330] bg-[#FFF6E6] p-4 text-center shadow-[0_18px_50px_rgba(0,0,0,0.55)] sm:p-5"
+        initial={{ scale: 0.92, y: 14 }}
+        animate={{ scale: 1, y: 0 }}
+        exit={{ scale: 0.95, opacity: 0 }}
+        transition={{ type: 'spring', stiffness: 260, damping: 22 }}
+      >
+        <div aria-hidden className="text-3xl">
+          🌳
+        </div>
+        <h2 className="mt-0.5 font-pixel text-xl font-bold text-[#B33A26]">{t('tree.title')}</h2>
+        <div className="mt-1 flex items-center justify-center gap-2">
+          <span className="inline-flex items-center gap-1 rounded-full bg-amber-100 px-3 py-0.5 font-pixel text-sm font-bold text-[#8a5330] ring-2 ring-amber-200">
+            {t('tree.points', { n: points })}
+          </span>
+        </div>
+        <p className="mt-1 font-ui text-[10px] leading-snug text-[#a97c50]">{t('tree.hint')}</p>
+        <div aria-live="polite" className="h-4">
+          {err && (
+            <span className="font-pixel text-[11px] font-bold text-[#B33A26]">{err}</span>
+          )}
+        </div>
+
+        {/* Сетка-дерево: SVG-ветки под узлами (3 яруса) */}
+        <div className="relative mx-auto h-80 w-full max-w-[340px]">
+          <svg
+            aria-hidden
+            className="absolute inset-0 h-full w-full"
+            viewBox="0 0 100 100"
+            preserveAspectRatio="none"
+          >
+            {TREE_LINKS.map(({ to, d }) => {
+              const st = nodeState(to)
+              const stroke =
+                st === 'bought' ? '#5C8A3A' : st === 'ready' ? '#E2A23B' : '#c9b18f'
+              return (
+                <path
+                  key={to}
+                  d={d}
+                  fill="none"
+                  stroke={stroke}
+                  strokeWidth={3}
+                  strokeLinecap="round"
+                  vectorEffect="non-scaling-stroke"
+                  strokeDasharray={st === 'bought' ? undefined : '2 4'}
+                  opacity={st === 'bought' || st === 'ready' ? 0.9 : 0.55}
+                />
+              )
+            })}
+          </svg>
+          {TREE_NODES.map((node) => {
+            const p = TREE_POS[node.id]
+            const st = nodeState(node.id)
+            const lvl = tree[node.id] ?? 0
+            return (
+              <button
+                key={node.id}
+                type="button"
+                onClick={() => onNode(node.id)}
+                style={{ left: `${p.x}%`, top: `${p.y}%` }}
+                className="absolute flex -translate-x-1/2 -translate-y-1/2 flex-col items-center focus:outline-none focus-visible:ring-2 focus-visible:ring-[#E24B3B] rounded-lg"
+                aria-label={`${t(`tree.${node.id}.name`)} — ${t(`tree.${node.id}.effect`, { n: treeEffectN(node.id, lvl) })}`}
+              >
+                <span
+                  className={`relative flex h-14 w-14 items-center justify-center rounded-full border-4 text-2xl transition active:scale-90 ${styles[st]}`}
+                >
+                  <span aria-hidden>{node.icon}</span>
+                  {lvl > 0 && (
+                    <span className="absolute -bottom-1.5 -right-1.5 flex h-6 min-w-6 items-center justify-center rounded-full border-2 border-white bg-[#5C8A3A] px-1 font-ui text-[10px] font-bold text-white">
+                      {lvl >= node.maxLevel ? 'MAX' : lvl}
+                    </span>
+                  )}
+                  {st === 'locked' && (
+                    <span className="absolute -bottom-1.5 -right-1.5 flex h-5 min-w-5 items-center justify-center rounded-full border-2 border-white bg-[#8d7f6d] px-1 font-ui text-[9px] font-bold text-white">
+                      🔒{t('tree.locked', { n: TREE_MAP[node.id].reqLevel })}
+                    </span>
+                  )}
+                </span>
+                <span className="mt-1 w-24 text-center font-pixel text-[10px] font-bold leading-tight text-[#5C3A1E]">
+                  {t(`tree.${node.id}.name`)}
+                </span>
+                <span className="w-24 text-center font-ui text-[9px] leading-tight text-[#a97c50]">
+                  {t(`tree.${node.id}.effect`, { n: treeEffectN(node.id, lvl) })}
+                </span>
+              </button>
+            )
+          })}
+        </div>
+
+        <div className="mt-2">
           <GameButton onClick={onClose}>{t('install.close')}</GameButton>
         </div>
       </motion.div>
@@ -1787,6 +2006,7 @@ export function PopcornGame() {
     fever: false,
     feverGained: 0,
     wave: 0,
+    shields: 0,
   })
   const [bestRaw, storeBest] = useStoredValue(BEST_KEY, '0')
   const [mutedRaw, storeMuted] = useStoredValue(MUTE_KEY, '0')
@@ -1826,7 +2046,7 @@ export function PopcornGame() {
   const [nickSetRaw, storeNickSet] = useStoredValue(NICKSET_KEY, '0')
   const [nickEdit, setNickEdit] = useState(false)
   const [overlay, setOverlay] = useState<
-    'leaders' | 'shop' | 'creators' | 'rules' | 'ach' | 'settings' | 'install' | null
+    'leaders' | 'shop' | 'creators' | 'rules' | 'ach' | 'settings' | 'install' | 'tree' | null
   >(null)
   const [achToast, setAchToast] = useState<{ icon: string; name: string } | null>(null)
   const [shareNote, setShareNote] = useState<string | null>(null)
@@ -1840,6 +2060,15 @@ export function PopcornGame() {
   const [canInstall, setCanInstall] = useState(false)
   /** Игра уже работает как установленное приложение (standalone/fullscreen) */
   const [isStandalone, setIsStandalone] = useState(false)
+  /* Древо улучшений: купленные узлы (localStorage + событие магазина) */
+  const [treeRaw] = useStoredValue(TREE_KEY, '{}')
+  const tree = useMemo(() => parseTreeRaw(treeRaw), [treeRaw])
+  const treeRef = useRef(tree)
+  /** Доступные очки древа: уровень котика − потрачено */
+  const treePts = useMemo(
+    () => treePoints(Math.max(0, Number(totalRaw) || 0), treeSpent(tree)),
+    [tree, totalRaw],
+  )
 
   const xp = Math.max(0, Number(xpRaw) || 0)
   const coins = Math.max(0, Number(coinsRaw) || 0)
@@ -2073,11 +2302,11 @@ export function PopcornGame() {
   const addXpDelta = useCallback((delta: number) => {
     if (!delta) return
     const cur = Math.max(0, Number(window.localStorage.getItem(XP_KEY) ?? 0) || 0)
-    const next = Math.max(0, cur + delta)
+    const next = Math.max(0, Math.floor(cur + delta))
     window.localStorage.setItem(XP_KEY, String(next))
     if (delta > 0) {
       const tot = Math.max(0, Number(window.localStorage.getItem(TOTAL_KEY) ?? 0) || 0)
-      window.localStorage.setItem(TOTAL_KEY, String(tot + delta))
+      window.localStorage.setItem(TOTAL_KEY, String(Math.floor(tot + delta)))
     }
     window.dispatchEvent(new Event(STORE_EVENT))
   }, [])
@@ -2086,8 +2315,9 @@ export function PopcornGame() {
       Если уровень персонажа вырос — праздничный тост. */
   const awardStage = useCallback((lvl: number) => {
     const before = charLevel(getTotalXp())
-    addTotalXp(10 + lvl)
-    addCoins(12)
+    /* Награда за этап — с нулями: опыт ×10, монетки ×10 (и цены в магазине тоже) */
+    addTotalXp(100 + lvl * 10)
+    addCoins(120)
     const after = charLevel(getTotalXp())
     if (after > before) {
       setCharToast(after)
@@ -2101,14 +2331,20 @@ export function PopcornGame() {
     return [0, 1, 2].map(() => {
       const r = Math.random()
       if (r < 0.3) {
-        return { kind: 'coins' as const, n: [15, 25, 40][Math.floor(Math.random() * 3)] ?? 15 }
+        return { kind: 'coins' as const, n: [150, 250, 400][Math.floor(Math.random() * 3)] ?? 150 }
       }
       if (r < 0.55) {
-        return { kind: 'xp' as const, n: [25, 60, 120][Math.floor(Math.random() * 3)] ?? 25 }
+        return { kind: 'xp' as const, n: [250, 600, 1200][Math.floor(Math.random() * 3)] ?? 250 }
       }
       return null
     })
   }, [])
+
+  /* Древо улучшений: при покупке узла сразу перекидываем бонусы в движок */
+  useEffect(() => {
+    treeRef.current = tree
+    engineRef.current?.setTree(treeBonuses(tree))
+  }, [tree])
 
   /* PWA: ловим событие установки и регистрируем service worker (только прод) */
   useEffect(() => {
@@ -2181,7 +2417,7 @@ export function PopcornGame() {
         if (s.goldenCount > 0) cand.push('golden1')
         if (s.streak >= 10) cand.push('combo10')
         if (s.pigeonShooed > 0) cand.push('pigeon1')
-        if ((Number(window.localStorage.getItem(XP_KEY) ?? 0) || 0) >= 1000) cand.push('rich1k')
+        if ((Number(window.localStorage.getItem(XP_KEY) ?? 0) || 0) >= 10000) cand.push('rich1k')
         if (cand.length > 0) announceAch(cand)
       },
       onLevelComplete: (r) => {
@@ -2219,7 +2455,7 @@ export function PopcornGame() {
         layoutRef.current()
         /* Монетки за успех: чем больше очков — тем щедрее награда */
         if (r.success) {
-          const coins = Math.max(10, Math.round(r.gained / 3))
+          const coins = Math.max(100, Math.round(r.gained / 3))
           addCoins(coins)
           setFeverCoins(coins)
           window.setTimeout(() => setFeverCoins(null), 3200)
@@ -2251,7 +2487,7 @@ export function PopcornGame() {
         window.dispatchEvent(new Event(STORE_EVENT))
         /* Достижения конца забега */
         const cand: AchId[] = []
-        if (r.score >= 100) cand.push('score100')
+        if (r.score >= 1000) cand.push('score100')
         if (r.level >= 5) cand.push('level5')
         if (r.level >= 10) cand.push('level10')
         announceAch(cand)
@@ -2284,6 +2520,8 @@ export function PopcornGame() {
       pigeon: s.pigeon,
     })
     engine.setLang(s.lang)
+    /* Древо улучшений: применяем купленные узлы к движку */
+    engine.setTree(treeBonuses(treeRef.current))
     layoutRef.current()
 
     return () => {
@@ -2621,6 +2859,12 @@ export function PopcornGame() {
               {stats.carrying}/{stats.carryMax}
             </span>
           </StatPill>
+          {stats.shields > 0 && (
+            <StatPill aria-label={t('hud.shields', { n: stats.shields })}>
+              <span aria-hidden>🛡️</span>
+              <span className="font-pixel tabular-nums">×{stats.shields}</span>
+            </StatPill>
+          )}
           {stats.comboMult > 1 && (
             <StatPill className="border-amber-300/60 text-amber-200">
               <span aria-hidden>🔥</span>
@@ -2905,6 +3149,28 @@ export function PopcornGame() {
                     {t('menu.creators')}
                   </MenuSmallBtn>
                 </div>
+
+                {/* Древо улучшений: отдельная заметная кнопка с бейджем очков */}
+                <button
+                  type="button"
+                  onClick={() => {
+                    audio.play('click')
+                    setOverlay('tree')
+                  }}
+                  className={`mt-2 flex w-full items-center justify-center gap-2 rounded-xl border-2 px-4 py-2.5 font-pixel text-sm font-bold transition active:scale-[0.98] ${
+                    treePts > 0
+                      ? 'border-[#5C8A3A] bg-[#eaf3dd] text-[#3f6b28] shadow-[0_4px_0_#b9d29b] hover:bg-[#e0efcc] animate-pulse'
+                      : 'border-[#8a5330] bg-[#f3e2c8] text-[#8a5330] shadow-[0_4px_0_#c9a97a] hover:bg-[#eed7b4]'
+                  }`}
+                >
+                  <Network className="h-4 w-4" aria-hidden />
+                  {t('menu.tree')}
+                  {treePts > 0 && (
+                    <span className="flex h-5 min-w-5 items-center justify-center rounded-full bg-[#5C8A3A] px-1 font-ui text-[11px] font-bold text-white">
+                      {treePts}
+                    </span>
+                  )}
+                </button>
 
                 {/* Языки + настройки */}
                 <div className="mt-2 flex items-center gap-1.5">
@@ -3365,6 +3631,15 @@ export function PopcornGame() {
               t={t}
               canNative={canInstall}
               onNative={() => void handleInstall()}
+              onClose={() => setOverlay(null)}
+            />
+          )}
+          {overlay === 'tree' && (
+            <TreeOverlay
+              t={t}
+              tree={tree}
+              points={treePts}
+              totalXp={Math.max(0, Number(totalRaw) || 0)}
               onClose={() => setOverlay(null)}
             />
           )}

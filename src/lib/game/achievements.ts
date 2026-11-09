@@ -26,8 +26,8 @@ export interface AchDef {
 export const ACHIEVEMENTS: AchDef[] = [
   {
     id: 'score100',
-    name: 'Первая сотня',
-    desc: 'Набрать 100 очков за один забег',
+    name: 'Первая тысяча',
+    desc: 'Набрать 1000 очков за один забег',
     icon: '💯',
   },
   {
@@ -39,7 +39,7 @@ export const ACHIEVEMENTS: AchDef[] = [
   {
     id: 'golden1',
     name: 'Золотая лапка',
-    desc: 'Поймать золотое зерно (+5 очков)',
+    desc: 'Поймать золотое зерно (+50 очков)',
     icon: '✨',
   },
   {
@@ -63,7 +63,7 @@ export const ACHIEVEMENTS: AchDef[] = [
   {
     id: 'rich1k',
     name: 'Попкорн-богач',
-    desc: 'Накопить 1000 опыта в банке',
+    desc: 'Накопить 10000 опыта в банке',
     icon: '💰',
   },
   {

@@ -60,10 +60,11 @@ export function addTotalXp(delta: number): void {
   writeNum(TOTAL_KEY, readNum(TOTAL_KEY) + delta)
 }
 
-/** Опыт, нужный для перехода с уровня на следующий: 80, 120, 160, 200… */
+/** Опыт, нужный для перехода с уровня на следующий: 800, 1200, 1600, 2000…
+    Все цифры в игре с нулями (очки зёрен ×10) — и пороги тоже */
 export function needForLevel(level: number): number {
   const l = Math.max(1, Math.floor(level))
-  return 80 + 40 * (l - 1)
+  return 800 + 400 * (l - 1)
 }
 
 /** Уровень котика по суммарному опыту (без потолка) */

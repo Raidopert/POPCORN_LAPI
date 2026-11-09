@@ -24,6 +24,8 @@ import {
 } from './sprites'
 import { tFor, type Lang, type TranslateFn } from './i18n'
 import type { Difficulty, Quality } from './settings'
+import type { TreeBonus } from './skill-tree'
+import { ZERO_BONUS } from './skill-tree'
 
 export interface EngineStats {
   score: number
@@ -45,6 +47,8 @@ export interface EngineStats {
   pigeonShooed: number
   /** Сейчас идёт «Лихорадка» (бонусный уровень) или её итоговая пауза */
   fever: boolean
+  /** Осталось щитов от мин на текущем забеге (древо улучшений + перк лапки) */
+  shields: number
   /** Очки, заработанные в текущей/только что закончившейся лихорадке */
   feverGained: number
   /** Номер текущей волны внутри уровня — для HTML-индикатора поверх тумана */
@@ -78,12 +82,13 @@ export interface EngineCallbacks {
 
 export type PieceKind = 'popcorn' | 'caramel' | 'butter' | 'golden' | 'corn'
 
-/** Очки за зёрна: белое +1 · карамель +2 · масляное +3 · золотое +5 */
+/** Очки за зёрна: белое +10 · карамель +20 · масляное +30 · золотое +50.
+    Все цифры в игре с нулями — проще читать и приятнее копить */
 export const KIND_POINTS: Record<Exclude<PieceKind, 'corn'>, number> = {
-  popcorn: 1,
-  caramel: 2,
-  butter: 3,
-  golden: 5,
+  popcorn: 10,
+  caramel: 20,
+  butter: 30,
+  golden: 50,
 }
 
 /** Относительный размер зерна на поле: чем ценнее — тем мельче.
@@ -180,9 +185,9 @@ const PIGEON_PECK_EVERY = 2.2 // раз в сколько секунд голу�
 const PIGEON_RESPAWN = [18, 30] // диапазон возврата после прогона, секунд
 const PIGEON_HIT_CD = 0.3 // минимальная пауза между ударами лапкой — равномерная серия
 const PIGEON_HIT_R = 50 // радиус касания лапкой (в единицах u)
-const PIGEON_KO_BONUS = 5 // очки за поверженного воришку
+const PIGEON_KO_BONUS = 50 // очки за поверженного воришку
 const MINE_SHOCK_SECONDS = 1 // сколько секунд лапка «опешила» после мины
-const MINE_SCORE_PENALTY = 5 // сколько очков сгорает при касании мины
+const MINE_SCORE_PENALTY = 50 // сколько очков сгорает при касании мины
 const REVIVE_SECONDS = 15 // «девятая жизнь»: столько секунд даёт второй шанс
 
 /** Настройки игрового процесса, управляемые из меню настроек */
@@ -300,6 +305,10 @@ export class PopcornEngine {
   private starT = 0
   /* --- «Шок» лапки после мины: замирает на секунду, ничего не берёт --- */
   private stun = 0
+  /* --- древо улучшений: постоянные бонусы (тестовая ветка) --- */
+  private tree: TreeBonus = ZERO_BONUS
+  /** Рулетка внезапной ЛИХОРАДКИ: победила в кадре сбора — применяем в конце кадра */
+  private pendingFever = false
 
   private cupScale = 5
   private cupH = 0
@@ -378,6 +387,11 @@ export class PopcornEngine {
     this.upgCarry = u.carryPlus ?? 0
   }
 
+  /** Древо улучшений: постоянные бонусы (пересчитывается при покупке узла) */
+  setTree(b: TreeBonus): void {
+    this.tree = b
+  }
+
   /** Настройки из меню: сложность, качество, тряска, вибрация, дальтоник, голубь */
   setOptions(o: Partial<EngineOptions>): void {
     this.opts = { ...this.opts, ...o }
@@ -424,7 +438,7 @@ export class PopcornEngine {
     /* Ступень сложности каждые 5 уровней: пропорционально больше попкорна
        и мин на волне — за отведённое время нужно собирать всё больше, но без безумия */
     const step = Math.floor((level - 1) / 5)
-    this.popPerWave = Math.min(26, 10 + step * 3)
+    this.popPerWave = Math.min(26, 10 + step * 3) + (this.tree.grains ?? 0)
     this.cornPerWave = Math.min(11, 3 + step)
     if (perk === 'cornrain') this.cornPerWave = Math.min(14, this.cornPerWave * 2)
     /* Лапка-оберег от мин: меньше кукурузы в каждой волне */
@@ -432,7 +446,10 @@ export class PopcornEngine {
     /* Сложность: лёгкая — на мину меньше, сложная — на мину больше */
     if (this.opts.difficulty === 'easy') this.cornPerWave = Math.max(0, this.cornPerWave - 1)
     if (this.opts.difficulty === 'hard') this.cornPerWave = Math.min(15, this.cornPerWave + 1)
-    this.goldenChance = perk === 'goldenvein' ? 0.26 : Math.min(0.3, 0.12 + (this.pawBonus.goldenAdd ?? 0))
+    this.goldenChance =
+      perk === 'goldenvein'
+        ? 0.26
+        : Math.min(0.3, 0.12 + (this.pawBonus.goldenAdd ?? 0) + (this.tree.goldAdd ?? 0))
     /* Разнообразие зёрен: карамель и масло появляются с ростом уровня */
     this.caramelChance = Math.min(0.2, 0.04 + (this.lvl - 1) * 0.014)
     this.butterChance = this.lvl >= 3 ? Math.min(0.1, 0.015 + (this.lvl - 3) * 0.007) : 0
@@ -458,7 +475,7 @@ export class PopcornEngine {
     audio.setIntensity(0)
     audio.setMusicLevel(level >= 3 ? 1 : 0)
     this.audioStage = 0
-    this.shieldLeft = perk === 'shield' ? 1 : 0
+    this.shieldLeft = (perk === 'shield' ? 1 : 0) + (this.tree.shields ?? 0)
     /* Голубь-воришка: с 3-го уровня прилетает через ~11 секунд (можно отключить в настройках) */
     this.pigeon = null
     this.pigeonTimer =
@@ -731,14 +748,15 @@ export class PopcornEngine {
 
   /* ================= размеры и ступени сложности ================= */
 
-  /** Вместимость лапки: 3 зерна, после 5-го уровня — 4, после 10-го — 5 (+скин, +апгрейд, +перк) */
+  /** Вместимость лапки: 3 зерна, после 5-го уровня — 4, после 10-го — 5 (+скин, +апгрейд, +перк, +древо) */
   private get carryMax(): number {
     const base = this.lvl >= 11 ? 5 : this.lvl >= 6 ? 4 : 3
     return (
       base +
       (this.pawBonus.carryPlus ?? 0) +
       this.upgCarry +
-      (this.perk === 'secondcup' ? 2 : 0)
+      (this.perk === 'secondcup' ? 2 : 0) +
+      (this.tree.carry ?? 0)
     )
   }
 
@@ -820,6 +838,16 @@ export class PopcornEngine {
       }
     }
 
+    /* Внезапная ЛИХОРАДКА из древа («Фарт»): стартуем после кадра сбора,
+       когда никакие массивы не обходятся */
+    if (this.pendingFever) {
+      this.pendingFever = false
+      if (!this.fever && this.feverAfter < 0 && this.pendingClear < 0 && this.phase === 'playing') {
+        this.startFever(this.lvl)
+        return
+      }
+    }
+
     // Плавное следование лапки за пальцем/курсором («Тяжёлая лапа» — вдвое медленнее);
     // скины магазина делают лапку проворнее
     if (!this.paw.seen) {
@@ -830,7 +858,7 @@ export class PopcornEngine {
       // Шок от мины: лапка «опешила» и застыла на месте — цель запоминается,
       // когда отпустит, лапка догонит палец
     } else {
-      const spd = 14 * (this.pawBonus.speed ?? 1)
+      const spd = 14 * (this.pawBonus.speed ?? 1) * (1 + (this.tree.speedAdd ?? 0))
       const k = 1 - Math.exp(-dt * (this.perk === 'slowpaw' ? spd * 0.46 : spd))
       this.paw.x += (this.paw.tx - this.paw.x) * k
       this.paw.y += (this.paw.ty - this.paw.y) * k
@@ -947,7 +975,7 @@ export class PopcornEngine {
         }
         this.streak++
         const cm = this.comboMult
-        const mult = (this.perk === 'doublepoints' ? 2 : 1) * cm
+        const mult = (this.perk === 'doublepoints' ? 2 : 1) * cm * (1 + (this.tree.grainMult01 ?? 0))
         const sum = base * mult
         this.collected += this.carried.length
         this.carried.forEach((c, i) => {
@@ -965,12 +993,24 @@ export class PopcornEngine {
         this.texts.push({
           x: this.cup.x,
           y: this.cup.y - this.cupH * 0.8,
-          text: cm > 1 ? `+${sum} ×${cm}` : `+${sum}`,
-          color: hasGold || sum >= 8 || cm > 1 ? '#FFC93C' : '#FFFFFF',
+          text: cm > 1 ? `+${Math.round(sum)} ×${cm}` : `+${Math.round(sum)}`,
+          color: hasGold || sum >= 80 || cm > 1 ? '#FFC93C' : '#FFFFFF',
           t: 0,
           dur: 0.9,
           size: 26 * u,
         })
+        /* Рулетка «Фарта лихорадки» из древа: сдача зерна может внезапно
+           запустить ЛИХОРАДКУ. Откладываем до конца кадра — старт лихорадки
+           очищает массивы, которые сейчас обходит цикл сдачи */
+        if (
+          !this.fever &&
+          this.feverAfter < 0 &&
+          this.pendingClear < 0 &&
+          (this.tree.feverLuck ?? 0) > 0 &&
+          Math.random() < (this.tree.feverLuck ?? 0)
+        ) {
+          this.pendingFever = true
+        }
         if (cm > 1) {
           this.texts.push({
             x: this.paw.x,
@@ -1155,13 +1195,14 @@ export class PopcornEngine {
 
   private levelComplete(): void {
     this.phase = 'clear'
-    const bonus = Math.ceil(this.timeLeft)
+    /* Бонус за оставшееся время: секунды ×10 — цифры с нулями, как и зёрна */
+    const bonus = Math.ceil(this.timeLeft) * 10
     this.score += bonus
     audio.stopMusic()
     audio.play('levelwin')
     this.buzz([30, 40, 60])
     this.emitStats(true)
-    this.cb.onLevelComplete?.({ level: this.lvl, score: this.score, bonus })
+    this.cb.onLevelComplete?.({ level: this.lvl, score: Math.floor(this.score), bonus })
   }
 
   private end(): void {
@@ -1170,7 +1211,7 @@ export class PopcornEngine {
     audio.play('gameover')
     this.buzz([60, 40, 60, 40, 120])
     this.emitStats(true)
-    this.cb.onEnd?.({ score: this.score, level: this.lvl })
+    this.cb.onEnd?.({ score: Math.floor(this.score), level: this.lvl })
   }
 
   private crumbs(x: number, y: number, color: string, n: number): void {
@@ -1499,11 +1540,11 @@ export class PopcornEngine {
       : this.feverAfter >= 0
         ? this.lastFeverGained
         : 0
-    const key = `${this.score}|${this.lvl}|${this.quota}|${this.collected}|${this.carried.length}|${sec}|${this.paused}|${this.streak}|${this.goldenCount}|${this.pigeonsRun}|${fever}|${feverGained}|${this.wave}`
+    const key = `${this.score}|${this.lvl}|${this.quota}|${this.collected}|${this.carried.length}|${sec}|${this.paused}|${this.streak}|${this.goldenCount}|${this.pigeonsRun}|${fever}|${feverGained}|${this.wave}|${this.shieldLeft}`
     if (!force && key === this.lastStatsKey) return
     this.lastStatsKey = key
     this.cb.onStats({
-      score: this.score,
+      score: Math.floor(this.score),
       timeLeft: this.timeLeft,
       duration: this.duration,
       level: this.lvl,
@@ -1519,6 +1560,7 @@ export class PopcornEngine {
       fever,
       feverGained,
       wave: this.wave,
+      shields: this.shieldLeft,
     })
   }
 
