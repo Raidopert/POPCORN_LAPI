@@ -49,6 +49,7 @@ import {
   type AchId,
 } from '@/lib/game/achievements'
 import { ROOMS, roomForLevel, roomSrcForLevel } from '@/lib/game/rooms'
+import { GAME_VERSION_LABEL } from '@/lib/game/version'
 import { tFor, LANGS, LOCALES, type Lang, type TranslateFn } from '@/lib/game/i18n'
 import {
   DEFAULT_SETTINGS,
@@ -2274,6 +2275,14 @@ export function PopcornGame() {
                     <Smartphone className="h-4 w-4" aria-hidden /> {t('menu.install')}
                   </button>
                 )}
+
+                {/* Версия сборки: правый нижний угол меню — сразу видно, что на проде */}
+                <span
+                  aria-label={GAME_VERSION_LABEL}
+                  className="pointer-events-none absolute bottom-0.5 right-2 font-ui text-[9px] font-semibold lowercase tracking-wide text-[#a97c50]/60 sm:bottom-1 sm:right-2.5"
+                >
+                  {GAME_VERSION_LABEL}
+                </span>
               </motion.div>
             </motion.div>
           )}
