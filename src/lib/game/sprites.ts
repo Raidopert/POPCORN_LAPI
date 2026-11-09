@@ -328,28 +328,59 @@ export function makePawSprite(pal: Partial<PawPalette> = {}): Sprite {
   return renderGrid(g)
 }
 
-/* ================= Зерно-мина (ловушка, минус балл) — красно-белое, ЯРКОЕ ================= */
+/* ================= Зерно-мина (ловушка, минус баллы) — ШИПАСТАЯ БОМБА.
+   Раньше была просто красной ягодкой и не читалась как опасность:
+   теперь это круглая мина с шипами, злыми глазами и оскалом ================= */
 
 export function makeCornSprite(colorblind = false): Sprite {
-  const g = createGrid(12, 12)
-  // Обычный режим: красное зерно-мина. Режим дальтоников: сине-оранжевая
+  const g = createGrid(14, 14)
+  // Обычный режим: красная мина. Режим дальтоников: сине-оранжевая
   // палитра — красный-зелёный контраст заменён на сине-жёлтый
   const body = colorblind ? '#3D7BFF' : '#E5342E' // яркий сигнал опасности
   const dark = colorblind ? '#274F99' : '#9E1512' // тёмная тень
+  const spike = colorblind ? '#12275C' : '#570606' // шипы
   const white = '#FFF6EC'
-  const edge = colorblind ? '#12275C' : '#570606' // тёмная обводка
+  const edge = colorblind ? '#0A1540' : '#3A0303' // тёмная обводка
 
-  // Овальное зерно
-  paintCircle(g, 6, 5.4, 3.6, body)
-  paintCircle(g, 6, 7.4, 3.1, body)
+  // Шипы: 4 по сторонам света + 4 по диагоналям — классическая морская мина
+  fillRect(g, 6, 0, 7, 1, spike) // верх
+  fillRect(g, 6, 12, 7, 13, spike) // низ
+  fillRect(g, 0, 6, 1, 7, spike) // лево
+  fillRect(g, 12, 6, 13, 7, spike) // право
+  g[1][2] = spike
+  g[2][1] = spike
+  g[1][11] = spike
+  g[2][12] = spike
+  g[12][2] = spike
+  g[11][1] = spike
+  g[11][12] = spike
+  g[12][11] = spike
+
+  // Круглый корпус
+  paintCircle(g, 6.5, 6.5, 4.7, body)
   // Тень снизу-справа
-  tintCircle(g, 7.8, 8.4, 2.4, dark)
-  // Белые «предупреждающие» полосы и блики
-  tintCircle(g, 4.6, 4.0, 1.5, white)
-  g[6][3] = white
+  tintCircle(g, 8.4, 8.4, 3.4, dark)
+  // Блик сверху-слева
+  tintCircle(g, 4.4, 4.0, 1.4, white)
+
+  // Злые глаза: белки с косым разрезом и тёмными зрачками
+  g[5][4] = white
+  g[5][5] = white
   g[6][4] = white
-  g[7][3] = white
-  g[3][7] = white
+  g[6][5] = dark // зрачок косо вниз-внутрь
+  g[5][9] = white
+  g[5][8] = white
+  g[6][9] = white
+  g[6][8] = dark
+  // Сердитые брови
+  g[4][3] = dark
+  g[4][4] = dark
+  g[4][9] = dark
+  g[4][10] = dark
+  // Оскал с опущенными уголками
+  fillRect(g, 4, 9, 9, 9, dark)
+  g[8][3] = dark
+  g[8][10] = dark
 
   outlineGrid(g, edge)
   return renderGrid(g)

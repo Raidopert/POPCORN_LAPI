@@ -122,7 +122,9 @@ interface Flying {
   t: number
 }
 
-/** Голубь-воришка: влетает, висит над стаканчиком и таскает попкорн */
+/** Голубь-воришка: влетает, висит над стаканчиком и таскает попкорн.
+    У него есть полоска жизни: чтобы прогнать, нужно НАНЕСТИ УДАРЫ лапкой —
+    на первых уровнях хватает трёх, дальше воришка крепчает */
 interface Pigeon {
   x: number
   y: number
@@ -133,6 +135,19 @@ interface Pigeon {
   side: 1 | -1
   hx: number
   hy: number
+  /** Здоровье воришки: каждое касание лапкой — минус одно деление */
+  hp: number
+  maxHp: number
+  /** Сколько зёрен успел украсть: при победе вернутся в стаканчик */
+  stolen: number
+  /** Кулдаун между ударами и вспышка после попадания */
+  hitCd: number
+  flash: number
+  /** Импульс-отлёт после удара (вздрагивает и отлетает) */
+  kx: number
+  ky: number
+  /** Повержен: улетает кувырком, выронив всё украденное */
+  downed: boolean
 }
 
 interface Particle {
@@ -163,6 +178,11 @@ const CLEAR_DELAY = 0.5 // пауза до «уровень пройден», ч
 const PIGEON_FIRST_AT = 11 // голубь прилетает на этом отрезке уровня (с 3-го уровня)
 const PIGEON_PECK_EVERY = 2.2 // раз в сколько секунд голубь таскает зерно
 const PIGEON_RESPAWN = [18, 30] // диапазон возврата после прогона, секунд
+const PIGEON_HIT_CD = 0.3 // минимальная пауза между ударами лапкой — равномерная серия
+const PIGEON_HIT_R = 50 // радиус касания лапкой (в единицах u)
+const PIGEON_KO_BONUS = 5 // очки за поверженного воришку
+const MINE_SHOCK_SECONDS = 1 // сколько секунд лапка «опешила» после мины
+const MINE_SCORE_PENALTY = 5 // сколько очков сгорает при касании мины
 const REVIVE_SECONDS = 15 // «девятая жизнь»: столько секунд даёт второй шанс
 
 /** Настройки игрового процесса, управляемые из меню настроек */
@@ -278,6 +298,8 @@ export class PopcornEngine {
   private lastFeverGained = 0
   /* --- таймер шлейфа звёзд волшебной лапки --- */
   private starT = 0
+  /* --- «Шок» лапки после мины: замирает на секунду, ничего не берёт --- */
+  private stun = 0
 
   private cupScale = 5
   private cupH = 0
@@ -424,6 +446,7 @@ export class PopcornEngine {
     this.feverMine = false
     this.feverAfter = -1
     this.starT = 0
+    this.stun = 0
     this.pieces = []
     this.carried = []
     this.flying = []
@@ -484,6 +507,7 @@ export class PopcornEngine {
     this.pigeonTimer = -1
     this.waveDelay = -1
     this.pendingClear = -1
+    this.stun = 0
     this.fillPop = []
     this.lastFill = 0
     this.cupGlow = 0
@@ -580,6 +604,7 @@ export class PopcornEngine {
     this.lifeUsed = true
     this.phase = 'playing'
     this.paused = false
+    this.stun = 0
     this.timeLeft = REVIVE_SECONDS
     this.duration = REVIVE_SECONDS
     this.lastSec = Math.ceil(this.timeLeft)
@@ -801,14 +826,19 @@ export class PopcornEngine {
       this.paw.tx = this.cup.x + Math.sin(performance.now() * 0.001) * 80 * u
       this.paw.ty = this.H * 0.35
     }
-    const spd = 14 * (this.pawBonus.speed ?? 1)
-    const k = 1 - Math.exp(-dt * (this.perk === 'slowpaw' ? spd * 0.46 : spd))
-    this.paw.x += (this.paw.tx - this.paw.x) * k
-    this.paw.y += (this.paw.ty - this.paw.y) * k
-    /* Статистика теперь в панели над полем: лапке доступен весь экран,
-       снизу — до столика со стаканчиком */
-    this.paw.x = Math.max(22 * u, Math.min(this.W - 22 * u, this.paw.x))
-    this.paw.y = Math.max(46, Math.min(this.H - 42 * u, this.paw.y))
+    if (this.stun > 0) {
+      // Шок от мины: лапка «опешила» и застыла на месте — цель запоминается,
+      // когда отпустит, лапка догонит палец
+    } else {
+      const spd = 14 * (this.pawBonus.speed ?? 1)
+      const k = 1 - Math.exp(-dt * (this.perk === 'slowpaw' ? spd * 0.46 : spd))
+      this.paw.x += (this.paw.tx - this.paw.x) * k
+      this.paw.y += (this.paw.ty - this.paw.y) * k
+      /* Статистика теперь в панели над полем: лапке доступен весь экран,
+         снизу — до столика со стаканчиком */
+      this.paw.x = Math.max(22 * u, Math.min(this.W - 22 * u, this.paw.x))
+      this.paw.y = Math.max(46, Math.min(this.H - 42 * u, this.paw.y))
+    }
 
     if (this.perk === 'drift') this.driftPieces(dt)
     if (this.perk === 'magnet') this.magnetPull(dt)
@@ -822,9 +852,11 @@ export class PopcornEngine {
       u *
       (this.pawBonus.grabR ?? 1)
 
-    // Подбор попкорна / ловушка-кукуруза
+    // Подбор попкорна / ловушка-кукуруза. В шоке лапка ничего не берёт
+    // и мины не задевает — стоит столбом, пока не отпустит
     for (let i = this.pieces.length - 1; i >= 0; i--) {
       const p = this.pieces[i]
+      if (this.stun > 0) break // «опешила»: ни подбора, ни новых подрывов
       if (p.spawn > 0.12) continue
       const d = Math.hypot(this.paw.x - p.x, this.paw.y - p.y)
       if (p.kind === 'corn') {
@@ -866,22 +898,26 @@ export class PopcornEngine {
             audio.play('click')
             this.buzz(20)
           } else {
+            // Лапка ударилась о мину: ШОК! Очки горят, всё, что несла,
+            // высыпается на пол, а сама лапка секунду стоит столбом
             this.streak = 0 // мина сбрасывает комбо
-            this.score = Math.max(0, this.score - 1)
-            this.paw.hurt = 1
-            this.doShake(7) // тряска экрана (отключается в настройках)
+            this.shockDrop()
+            this.stun = MINE_SHOCK_SECONDS
+            this.score = Math.max(0, this.score - MINE_SCORE_PENALTY)
+            this.paw.hurt = 1.6
+            this.doShake(9) // тряска экрана (отключается в настройках)
             this.texts.push({
               x: this.paw.x,
-              y: this.paw.y - 34 * u,
-              text: '-1',
+              y: this.paw.y - 40 * u,
+              text: this.L('txt.shock', { n: MINE_SCORE_PENALTY }),
               color: '#FF6B5E',
               t: 0,
-              dur: 0.9,
+              dur: 1.1,
               size: 24 * u,
             })
-            this.crumbs(p.x, p.y, '#E8960C', 7)
+            this.crumbs(p.x, p.y, '#E5342E', 9)
             audio.play('penalty')
-            this.buzz(45)
+            this.buzz([60, 40, 100])
           }
         }
         continue
@@ -897,8 +933,9 @@ export class PopcornEngine {
       }
     }
 
-    // Высыпание в стаканчик (с перком «Двойной стаканчик» — с дальнего подлёта)
-    if (this.carried.length > 0) {
+    // Высыпание в стаканчик (с перком «Двойной стаканчик» — с дальнего подлёта).
+    // В шоке лапка не сдаёт — несла в клюв... несла в лапке, уронила на мину
+    if (this.carried.length > 0 && this.stun <= 0) {
       const dc = Math.hypot(this.paw.x - this.cup.x, this.paw.y - this.cup.y)
       const dropR = this.perk === 'secondcup' ? 118 * u : 78 * u
       if (dc < dropR) {
@@ -1092,6 +1129,7 @@ export class PopcornEngine {
     // Косметика
     this.paw.pulse = Math.max(0, this.paw.pulse - dt * 5)
     this.paw.hurt = Math.max(0, this.paw.hurt - dt * 2.2)
+    this.stun = Math.max(0, this.stun - dt)
     this.cup.squash = Math.max(0, this.cup.squash - dt * 4)
     this.cupGlow = Math.max(0, this.cupGlow - dt * 1.6)
     this.shakeT = Math.max(0, this.shakeT - dt)
@@ -1179,9 +1217,20 @@ export class PopcornEngine {
 
   /* ================= голубь-воришка ================= */
 
+  /** Полоска здоровья воришки: на первых уровнях хватает ТРЁХ ударов лапкой,
+      дальше голубь крепчает (ур. 5 → 4, ур. 9 → 5, потолок 9).
+      Сложность из настроек: лёгкая −1, сложная +1 */
+  private pigeonMaxHp(): number {
+    let hp = Math.min(9, 3 + Math.floor((this.lvl - 1) / 4))
+    if (this.opts.difficulty === 'easy') hp = Math.max(2, hp - 1)
+    if (this.opts.difficulty === 'hard') hp = Math.min(10, hp + 1)
+    return hp
+  }
+
   private spawnPigeon(): void {
     const u = this.u
     const side: 1 | -1 = Math.random() < 0.5 ? -1 : 1
+    const maxHp = this.pigeonMaxHp()
     this.pigeon = {
       x: side < 0 ? -50 * u : this.W + 50 * u,
       y: 100 * u + Math.random() * 30 * u,
@@ -1191,6 +1240,14 @@ export class PopcornEngine {
       side,
       hx: this.cup.x - side * 95 * u,
       hy: this.cup.y - 165 * u,
+      hp: maxHp,
+      maxHp,
+      stolen: 0,
+      hitCd: 0,
+      flash: 0,
+      kx: 0,
+      ky: 0,
+      downed: false,
     }
     this.texts.push({
       x: this.W / 2,
@@ -1206,7 +1263,8 @@ export class PopcornEngine {
     this.doShake(4)
   }
 
-  /** Голубь летит к стаканчику и таскает попкорн; ткнуть лапкой — прогнать (+2) */
+  /** Голубь летит к стаканчику и таскает попкорн; каждое касание лапкой —
+      урон. Набьёшь полоску жизни — повален: вернёт украденное и +{{n}} очков */
   private updatePigeon(dt: number): void {
     if (!this.pigeon) {
       if (this.pigeonTimer > 0) {
@@ -1240,32 +1298,93 @@ export class PopcornEngine {
         this.pigeonPeck()
       }
     } else {
-      // 'flee': улетает за тот же борт, откуда прилетел
-      g.x += -g.side * 320 * u * dt
-      g.y -= 40 * u * dt
+      // 'flee': улетает за тот же борт, откуда прилетел.
+      // Поверженный — быстрее, выше и кувырком
+      const speed = g.downed ? 430 : 320
+      const rise = g.downed ? 150 : 40
+      g.x += -g.side * speed * u * dt
+      g.y -= rise * u * dt
       if (g.x < -60 * u || g.x > this.W + 60 * u) {
         this.pigeon = null
         this.pigeonTimer = PIGEON_RESPAWN[0] + Math.random() * (PIGEON_RESPAWN[1] - PIGEON_RESPAWN[0])
       }
     }
-    // Лапка коснулась голубя → прогон
-    if (g.state !== 'flee' && Math.hypot(this.paw.x - g.x, this.paw.y - g.y) < 52 * u) {
-      g.state = 'flee'
-      g.stateT = 0
-      this.pigeonsRun++
-      this.score += 2
-      this.texts.push({
-        x: g.x,
-        y: g.y - 30 * u,
-        text: this.L('txt.shoo'),
-        color: '#BFF3E6',
-        t: 0,
-        dur: 1.1,
-        size: 24 * u,
-      })
-      this.crumbs(g.x, g.y, '#C8CFD8', 8)
-      audio.play('shoo')
-      this.buzz(25)
+    /* Отлёт после удара: импульс гаснет, в парении воришка возвращается
+       к своей точке над стаканчиком */
+    if (g.state !== 'flee') {
+      g.x += g.kx * dt
+      g.y += g.ky * dt
+      const dec = Math.min(1, dt * 5)
+      g.kx -= g.kx * dec
+      g.ky -= g.ky * dec
+      if (g.state === 'hover') {
+        g.x += (g.hx - g.x) * Math.min(1, dt * 1.5)
+        g.y += (g.hy - g.y) * Math.min(1, dt * 1.5)
+      }
+    }
+    /* УДАР ЛАПКОЙ: каждое касание (или проведение через него) — минус
+       одно деление жизни. Короткий кулдаун держит серию ударов равномерной,
+       а вздрагивание откидывает голубя — просто держать лапку на нём мало */
+    g.hitCd -= dt
+    g.flash = Math.max(0, g.flash - dt * 3)
+    if (
+      g.state !== 'flee' &&
+      g.hitCd <= 0 &&
+      Math.hypot(this.paw.x - g.x, this.paw.y - g.y) < PIGEON_HIT_R * u
+    ) {
+      g.hitCd = PIGEON_HIT_CD
+      g.hp--
+      g.flash = 1
+      g.peckT = Math.max(g.peckT, 0.55) // оглушён — мгновение не ворует
+      const d = Math.hypot(g.x - this.paw.x, g.y - this.paw.y) || 1
+      g.kx = ((g.x - this.paw.x) / d) * 300 * u
+      g.ky = ((g.y - this.paw.y) / d) * 300 * u
+      this.paw.pulse = 1
+      this.crumbs(g.x, g.y, '#E8E4DC', 7) // перья полетели
+      if (g.hp <= 0) {
+        // ПОВЕРЖЕН! Улетает кувырком, возвращая всё украденное в стаканчик
+        g.state = 'flee'
+        g.downed = true
+        g.stateT = 0
+        this.pigeonsRun++
+        this.score += PIGEON_KO_BONUS
+        if (g.stolen > 0) {
+          this.collected += g.stolen
+          for (let i = 0; i < g.stolen; i++) {
+            this.flying.push({
+              x0: g.x + (Math.random() - 0.5) * 36 * u,
+              y0: g.y + (Math.random() - 0.5) * 24 * u,
+              kind: 'popcorn',
+              t: 0,
+            })
+          }
+          g.stolen = 0
+        }
+        this.texts.push({
+          x: g.x,
+          y: g.y - 34 * u,
+          text: this.L('txt.downed', { n: PIGEON_KO_BONUS }),
+          color: '#FFE066',
+          t: 0,
+          dur: 1.2,
+          size: 26 * u,
+        })
+        audio.play('meow') // кошка своего добилась!
+        this.doShake(5)
+        this.buzz([30, 30, 60])
+      } else {
+        this.texts.push({
+          x: g.x,
+          y: g.y - 34 * u,
+          text: this.L('txt.hit'),
+          color: '#FFFFFF',
+          t: 0,
+          dur: 0.55,
+          size: 20 * u,
+        })
+        audio.play('shoo')
+        this.buzz(15)
+      }
     }
   }
 
@@ -1274,6 +1393,7 @@ export class PopcornEngine {
     if (!this.pigeon) return
     if (this.collected > 0) {
       this.collected--
+      if (this.pigeon) this.pigeon.stolen++ // при победе вернём в стаканчик
       this.streak = 0 // воришка сбивает серию
       this.pendingClear = -1 // украденное зерно отменяет близкое «уровень пройден»
       this.cup.squash = 1
@@ -1300,6 +1420,54 @@ export class PopcornEngine {
         dur: 0.8,
         size: 20 * u,
       })
+    }
+  }
+
+  /** Лапка ударилась о мину: всё, что она несла, высыпается на пол рядом —
+      зёрна не пропадают, их можно снова собрать, когда шок отпустит.
+      На другие мины зёрна не кладём — не подставляем игрока дважды */
+  private shockDrop(): void {
+    const u = this.u
+    const mX = 40 * u
+    const top = 52
+    const bottom = this.H - 56 * u
+    const dropped = this.carried
+    this.carried = []
+    for (const c of dropped) {
+      let placed = false
+      for (let tries = 0; tries < 14 && !placed; tries++) {
+        const a = Math.random() * Math.PI * 2
+        const r = (36 + Math.random() * 52) * u
+        const x = Math.max(mX, Math.min(this.W - mX, this.paw.x + Math.cos(a) * r))
+        const y = Math.max(top, Math.min(bottom, this.paw.y + Math.sin(a) * r))
+        const onMine = this.pieces.some(
+          (q) => q.kind === 'corn' && Math.hypot(x - q.x, y - q.y) < 34 * u,
+        )
+        if (!onMine) {
+          this.pieces.push({
+            x,
+            y,
+            rot: (Math.random() - 0.5) * 0.9,
+            kind: c.kind,
+            phase: Math.random() * Math.PI * 2,
+            spawn: 0.3, // короткая «пружинка» появления
+            dA: 0,
+          })
+          placed = true
+        }
+      }
+      if (!placed) {
+        // вокруг сплошь мины — кладём под лапку, пусть будет счастливый билет
+        this.pieces.push({
+          x: this.paw.x,
+          y: Math.max(top, Math.min(bottom, this.paw.y)),
+          rot: 0,
+          kind: c.kind,
+          phase: 0,
+          spawn: 0.3,
+          dA: 0,
+        })
+      }
     }
   }
 
@@ -1397,7 +1565,8 @@ export class PopcornEngine {
     ctx.restore()
   }
 
-  /** Голубь-воришка: пиксельный, с двумя кадрами взмаха */
+  /** Голубь-воришка: пиксельный, с двумя кадрами взмаха, полоской жизни
+      над головой и белой вспышкой при ударе лапкой */
   private drawPigeon(ts: number): void {
     const g = this.pigeon
     if (!g) return
@@ -1406,22 +1575,69 @@ export class PopcornEngine {
     // Взмах крыльев: в полёте часто, в парении — лениво
     const flapMs = g.state === 'hover' ? 260 : 90
     const frame = Math.floor(ts / flapMs) % 2 === 0
-    // Тень под голубем — когда висит над стаканчиком
-    ctx.fillStyle = 'rgba(0, 0, 0, 0.15)'
-    ctx.beginPath()
-    ctx.ellipse(g.x, this.cup.y + 22 * u, 24 * u, 6 * u, 0, 0, Math.PI * 2)
-    ctx.fill()
+    // Тень под голубем — пока он в деле (поверженный уже улетает)
+    if (!g.downed) {
+      ctx.fillStyle = 'rgba(0, 0, 0, 0.15)'
+      ctx.beginPath()
+      ctx.ellipse(g.x, this.cup.y + 22 * u, 24 * u, 6 * u, 0, 0, Math.PI * 2)
+      ctx.fill()
+    }
     // Клюв смотрит в сторону движения/стаканчика (спрайт смотрит влево)
     let faceLeft = true
     if (g.state === 'hover') faceLeft = g.x > this.cup.x - 10 * u
     else if (g.state === 'flee') faceLeft = -g.side < 0
     else faceLeft = (Math.sign(g.hx - g.x) || -g.side) < 0
     const dive = g.state === 'hover' ? Math.max(0, Math.sin(g.stateT * 6)) * 5 * u : 0
-    const rot = g.state === 'flee' ? -0.3 : Math.sin(ts * 0.003) * 0.06
+    // Поверженный улетает кувырком, крутясь через крыло
+    const rot = g.downed
+      ? ts * 0.028 * -g.side
+      : g.state === 'flee'
+        ? -0.3
+        : Math.sin(ts * 0.003) * 0.06
     drawSprite(ctx, frame ? this.sp.pigeon0 : this.sp.pigeon1, g.x, g.y + dive, 3.1 * u, {
       rot,
       sx: faceLeft ? 1 : -1,
     })
+
+    // Вспышка попадания: белое кольцо вокруг взъерошенного воришки
+    if (g.flash > 0) {
+      ctx.save()
+      ctx.globalAlpha = Math.min(1, g.flash) * 0.8
+      ctx.strokeStyle = '#FFFFFF'
+      ctx.lineWidth = Math.max(2, 2.5 * u)
+      ctx.beginPath()
+      ctx.arc(g.x, g.y + dive, 36 * u, 0, Math.PI * 2)
+      ctx.stroke()
+      ctx.restore()
+    }
+
+    // ПОЛОСКА ЖИЗНИ: насечки = сколько ударов ещё выдержит. Прячется,
+    // когда воришка уже улетает (повержен или испугался)
+    if (g.state !== 'flee') {
+      const bw = 46 * u
+      const bh = 7 * u
+      const bx = g.x - bw / 2
+      const by = g.y - 42 * u + dive
+      ctx.fillStyle = 'rgba(24, 10, 4, 0.9)'
+      ctx.fillRect(bx - 2 * u, by - 2 * u, bw + 4 * u, bh + 4 * u)
+      ctx.fillStyle = '#3A2410'
+      ctx.fillRect(bx, by, bw, bh)
+      const frac = Math.max(0, g.hp / g.maxHp)
+      ctx.fillStyle = frac > 0.5 ? '#7ED957' : frac > 0.25 ? '#FFC93C' : '#E5342E'
+      ctx.fillRect(bx, by, bw * frac, bh)
+      ctx.fillStyle = 'rgba(24, 10, 4, 0.55)'
+      for (let i = 1; i < g.maxHp; i++) {
+        ctx.fillRect(bx + (bw * i) / g.maxHp - u, by, Math.max(1.5, 2 * u), bh)
+      }
+      if (g.flash > 0) {
+        ctx.save()
+        ctx.globalAlpha = Math.min(1, g.flash)
+        ctx.strokeStyle = '#FFFFFF'
+        ctx.lineWidth = Math.max(1.5, 1.5 * u)
+        ctx.strokeRect(bx - 2 * u, by - 2 * u, bw + 4 * u, bh + 4 * u)
+        ctx.restore()
+      }
+    }
   }
 
   /** «Попкорнный туман»: ступенчатые кольца темноты вокруг лапки (8-битный стиль) */
@@ -1545,6 +1761,20 @@ export class PopcornEngine {
       ctx.ellipse(p.x, p.y + 8 * u, 11 * u * pop, 5 * u * pop, 0, 0, Math.PI * 2)
       ctx.fill()
 
+      // Кольцо опасности: пульсирует вокруг каждой мины — «заряжено!» видно
+      // краем глаза, ещё до того, как рассмотрел шипы
+      if (p.kind === 'corn') {
+        const pulse = 0.5 + 0.5 * Math.sin(ts * 0.006 + p.phase * 3)
+        ctx.save()
+        ctx.globalAlpha = 0.2 + 0.18 * pulse
+        ctx.strokeStyle = this.opts.colorblind ? '#7FB2FF' : '#FF5A4E'
+        ctx.lineWidth = Math.max(1.5, 2 * u)
+        ctx.beginPath()
+        ctx.arc(p.x, y, (15 + 4 * pulse) * u * this.cornScale, 0, Math.PI * 2)
+        ctx.stroke()
+        ctx.restore()
+      }
+
       const sprite = p.kind === 'corn'
         ? this.opts.colorblind
           ? this.sp.cornCB // дальтоник: сине-оранжевая мина
@@ -1627,8 +1857,11 @@ export class PopcornEngine {
     const shiver = this.perk === 'shaky'
     const jx = shiver ? Math.sin(ts * 0.021) * 9 * u + Math.sin(ts * 0.047) * 6 * u : 0
     const jy = shiver ? Math.cos(ts * 0.017) * 7 * u + Math.sin(ts * 0.053) * 4 * u : 0
-    const px = this.paw.x + shake + jx
-    const py = this.paw.y + jy
+    // Шок от мины: мелкая дрожь «опешившей» лапки, пока не отпустило
+    const shockJx = this.stun > 0 ? Math.sin(ts * 0.049) * 3.2 * u : 0
+    const shockJy = this.stun > 0 ? Math.cos(ts * 0.037) * 2.4 * u : 0
+    const px = this.paw.x + shake + jx + shockJx
+    const py = this.paw.y + jy + shockJy
 
     // Светлое пятно под лапкой: курсор виден на ЛЮБОМ фоне — тёмный чердак,
     // ночной двор, старые Android-браузеры (была жалоба: «курсора не видно»)
@@ -1685,6 +1918,22 @@ export class PopcornEngine {
         rot: Math.sin(ts * 0.006 + i) * 0.12,
       })
     })
+
+    /* Шок от мины: три звёздочки кружатся над лапкой — «голова кругом» */
+    if (this.stun > 0) {
+      const fade = Math.min(1, this.stun * 2.5)
+      for (let i = 0; i < 3; i++) {
+        const a = ts * 0.0075 + (i * Math.PI * 2) / 3
+        drawSprite(
+          ctx,
+          this.sp.sparkle,
+          px + Math.cos(a) * 24 * u,
+          py - 38 * u + Math.sin(a) * 8 * u,
+          1.25 * u,
+          { rot: ts * 0.012, alpha: fade },
+        )
+      }
+    }
   }
 
   private drawParticles(): void {
