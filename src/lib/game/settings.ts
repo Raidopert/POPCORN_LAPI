@@ -105,7 +105,7 @@ export function loadSettings(): GameSettings {
   const raw = window.localStorage.getItem(SETTINGS_KEY)
   if (raw) return parseSettingsRaw(raw)
   // Нет сохранённых настроек — определяем язык интерфейса по браузеру
-  return { ...parseSettingsRaw(raw), lang: detectLang() }
+  return { ...parseSettingsRaw(raw ?? ''), lang: detectLang() }
 }
 
 /** Сохранить настройки и разослать событие подписчикам */
