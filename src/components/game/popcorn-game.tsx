@@ -4,9 +4,11 @@ import { useCallback, useEffect, useMemo, useRef, useState, useSyncExternalStore
 import Image from 'next/image'
 import { AnimatePresence, motion } from 'framer-motion'
 import {
+  Cat,
   Globe2,
   Heart,
   Pause,
+  Pencil,
   PawPrint,
   Popcorn,
   RotateCcw,
@@ -46,6 +48,7 @@ import {
   unlockMany,
   type AchId,
 } from '@/lib/game/achievements'
+import { ROOMS, roomForLevel, roomSrcForLevel } from '@/lib/game/rooms'
 
 type Phase = 'start' | 'playing' | 'paused' | 'chest' | 'ended'
 
@@ -88,6 +91,8 @@ const OWNED_KEY = 'popcorn-owned'
 const LEADERS_KEY = 'popcorn-leaders'
 const UPG_KEY = 'popcorn-upgrades'
 const NAME_KEY = 'popcorn-name'
+/** Флаг «ник уже задан» — по нему показываем вход по никнейму только раз */
+const NICKSET_KEY = 'popcorn-nick-set'
 
 interface LeaderEntry {
   score: number
@@ -136,8 +141,10 @@ function Pill({
   className?: string
 }) {
   return (
+    /* Без backdrop-blur: на телефонах блюр поверх canvas
+       каждый кадр перемешивается заново и роняет FPS */
     <div
-      className={`flex items-center gap-1.5 rounded-full border border-white/15 bg-black/45 px-3 py-1.5 font-ui text-xs font-semibold text-white backdrop-blur-sm sm:text-sm ${className}`}
+      className={`flex items-center gap-1.5 rounded-full border border-white/15 bg-black/60 px-3 py-1.5 font-ui text-xs font-semibold text-white sm:text-sm ${className}`}
     >
       {children}
     </div>
@@ -158,7 +165,7 @@ function IconBtn({
       type="button"
       aria-label={label}
       onClick={onClick}
-      className="pointer-events-auto flex h-11 w-11 items-center justify-center rounded-full border border-white/15 bg-black/45 text-white backdrop-blur-sm transition hover:bg-black/65 active:scale-90"
+      className="pointer-events-auto flex h-11 w-11 items-center justify-center rounded-full border border-white/15 bg-black/60 text-white transition hover:bg-black/75 active:scale-90"
     >
       {children}
     </button>
@@ -488,9 +495,11 @@ function ShopOverlay({
 /** Топ-10 на устройстве + мировая таблица (если подключена база) */
 function LeadersOverlay({
   leaders,
+  myName,
   onClose,
 }: {
   leaders: LeaderEntry[]
+  myName: string
   onClose: () => void
 }) {
   const [world, setWorld] = useState<{
@@ -606,26 +615,35 @@ function LeadersOverlay({
           </p>
         ) : (
           <ol className={`mt-3 max-h-[42vh] space-y-1.5 overflow-y-auto pr-1 sm:max-h-72 ${OVERLAY_SCROLL}`}>
-            {world.rows.map((e, i) => (
-              <li
-                key={`${e.date}-${e.name}-${i}`}
-                className={`flex items-center gap-2 rounded-xl border-2 px-2.5 py-1.5 ${
-                  i === 0 ? 'border-amber-400 bg-amber-50' : 'border-[#e3cba4] bg-[#fdf3e0]'
-                }`}
-              >
-                <span aria-hidden className="w-7 text-center font-pixel text-sm">
-                  {i < 3 ? ['🥇', '🥈', '🥉'][i] : i + 1}
-                </span>
-                <span className="min-w-0 flex-1 truncate text-left font-pixel text-sm font-bold text-[#5C3A1E]">
-                  {e.name}
-                </span>
-                <Popcorn className="h-4 w-4 shrink-0 text-amber-500" aria-hidden />
-                <span className="font-pixel text-base font-bold tabular-nums text-[#5C3A1E]">
-                  {e.score}
-                </span>
-                <span className="shrink-0 font-ui text-[11px] text-[#8a5330]">ур. {e.level}</span>
-              </li>
-            ))}
+            {world.rows.map((e, i) => {
+              const mine =
+                myName.trim().length > 1 && e.name.toLowerCase() === myName.trim().toLowerCase()
+              return (
+                <li
+                  key={`${e.date}-${e.name}-${i}`}
+                  className={`flex items-center gap-2 rounded-xl border-2 px-2.5 py-1.5 ${
+                    mine
+                      ? 'border-amber-500 bg-amber-100 ring-2 ring-amber-300'
+                      : i === 0
+                        ? 'border-amber-400 bg-amber-50'
+                        : 'border-[#e3cba4] bg-[#fdf3e0]'
+                  }`}
+                >
+                  <span aria-hidden className="w-7 text-center font-pixel text-sm">
+                    {i < 3 ? ['🥇', '🥈', '🥉'][i] : i + 1}
+                  </span>
+                  <span className="min-w-0 flex-1 truncate text-left font-pixel text-sm font-bold text-[#5C3A1E]">
+                    {e.name}
+                    {mine && <span className="ml-1 font-ui text-[10px] text-[#B33A26]">← ты!</span>}
+                  </span>
+                  <Popcorn className="h-4 w-4 shrink-0 text-amber-500" aria-hidden />
+                  <span className="font-pixel text-base font-bold tabular-nums text-[#5C3A1E]">
+                    {e.score}
+                  </span>
+                  <span className="shrink-0 font-ui text-[11px] text-[#8a5330]">ур. {e.level}</span>
+                </li>
+              )
+            })}
           </ol>
         )}
         <div className="mt-3">
@@ -683,11 +701,14 @@ function RulesOverlay({ onClose }: { onClose: () => void }) {
           <HowToRow icon="🛒">
             Очки попкорна = опыт: капают в банк сразу. В магазине — лапки и постоянные апгрейды: большой стаканчик, вторая жизнь, стартовый перк!
           </HowToRow>
+          <HowToRow icon="🗺️">
+            Каждый уровень — новая локация: кинозал, кухня пиццерии, ночной двор, аркадный зал, крыша, парк, чердак и кладовка!
+          </HowToRow>
           <HowToRow icon="🏅">Выполняй достижения — они открываются в меню навсегда</HowToRow>
           <HowToRow icon="⏹">
             Кнопка «КОНЕЦ ИГРЫ» справа внизу — сразу в меню. Собранный опыт сохраняется!
           </HowToRow>
-          <HowToRow icon="🏆">Лучшие забеги попадают в список лидеров в меню</HowToRow>
+          <HowToRow icon="🏆">Лучшие забеги попадают в мировую таблицу лидеров под твоим ником (меняется в меню)</HowToRow>
         </ul>
         <p className="mt-2.5 font-ui text-[11px] leading-snug text-[#a97c50]">
           🎵 Лучше со звуком: музыка ускоряется на 30-й, 15-й и последних секундах!
@@ -821,6 +842,108 @@ function AchievementsOverlay({
   )
 }
 
+/* ---------- вход по никнейму ---------- */
+
+/** Диалог ника: первый вход в игру (mode='gate') и смена ника в меню (mode='edit') */
+function NickDialog({
+  mode,
+  current,
+  onDone,
+  onClose,
+}: {
+  mode: 'gate' | 'edit'
+  current: string
+  onDone: (name: string) => void
+  onClose: () => void
+}) {
+  const [draft, setDraft] = useState(current)
+  const clean = draft.trim().replace(/\s+/g, ' ')
+  const valid = clean.length >= 2 && clean.length <= 24
+  const submit = () => {
+    if (valid) onDone(clean.slice(0, 24))
+  }
+  return (
+    <motion.div
+      className="absolute inset-0 z-[46] flex items-center justify-center overflow-y-auto bg-black/80 p-4 backdrop-blur-sm"
+      initial={{ opacity: 0 }}
+      animate={{ opacity: 1 }}
+      exit={{ opacity: 0 }}
+    >
+      <motion.div
+        className="my-auto w-full max-w-sm rounded-2xl border-4 border-[#8a5330] bg-[#FFF6E6] p-5 text-center shadow-[0_18px_50px_rgba(0,0,0,0.55)]"
+        initial={{ scale: 0.92, y: 14 }}
+        animate={{ scale: 1, y: 0 }}
+        exit={{ scale: 0.95, opacity: 0 }}
+        transition={{ type: 'spring', stiffness: 260, damping: 22 }}
+      >
+        <div aria-hidden className="text-4xl">
+          🐱
+        </div>
+        <h2 className="mt-1 font-pixel text-xl font-bold text-[#B33A26]">
+          {mode === 'gate' ? 'КАК ТЕБЯ ЗОВУТ?' : 'СМЕНИТЬ НИК'}
+        </h2>
+        {mode === 'gate' ? (
+          <p className="mt-1 font-ui text-xs font-medium leading-snug text-[#8a5330]">
+            Введи имя кота-ловца — под ним ты попадёшь в мировую таблицу лидеров! 🌍
+          </p>
+        ) : (
+          <p className="mt-1 font-ui text-xs font-medium text-[#8a5330]">
+            Новое имя появится в мировом рейтинге после следующего забега
+          </p>
+        )}
+        <input
+          autoFocus
+          type="text"
+          inputMode="text"
+          autoComplete="off"
+          maxLength={24}
+          value={draft}
+          onChange={(e) => setDraft(e.target.value.slice(0, 24))}
+          onKeyDown={(e) => {
+            if (e.key === 'Enter' && valid) submit()
+          }}
+          placeholder="Мурзик"
+          aria-label="Никнейм для мировой таблицы лидеров"
+          className="mt-3 w-full rounded-xl border-[3px] border-[#e3cba4] bg-white px-3 py-2.5 text-center font-pixel text-lg font-bold text-[#5C3A1E] outline-none transition placeholder:text-[#c9a97a] focus:border-amber-400"
+        />
+        <p className="mt-1.5 font-ui text-[11px] text-[#a97c50]">От 2 до 24 символов</p>
+        <div className="mt-3 space-y-2">
+          {valid ? (
+            <GameButton onClick={submit}>
+              {mode === 'gate' ? 'ЭТО Я! ▶' : 'СОХРАНИТЬ'}
+            </GameButton>
+          ) : (
+            <button
+              type="button"
+              disabled
+              className="w-full cursor-not-allowed rounded-xl bg-[#d9c6a8] px-6 py-3.5 font-pixel text-base text-[#8a755c] sm:text-lg"
+            >
+              ВВЕДИ ИМЯ
+            </button>
+          )}
+          {mode === 'gate' ? (
+            <button
+              type="button"
+              onClick={() => onDone('Котик')}
+              className="w-full rounded-xl px-4 py-1.5 font-ui text-[11px] font-semibold text-[#a97c50] transition hover:text-[#8a5330] hover:underline"
+            >
+              ОСТАВИТЬСЯ АНОНИМНЫМ КОТИКОМ
+            </button>
+          ) : (
+            <button
+              type="button"
+              onClick={onClose}
+              className="w-full rounded-xl px-4 py-1.5 font-ui text-[11px] font-semibold text-[#a97c50] transition hover:text-[#8a5330] hover:underline"
+            >
+              ОТМЕНА
+            </button>
+          )}
+        </div>
+      </motion.div>
+    </motion.div>
+  )
+}
+
 /* ---------- шаринг рекорда: картинка-карточка + Web Share API ---------- */
 
 async function shareResult(score: number, level: number, best: number): Promise<'shared' | 'copied' | 'fail'> {
@@ -902,6 +1025,8 @@ export function PopcornGame() {
   const mainRef = useRef<HTMLElement | null>(null)
   const canvasRef = useRef<HTMLCanvasElement | null>(null)
   const engineRef = useRef<PopcornEngine | null>(null)
+  /** Кэш рамки игрового поля: getBoundingClientRect дорогой на каждый move */
+  const rectRef = useRef<DOMRect | null>(null)
   const mutedRef = useRef(false)
   const transformRef = useRef<ScreenTransform>('none')
   const layoutRef = useRef<() => void>(() => {})
@@ -946,6 +1071,8 @@ export function PopcornGame() {
   const [upgRaw, storeUpgrades] = useStoredValue(UPG_KEY, JSON.stringify({ capacity: 0, life: 0, startperk: 0 }))
   const [achRaw] = useStoredValue(ACH_KEY, '[]')
   const [nameRaw, storeName] = useStoredValue(NAME_KEY, 'Котик')
+  const [nickSetRaw, storeNickSet] = useStoredValue(NICKSET_KEY, '0')
+  const [nickEdit, setNickEdit] = useState(false)
   const [overlay, setOverlay] = useState<'leaders' | 'shop' | 'creators' | 'rules' | 'ach' | null>(null)
   const [achToast, setAchToast] = useState<{ icon: string; name: string } | null>(null)
   const [shareNote, setShareNote] = useState<string | null>(null)
@@ -994,6 +1121,31 @@ export function PopcornGame() {
     mutedRef.current = muted
     audio.setMuted(muted)
   }, [muted])
+
+  /* Музыка в меню: заглавная тема «Попкорн и кот». Автозвук браузеры
+     разрешают только после жеста — ждём первого касания/клавиши. */
+  useEffect(() => {
+    if (phase !== 'start') return
+    const kick = () => {
+      audio.ensure()
+      audio.setMuted(mutedRef.current)
+      if (!audio.musicPlaying) audio.startMusic('menu')
+    }
+    window.addEventListener('pointerdown', kick)
+    window.addEventListener('keydown', kick)
+    return () => {
+      window.removeEventListener('pointerdown', kick)
+      window.removeEventListener('keydown', kick)
+    }
+  }, [phase])
+
+  /* Предзагрузка фонов всех комнат — смена локации мгновенная и без рывков */
+  useEffect(() => {
+    for (const r of ROOMS) {
+      const img = new window.Image()
+      img.src = r.src
+    }
+  }, [])
 
   /* Надетая лапка — в ref для колбэков без перезапуска эффектов */
   useEffect(() => {
@@ -1173,7 +1325,12 @@ export function PopcornGame() {
   /* Ввод: инверсия управления для перков-трансформаций.
      rot180/mirror — сырые координаты: CSS-зеркало переворачивает картинку,
      и лапка на экране идёт в противоположную сторону от пальца.
-     rot90 — мир повёрнут с заменой измерений, поэтому даём развёрнутую инверсию. */
+     rot90 — мир повёрнут с заменой измерений, поэтому даём развёрнутую инверсию.
+
+     ПЕРФ: getBoundingClientRect на каждый pointermove заставлял браузер
+     пересчитывать layout 60–120 раз в секунду — главная причина лагов лапки
+     на телефонах. Меряем точную рамку только на pointerdown и ресайзе,
+     между ними берём кэш. */
   useEffect(() => {
     const main = mainRef.current
     if (!main) return
@@ -1182,7 +1339,11 @@ export function PopcornGame() {
       if (!eng) return
       /* Кнопки HUD (пауза, звук, конец игры) не должны двигать лапку */
       if (e.target instanceof Element && e.target.closest('button')) return
-      const r = main.getBoundingClientRect()
+      let r = rectRef.current
+      if (e.type === 'pointerdown' || !r) {
+        r = main.getBoundingClientRect()
+        rectRef.current = r
+      }
       const sx = e.clientX - r.left
       const sy = e.clientY - r.top
       let x = sx
@@ -1193,11 +1354,18 @@ export function PopcornGame() {
       }
       eng.setPointer(x, y, e.pointerType === 'touch' ? 64 : 0)
     }
+    const onReflow = () => {
+      rectRef.current = main.getBoundingClientRect()
+    }
     main.addEventListener('pointerdown', onPointer)
-    main.addEventListener('pointermove', onPointer)
+    main.addEventListener('pointermove', onPointer, { passive: true })
+    window.addEventListener('resize', onReflow)
+    window.addEventListener('orientationchange', onReflow)
     return () => {
       main.removeEventListener('pointerdown', onPointer)
       main.removeEventListener('pointermove', onPointer)
+      window.removeEventListener('resize', onReflow)
+      window.removeEventListener('orientationchange', onReflow)
     }
   }, [])
 
@@ -1213,15 +1381,17 @@ export function PopcornGame() {
   }, [perk, phase])
 
   /* Автопауза при сворачивании вкладки: игру и музыку ставим на паузу,
-     чтобы троттлинг таймеров не копил отставание аудио-планировщика */
+     чтобы троттлинг таймеров не копил отставание аудио-планировщика.
+     Музыку меню (фаза 'start') не трогаем — она тихая и не копит отставание. */
   useEffect(() => {
     const onVisibility = () => {
       if (document.hidden) {
+        if (engineRef.current?.phase !== 'playing') return
         audio.stopMusic()
-        engineRef.current?.setPaused(true)
+        engineRef.current.setPaused(true)
         setPhase((p) => (p === 'playing' ? 'paused' : p))
       } else if (engineRef.current?.phase === 'playing') {
-        audio.startMusic()
+        audio.startMusic('game')
       }
     }
     document.addEventListener('visibilitychange', onVisibility)
@@ -1237,7 +1407,7 @@ export function PopcornGame() {
     if (canvas) canvas.style.filter = ''
     audio.ensure()
     audio.setMuted(mutedRef.current)
-    audio.startMusic()
+    audio.startMusic('game')
     audio.play('click')
     /* Постоянные апгрейды: вместимость — в движок, счастливый сундучок — случайный бонус-перк */
     const ups = parseUpgrades(window.localStorage.getItem(UPG_KEY))
@@ -1256,7 +1426,7 @@ export function PopcornGame() {
   const beginLevel = useCallback((lvl: number, perkId: PerkId | null) => {
     audio.ensure()
     audio.setMuted(mutedRef.current)
-    audio.startMusic()
+    audio.startMusic('game')
     audio.play('click')
     transformRef.current = transformFor(perkId)
     const canvas = canvasRef.current
@@ -1271,7 +1441,7 @@ export function PopcornGame() {
 
   const resumeGame = useCallback(() => {
     audio.play('click')
-    audio.startMusic()
+    audio.startMusic('game')
     engineRef.current?.setPaused(false)
     setPhase('playing')
   }, [])
@@ -1286,8 +1456,8 @@ export function PopcornGame() {
   /** «КОНЕЦ ИГРЫ»: сразу в меню. Собранный попкорн уже лежит в банке опыта. */
   const quitToMenu = useCallback(() => {
     audio.play('click')
-    audio.stopMusic()
-    engineRef.current?.abort()
+    engineRef.current?.abort() // останавливает игровую музыку
+    audio.startMusic('menu') // возвращаем заглавную тему (жест пользователя уже есть)
     setResult(null)
     setClearInfo(null)
     setPerk(null)
@@ -1307,12 +1477,23 @@ export function PopcornGame() {
   const reviveRun = useCallback(() => {
     audio.ensure()
     audio.setMuted(mutedRef.current)
-    audio.startMusic()
+    audio.startMusic('game')
     audio.play('click')
     if (engineRef.current?.revive()) {
       setPhase('playing')
     }
   }, [])
+
+  /** Сохранить ник (первый вход или смена в меню) */
+  const handleNickDone = useCallback(
+    (name: string) => {
+      storeName(name)
+      storeNickSet('1')
+      audio.play('perk')
+      setNickEdit(false)
+    },
+    [storeName, storeNickSet],
+  )
 
   /** Поделиться рекордом: карточка-картинка, а на ПК — копирование текста */
   const handleShare = useCallback(async () => {
@@ -1395,6 +1576,9 @@ export function PopcornGame() {
   const quotaPct = Math.min(100, (stats.collected / Math.max(1, stats.quota)) * 100)
   const chosen: PerkDef | null = openedIdx !== null ? (offers[openedIdx] ?? null) : null
   const activePerk = perk ? PERK_MAP[perk] : null
+  /* Локация уровня: в меню — кинозал, в игре — комната по номеру уровня */
+  const activeRoom = roomForLevel(stats.level)
+  const roomSrc = phase === 'start' ? ROOMS[0].src : roomSrcForLevel(stats.level)
 
   return (
     <div className="flex h-dvh flex-col overflow-hidden bg-[#1d110b] select-none">
@@ -1403,11 +1587,20 @@ export function PopcornGame() {
         className="relative min-h-0 flex-1 touch-none overflow-hidden"
         aria-label="Игровое поле: соберите рассыпанный попкорн в стаканчик лапкой куницы"
       >
-        {/* Фон — ретро комната */}
-        <div
-          aria-hidden
-          className="absolute inset-0 scale-105 bg-[url('/popcorn-room.png')] bg-cover bg-center"
-        />
+        {/* Фон — комната уровня: 8 локаций с кроссфейдом при смене */}
+        <div aria-hidden className="absolute inset-0 overflow-hidden">
+          <AnimatePresence initial={false}>
+            <motion.div
+              key={roomSrc}
+              className="absolute inset-0 scale-105 bg-cover bg-center"
+              style={{ backgroundImage: `url('${roomSrc}')` }}
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              exit={{ opacity: 0 }}
+              transition={{ duration: 0.55, ease: 'easeOut' }}
+            />
+          </AnimatePresence>
+        </div>
         <div
           aria-hidden
           className="absolute inset-0 bg-gradient-to-b from-black/50 via-black/10 to-black/55"
@@ -1538,12 +1731,20 @@ export function PopcornGame() {
           </div>
         </div>
 
+        {/* Локация уровня: слева внизу, показывает где мы играем */}
+        {playing && (
+          <div className="pointer-events-none absolute bottom-[max(0.75rem,env(safe-area-inset-bottom))] left-3 z-20 flex items-center gap-1.5 rounded-full border border-white/15 bg-black/60 px-3 py-1.5 font-ui text-[11px] font-semibold text-white/85">
+            <span aria-hidden>{activeRoom.icon}</span>
+            <span className="max-w-36 truncate sm:max-w-none">{activeRoom.name}</span>
+          </div>
+        )}
+
         {/* Кнопка «Конец игры»: справа внизу, всегда под рукой во время уровня */}
         {phase === 'playing' && (
           <button
             type="button"
             onClick={quitToMenu}
-            className="absolute bottom-[max(0.75rem,env(safe-area-inset-bottom))] right-3 z-20 flex items-center gap-1.5 rounded-xl border-2 border-red-300/50 bg-black/55 px-3 py-2 font-pixel text-[11px] font-bold text-red-200 backdrop-blur-sm transition hover:bg-black/75 active:scale-95 sm:text-xs"
+            className="absolute bottom-[max(0.75rem,env(safe-area-inset-bottom))] right-3 z-20 flex items-center gap-1.5 rounded-xl border-2 border-red-300/50 bg-black/65 px-3 py-2 font-pixel text-[11px] font-bold text-red-200 transition hover:bg-black/80 active:scale-95 sm:text-xs"
           >
             <span aria-hidden>⏹</span> КОНЕЦ ИГРЫ
           </button>
@@ -1596,6 +1797,20 @@ export function PopcornGame() {
                     <PawPrint className="h-4 w-4 text-amber-500" aria-hidden />
                     {PAW_MAP[equippedPaw].name}
                   </div>
+                  {/* Ник для мировой таблицы: тап — сменить */}
+                  <button
+                    type="button"
+                    onClick={() => {
+                      audio.play('click')
+                      setNickEdit(true)
+                    }}
+                    title="Сменить ник для мировой таблицы"
+                    className="inline-flex items-center gap-1.5 rounded-full bg-amber-100 px-3 py-1 font-ui text-xs font-semibold text-[#8a5330] ring-2 ring-amber-200 transition hover:bg-amber-200 active:scale-95"
+                  >
+                    <Cat className="h-4 w-4 text-amber-500" aria-hidden />
+                    <span className="max-w-28 truncate">{nameRaw}</span>
+                    <Pencil className="h-3 w-3 opacity-60" aria-hidden />
+                  </button>
                 </div>
 
                 <div className="mt-3 grid grid-cols-[1.5fr_1fr] gap-2">
@@ -1918,7 +2133,7 @@ export function PopcornGame() {
         {/* Оверлеи меню: список лидеров / магазин / достижения / создатели / правила */}
         <AnimatePresence>
           {overlay === 'leaders' && (
-            <LeadersOverlay leaders={leaders} onClose={() => setOverlay(null)} />
+            <LeadersOverlay leaders={leaders} myName={nameRaw} onClose={() => setOverlay(null)} />
           )}
           {overlay === 'shop' && (
             <ShopOverlay
@@ -1937,6 +2152,21 @@ export function PopcornGame() {
           )}
           {overlay === 'creators' && <CreatorsOverlay onClose={() => setOverlay(null)} />}
           {overlay === 'rules' && <RulesOverlay onClose={() => setOverlay(null)} />}
+        </AnimatePresence>
+
+        {/* Вход по никнейму (первый визит) и смена ника из меню */}
+        <AnimatePresence>
+          {phase === 'start' && nickSetRaw !== '1' && (
+            <NickDialog mode="gate" current="" onDone={handleNickDone} onClose={() => {}} />
+          )}
+          {nickEdit && (
+            <NickDialog
+              mode="edit"
+              current={nameRaw === 'Котик' ? '' : nameRaw}
+              onDone={handleNickDone}
+              onClose={() => setNickEdit(false)}
+            />
+          )}
         </AnimatePresence>
 
         {/* Тост нового достижения */}

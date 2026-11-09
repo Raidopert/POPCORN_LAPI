@@ -5,7 +5,7 @@
  *  - API /api/leaders не кэшируем — лидерборд всегда живой.
  */
 
-const VERSION = 'popcorn-v1'
+const VERSION = 'popcorn-v2'
 const CORE = [
   '/',
   '/manifest.json',
@@ -14,6 +14,14 @@ const CORE = [
   '/logo.svg',
   '/icon-192.png',
   '/icon-512.png',
+  '/rooms/cinema.webp',
+  '/rooms/kitchen.webp',
+  '/rooms/yard.webp',
+  '/rooms/arcade.webp',
+  '/rooms/roof.webp',
+  '/rooms/park.webp',
+  '/rooms/attic.webp',
+  '/rooms/basement.webp',
 ]
 
 self.addEventListener('install', (event) => {

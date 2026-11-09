@@ -71,6 +71,23 @@ const BASS: (string | null)[] = [
    0 — база 140 · 1 — +25% (175) · 2 — +40% (196) · 3 — финиш 240 BPM */
 const TEMPOS = [140, 175, 196, 240]
 
+/* ЗАГЛАВНАЯ ТЕМА МЕНЮ «Попкорн и кот» — тёплая, уютная, 112 BPM.
+   Кружевная мелодия в до-мажоре: гуляет по трезвучиям, как кот по подоконнику,
+   и завершается мягкой каденцией — тема узнаваема с первых секунд. */
+const MENU_TEMPO = 112
+const MENU_LEAD: (string | null)[] = [
+  'E5', null, 'G5', null, 'C6', null, 'G5', null,
+  'A5', null, 'G5', 'E5', null, 'D5', 'E5', null,
+  'F5', null, 'A5', null, 'G5', null, 'E5', null,
+  'D5', null, 'E5', 'D5', 'C5', null, null, null,
+]
+const MENU_BASS: (string | null)[] = [
+  'C3', null, 'G2', null, 'C3', null, 'G2', null,
+  'A2', null, 'E2', null, 'A2', null, 'E2', null,
+  'F2', null, 'C3', null, 'F2', null, 'C3', null,
+  'G2', null, 'B2', null, 'C3', null, 'G2', null,
+]
+
 class ChipTuneAudio {
   private ctx: AudioContext | null = null
   private master: GainNode | null = null
@@ -84,6 +101,8 @@ class ChipTuneAudio {
   private _muted = false
   private level = 0
   private stage = 0
+  /** Какая тема играет: игровая (ускоряется) или заглавная меню */
+  private mode: 'game' | 'menu' = 'game'
 
   /** Уровень напряжённости 0–3: темп и мелодия зависят от оставшегося времени */
   setIntensity(level: number): void {
@@ -141,12 +160,26 @@ class ChipTuneAudio {
     }
   }
 
-  startMusic(): void {
-    if (!this.ensure() || this.playingMusic) return
+  /**
+   * Запуск музыки. mode='menu' — заглавная тема (в меню), mode='game' — игровая.
+   * Если музыка уже играет — просто переключаем тему без перезапуска (без щелчка).
+   */
+  startMusic(mode: 'game' | 'menu' = 'game'): void {
+    if (!this.ensure()) return
+    if (this.playingMusic) {
+      this.mode = mode
+      return
+    }
     this.playingMusic = true
+    this.mode = mode
     this.step = 0
     this.nextTime = (this.ctx as AudioContext).currentTime + 0.08
     this.timer = setInterval(() => this.schedule(), 25)
+  }
+
+  /** Играет ли сейчас музыка (любая) */
+  get musicPlaying(): boolean {
+    return this.playingMusic
   }
 
   stopMusic(): void {
@@ -166,7 +199,7 @@ class ChipTuneAudio {
       this.nextTime = this.ctx.currentTime + 0.05
       this.step = 0
     }
-    const bpm = TEMPOS[this.level]
+    const bpm = this.mode === 'menu' ? MENU_TEMPO : TEMPOS[this.level]
     const stepDur = 60 / bpm / 2
     while (this.nextTime < this.ctx.currentTime + 0.12) {
       this.playStep(this.step % 32, this.nextTime, stepDur)
@@ -177,11 +210,25 @@ class ChipTuneAudio {
 
   private playStep(s: number, t: number, dur: number): void {
     const bus = this.musicBus as GainNode
+    const m8 = s % 8
+    if (this.mode === 'menu') {
+      /* Заглавная тема: мягче и суше — барабаны почти неслышны */
+      const lead = MENU_LEAD[s]
+      if (lead) {
+        this.tone('square', noteFreq(lead), t, dur * 0.9, 0.11, bus)
+        // Тёплое «эхо» октавой ниже — уютная подложка
+        this.tone('triangle', noteFreq(lead) / 2, t, dur * 1.4, 0.07, bus)
+      }
+      const bass = MENU_BASS[s]
+      if (bass) this.tone('triangle', noteFreq(bass), t, dur * 1.8, 0.2, bus)
+      if (m8 === 0) this.tone('sine', 150, t, 0.09, 0.4, bus, 42)
+      if (m8 === 4) this.noise(t, 0.05, 0.09, 'highpass', 7000, bus)
+      return
+    }
     const lead = (this.level >= 2 || this.stage >= 1 ? LEAD_B : LEAD_A)[s]
     if (lead) this.tone('square', noteFreq(lead), t, dur * 0.92, 0.15, bus)
     const bass = BASS[s]
     if (bass) this.tone('triangle', noteFreq(bass), t, dur * 1.7, 0.24, bus)
-    const m8 = s % 8
     if (m8 === 0 || m8 === 4) this.tone('sine', 160, t, 0.1, 0.55, bus, 44)
     if (m8 === 2 || m8 === 6) this.noise(t, 0.07, 0.2, 'bandpass', 1800, bus)
     if (m8 % 2 === 0) this.noise(t, 0.03, 0.055, 'highpass', 6800, bus)

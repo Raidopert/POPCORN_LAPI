@@ -182,6 +182,10 @@ export class PopcornEngine {
   private raf = 0
   private lastTs = 0
   private destroyed = false
+  /** Телефон/планшет: меньше частиц и ниже разрешение — ради плавных 60 FPS */
+  private coarse = false
+  /** Троттлинг вибрации: чаще, чем раз в 80 мс — нельзя (лаги на Android) */
+  private lastBuzzAt = 0
 
   private W = 0
   private H = 0
@@ -257,8 +261,12 @@ export class PopcornEngine {
 
   constructor(canvas: HTMLCanvasElement, cb: EngineCallbacks = {}) {
     this.canvas = canvas
-    this.ctx = canvas.getContext('2d')!
+    this.ctx = canvas.getContext('2d', { alpha: true })!
     this.cb = cb
+    this.coarse =
+      typeof window !== 'undefined' &&
+      typeof window.matchMedia === 'function' &&
+      window.matchMedia('(pointer: coarse)').matches
     this.sp = {
       popcorn: makePopcornSprite(false),
       golden: makePopcornSprite(true),
@@ -429,7 +437,12 @@ export class PopcornEngine {
 
     const oldW = this.W
     const oldH = this.H
-    this.dpr = Math.min(window.devicePixelRatio || 1, 2)
+    /* На телефонах полноэкранный canvas в DPR 2 съедает кадровый бюджет:
+       ограничиваем 1.6 — пиксель-арт от этого только выигрывает */
+    this.dpr = Math.min(
+      window.devicePixelRatio || 1,
+      this.coarse ? 1.6 : 2,
+    )
     this.W = w
     this.H = h
     this.canvas.width = Math.round(w * this.dpr)
@@ -955,7 +968,9 @@ export class PopcornEngine {
 
   private crumbs(x: number, y: number, color: string, n: number): void {
     const u = this.u
-    for (let i = 0; i < n; i++) {
+    // На телефонах режем количество частиц — слабые GPU скажут спасибо
+    const count = this.coarse ? Math.max(3, Math.round(n * 0.65)) : n
+    for (let i = 0; i < count; i++) {
       const a = Math.random() * Math.PI * 2
       const sp = (60 + Math.random() * 120) * u
       this.particles.push({
@@ -971,10 +986,14 @@ export class PopcornEngine {
     }
   }
 
-  /** Лёгкая вибрация на телефоне: только по событиям и коротко */
+  /** Лёгкая вибрация на телефоне: только по событиям, коротко и не чаще 80 мс */
   private buzz(ms: number | number[]): void {
     try {
-      if (typeof navigator !== 'undefined' && 'vibrate' in navigator) navigator.vibrate(ms)
+      if (typeof navigator === 'undefined' || !('vibrate' in navigator)) return
+      const now = performance.now()
+      if (now - this.lastBuzzAt < 80) return
+      this.lastBuzzAt = now
+      navigator.vibrate(ms)
     } catch {
       /* вибрация недоступна — не страшно */
     }
