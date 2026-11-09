@@ -1,0 +1,115 @@
+# ЛИЦЕНЗИЯ / LICENSE
+## «Кошачий попкорнный Беспредел» (Cat Popcorn Mayhem)
+
+**Copyright (c) 2025 Raidopert. Все права защищены. / All rights reserved.**
+
+Оригинальный репозиторий: <https://github.com/Raidopert/POPCORN_LAPI>
+Продакшн-версия: <https://popcorn-lapi.vercel.app>
+
+---
+
+# 1. РУССКАЯ ВЕРСИЯ (основная, приоритетная)
+
+## 1.1. Предмет лицензии
+
+Настоящая лицензия распространяется на игру **«Кошачий попкорнный
+Беспредел»** (англ. *Cat Popcorn Mayhem*) и все материалы репозитория
+POPCORN_LAPI: исходный код, canvas-графику и спрайты, музыку (Web Audio
+чиптюн), тексты, иконки и прочие файлы (далее — «**Игра**»).
+
+Права на Игру принадлежат автору **Raidopert** (далее — «**Автор**»).
+Это **проприетарная (несвободная) лицензия**: всё, что прямо не разрешено
+настоящим текстом, — запрещено.
+
+## 1.2. Что РАЗРЕШЕНО (бесплатно, без обращения к Автору)
+
+1. **Играть** — свободно запускать и проходить Игру.
+2. **Стримить и публиковать видео** — записывать и размещать геймплей
+   (YouTube, Twitch, TikTok, VK Видео и т. п.), **включая монетизацию**
+   таких видео (реклама, донаты, платные подписки на канале).
+3. **Делиться ссылкой** на репозиторий и продакшн-версию Игры.
+4. **Делать форки для личного использования** — при условии сохранения
+   копирайта Автора и активной ссылки на оригинальный репозиторий.
+5. **Модифицировать код для личного пользования** — переводить, править
+   баланс, добавлять контент для себя, без публикации таких сборок как
+   самостоятельных продуктов.
+
+## 1.3. Что ЗАПРЕЩЕНО
+
+1. **Коммерческое использование** — продажа Игры, продажа доступов,
+   встраивание платных механик в собственные сборки, показ собственной
+   рекламы в Игре и любые другие способы извлечения прямой коммерческой
+   выгоды из Игры — **без отдельного письменного согласия Автора**.
+2. **Перепродажа** Игры или её копий в любом виде.
+3. **Публикация форков без указания авторства** — публиковать изменённые
+   версии Игры (в т. ч. на GitHub, игровых площадках, сайтах) без явного
+   указания автора **Raidopert** и ссылки на
+   <https://github.com/Raidopert/POPCORN_LAPI>.
+4. **Удаление или искажение** копирайтных уведомлений, имени автора,
+   внутриигрового бейджа версии и информации об авторстве.
+5. **Выдача Игры или её частей за собственную работу.**
+
+## 1.4. Коммерческое лицензирование
+
+Любое коммерческое использование за пределами пункта 1.2.2 (монетизация
+видео со стримов) — **только по отдельному соглашению с Автором**:
+
+> Контакт для коммерческих предложений: **[укажите контакт автора: e-mail / Telegram / форма]** *(PLACEHOLDER — заполнить)*
+
+## 1.5. Форки и модификации
+
+Форки и модификации разрешены исключительно для **личного
+некоммерческого** использования. Публичная публикация форка допускается
+только с: (а) сохранением настоящего файла LICENSE; (б) копирайтом
+«Copyright (c) 2025 Raidopert»; (в) активной ссылкой на оригинальный
+репозиторий; (г) явной пометкой, что это форк, а не оригинал.
+
+## 1.6. Отказ от гарантий
+
+Игра предоставляется **«как есть» (AS IS)**, без каких-либо гарантий.
+Автор не несёт ответственности за любой прямой или косвенный ущерб,
+возникший в связи с использованием Игры.
+
+## 1.7. Сторонние компоненты
+
+Игра построена на сторонних компонентах, которые остаются под **собственными
+лицензиями** (в основном MIT и аналогичные), и настоящая лицензия на них
+**не распространяется** и их условия не изменяет: Next.js, React, Tailwind
+CSS, shadcn/ui (Radix UI), Lucide, а также стандартный браузерный
+Web Audio API. Условия их лицензий см. в соответствующих репозиториях и
+файлах пакетов (`node_modules/<пакет>/LICENSE`).
+
+---
+
+# 2. ENGLISH SUMMARY (non-binding short version)
+
+**Cat Popcorn Mayhem** © 2025 **Raidopert** — proprietary license.
+The Russian text above is the **governing version**.
+
+**You MAY (for free):**
+- play the game;
+- record, publish and **monetize** gameplay videos/streams (YouTube, Twitch, etc.);
+- share links to the repository and the live version;
+- fork the repository **for personal use**, keeping the copyright notice
+  and a link to the original repo;
+- modify the code for personal, non-commercial use.
+
+**You MAY NOT:**
+- use the game commercially in any other way (selling it, selling access,
+  putting your own ads into builds, etc.) without a separate written
+  agreement with the author;
+- resell the game or its copies;
+- publish forks **without clear attribution** to Raidopert and a link to
+  <https://github.com/Raidopert/POPCORN_LAPI>;
+- remove or alter copyright notices, the author's name or the in-game
+  version badge;
+- present the game (or its parts) as your own work.
+
+**Commercial licensing:** only via a separate agreement with the author —
+contact: **[author contact placeholder]**.
+
+**Warranty:** the game is provided "as is", without warranty of any kind.
+
+**Third-party components** (Next.js, React, Tailwind CSS, shadcn/ui,
+Lucide, the browser Web Audio API, etc.) remain under their own licenses
+(MIT and similar) and are not affected by this license.

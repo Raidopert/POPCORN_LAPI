@@ -1,0 +1,54 @@
+# =============================================================================
+# docker-compose.yml — «Кошачий попкорнный Беспредел» (автор Raidopert)
+#
+# Быстрый старт (только игра, локальный лидерборд):
+#   docker compose up --build
+#   → открыть http://localhost:3000
+#
+# Опционально: локальная Postgres-база (профиль db):
+#   docker compose --profile db up
+#   и добавить в .env строку:
+#   DATABASE_URL=postgresql://popcorn:popcorn@db:5432/popcorn
+#
+# Подробнее — в DOCKER.md.
+# =============================================================================
+
+services:
+  # --- сама игра ------------------------------------------------------------
+  game:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: popcorn-game
+    ports:
+      - "3000:3000"
+    environment:
+      # Передаётся из окружения или из файла .env (compose читает .env сам).
+      # Пусто по умолчанию → игра работает с локальным лидербордом,
+      # полностью оффлайн. Для мирового лидерборда укажите DATABASE_URL
+      # (Neon Postgres или сервис db из профиля "db") — см. DOCKER.md.
+      DATABASE_URL: "${DATABASE_URL:-}"
+    restart: unless-stopped
+
+  # --- опциональная локальная база (только с профилем "db") ------------------
+  db:
+    image: postgres:16-alpine
+    profiles:
+      - db
+    container_name: popcorn-db
+    environment:
+      POSTGRES_USER: popcorn
+      POSTGRES_PASSWORD: popcorn
+      POSTGRES_DB: popcorn
+    volumes:
+      - popcorn-db:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U popcorn -d popcorn"]
+      interval: 5s
+      timeout: 5s
+      retries: 12
+      start_period: 10s
+    restart: unless-stopped
+
+volumes:
+  popcorn-db:

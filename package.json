@@ -1,7 +1,10 @@
 {
-  "name": "nextjs_tailwind_shadcn_ts",
-  "version": "0.2.1",
+  "name": "popcorn-lapi",
+  "version": "0.0.2",
   "private": true,
+  "author": "Raidopert",
+  "license": "UNLICENSED",
+  "description": "Кошачий попкорнный Беспредел (Cat Popcorn Mayhem) — 8-битный рогалик-аркада. (c) Raidopert, см. LICENSE",
   "scripts": {
     "dev": "next dev -p 3000 2>&1 | tee dev.log",
     "dev:win": "next dev -p 3000",
@@ -93,5 +96,10 @@
     "tailwindcss": "^4",
     "tw-animate-css": "^1.3.5",
     "typescript": "^5"
-  }
+  },
+  "trustedDependencies": [
+    "@parcel/watcher",
+    "@swc/core",
+    "es5-ext"
+  ]
 }
