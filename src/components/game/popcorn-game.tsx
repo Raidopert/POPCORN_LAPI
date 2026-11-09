@@ -3,10 +3,24 @@
 import { useCallback, useEffect, useMemo, useRef, useState, useSyncExternalStore } from 'react'
 import Image from 'next/image'
 import { AnimatePresence, motion } from 'framer-motion'
-import { Heart, Pause, PawPrint, Popcorn, RotateCcw, Timer, Trophy, Volume2, VolumeX } from 'lucide-react'
+import {
+  Globe2,
+  Heart,
+  Pause,
+  PawPrint,
+  Popcorn,
+  RotateCcw,
+  Share2,
+  Smartphone,
+  Timer,
+  Trophy,
+  Volume2,
+  VolumeX,
+} from 'lucide-react'
 import { PopcornEngine, type EngineStats } from '@/lib/game/engine'
 import { audio } from '@/lib/game/audio'
 import {
+  PERKS,
   PERK_MAP,
   quotaFor,
   rollPerkOffer,
@@ -15,8 +29,23 @@ import {
   type PerkId,
   type ScreenTransform,
 } from '@/lib/game/perks'
-import { makeChestSprite, makePawSprite } from '@/lib/game/sprites'
+import { makeChestSprite, makePawSprite, makePopcornSprite } from '@/lib/game/sprites'
 import { DEFAULT_PAW, PAWS, PAW_MAP, type PawDef, type PawId } from '@/lib/game/paws'
+import {
+  UPGRADES,
+  UPGRADE_MAP,
+  parseUpgrades,
+  type UpgradeId,
+  type UpgradeState,
+} from '@/lib/game/upgrades'
+import {
+  ACH_EVENT,
+  ACH_KEY,
+  ACHIEVEMENTS,
+  ACH_MAP,
+  unlockMany,
+  type AchId,
+} from '@/lib/game/achievements'
 
 type Phase = 'start' | 'playing' | 'paused' | 'chest' | 'ended'
 
@@ -26,11 +55,27 @@ interface ResultState {
   record: boolean
   /** Место в топ-10 списка лидеров (−1 — не вошёл) */
   rank: number
+  /** Куплен апгрейд «Девятая жизнь» и он ещё не использован в этом забеге */
+  canRevive: boolean
 }
 
 interface ClearState {
   level: number
   bonus: number
+}
+
+/** Строка мировой таблицы лидеров */
+interface OnlineLeader {
+  name: string
+  score: number
+  level: number
+  date: number
+}
+
+/** Событие браузера «установить приложение» (PWA) */
+interface InstallPromptEvent extends Event {
+  prompt(): Promise<void>
+  userChoice: Promise<{ outcome: 'accepted' | 'dismissed' }>
 }
 
 const BEST_KEY = 'popcorn-best'
@@ -41,6 +86,8 @@ const XP_KEY = 'popcorn-xp'
 const PAW_KEY = 'popcorn-paw'
 const OWNED_KEY = 'popcorn-owned'
 const LEADERS_KEY = 'popcorn-leaders'
+const UPG_KEY = 'popcorn-upgrades'
+const NAME_KEY = 'popcorn-name'
 
 interface LeaderEntry {
   score: number
@@ -55,9 +102,11 @@ const CONFETTI_COLORS = ['#E24B3B', '#FFE066', '#7BC47F', '#F2A65A', '#FFF6EC', 
 function subscribeStore(onChange: () => void): () => void {
   window.addEventListener('storage', onChange)
   window.addEventListener(STORE_EVENT, onChange)
+  window.addEventListener(ACH_EVENT, onChange)
   return () => {
     window.removeEventListener('storage', onChange)
     window.removeEventListener(STORE_EVENT, onChange)
+    window.removeEventListener(ACH_EVENT, onChange)
   }
 }
 
@@ -236,22 +285,27 @@ function MenuSmallBtn({
 const OVERLAY_SCROLL =
   '[scrollbar-width:thin] [&::-webkit-scrollbar]:w-1.5 [&::-webkit-scrollbar-thumb]:rounded-full [&::-webkit-scrollbar-thumb]:bg-[#d9b98c] [&::-webkit-scrollbar-track]:bg-transparent'
 
-/** Магазин лапок: покупка за опыт, экипировка навсегда */
+/** Магазин: лапки + постоянные апгрейды, покупка за опыт */
 function ShopOverlay({
   xp,
   owned,
   equipped,
+  upgrades,
   onBuy,
   onEquip,
+  onBuyUpgrade,
   onClose,
 }: {
   xp: number
   owned: PawId[]
   equipped: PawId
+  upgrades: UpgradeState
   onBuy: (def: PawDef) => void
   onEquip: (id: PawId) => void
+  onBuyUpgrade: (id: UpgradeId) => void
   onClose: () => void
 }) {
+  const [tab, setTab] = useState<'paws' | 'upgrades'>('paws')
   return (
     <motion.div
       className="absolute inset-0 z-40 flex items-center justify-center overflow-y-auto bg-black/70 p-4 backdrop-blur-sm"
@@ -269,75 +323,159 @@ function ShopOverlay({
         <div aria-hidden className="text-3xl">
           🛒
         </div>
-        <h2 className="mt-0.5 font-pixel text-xl font-bold text-[#B33A26]">МАГАЗИН ЛАПОК</h2>
+        <h2 className="mt-0.5 font-pixel text-xl font-bold text-[#B33A26]">МАГАЗИН</h2>
         <p className="mt-1 font-ui text-xs font-medium text-[#8a5330]">
           Опыт:{' '}
           <span className="font-pixel text-sm font-bold text-[#5C3A1E] tabular-nums">{xp}</span>{' '}
-          🍿 · лапка и её бонус остаются навсегда
+          🍿 · покупки остаются навсегда
         </p>
-        <ul
-          className={`mt-3 max-h-[46vh] space-y-2 overflow-y-auto pr-1 text-left sm:max-h-80 ${OVERLAY_SCROLL}`}
-        >
-          {PAWS.map((def) => {
-            const isOwned = owned.includes(def.id)
-            const isEquipped = equipped === def.id
-            const canBuy = !isOwned && xp >= def.price
-            return (
-              <li
-                key={def.id}
-                className={`flex items-center gap-2.5 rounded-xl border-2 p-2 ${
-                  isEquipped ? 'border-amber-400 bg-amber-50' : 'border-[#e3cba4] bg-[#fdf3e0]'
-                }`}
-              >
-                <PawImg skinId={def.id} />
-                <div className="min-w-0 flex-1">
-                  <div className="flex items-center gap-1.5">
-                    <span className="truncate font-pixel text-sm font-bold text-[#5C3A1E]">
-                      {def.name}
-                    </span>
-                    {def.price === 0 && (
-                      <span className="shrink-0 rounded-full bg-[#e3cba4] px-1.5 font-ui text-[9px] font-bold text-[#5C3A1E]">
-                        БАЗОВАЯ
+
+        {/* Вкладки: ЛАПКИ / АПГРЕЙДЫ */}
+        <div className="mt-2.5 grid grid-cols-2 gap-1.5 rounded-xl bg-[#f3e2c8] p-1">
+          {(
+            [
+              ['paws', '🐾 ЛАПКИ'],
+              ['upgrades', '🛠 АПГРЕЙДЫ'],
+            ] as const
+          ).map(([id, label]) => (
+            <button
+              key={id}
+              type="button"
+              onClick={() => setTab(id)}
+              className={`rounded-lg px-2 py-1.5 font-pixel text-xs font-bold transition ${
+                tab === id
+                  ? 'bg-[#E24B3B] text-white shadow-[0_2px_0_#9c2f22]'
+                  : 'text-[#8a5330] hover:bg-[#eed7b4]'
+              }`}
+            >
+              {label}
+            </button>
+          ))}
+        </div>
+
+        {tab === 'paws' ? (
+          <ul
+            className={`mt-3 max-h-[42vh] space-y-2 overflow-y-auto pr-1 text-left sm:max-h-72 ${OVERLAY_SCROLL}`}
+          >
+            {PAWS.map((def) => {
+              const isOwned = owned.includes(def.id)
+              const isEquipped = equipped === def.id
+              const canBuy = !isOwned && xp >= def.price
+              return (
+                <li
+                  key={def.id}
+                  className={`flex items-center gap-2.5 rounded-xl border-2 p-2 ${
+                    isEquipped ? 'border-amber-400 bg-amber-50' : 'border-[#e3cba4] bg-[#fdf3e0]'
+                  }`}
+                >
+                  <PawImg skinId={def.id} />
+                  <div className="min-w-0 flex-1">
+                    <div className="flex items-center gap-1.5">
+                      <span className="truncate font-pixel text-sm font-bold text-[#5C3A1E]">
+                        {def.name}
                       </span>
+                      {def.price === 0 && (
+                        <span className="shrink-0 rounded-full bg-[#e3cba4] px-1.5 font-ui text-[9px] font-bold text-[#5C3A1E]">
+                          БАЗОВАЯ
+                        </span>
+                      )}
+                    </div>
+                    <div className="truncate font-ui text-[11px] leading-tight text-[#8a5330]" title={def.desc}>
+                      {def.bonusLabel}
+                    </div>
+                  </div>
+                  {isEquipped ? (
+                    <span className="shrink-0 rounded-full bg-amber-400 px-2.5 py-1.5 font-ui text-[10px] font-bold text-[#5C3A1E]">
+                      НАДЕТА
+                    </span>
+                  ) : isOwned ? (
+                    <button
+                      type="button"
+                      onClick={() => onEquip(def.id)}
+                      className="shrink-0 rounded-lg border-2 border-[#8a5330] bg-[#FFF6E6] px-2.5 py-1.5 font-ui text-[11px] font-bold text-[#8a5330] transition hover:bg-[#f3e2c8] active:scale-95"
+                    >
+                      НАДЕТЬ
+                    </button>
+                  ) : (
+                    <button
+                      type="button"
+                      disabled={!canBuy}
+                      onClick={() => onBuy(def)}
+                      title={def.desc}
+                      className={`shrink-0 rounded-lg px-2.5 py-1.5 font-ui text-[11px] font-bold transition active:scale-95 ${
+                        canBuy
+                          ? 'bg-[#E24B3B] text-white shadow-[0_3px_0_#9c2f22] hover:bg-[#ef5a4a]'
+                          : 'cursor-not-allowed bg-[#d9c6a8] text-[#8a755c]'
+                      }`}
+                    >
+                      🍿 {def.price}
+                    </button>
+                  )}
+                </li>
+              )
+            })}
+          </ul>
+        ) : (
+          <ul
+            className={`mt-3 max-h-[42vh] space-y-2 overflow-y-auto pr-1 text-left sm:max-h-72 ${OVERLAY_SCROLL}`}
+          >
+            {UPGRADES.map((def) => {
+              const level = upgrades[def.id]
+              const maxed = level >= def.prices.length
+              const cost = maxed ? 0 : def.prices[level]
+              const canBuy = !maxed && xp >= cost
+              return (
+                <li
+                  key={def.id}
+                  className="rounded-xl border-2 border-[#e3cba4] bg-[#fdf3e0] p-2"
+                >
+                  <div className="flex items-center gap-2">
+                    <span aria-hidden className="text-2xl">
+                      {def.icon}
+                    </span>
+                    <div className="min-w-0 flex-1">
+                      <div className="font-pixel text-sm font-bold text-[#5C3A1E]">{def.name}</div>
+                      <div className="font-ui text-[11px] leading-tight text-[#8a5330]">
+                        {def.effectLabel(level)}
+                      </div>
+                    </div>
+                    {/* Ступени */}
+                    <span aria-hidden className="shrink-0 tracking-widest">
+                      {def.prices.map((_, i) => (
+                        <span key={i} className={i < level ? 'opacity-100' : 'opacity-30'}>
+                          ●
+                        </span>
+                      ))}
+                    </span>
+                  </div>
+                  <p className="mt-1 font-ui text-[10px] leading-tight text-[#a97c50]">{def.desc}</p>
+                  <div className="mt-1.5 text-right">
+                    {maxed ? (
+                      <span className="inline-block rounded-full bg-amber-400 px-2.5 py-1.5 font-ui text-[10px] font-bold text-[#5C3A1E]">
+                        МАКСИМУМ
+                      </span>
+                    ) : (
+                      <button
+                        type="button"
+                        disabled={!canBuy}
+                        onClick={() => onBuyUpgrade(def.id)}
+                        className={`rounded-lg px-2.5 py-1.5 font-ui text-[11px] font-bold transition active:scale-95 ${
+                          canBuy
+                            ? 'bg-[#E24B3B] text-white shadow-[0_3px_0_#9c2f22] hover:bg-[#ef5a4a]'
+                            : 'cursor-not-allowed bg-[#d9c6a8] text-[#8a755c]'
+                        }`}
+                      >
+                        🍿 {cost}
+                      </button>
                     )}
                   </div>
-                  <div className="truncate font-ui text-[11px] leading-tight text-[#8a5330]" title={def.desc}>
-                    {def.bonusLabel}
-                  </div>
-                </div>
-                {isEquipped ? (
-                  <span className="shrink-0 rounded-full bg-amber-400 px-2.5 py-1.5 font-ui text-[10px] font-bold text-[#5C3A1E]">
-                    НАДЕТА
-                  </span>
-                ) : isOwned ? (
-                  <button
-                    type="button"
-                    onClick={() => onEquip(def.id)}
-                    className="shrink-0 rounded-lg border-2 border-[#8a5330] bg-[#FFF6E6] px-2.5 py-1.5 font-ui text-[11px] font-bold text-[#8a5330] transition hover:bg-[#f3e2c8] active:scale-95"
-                  >
-                    НАДЕТЬ
-                  </button>
-                ) : (
-                  <button
-                    type="button"
-                    disabled={!canBuy}
-                    onClick={() => onBuy(def)}
-                    title={def.desc}
-                    className={`shrink-0 rounded-lg px-2.5 py-1.5 font-ui text-[11px] font-bold transition active:scale-95 ${
-                      canBuy
-                        ? 'bg-[#E24B3B] text-white shadow-[0_3px_0_#9c2f22] hover:bg-[#ef5a4a]'
-                        : 'cursor-not-allowed bg-[#d9c6a8] text-[#8a755c]'
-                    }`}
-                  >
-                    🍿 {def.price}
-                  </button>
-                )}
-              </li>
-            )
-          })}
-        </ul>
+                </li>
+              )
+            })}
+          </ul>
+        )}
         <p className="mt-2 font-ui text-[10px] leading-snug text-[#a97c50]">
-          Очки попкорна = опыт: играй забеги и копи на лучшую лапку!
+          Очки попкорна = опыт: играй забеги и копи на улучшения!
         </p>
         <div className="mt-2.5">
           <GameButton onClick={onClose}>ЗАКРЫТЬ</GameButton>
@@ -347,8 +485,44 @@ function ShopOverlay({
   )
 }
 
-/** Топ-10 забегов на этом устройстве */
-function LeadersOverlay({ leaders, onClose }: { leaders: LeaderEntry[]; onClose: () => void }) {
+/** Топ-10 на устройстве + мировая таблица (если подключена база) */
+function LeadersOverlay({
+  leaders,
+  onClose,
+}: {
+  leaders: LeaderEntry[]
+  onClose: () => void
+}) {
+  const [world, setWorld] = useState<{
+    status: 'loading' | 'on' | 'off'
+    rows: OnlineLeader[]
+  }>({ status: 'loading', rows: [] })
+  const [tab, setTab] = useState<'world' | 'local'>('world')
+
+  useEffect(() => {
+    let alive = true
+    fetch('/api/leaders')
+      .then((r) => r.json())
+      .then((d: { online?: boolean; leaders?: OnlineLeader[] }) => {
+        if (!alive) return
+        if (d?.online && Array.isArray(d.leaders)) {
+          setWorld({ status: 'on', rows: d.leaders })
+          setTab('world')
+        } else {
+          setWorld({ status: 'off', rows: [] })
+          setTab('local')
+        }
+      })
+      .catch(() => {
+        if (!alive) return
+        setWorld({ status: 'off', rows: [] })
+        setTab('local')
+      })
+    return () => {
+      alive = false
+    }
+  }, [])
+
   return (
     <motion.div
       className="absolute inset-0 z-40 flex items-center justify-center overflow-y-auto bg-black/70 p-4 backdrop-blur-sm"
@@ -366,19 +540,75 @@ function LeadersOverlay({ leaders, onClose }: { leaders: LeaderEntry[]; onClose:
         <div aria-hidden className="text-3xl">
           🏆
         </div>
-        <h2 className="mt-0.5 font-pixel text-xl font-bold text-[#B33A26]">СПИСОК ЛИДЕРОВ</h2>
-        <p className="mt-1 font-ui text-xs font-medium text-[#8a5330]">
-          Топ-10 забегов на этом устройстве
-        </p>
-        {leaders.length === 0 ? (
+        <h2 className="mt-0.5 font-pixel text-xl font-bold text-[#B33A26]">ЛИДЕРЫ</h2>
+
+        {world.status === 'on' ? (
+          <div className="mt-2.5 grid grid-cols-2 gap-1.5 rounded-xl bg-[#f3e2c8] p-1">
+            {(
+              [
+                ['world', '🌐 МИР'],
+                ['local', '📱 МОЙ ТЕЛЕФОН'],
+              ] as const
+            ).map(([id, label]) => (
+              <button
+                key={id}
+                type="button"
+                onClick={() => setTab(id)}
+                className={`rounded-lg px-2 py-1.5 font-pixel text-[11px] font-bold transition ${
+                  tab === id
+                    ? 'bg-[#E24B3B] text-white shadow-[0_2px_0_#9c2f22]'
+                    : 'text-[#8a5330] hover:bg-[#eed7b4]'
+                }`}
+              >
+                {label}
+              </button>
+            ))}
+          </div>
+        ) : (
+          <p className="mt-1 font-ui text-xs font-medium text-[#8a5330]">
+            {world.status === 'loading'
+              ? 'Проверяем мировую таблицу…'
+              : 'Топ-10 забегов на этом устройстве · мировая таблица скоро!'}
+          </p>
+        )}
+
+        {tab === 'local' || world.status !== 'on' ? (
+          leaders.length === 0 ? (
+            <p className="mt-4 font-ui text-sm font-medium text-[#5C3A1E]">
+              Пока пусто — поставь первый рекорд! 🍿
+            </p>
+          ) : (
+            <ol className={`mt-3 max-h-[42vh] space-y-1.5 overflow-y-auto pr-1 sm:max-h-72 ${OVERLAY_SCROLL}`}>
+              {leaders.map((e, i) => (
+                <li
+                  key={`${e.date}-${e.score}-${i}`}
+                  className={`flex items-center gap-2 rounded-xl border-2 px-2.5 py-1.5 ${
+                    i === 0 ? 'border-amber-400 bg-amber-50' : 'border-[#e3cba4] bg-[#fdf3e0]'
+                  }`}
+                >
+                  <span aria-hidden className="w-7 text-center font-pixel text-sm">
+                    {i < 3 ? ['🥇', '🥈', '🥉'][i] : i + 1}
+                  </span>
+                  <Popcorn className="h-4 w-4 shrink-0 text-amber-500" aria-hidden />
+                  <span className="font-pixel text-base font-bold tabular-nums text-[#5C3A1E]">
+                    {e.score}
+                  </span>
+                  <span className="ml-auto font-ui text-[11px] text-[#8a5330]">
+                    ур. {e.level} · {new Date(e.date).toLocaleDateString('ru-RU')}
+                  </span>
+                </li>
+              ))}
+            </ol>
+          )
+        ) : world.rows.length === 0 ? (
           <p className="mt-4 font-ui text-sm font-medium text-[#5C3A1E]">
-            Пока пусто — поставь первый рекорд! 🍿
+            Мировая таблица ждёт первый рекорд — стань первым! 🌍
           </p>
         ) : (
-          <ol className={`mt-3 max-h-[46vh] space-y-1.5 overflow-y-auto pr-1 sm:max-h-80 ${OVERLAY_SCROLL}`}>
-            {leaders.map((e, i) => (
+          <ol className={`mt-3 max-h-[42vh] space-y-1.5 overflow-y-auto pr-1 sm:max-h-72 ${OVERLAY_SCROLL}`}>
+            {world.rows.map((e, i) => (
               <li
-                key={`${e.date}-${e.score}-${i}`}
+                key={`${e.date}-${e.name}-${i}`}
                 className={`flex items-center gap-2 rounded-xl border-2 px-2.5 py-1.5 ${
                   i === 0 ? 'border-amber-400 bg-amber-50' : 'border-[#e3cba4] bg-[#fdf3e0]'
                 }`}
@@ -386,13 +616,14 @@ function LeadersOverlay({ leaders, onClose }: { leaders: LeaderEntry[]; onClose:
                 <span aria-hidden className="w-7 text-center font-pixel text-sm">
                   {i < 3 ? ['🥇', '🥈', '🥉'][i] : i + 1}
                 </span>
+                <span className="min-w-0 flex-1 truncate text-left font-pixel text-sm font-bold text-[#5C3A1E]">
+                  {e.name}
+                </span>
                 <Popcorn className="h-4 w-4 shrink-0 text-amber-500" aria-hidden />
                 <span className="font-pixel text-base font-bold tabular-nums text-[#5C3A1E]">
                   {e.score}
                 </span>
-                <span className="ml-auto font-ui text-[11px] text-[#8a5330]">
-                  ур. {e.level} · {new Date(e.date).toLocaleDateString('ru-RU')}
-                </span>
+                <span className="shrink-0 font-ui text-[11px] text-[#8a5330]">ур. {e.level}</span>
               </li>
             ))}
           </ol>
@@ -440,13 +671,19 @@ function RulesOverlay({ onClose }: { onClose: () => void }) {
             Лапка растёт: сначала несёт 3 зерна, после 5-го уровня — 4, после 10-го — 5!
           </HowToRow>
           <HowToRow icon="🎁">Между уровнями открывай сундучок со случайным перком: бывают бонусы и проклятья</HowToRow>
+          <HowToRow icon="🔥">
+            Комбо: за каждую сдачу без мины растёт серия — множитель доходит до ×5! Мина или голубь сбрасывают серию
+          </HowToRow>
+          <HowToRow icon="🐦">
+            С 3-го уровня прилетает голубь-воришка: он таскает попкорн из стаканчика — отпугни лапкой и получи +2!
+          </HowToRow>
           <HowToRow icon="♾️">
             Каждые 5 уровней попкорна и мин больше, зёрна мельчают, а мины толстеют. Держись!
           </HowToRow>
           <HowToRow icon="🛒">
-            Очки попкорна = опыт: капают в банк сразу, играй и покупай лапки в магазине — их
-            улучшения действуют постоянно!
+            Очки попкорна = опыт: капают в банк сразу. В магазине — лапки и постоянные апгрейды: большой стаканчик, вторая жизнь, стартовый перк!
           </HowToRow>
+          <HowToRow icon="🏅">Выполняй достижения — они открываются в меню навсегда</HowToRow>
           <HowToRow icon="⏹">
             Кнопка «КОНЕЦ ИГРЫ» справа внизу — сразу в меню. Собранный опыт сохраняется!
           </HowToRow>
@@ -454,6 +691,7 @@ function RulesOverlay({ onClose }: { onClose: () => void }) {
         </ul>
         <p className="mt-2.5 font-ui text-[11px] leading-snug text-[#a97c50]">
           🎵 Лучше со звуком: музыка ускоряется на 30-й, 15-й и последних секундах!
+          <br />📱 На iPhone: «Поделиться» → «На экран „Домой“» — игра установится как приложение.
         </p>
         <div className="mt-3">
           <GameButton onClick={onClose}>ПОНЯТНО!</GameButton>
@@ -513,6 +751,151 @@ function CreatorsOverlay({ onClose }: { onClose: () => void }) {
   )
 }
 
+/** Экран «Достижения»: медали за игровые подвиги */
+function AchievementsOverlay({
+  unlocked,
+  onClose,
+}: {
+  unlocked: AchId[]
+  onClose: () => void
+}) {
+  return (
+    <motion.div
+      className="absolute inset-0 z-40 flex items-center justify-center overflow-y-auto bg-black/70 p-4 backdrop-blur-sm"
+      initial={{ opacity: 0 }}
+      animate={{ opacity: 1 }}
+      exit={{ opacity: 0 }}
+    >
+      <motion.div
+        className="my-auto w-full max-w-sm rounded-2xl border-4 border-[#8a5330] bg-[#FFF6E6] p-4 text-center shadow-[0_18px_50px_rgba(0,0,0,0.55)] sm:p-5"
+        initial={{ scale: 0.92, y: 14 }}
+        animate={{ scale: 1, y: 0 }}
+        exit={{ scale: 0.95, opacity: 0 }}
+        transition={{ type: 'spring', stiffness: 260, damping: 22 }}
+      >
+        <div aria-hidden className="text-3xl">
+          🏅
+        </div>
+        <h2 className="mt-0.5 font-pixel text-xl font-bold text-[#B33A26]">ДОСТИЖЕНИЯ</h2>
+        <p className="mt-1 font-ui text-xs font-medium text-[#8a5330]">
+          Открыто {unlocked.length} из {ACHIEVEMENTS.length}
+        </p>
+        <div
+          className={`mt-3 grid max-h-[42vh] grid-cols-2 gap-2 overflow-y-auto pr-1 text-left sm:max-h-72 ${OVERLAY_SCROLL}`}
+        >
+          {ACHIEVEMENTS.map((a) => {
+            const got = unlocked.includes(a.id)
+            return (
+              <div
+                key={a.id}
+                className={`rounded-xl border-2 p-2 ${
+                  got
+                    ? 'border-amber-400 bg-gradient-to-b from-amber-50 to-amber-100 shadow-[0_2px_0_#e8c96a]'
+                    : 'border-[#e3cba4] bg-[#f3e9d8] opacity-70 grayscale'
+                }`}
+              >
+                <div className="flex items-center gap-1.5">
+                  <span aria-hidden className="text-xl">
+                    {got ? a.icon : '🔒'}
+                  </span>
+                  <span
+                    className={`truncate font-pixel text-[11px] font-bold ${got ? 'text-[#5C3A1E]' : 'text-[#a97c50]'}`}
+                  >
+                    {a.name}
+                  </span>
+                </div>
+                <p
+                  className={`mt-1 font-ui text-[10px] leading-tight ${got ? 'text-[#8a5330]' : 'text-[#b39a76]'}`}
+                >
+                  {a.desc}
+                </p>
+              </div>
+            )
+          })}
+        </div>
+        <div className="mt-3">
+          <GameButton onClick={onClose}>ЗАКРЫТЬ</GameButton>
+        </div>
+      </motion.div>
+    </motion.div>
+  )
+}
+
+/* ---------- шаринг рекорда: картинка-карточка + Web Share API ---------- */
+
+async function shareResult(score: number, level: number, best: number): Promise<'shared' | 'copied' | 'fail'> {
+  const text = `Я набрал ${score} очков (уровень ${level}) в «Кошачьем попкорнном Беспределе»! 🐱🍿`
+  const url = typeof window !== 'undefined' ? window.location.origin : ''
+  try {
+    // Рисуем праздничную карточку результата
+    const card = document.createElement('canvas')
+    card.width = 600
+    card.height = 600
+    const c = card.getContext('2d')
+    if (!c) throw new Error('no ctx')
+    c.fillStyle = '#1d110b'
+    c.fillRect(0, 0, 600, 600)
+    c.fillStyle = '#E24B3B'
+    c.fillRect(20, 20, 560, 560)
+    c.fillStyle = '#FFF6E6'
+    c.fillRect(38, 38, 524, 524)
+    c.imageSmoothingEnabled = false
+    const spr = makePopcornSprite(false)
+    c.drawImage(spr.canvas, 300 - 80, 66, 160, 160)
+    c.textAlign = 'center'
+    c.fillStyle = '#B33A26'
+    c.font = '700 46px "Handjet", system-ui, sans-serif'
+    c.fillText('КОШАЧИЙ ПОПКОРННЫЙ', 300, 282)
+    c.fillText('БЕСПРЕДЕЛ', 300, 326)
+    c.fillStyle = '#5C3A1E'
+    c.font = '700 150px "Handjet", system-ui, sans-serif'
+    c.fillText(String(score), 300, 480)
+    c.fillStyle = '#8a5330'
+    c.font = '600 32px "Handjet", system-ui, sans-serif'
+    c.fillText(`уровень ${level} · рекорд ${best}`, 300, 532)
+    c.fillStyle = '#E24B3B'
+    c.font = '600 28px "Handjet", system-ui, sans-serif'
+    c.fillText(url.replace(/^https?:\/\//, '') || 'popcorn-lapi.vercel.app', 300, 574)
+
+    const blob = await new Promise<Blob | null>((resolve) => card.toBlob(resolve, 'image/png'))
+    const file = blob ? new File([blob], 'popcorn-record.png', { type: 'image/png' }) : null
+    const nav = navigator as Navigator & { canShare?: (d: ShareData) => boolean }
+    if (file && nav.canShare?.({ files: [file] })) {
+      await navigator.share({
+        files: [file],
+        title: 'Кошачий попкорнный Беспредел',
+        text,
+      })
+      return 'shared'
+    }
+    if (navigator.share) {
+      await navigator.share({ title: 'Кошачий попкорнный Беспредел', text: `${text}\n${url}` })
+      return 'shared'
+    }
+    try {
+      await navigator.clipboard.writeText(`${text}\n${url}`)
+      return 'copied'
+    } catch {
+      // Запасной путь: скрытая textarea + execCommand (старые браузеры/строгие права)
+      const ta = document.createElement('textarea')
+      ta.value = `${text}\n${url}`
+      ta.style.position = 'fixed'
+      ta.style.opacity = '0'
+      document.body.appendChild(ta)
+      ta.select()
+      try {
+        if (document.execCommand('copy')) return 'copied'
+      } finally {
+        document.body.removeChild(ta)
+      }
+    }
+    return 'fail'
+  } catch {
+    // Пользователь отменил системное окно — это не ошибка
+    return 'fail'
+  }
+}
+
 /* ---------- основной компонент ---------- */
 
 export function PopcornGame() {
@@ -539,6 +922,10 @@ export function PopcornGame() {
     carryMax: 3,
     freezeLeft: 0,
     paused: false,
+    streak: 0,
+    comboMult: 1,
+    goldenCount: 0,
+    pigeonShooed: 0,
   })
   const [bestRaw, storeBest] = useStoredValue(BEST_KEY, '0')
   const [mutedRaw, storeMuted] = useStoredValue(MUTE_KEY, '0')
@@ -551,15 +938,31 @@ export function PopcornGame() {
   const [runLevel, setRunLevel] = useState(2)
   const [perk, setPerk] = useState<PerkId | null>(null)
 
-  /* Мета-прогресс: опыт, магазин лапок и список лидеров */
+  /* Мета-прогресс: опыт, магазин лапок, апгрейды, ачивки, лидеры, имя */
   const [xpRaw, storeXp] = useStoredValue(XP_KEY, '0')
   const [pawRaw, storePaw] = useStoredValue(PAW_KEY, DEFAULT_PAW)
   const [ownedRaw, storeOwned] = useStoredValue(OWNED_KEY, JSON.stringify([DEFAULT_PAW]))
   const [leadersRaw] = useStoredValue(LEADERS_KEY, '[]')
-  const [overlay, setOverlay] = useState<'leaders' | 'shop' | 'creators' | 'rules' | null>(null)
+  const [upgRaw, storeUpgrades] = useStoredValue(UPG_KEY, JSON.stringify({ capacity: 0, life: 0, startperk: 0 }))
+  const [achRaw] = useStoredValue(ACH_KEY, '[]')
+  const [nameRaw, storeName] = useStoredValue(NAME_KEY, 'Котик')
+  const [overlay, setOverlay] = useState<'leaders' | 'shop' | 'creators' | 'rules' | 'ach' | null>(null)
+  const [achToast, setAchToast] = useState<{ icon: string; name: string } | null>(null)
+  const [shareNote, setShareNote] = useState<string | null>(null)
+  const installRef = useRef<InstallPromptEvent | null>(null)
+  const [canInstall, setCanInstall] = useState(false)
 
   const xp = Math.max(0, Number(xpRaw) || 0)
   const equippedPaw: PawId = PAW_MAP[pawRaw as PawId] ? (pawRaw as PawId) : DEFAULT_PAW
+  const upgrades = useMemo<UpgradeState>(() => parseUpgrades(upgRaw), [upgRaw])
+  const unlockedAch = useMemo<AchId[]>(() => {
+    try {
+      const v: unknown = JSON.parse(achRaw)
+      return Array.isArray(v) ? (v as AchId[]) : []
+    } catch {
+      return []
+    }
+  }, [achRaw])
   const ownedPaws = useMemo<PawId[]>(() => {
     try {
       const v: unknown = JSON.parse(ownedRaw)
@@ -637,6 +1040,43 @@ export function PopcornGame() {
     window.dispatchEvent(new Event(STORE_EVENT))
   }, [])
 
+  /** Открыть достижения с тостом и фанфарой */
+  const announceAch = useCallback((ids: AchId[]) => {
+    if (ids.length === 0) return
+    const fresh = unlockMany(ids)
+    if (fresh.length === 0) return
+    const def = ACH_MAP[fresh[0]]
+    setAchToast({ icon: def.icon, name: def.name })
+    audio.play('record')
+    window.setTimeout(() => setAchToast(null), 3200)
+  }, [])
+
+  /* PWA: ловим событие установки и регистрируем service worker (только прод) */
+  useEffect(() => {
+    const onBip = (e: Event) => {
+      e.preventDefault()
+      installRef.current = e as InstallPromptEvent
+      setCanInstall(true)
+    }
+    window.addEventListener('beforeinstallprompt', onBip)
+    if (process.env.NODE_ENV === 'production' && 'serviceWorker' in navigator) {
+      navigator.serviceWorker.register('/sw.js').catch(() => {})
+    }
+    return () => window.removeEventListener('beforeinstallprompt', onBip)
+  }, [])
+
+  const handleInstall = useCallback(async () => {
+    const ev = installRef.current
+    if (!ev) return
+    audio.play('click')
+    void ev.prompt()
+    const choice = await ev.userChoice
+    if (choice.outcome === 'accepted') {
+      installRef.current = null
+      setCanInstall(false)
+    }
+  }, [])
+
   /* Инициализация движка */
   useEffect(() => {
     const canvas = canvasRef.current
@@ -652,6 +1092,13 @@ export function PopcornGame() {
           lastScoreRef.current = s.score
           addXpDelta(delta)
         }
+        /* Достижения по ходу забега */
+        const cand: AchId[] = []
+        if (s.goldenCount > 0) cand.push('golden1')
+        if (s.streak >= 10) cand.push('combo10')
+        if (s.pigeonShooed > 0) cand.push('pigeon1')
+        if ((Number(window.localStorage.getItem(XP_KEY) ?? 0) || 0) >= 1000) cand.push('rich1k')
+        if (cand.length > 0) announceAch(cand)
       },
       onLevelComplete: (r) => {
         setClearInfo({ level: r.level, bonus: r.bonus })
@@ -681,7 +1128,25 @@ export function PopcornGame() {
         list = list.slice(0, 10)
         window.localStorage.setItem(LEADERS_KEY, JSON.stringify(list))
         window.dispatchEvent(new Event(STORE_EVENT))
-        setResult({ score: r.score, level: r.level, record, rank: list.indexOf(entry) })
+        /* Достижения конца забега */
+        const cand: AchId[] = []
+        if (r.score >= 100) cand.push('score100')
+        if (r.level >= 5) cand.push('level5')
+        if (r.level >= 10) cand.push('level10')
+        announceAch(cand)
+        /* «Девятая жизнь»: если апгрейд куплен и ещё не потрачен — предлагаем второй шанс */
+        const ups = parseUpgrades(window.localStorage.getItem(UPG_KEY))
+        const canRevive = ups.life > 0 && !(engineRef.current?.lifeSpent ?? true)
+        /* Мировая таблица: отправляем только финальный забег */
+        if (!canRevive) {
+          const name = (window.localStorage.getItem(NAME_KEY) || 'Котик').trim() || 'Котик'
+          void fetch('/api/leaders', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ name, score: r.score, level: r.level }),
+          }).catch(() => {})
+        }
+        setResult({ score: r.score, level: r.level, record, rank: list.indexOf(entry), canRevive })
         setPhase('ended')
       },
     })
@@ -694,7 +1159,7 @@ export function PopcornGame() {
       engineRef.current = null
       delete (window as unknown as { __popcornEngine?: PopcornEngine }).__popcornEngine
     }
-  }, [storeBest, addXpDelta])
+  }, [storeBest, addXpDelta, announceAch])
 
   /* Следим за размером контейнера */
   useEffect(() => {
@@ -766,7 +1231,6 @@ export function PopcornGame() {
   const startGame = useCallback(() => {
     setResult(null)
     setClearInfo(null)
-    setPerk(null)
     lastScoreRef.current = 0
     transformRef.current = 'none'
     const canvas = canvasRef.current
@@ -775,8 +1239,17 @@ export function PopcornGame() {
     audio.setMuted(mutedRef.current)
     audio.startMusic()
     audio.play('click')
+    /* Постоянные апгрейды: вместимость — в движок, счастливый сундучок — случайный бонус-перк */
+    const ups = parseUpgrades(window.localStorage.getItem(UPG_KEY))
+    engineRef.current?.setUpgrades({ carryPlus: ups.capacity })
+    let startPerk: PerkId | null = null
+    if (ups.startperk > 0) {
+      const bonusPool = PERKS.filter((p) => !p.curse)
+      startPerk = bonusPool[Math.floor(Math.random() * bonusPool.length)]?.id ?? null
+    }
     engineRef.current?.setPawSkin(equippedRef.current)
-    engineRef.current?.startRun({ fast: devRef.current.fast })
+    engineRef.current?.startRun({ fast: devRef.current.fast, perk: startPerk })
+    setPerk(startPerk)
     setPhase('playing')
   }, [])
 
@@ -830,6 +1303,28 @@ export function PopcornGame() {
     storeMuted(muted ? '0' : '1')
   }, [muted, storeMuted])
 
+  /** «Девятая жизнь»: продолжить проваленный забег (+15 секунд) */
+  const reviveRun = useCallback(() => {
+    audio.ensure()
+    audio.setMuted(mutedRef.current)
+    audio.startMusic()
+    audio.play('click')
+    if (engineRef.current?.revive()) {
+      setPhase('playing')
+    }
+  }, [])
+
+  /** Поделиться рекордом: карточка-картинка, а на ПК — копирование текста */
+  const handleShare = useCallback(async () => {
+    if (!result) return
+    audio.play('click')
+    const r = await shareResult(result.score, result.level, best)
+    if (r === 'copied') setShareNote('Текст скопирован!')
+    else if (r === 'shared') setShareNote('Отправлено!')
+    else setShareNote('Не удалось — расскажите друзьям словами 🐾')
+    window.setTimeout(() => setShareNote(null), 2600)
+  }, [result, best])
+
   const openChest = useCallback((i: number) => {
     audio.play('chest')
     setOpenedIdx(i)
@@ -862,11 +1357,36 @@ export function PopcornGame() {
       }
       audio.play('perk')
       storeXp(String(bank - def.price))
-      storeOwned(JSON.stringify([...ownedPaws, def.id]))
+      const nextOwned = [...ownedPaws, def.id]
+      storeOwned(JSON.stringify(nextOwned))
       storePaw(def.id)
       engineRef.current?.setPawSkin(def.id)
+      announceAch(['shopper'])
+      if (nextOwned.length >= 5) announceAch(['collector'])
     },
-    [ownedPaws, storeXp, storeOwned, storePaw, equipPaw],
+    [ownedPaws, storeXp, storeOwned, storePaw, equipPaw, announceAch],
+  )
+
+  /** Покупка постоянного апгрейда за опыт */
+  const buyUpgrade = useCallback(
+    (id: UpgradeId) => {
+      const def = UPGRADE_MAP[id]
+      const state = parseUpgrades(window.localStorage.getItem(UPG_KEY))
+      const level = state[id]
+      if (level >= def.prices.length) return
+      const cost = def.prices[level]
+      const bank = Math.max(0, Number(window.localStorage.getItem(XP_KEY) ?? 0) || 0)
+      if (bank < cost) {
+        audio.play('penalty')
+        return
+      }
+      audio.play('perk')
+      storeXp(String(bank - cost))
+      storeUpgrades(JSON.stringify({ ...state, [id]: level + 1 }))
+      /* Вместимость подействует с нового забега; жизнь и старт-перк — сразу */
+      announceAch(['upgrade1'])
+    },
+    [storeXp, storeUpgrades, announceAch],
   )
 
   const sec = Math.ceil(stats.timeLeft)
@@ -953,6 +1473,14 @@ export function PopcornGame() {
                     {stats.carrying}/{stats.carryMax}
                   </span>
                 </Pill>
+                {/* Комбо: множитель за серию сдач без мины */}
+                {stats.comboMult > 1 && (
+                  <Pill className="border-amber-300/60 text-amber-200">
+                    <span aria-hidden>🔥</span>
+                    <span className="font-pixel tabular-nums">×{stats.comboMult}</span>
+                    <span className="text-[10px] opacity-80">серия {stats.streak}</span>
+                  </Pill>
+                )}
                 <Pill className={`relative overflow-hidden ${urgent ? 'animate-pulse border-red-400/60' : ''}`}>
                   <span
                     aria-hidden
@@ -1081,7 +1609,7 @@ export function PopcornGame() {
                   </button>
                 </div>
 
-                <div className="mt-2 grid grid-cols-3 gap-2">
+                <div className="mt-2 grid grid-cols-4 gap-1.5">
                   <MenuSmallBtn
                     onClick={() => setOverlay('leaders')}
                     icon={<Trophy className="h-4 w-4" aria-hidden />}
@@ -1095,12 +1623,28 @@ export function PopcornGame() {
                     ЛАПКИ
                   </MenuSmallBtn>
                   <MenuSmallBtn
+                    onClick={() => setOverlay('ach')}
+                    icon={<span aria-hidden className="text-sm">🏅</span>}
+                  >
+                    АЧИВКИ
+                  </MenuSmallBtn>
+                  <MenuSmallBtn
                     onClick={() => setOverlay('creators')}
                     icon={<Heart className="h-4 w-4" aria-hidden />}
                   >
                     СОЗДАТЕЛИ
                   </MenuSmallBtn>
                 </div>
+
+                {canInstall && (
+                  <button
+                    type="button"
+                    onClick={() => void handleInstall()}
+                    className="mt-2 flex w-full items-center justify-center gap-2 rounded-xl border-2 border-[#8a5330] bg-[#f3e2c8] px-4 py-2 font-pixel text-sm font-bold text-[#8a5330] transition hover:bg-[#eed7b4] active:scale-[0.98]"
+                  >
+                    <Smartphone className="h-4 w-4" aria-hidden /> УСТАНОВИТЬ НА ТЕЛЕФОН
+                  </button>
+                )}
               </motion.div>
             </motion.div>
           )}
@@ -1304,6 +1848,26 @@ export function PopcornGame() {
                   </p>
                 )}
 
+                {/* Имя для мировой таблицы лидеров */}
+                <div className="mt-3 text-left">
+                  <label
+                    htmlFor="leader-name"
+                    className="font-ui text-[10px] font-semibold text-[#8a5330]"
+                  >
+                    Имя в мировой таблице:
+                  </label>
+                  <input
+                    id="leader-name"
+                    type="text"
+                    inputMode="text"
+                    maxLength={24}
+                    value={nameRaw}
+                    onChange={(e) => storeName(e.target.value.slice(0, 24))}
+                    placeholder="Котик"
+                    className="mt-1 w-full rounded-lg border-2 border-[#e3cba4] bg-white/70 px-2.5 py-1.5 font-ui text-sm text-[#5C3A1E] outline-none transition focus:border-amber-400"
+                  />
+                </div>
+
                 {result.record ? (
                   <motion.div
                     className="mt-4 inline-block rounded-full bg-amber-400 px-4 py-2 font-ui text-xs font-bold text-[#5C3A1E] shadow-md"
@@ -1320,11 +1884,24 @@ export function PopcornGame() {
                 )}
 
                 <div className="mt-5 space-y-2">
+                  {result.canRevive && (
+                    <GameButton onClick={reviveRun}>❤️ ВТОРОЙ ШАНС · +15 СЕК</GameButton>
+                  )}
                   <GameButton onClick={startGame}>
                     <span className="inline-flex items-center justify-center gap-2">
                       <RotateCcw className="h-5 w-5" aria-hidden /> ЗАБЕГ ЗАНОВО
                     </span>
                   </GameButton>
+                  <button
+                    type="button"
+                    onClick={() => void handleShare()}
+                    className="flex w-full items-center justify-center gap-2 rounded-xl border-2 border-[#8a5330] bg-[#f3e2c8] px-4 py-2 font-pixel text-sm font-bold text-[#8a5330] transition hover:bg-[#eed7b4] active:scale-[0.98]"
+                  >
+                    <Share2 className="h-4 w-4" aria-hidden /> ПОДЕЛИТЬСЯ РЕКОРДОМ
+                  </button>
+                  {shareNote && (
+                    <p className="font-ui text-[11px] font-semibold text-emerald-700">{shareNote}</p>
+                  )}
                   <button
                     type="button"
                     onClick={quitToMenu}
@@ -1338,7 +1915,7 @@ export function PopcornGame() {
           )}
         </AnimatePresence>
 
-        {/* Оверлеи меню: список лидеров / магазин лапок / создатели / правила */}
+        {/* Оверлеи меню: список лидеров / магазин / достижения / создатели / правила */}
         <AnimatePresence>
           {overlay === 'leaders' && (
             <LeadersOverlay leaders={leaders} onClose={() => setOverlay(null)} />
@@ -1348,13 +1925,46 @@ export function PopcornGame() {
               xp={xp}
               owned={ownedPaws}
               equipped={equippedPaw}
+              upgrades={upgrades}
               onBuy={buyPaw}
               onEquip={equipPaw}
+              onBuyUpgrade={buyUpgrade}
               onClose={() => setOverlay(null)}
             />
           )}
+          {overlay === 'ach' && (
+            <AchievementsOverlay unlocked={unlockedAch} onClose={() => setOverlay(null)} />
+          )}
           {overlay === 'creators' && <CreatorsOverlay onClose={() => setOverlay(null)} />}
           {overlay === 'rules' && <RulesOverlay onClose={() => setOverlay(null)} />}
+        </AnimatePresence>
+
+        {/* Тост нового достижения */}
+        <AnimatePresence>
+          {achToast && (
+            <motion.div
+              key={`${achToast.name}-${unlockedAch.length}`}
+              className="absolute bottom-16 left-1/2 z-50 -translate-x-1/2"
+              initial={{ opacity: 0, y: 24, scale: 0.9 }}
+              animate={{ opacity: 1, y: 0, scale: 1 }}
+              exit={{ opacity: 0, y: 12, scale: 0.95 }}
+              transition={{ type: 'spring', stiffness: 320, damping: 24 }}
+            >
+              <div className="flex items-center gap-2 rounded-full border-2 border-amber-300 bg-[#2b1a0e]/95 px-4 py-2 shadow-[0_8px_24px_rgba(0,0,0,0.6)]">
+                <span aria-hidden className="text-xl">
+                  {achToast.icon}
+                </span>
+                <div>
+                  <div className="font-ui text-[9px] font-bold uppercase tracking-wider text-amber-300">
+                    Достижение открыто!
+                  </div>
+                  <div className="font-pixel text-sm font-bold leading-tight text-white">
+                    {achToast.name}
+                  </div>
+                </div>
+              </div>
+            </motion.div>
+          )}
         </AnimatePresence>
       </main>
 

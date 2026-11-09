@@ -17,6 +17,8 @@ export type SfxName =
   | 'perk'
   | 'levelwin'
   | 'meow'
+  | 'pigeon'
+  | 'shoo'
 
 const NOTE_OFFSETS: Record<string, number> = {
   C: 0,
@@ -314,6 +316,17 @@ class ChipTuneAudio {
         // «Мяу!» кота-бонуса: два скольжения квадратной волной
         this.tone('square', 740, t, 0.11, 0.18, bus, 1080)
         this.tone('square', 900, t + 0.13, 0.2, 0.18, bus, 430)
+        break
+      case 'pigeon':
+        // «Жух-жуу» голубя: низкое воркование треугольной волной
+        this.tone('triangle', 320, t, 0.16, 0.3, bus, 240)
+        this.tone('triangle', 280, t + 0.2, 0.24, 0.3, bus, 190)
+        break
+      case 'shoo':
+        // Отгон голубя: резкий взлёт вверх + шорох крыльев
+        this.tone('square', 480, t, 0.1, 0.24, bus, 1050)
+        this.noise(t + 0.05, 0.22, 0.16, 'bandpass', 2400, bus)
+        this.tone('triangle', 700, t + 0.12, 0.18, 0.18, bus, 1500)
         break
     }
   }

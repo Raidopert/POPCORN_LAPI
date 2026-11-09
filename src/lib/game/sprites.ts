@@ -328,6 +328,45 @@ export function makeSparkleSprite(): Sprite {
   return renderGrid(g)
 }
 
+/* ================= Голубь-воришка (2 кадра взмаха) ================= */
+
+export function makePigeonSprite(flap = false): Sprite {
+  const g = createGrid(18, 15)
+  const body = '#8E9AA6'
+  const dark = '#5F6B76'
+  const belly = '#E8E4DC'
+  const beak = '#F2A24B'
+  const eye = '#22150C'
+  const wing = '#77828D'
+  const neck = '#6FA08A'
+
+  // Хвост
+  fillRect(g, 14, 8, 17, 10, dark)
+  // Крыло (за телом): вверх при взмахе, вниз в исходном
+  if (flap) {
+    paintCircle(g, 11, 3.4, 2.9, wing)
+    tintCircle(g, 12.6, 2.6, 1.6, body)
+  } else {
+    paintCircle(g, 11, 11.2, 2.7, wing)
+    tintCircle(g, 12.8, 12.0, 1.5, body)
+  }
+  // Тело
+  paintCircle(g, 10, 8.5, 4.2, body)
+  // Светлое брюшко
+  tintCircle(g, 8.4, 10.4, 2.5, belly)
+  // Голова
+  paintCircle(g, 4.6, 5.4, 2.5, dark)
+  // Зелёный отлив на шее
+  tintCircle(g, 6.6, 7.2, 1.2, neck)
+  // Клюв
+  fillRect(g, 1, 5, 3, 6, beak)
+  // Глаз
+  g[5][4] = eye
+
+  outlineGrid(g, '#3A424B')
+  return renderGrid(g)
+}
+
 /* ================= Отрисовка ================= */
 
 export function drawSprite(

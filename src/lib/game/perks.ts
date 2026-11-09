@@ -20,6 +20,9 @@ export type PerkId =
   | 'doublepoints'
   | 'bigpaw'
   | 'timeplus'
+  | 'shield'
+  | 'secondcup'
+  | 'slowmo'
 
 export interface PerkDef {
   id: PerkId
@@ -136,6 +139,27 @@ export const PERKS: PerkDef[] = [
     name: 'Кошачьи часы',
     desc: 'Целых 75 секунд на уровень вместо 60. Время — резиновое!',
     icon: '⏱️',
+    curse: false,
+  },
+  {
+    id: 'shield',
+    name: 'Кошачий щит',
+    desc: 'Первое попадание в мину за уровень прощается — щит лопается с шипением вместо минуса!',
+    icon: '🛡️',
+    curse: false,
+  },
+  {
+    id: 'secondcup',
+    name: 'Двойной стаканчик',
+    desc: 'Лапка носит на 2 зерна больше, а сдавать попкорн можно с дальнего подлёта!',
+    icon: '🥤',
+    curse: false,
+  },
+  {
+    id: 'slowmo',
+    name: 'Черепаший час',
+    desc: 'Таймер тикает на четверть медленнее: по сути, 80 секунд вместо 60!',
+    icon: '🐢',
     curse: false,
   },
 ]

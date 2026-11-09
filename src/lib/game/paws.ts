@@ -14,9 +14,13 @@ export type PawId =
   | 'flame'
   | 'lime'
   | 'teal'
+  | 'thimble'
   | 'berry'
+  | 'strawberry'
   | 'rainbow'
+  | 'neon'
   | 'leopard'
+  | 'goldenpaw'
 
 /** Постоянные улучшения лапки */
 export interface PawBonus {
@@ -141,6 +145,22 @@ export const PAWS: PawDef[] = [
     bonus: { cornCut: 1 },
   },
   {
+    id: 'thimble',
+    name: 'Напёрсток',
+    desc: 'Портновская точность: лапка и юркая, и цепкая, как игла.',
+    bonusLabel: 'Радиус +15% и лапка проворнее',
+    price: 1100,
+    palette: {
+      fur: '#C9B37E',
+      furShade: '#A98F58',
+      pad: '#EFE0BC',
+      beans: '#FBF3DC',
+      claw: '#8A6A30',
+      edge: '#6B5322',
+    },
+    bonus: { grabR: 1.15, speed: 1.1 },
+  },
+  {
     id: 'berry',
     name: 'Малиновая',
     desc: 'Сладкая и шустрая — ягодный заряд бодрости.',
@@ -155,6 +175,23 @@ export const PAWS: PawDef[] = [
       edge: '#7E1240',
     },
     bonus: { grabR: 1.2, speed: 1.2 },
+  },
+  {
+    id: 'strawberry',
+    name: 'Клубничная',
+    desc: 'Спелая ягода в крапинку — мины на неё натыкаются и стесняются.',
+    bonusLabel: '35% шанс: мина не отнимет очко',
+    price: 1600,
+    palette: {
+      fur: '#F0526A',
+      furShade: '#CC3550',
+      pad: '#FFC3CE',
+      beans: '#FFE8EC',
+      claw: '#7C1228',
+      edge: '#8E1A32',
+      spots: '#FFE8EC',
+    },
+    bonus: { guard: 0.35, goldenAdd: 0.03 },
   },
   {
     id: 'rainbow',
@@ -190,6 +227,40 @@ export const PAWS: PawDef[] = [
       spots: '#3B2B12',
     },
     bonus: { grabR: 1.15, timePlus: 5, cornCut: 1, goldenAdd: 0.04 },
+  },
+  {
+    id: 'neon',
+    name: 'Неоновая',
+    desc: 'Светится в темноте кинозала и мелькает быстрее всех!',
+    bonusLabel: 'Скорость лапки +40%',
+    price: 2100,
+    palette: {
+      fur: '#FF3DA6',
+      furShade: '#D91E86',
+      pad: '#4FFFF0',
+      beans: '#E6FFFB',
+      claw: '#7A0F52',
+      edge: '#8E135E',
+      fingers: ['#4FFFF0', '#FFE94A', '#8C5BFF'],
+    },
+    bonus: { speed: 1.4 },
+  },
+  {
+    id: 'goldenpaw',
+    name: 'Золотая лапка',
+    desc: 'Легендарный артефакт: золото липнет к ней, как попкорн к маслу!',
+    bonusLabel: 'Золота +10% и вместимость +1',
+    price: 3200,
+    palette: {
+      fur: '#FFD24A',
+      furShade: '#E0AE2C',
+      pad: '#FFF0B8',
+      beans: '#FFFBEB',
+      claw: '#8A6410',
+      edge: '#A37813',
+      spots: '#FFF0B8',
+    },
+    bonus: { goldenAdd: 0.1, carryPlus: 1 },
   },
 ]
 
