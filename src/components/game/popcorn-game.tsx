@@ -34,6 +34,14 @@ import {
 import { makeChestSprite, makePawSprite, makePopcornSprite } from '@/lib/game/sprites'
 import { DEFAULT_PAW, PAWS, PAW_MAP, type PawDef, type PawId } from '@/lib/game/paws'
 import {
+  addCoins,
+  addTotalXp,
+  charLevel,
+  charLevelProgress,
+  getCoins,
+  getTotalXp,
+} from '@/lib/game/meta'
+import {
   UPGRADES,
   UPGRADE_MAP,
   parseUpgrades,
@@ -129,6 +137,12 @@ interface ClearState {
   bonus: number
 }
 
+/** Дополнительный подарок внутри сундучка: монетки или опыт (null — только перк) */
+interface ChestExtra {
+  kind: 'coins' | 'xp'
+  n: number
+}
+
 /** Строка мировой таблицы лидеров */
 interface OnlineLeader {
   name: string
@@ -148,6 +162,8 @@ const MUTE_KEY = 'popcorn-muted'
 const STORE_EVENT = 'popcorn-store-update'
 /* Мета-прогресс: очки попкорна = опыт, магазин лапок и список лидеров */
 const XP_KEY = 'popcorn-xp'
+/** Суммарный опыт за всё время — растит уровень котика (не тратится) */
+const TOTAL_KEY = 'popcorn-totalxp'
 const PAW_KEY = 'popcorn-paw'
 const OWNED_KEY = 'popcorn-owned'
 const LEADERS_KEY = 'popcorn-leaders'
@@ -472,9 +488,10 @@ function ToggleRow({
 const OVERLAY_SCROLL =
   '[scrollbar-width:thin] [&::-webkit-scrollbar]:w-1.5 [&::-webkit-scrollbar-thumb]:rounded-full [&::-webkit-scrollbar-thumb]:bg-[#d9b98c] [&::-webkit-scrollbar-track]:bg-transparent'
 
-/** Магазин: лапки + постоянные апгрейды, покупка за опыт */
+/** Магазин: лапки (за опыт 🍿 или монетки 🪙) + постоянные апгрейды */
 function ShopOverlay({
   xp,
+  coins,
   owned,
   equipped,
   upgrades,
@@ -485,6 +502,7 @@ function ShopOverlay({
   onClose,
 }: {
   xp: number
+  coins: number
   owned: PawId[]
   equipped: PawId
   upgrades: UpgradeState
@@ -523,7 +541,7 @@ function ShopOverlay({
         </div>
         <h2 className="mt-0.5 font-pixel text-xl font-bold text-[#B33A26]">{t('shop.title')}</h2>
         <p className="mt-1 font-ui text-xs font-medium text-[#8a5330]">
-          {t('shop.xp', { n: xp })}
+          {t('shop.wallet', { x: xp, c: coins })}
         </p>
 
         {/* Вкладки: ЛАПКИ / АПГРЕЙДЫ */}
@@ -556,7 +574,8 @@ function ShopOverlay({
             {PAWS.map((def) => {
               const isOwned = owned.includes(def.id)
               const isEquipped = equipped === def.id
-              const canBuy = !isOwned && xp >= def.price
+              const cur = def.currency ?? 'xp'
+              const canBuy = !isOwned && (cur === 'coins' ? coins >= def.price : xp >= def.price)
               return (
                 <li
                   key={def.id}
@@ -567,7 +586,7 @@ function ShopOverlay({
                   <PawImg skinId={def.id} />
                   <div className="min-w-0 flex-1">
                     <div className="flex items-center gap-1.5">
-                      <span className="truncate font-pixel text-sm font-bold text-[#5C3A1E]">
+                      <span className="font-pixel text-sm font-bold leading-tight text-[#5C3A1E]">
                         {t(`paw.${def.id}.name`)}
                       </span>
                       {def.price === 0 && (
@@ -577,7 +596,7 @@ function ShopOverlay({
                       )}
                     </div>
                     <div
-                      className="truncate font-ui text-[11px] leading-tight text-[#8a5330]"
+                      className="font-ui text-[11px] leading-snug text-[#8a5330]"
                       title={t(`paw.${def.id}.desc`)}
                     >
                       {t(`paw.${def.id}.bonus`)}
@@ -607,7 +626,7 @@ function ShopOverlay({
                           : 'cursor-not-allowed bg-[#d9c6a8] text-[#8a755c]'
                       }`}
                     >
-                      🍿 {def.price}
+                      {cur === 'coins' ? '🪙' : '🍿'} {def.price}
                     </button>
                   )}
                 </li>
@@ -1609,7 +1628,11 @@ export function PopcornGame() {
   const mutedRef = useRef(false)
   const transformRef = useRef<ScreenTransform>('none')
   const layoutRef = useRef<() => void>(() => {})
-  const devRef = useRef<{ fast: boolean; forced: PerkId | null }>({ fast: false, forced: null })
+  const devRef = useRef<{ fast: boolean; forced: PerkId | null; fever: boolean }>({
+    fast: false,
+    forced: null,
+    fever: false,
+  })
   const equippedRef = useRef<PawId>(DEFAULT_PAW)
   /** Счёт забега, уже зачисленный в банк опыта (очки = опыт) */
   const lastScoreRef = useRef(0)
@@ -1633,6 +1656,9 @@ export function PopcornGame() {
     comboMult: 1,
     goldenCount: 0,
     pigeonShooed: 0,
+    fever: false,
+    feverGained: 0,
+    wave: 0,
   })
   const [bestRaw, storeBest] = useStoredValue(BEST_KEY, '0')
   const [mutedRaw, storeMuted] = useStoredValue(MUTE_KEY, '0')
@@ -1641,12 +1667,28 @@ export function PopcornGame() {
   const [result, setResult] = useState<ResultState | null>(null)
   const [clearInfo, setClearInfo] = useState<ClearState | null>(null)
   const [offers, setOffers] = useState<PerkDef[]>([])
+  /** Подарки в сундуках: монетки/опыт (null — только перк) */
+  const [extras, setExtras] = useState<Array<ChestExtra | null>>([null, null, null])
   const [openedIdx, setOpenedIdx] = useState<number | null>(null)
   const [runLevel, setRunLevel] = useState(2)
   const [perk, setPerk] = useState<PerkId | null>(null)
+  /** Тост «Котик подрос»: уровень персонажа вырос */
+  const [charToast, setCharToast] = useState<number | null>(null)
+  /** HTML-индикатор волны: виден поверх попкорнового тумана (туман — в канвасе) */
+  const [waveToast, setWaveToast] = useState<number | null>(null)
+  /** Номер волны, для которой тост уже показан — не перезапускаем анимацию */
+  const waveShownRef = useRef(0)
+  /** Таймер скрытия тоста волны: гасим при новой волне, чтобы не мигало */
+  const waveTimerRef = useRef<number | null>(null)
+  /** Тост «монетки за Лихорадку» — сколько 🪙 упало в кошелёк */
+  const [feverCoins, setFeverCoins] = useState<number | null>(null)
 
   /* Мета-прогресс: опыт, магазин лапок, апгрейды, ачивки, лидеры, имя */
   const [xpRaw, storeXp] = useStoredValue(XP_KEY, '0')
+  /** Суммарный опыт за всё время — уровень котика */
+  const [totalRaw] = useStoredValue(TOTAL_KEY, '0')
+  /** Монетки — валюта артефактных лапок */
+  const [coinsRaw] = useStoredValue('popcorn-coins', '0')
   const [pawRaw, storePaw] = useStoredValue(PAW_KEY, DEFAULT_PAW)
   const [ownedRaw, storeOwned] = useStoredValue(OWNED_KEY, JSON.stringify([DEFAULT_PAW]))
   const [leadersRaw] = useStoredValue(LEADERS_KEY, '[]')
@@ -1670,6 +1712,9 @@ export function PopcornGame() {
   const [canInstall, setCanInstall] = useState(false)
 
   const xp = Math.max(0, Number(xpRaw) || 0)
+  const coins = Math.max(0, Number(coinsRaw) || 0)
+  /** Уровень котика и прогресс внутри уровня */
+  const charInfo = useMemo(() => charLevelProgress(Math.max(0, Number(totalRaw) || 0)), [totalRaw])
   const equippedPaw: PawId = PAW_MAP[pawRaw as PawId] ? (pawRaw as PawId) : DEFAULT_PAW
   const upgrades = useMemo<UpgradeState>(() => parseUpgrades(upgRaw), [upgRaw])
   const unlockedAch = useMemo<AchId[]>(() => {
@@ -1700,12 +1745,14 @@ export function PopcornGame() {
   /* Функция перевода текущего языка */
   const t = useMemo(() => tFor(settings.lang), [settings.lang])
 
-  /* Скрытые dev-параметры URL: ?fast=1 (короткая норма) и ?perk=rot180 */
+  /* Скрытые dev-параметры URL: ?fast=1 (короткая норма), ?perk=rot180 (гарантированный перк),
+     ?fever=1 (лихорадка после каждого уровня — для проверки) */
   useEffect(() => {
     const sp = new URLSearchParams(window.location.search)
     devRef.current = {
       fast: sp.has('fast'),
       forced: (sp.get('perk') as PerkId | null) ?? null,
+      fever: sp.has('fever'),
     }
   }, [])
 
@@ -1891,13 +1938,46 @@ export function PopcornGame() {
     [t],
   )
 
-  /** Начислить дельту очков в банк опыта сразу — очки попкорна = опыт */
+  /** Начислить дельту очков в банк опыта сразу — очки попкорна = опыт.
+      Та же дельта (без минуса) капает в суммарный стаж котика. */
   const addXpDelta = useCallback((delta: number) => {
     if (!delta) return
     const cur = Math.max(0, Number(window.localStorage.getItem(XP_KEY) ?? 0) || 0)
     const next = Math.max(0, cur + delta)
     window.localStorage.setItem(XP_KEY, String(next))
+    if (delta > 0) {
+      const tot = Math.max(0, Number(window.localStorage.getItem(TOTAL_KEY) ?? 0) || 0)
+      window.localStorage.setItem(TOTAL_KEY, String(tot + delta))
+    }
     window.dispatchEvent(new Event(STORE_EVENT))
+  }, [])
+
+  /** Награда за пройденный этап: опыт стажа котика + горсть монеток.
+      Если уровень персонажа вырос — праздничный тост. */
+  const awardStage = useCallback((lvl: number) => {
+    const before = charLevel(getTotalXp())
+    addTotalXp(10 + lvl)
+    addCoins(12)
+    const after = charLevel(getTotalXp())
+    if (after > before) {
+      setCharToast(after)
+      audio.play('record')
+      window.setTimeout(() => setCharToast(null), 3400)
+    }
+  }, [])
+
+  /** Случайный подарок в каждом из трёх сундуков (или null — просто перк) */
+  const rollExtras = useCallback((): Array<ChestExtra | null> => {
+    return [0, 1, 2].map(() => {
+      const r = Math.random()
+      if (r < 0.3) {
+        return { kind: 'coins' as const, n: [15, 25, 40][Math.floor(Math.random() * 3)] ?? 15 }
+      }
+      if (r < 0.55) {
+        return { kind: 'xp' as const, n: [25, 60, 120][Math.floor(Math.random() * 3)] ?? 25 }
+      }
+      return null
+    })
   }, [])
 
   /* PWA: ловим событие установки и регистрируем service worker (только прод) */
@@ -1934,12 +2014,21 @@ export function PopcornGame() {
     const engine = new PopcornEngine(canvas, {
       onStats: (s) => {
         setStats(s)
-        /* Очки = опыт: зачисляем каждую дельту счёта в банк сразу,
-           чтобы магазин лапок работал уже между уровнями */
+        /* Очки = опыт: зачисляем каждую положительную дельту счёта в банк сразу,
+           чтобы магазин лапок работал уже между уровнями. Отрицательные дельты
+           (мины, сгоревшая Лихорадка) бьют по СЧЁТУ, но не по валюте —
+           опыт — стаж, он не сгорает */
         const delta = s.score - lastScoreRef.current
-        if (delta !== 0) {
-          lastScoreRef.current = s.score
-          addXpDelta(delta)
+        lastScoreRef.current = s.score
+        if (delta > 0) addXpDelta(delta)
+        /* HTML-индикатор «ВОЛНА N»: поверх тумана и любых тёмных комнат.
+           Таймер держим в ref: новая волна перезапускает тост, а старый
+           таймаут не гасит его раньше времени */
+        if (s.wave > 1 && s.wave !== waveShownRef.current) {
+          waveShownRef.current = s.wave
+          setWaveToast(s.wave)
+          if (waveTimerRef.current) window.clearTimeout(waveTimerRef.current)
+          waveTimerRef.current = window.setTimeout(() => setWaveToast(null), 1900)
         }
         /* Достижения по ходу забега */
         const cand: AchId[] = []
@@ -1953,11 +2042,42 @@ export function PopcornGame() {
         /* Куница NANA: уровень пройден — +1 к росту (плюс накопленные секунды) */
         growMarten(1, playSecsRef.current)
         playSecsRef.current = 0
+        /* Награда за этап: опыт стажа котика + горсть монеток (мета-прогресс) */
+        awardStage(r.level)
+        /* ЛИХОРАДКА: случайный бонусный уровень (шанс 25%, не раньше 2-го;
+           ?fever=1 — всегда). Вместо сундучка — 3 секунды безумного сбора,
+           потом сразу следующий обычный уровень */
+        if ((devRef.current.fever || Math.random() < 0.25) && r.level >= 2) {
+          setPerk(null)
+          transformRef.current = 'none'
+          const cv = canvasRef.current
+          if (cv) cv.style.filter = ''
+          layoutRef.current()
+          engineRef.current?.startFever(r.level + 1)
+          setPhase('playing')
+          return
+        }
         setClearInfo({ level: r.level, bonus: r.bonus })
         setOffers(rollOffers(3, devRef.current.forced ?? undefined))
+        setExtras(rollExtras())
         setOpenedIdx(null)
         setRunLevel(r.level + 1)
         setPhase('chest')
+      },
+      onFeverEnd: (r) => {
+        /* После лихорадки — обычный уровень: сбрасываем перк и трансформации */
+        setPerk(null)
+        transformRef.current = 'none'
+        const cv = canvasRef.current
+        if (cv) cv.style.filter = ''
+        layoutRef.current()
+        /* Монетки за успех: чем больше очков — тем щедрее награда */
+        if (r.success) {
+          const coins = Math.max(10, Math.round(r.gained / 3))
+          addCoins(coins)
+          setFeverCoins(coins)
+          window.setTimeout(() => setFeverCoins(null), 3200)
+        }
       },
       onEnd: (r) => {
         /* Куница NANA: фиксируем время забега (уровни уже учтены по ходу) */
@@ -2025,7 +2145,7 @@ export function PopcornGame() {
       engineRef.current = null
       delete (window as unknown as { __popcornEngine?: PopcornEngine }).__popcornEngine
     }
-  }, [storeBest, addXpDelta, announceAch, rollOffers, growMarten])
+  }, [storeBest, addXpDelta, announceAch, rollExtras, rollOffers, growMarten, awardStage])
 
   /* Следим за размером контейнера */
   useEffect(() => {
@@ -2226,11 +2346,20 @@ export function PopcornGame() {
     window.setTimeout(() => setShareNote(null), 2600)
   }, [result, best, t])
 
-  const openChest = useCallback((i: number) => {
-    audio.play('chest')
-    setOpenedIdx(i)
-    window.setTimeout(() => audio.play('perk'), 380)
-  }, [])
+  const openChest = useCallback(
+    (i: number) => {
+      audio.play('chest')
+      setOpenedIdx(i)
+      /* Подарок из сундука: монетки или опыт — начисляем сразу */
+      const ex = extras[i]
+      if (ex) {
+        if (ex.kind === 'coins') addCoins(ex.n)
+        else addTotalXp(ex.n)
+      }
+      window.setTimeout(() => audio.play('perk'), 380)
+    },
+    [extras],
+  )
 
   /** Надеть купленную лапку (действует и в текущем забеге) */
   const equipPaw = useCallback(
@@ -2243,21 +2372,31 @@ export function PopcornGame() {
     [ownedPaws, storePaw],
   )
 
-  /** Покупка лапки за накопленный опыт */
+  /** Покупка лапки: за опыт 🍿 или монетки 🪙 (артефактные лапки — за монетки) */
   const buyPaw = useCallback(
     (def: PawDef) => {
       if (ownedPaws.includes(def.id)) {
         equipPaw(def.id)
         return
       }
-      /* Читаем банк прямо из localStorage: очки капают в него в реальном времени */
-      const bank = Math.max(0, Number(window.localStorage.getItem(XP_KEY) ?? 0) || 0)
-      if (bank < def.price) {
-        audio.play('penalty')
-        return
+      const coins = (def.currency ?? 'xp') === 'coins'
+      if (coins) {
+        /* Артефактная лапка: монетки падают из сундучков и Лихорадки */
+        if (getCoins() < def.price) {
+          audio.play('penalty')
+          return
+        }
+        addCoins(-def.price)
+      } else {
+        /* Читаем банк прямо из localStorage: очки капают в него в реальном времени */
+        const bank = Math.max(0, Number(window.localStorage.getItem(XP_KEY) ?? 0) || 0)
+        if (bank < def.price) {
+          audio.play('penalty')
+          return
+        }
+        storeXp(String(bank - def.price))
       }
       audio.play('perk')
-      storeXp(String(bank - def.price))
       const nextOwned = [...ownedPaws, def.id]
       storeOwned(JSON.stringify(nextOwned))
       storePaw(def.id)
@@ -2295,6 +2434,9 @@ export function PopcornGame() {
   const onLevel = phase === 'playing' || phase === 'paused'
   const quotaPct = Math.min(100, (stats.collected / Math.max(1, stats.quota)) * 100)
   const chosen: PerkDef | null = openedIdx !== null ? (offers[openedIdx] ?? null) : null
+  /** Подарок выбранного сундука: монетки или опыт */
+  const chosenExtra: ChestExtra | null =
+    openedIdx !== null ? (extras[openedIdx] ?? null) : null
   const activePerk = perk ? PERK_MAP[perk] : null
   /* Локация уровня: в меню — кинозал, в игре — комната по номеру уровня */
   const activeRoom = roomForLevel(stats.level)
@@ -2347,6 +2489,13 @@ export function PopcornGame() {
             <span className="tabular-nums">{sec}</span>
           </StatPill>
           <StatPill className="font-pixel">{t('hud.level', { n: stats.level })}</StatPill>
+          {stats.fever && (
+            <StatPill className="animate-pulse border-amber-300/80 bg-amber-400/20 text-amber-200">
+              <span className="font-pixel tabular-nums">
+                {t('hud.fever', { n: stats.feverGained })}
+              </span>
+            </StatPill>
+          )}
           <StatPill className="max-w-40 sm:max-w-none">
             <span aria-hidden>{activeRoom.icon}</span>
             <span className="truncate">{t(`room.${activeRoom.id}.name`)}</span>
@@ -2360,7 +2509,7 @@ export function PopcornGame() {
               }
             >
               <span aria-hidden>{activePerk.icon}</span>
-              <span className="max-w-28 truncate sm:max-w-none">{t(`perk.${activePerk.id}.name`)}</span>
+              <span className="max-w-40 leading-tight sm:max-w-none">{t(`perk.${activePerk.id}.name`)}</span>
             </StatPill>
           )}
           <span className="ml-auto flex items-center gap-1.5">
@@ -2419,6 +2568,25 @@ export function PopcornGame() {
           className="absolute z-10 touch-none"
           onContextMenu={(e) => e.preventDefault()}
         />
+
+        {/* Индикатор «ВОЛНА N»: HTML поверх канваса — виден сквозь попкорновый
+            туман и любую темноту (туман рисуется внутри канваса) */}
+        <AnimatePresence>
+          {waveToast !== null && (phase === 'playing' || phase === 'paused') && (
+            <motion.div
+              key={`wave-${waveToast}`}
+              className="pointer-events-none absolute inset-x-0 top-14 z-20 flex justify-center"
+              initial={{ opacity: 0, y: -18, scale: 0.8 }}
+              animate={{ opacity: 1, y: 0, scale: 1 }}
+              exit={{ opacity: 0, y: -12, scale: 0.9 }}
+              transition={{ type: 'spring', stiffness: 380, damping: 24 }}
+            >
+              <span className="text-shadow-pixel rounded-full border-2 border-amber-300/70 bg-[#2b1a0e]/85 px-4 py-1.5 font-pixel text-lg font-bold text-amber-200 shadow-[0_6px_20px_rgba(0,0,0,0.5)]">
+                🌊 {t('banner.wave', { n: waveToast })}
+              </span>
+            </motion.div>
+          )}
+        </AnimatePresence>
 
         {/* HUD в меню (вне забега): рекорд слева сверху */}
         {phase === 'start' && (
@@ -2502,6 +2670,25 @@ export function PopcornGame() {
                   <div className="inline-flex items-center gap-1.5 rounded-full bg-amber-100 px-3 py-1 font-ui text-xs font-semibold text-[#8a5330] ring-2 ring-amber-200">
                     <Popcorn className="h-4 w-4 text-amber-500" aria-hidden />
                     {t('menu.xp', { n: xp })}
+                  </div>
+                  {/* Стаж котика: мета-прогресс — уровень + тонкая полоска внутри уровня */}
+                  <div
+                    className="inline-flex items-center gap-1.5 rounded-full bg-amber-100 px-3 py-1 font-ui text-xs font-semibold text-[#8a5330] ring-2 ring-amber-200"
+                    aria-label={t('menu.charLevel', { n: charInfo.level })}
+                    title={t('menu.charLevelHint')}
+                  >
+                    {t('menu.charLevel', { n: charInfo.level })}
+                    <span
+                      aria-hidden
+                      className="h-1.5 w-14 max-w-32 min-w-6 overflow-hidden rounded-full bg-[#3a2210]"
+                    >
+                      <span
+                        className="block h-full rounded-full bg-amber-200 transition-all duration-700"
+                        style={{
+                          width: `${Math.min(100, Math.round((charInfo.into / Math.max(1, charInfo.need)) * 100))}%`,
+                        }}
+                      />
+                    </span>
                   </div>
                   {worldStats && (
                     <div
@@ -2747,12 +2934,12 @@ export function PopcornGame() {
                           exit={{ opacity: 0, y: -8 }}
                           transition={{ type: 'spring', stiffness: 300, damping: 22 }}
                         >
-                          <div className="flex items-center justify-center gap-2">
-                            <span aria-hidden className="text-3xl">
+                          <div className="flex min-w-0 items-center justify-center gap-2">
+                            <span aria-hidden className="shrink-0 text-3xl">
                               {chosen.icon}
                             </span>
-                            <div className="text-left">
-                              <div className="font-pixel text-base font-bold text-[#5C3A1E] sm:text-lg">
+                            <div className="min-w-0 text-left">
+                              <div className="break-words font-pixel text-base font-bold leading-snug text-[#5C3A1E] sm:text-lg">
                                 {t(`perk.${chosen.id}.name`)}
                               </div>
                               <span
@@ -2769,6 +2956,20 @@ export function PopcornGame() {
                           <p className="mt-2 font-ui text-xs leading-snug text-[#5C3A1E]">
                             {t(`perk.${chosen.id}.desc`)}
                           </p>
+                          {/* Подарок из выбранного сундука: монетки или опыт */}
+                          {chosenExtra && (
+                            <p
+                              className={`mt-2 rounded-xl px-2.5 py-1.5 font-ui text-[11px] font-bold leading-snug ${
+                                chosenExtra.kind === 'coins'
+                                  ? 'bg-amber-100 text-[#8a5a16]'
+                                  : 'bg-sky-50 text-[#2b6a7c]'
+                              }`}
+                            >
+                              {chosenExtra.kind === 'coins'
+                                ? t('chest.bonusCoins', { n: chosenExtra.n })
+                                : t('chest.bonusXp', { n: chosenExtra.n })}
+                            </p>
+                          )}
                           <p className="mt-1.5 font-ui text-[11px] text-[#8a5330]">
                             {t('chest.quotaInfo', {
                               n: runLevel,
@@ -2792,6 +2993,39 @@ export function PopcornGame() {
                         </motion.div>
                       )}
                     </AnimatePresence>
+
+                    {/* Прозрачные сундуки: после выбора показываем, что лежало в остальных */}
+                    {chosen && offers.length > 1 && (
+                      <div className="mt-2.5 rounded-xl bg-[#f7e8cf] px-3 py-2 ring-1 ring-[#e3cba4]">
+                        <p className="font-ui text-[10px] font-semibold uppercase tracking-wide text-[#a97c50]">
+                          {t('chest.others')}
+                        </p>
+                        <div className="mt-1.5 flex flex-wrap items-stretch justify-center gap-1.5">
+                          {offers.map((p, i) => {
+                            if (i === openedIdx) return null
+                            const ex = extras[i]
+                            return (
+                              <span
+                                key={p.id}
+                                className="inline-flex items-center gap-1 rounded-lg bg-[#FFF6E6] px-2 py-1 ring-1 ring-[#e3cba4]"
+                              >
+                                <span aria-hidden className="text-sm">
+                                  {p.icon}
+                                </span>
+                                <span className="max-w-36 break-words text-left font-ui text-[11px] font-semibold leading-snug text-[#5C3A1E]">
+                                  {t(`perk.${p.id}.name`)}
+                                </span>
+                                {ex && (
+                                  <span className="font-ui text-[10px] font-bold text-[#8a5330]">
+                                    {ex.kind === 'coins' ? `+${ex.n}🪙` : `+${ex.n}🍿`}
+                                  </span>
+                                )}
+                              </span>
+                            )
+                          })}
+                        </div>
+                      </div>
+                    )}
                   </>
                 ) : (
                   <p className="mt-2 font-ui text-xs text-[#5C3A1E]">{t('chest.noperks')}</p>
@@ -2957,6 +3191,7 @@ export function PopcornGame() {
           {overlay === 'shop' && (
             <ShopOverlay
               xp={xp}
+              coins={coins}
               owned={ownedPaws}
               equipped={equippedPaw}
               upgrades={upgrades}
@@ -3000,6 +3235,51 @@ export function PopcornGame() {
             t={t}
             onClose={() => setOverlay(null)}
           />
+        )}
+      </AnimatePresence>
+
+      {/* Тост монеток за Лихорадку: 🪙 улетели в кошелёк */}
+      <AnimatePresence>
+        {feverCoins !== null && (
+          <motion.div
+            key={`fever-coins-${feverCoins}`}
+            className="absolute bottom-28 left-1/2 z-50 -translate-x-1/2"
+            initial={{ opacity: 0, y: 24, scale: 0.9 }}
+            animate={{ opacity: 1, y: 0, scale: 1 }}
+            exit={{ opacity: 0, y: 12, scale: 0.95 }}
+            transition={{ type: 'spring', stiffness: 320, damping: 24 }}
+          >
+            <div className="flex items-center gap-2 rounded-full border-2 border-amber-300 bg-[#2b1a0e]/95 px-4 py-2 shadow-[0_8px_24px_rgba(0,0,0,0.6)]">
+              <span aria-hidden className="text-xl">
+                🪙
+              </span>
+              <div className="font-pixel text-sm font-bold leading-tight text-amber-200">
+                +{feverCoins} {t('fever.coins')}
+              </div>
+            </div>
+          </motion.div>
+        )}
+      </AnimatePresence>
+
+      {/* Тост «котик подрос»: мета-прогресс — этап засчитан в стаж котика.
+          Автоскрытие через 3400 мс уже ставит awardStage (setTimeout) */}
+      <AnimatePresence>
+        {charToast !== null && (
+          <motion.div
+            key={`char-${charToast}`}
+            className="absolute bottom-36 left-1/2 z-50 -translate-x-1/2"
+            initial={{ opacity: 0, y: 24, scale: 0.9 }}
+            animate={{ opacity: 1, y: 0, scale: 1 }}
+            exit={{ opacity: 0, y: 12, scale: 0.95 }}
+            transition={{ type: 'spring', stiffness: 320, damping: 24 }}
+          >
+            <div className="flex items-center gap-2 rounded-full border-2 border-amber-300 bg-[#2b1a0e]/95 px-4 py-2 shadow-[0_8px_24px_rgba(0,0,0,0.6)]">
+              {/* 🎖 уже внутри строки char.levelUp — не дублируем эмодзи */}
+              <div className="font-pixel text-sm font-bold leading-tight text-amber-200">
+                {t('char.levelUp', { n: charToast })}
+              </div>
+            </div>
+          </motion.div>
         )}
       </AnimatePresence>
 

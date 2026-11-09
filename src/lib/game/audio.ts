@@ -21,6 +21,8 @@ export type SfxName =
   | 'shoo'
   | 'plop'
   | 'plopGold'
+  | 'fever'
+  | 'coin'
 
 const NOTE_OFFSETS: Record<string, number> = {
   C: 0,
@@ -400,6 +402,19 @@ class ChipTuneAudio {
         this.tone('sine', 430, t, 0.09, 0.32, bus, 170)
         this.tone('square', noteFreq('E6'), t + 0.05, 0.08, 0.14, bus)
         this.noise(t, 0.045, 0.09, 'bandpass', 1500, bus)
+        break
+      case 'fever':
+        // «ЛИХОРАДКА»: звон игровых автоматов — джекпот-арпеджио вверх и встряска
+        ;['C5', 'E5', 'G5', 'C6', 'E6', 'G6', 'C7'].forEach((n, i) =>
+          this.tone('square', noteFreq(n), t + i * 0.055, 0.09, 0.2, bus),
+        )
+        this.noise(t + 0.38, 0.28, 0.1, 'highpass', 6000, bus)
+        this.tone('triangle', noteFreq('C7'), t + 0.38, 0.34, 0.12, bus)
+        break
+      case 'coin':
+        // Звенящая монетка лихорадки
+        this.tone('square', noteFreq('B6'), t, 0.05, 0.15, bus)
+        this.tone('square', noteFreq('E7'), t + 0.05, 0.09, 0.15, bus)
         break
     }
   }

@@ -43,6 +43,12 @@ export interface EngineStats {
   goldenCount: number
   /** Прогнано голубей за забег (для достижений) */
   pigeonShooed: number
+  /** Сейчас идёт «Лихорадка» (бонусный уровень) или её итоговая пауза */
+  fever: boolean
+  /** Очки, заработанные в текущей/только что закончившейся лихорадке */
+  feverGained: number
+  /** Номер текущей волны внутри уровня — для HTML-индикатора поверх тумана */
+  wave: number
 }
 
 export interface LevelResult {
@@ -56,10 +62,18 @@ export interface EndResult {
   level: number
 }
 
+/** Итог «Лихорадки»: gained — заработанные очки (0, если схватил мину) */
+export interface FeverResult {
+  gained: number
+  success: boolean
+  next: number
+}
+
 export interface EngineCallbacks {
   onStats?(s: EngineStats): void
   onLevelComplete?(r: LevelResult): void
   onEnd?(r: EndResult): void
+  onFeverEnd?(r: FeverResult): void
 }
 
 export type PieceKind = 'popcorn' | 'caramel' | 'butter' | 'golden' | 'corn'
@@ -71,6 +85,19 @@ export const KIND_POINTS: Record<Exclude<PieceKind, 'corn'>, number> = {
   butter: 3,
   golden: 5,
 }
+
+/** Относительный размер зерна на поле: чем ценнее — тем мельче.
+    Белое +1 — крупное и заметное, золотое +5 — крохотное, но яркое */
+const KIND_SCALE: Record<Exclude<PieceKind, 'corn'>, number> = {
+  popcorn: 1,
+  caramel: 0.84,
+  butter: 0.72,
+  golden: 0.58,
+}
+
+const FEVER_SECONDS = 3
+/** Шанс, что на лихорадке среди зёрен спрячется одна мина-штраф */
+const FEVER_MINE_CHANCE = 0.3
 
 interface FieldPiece {
   x: number
@@ -242,6 +269,15 @@ export class PopcornEngine {
   private upgCarry = 0
   /* --- «Девятая жизнь»: второй шанс уже использован в этом забеге? --- */
   private lifeUsed = false
+  /* --- «Лихорадка»: рандомный бонусный уровень на 3 секунды --- */
+  private fever: { gained: number; startScore: number; next: number; coinT: number } | null = null
+  private feverMine = false
+  /** Пауза-итог после лихорадки, затем сразу следующий уровень */
+  private feverAfter = -1
+  private feverNextLvl = 0
+  private lastFeverGained = 0
+  /* --- таймер шлейфа звёзд волшебной лапки --- */
+  private starT = 0
 
   private cupScale = 5
   private cupH = 0
@@ -338,6 +374,8 @@ export class PopcornEngine {
     this.goldenCount = 0
     this.pigeonsRun = 0
     this.lifeUsed = false
+    this.fever = null
+    this.feverAfter = -1
     this.startLevel(1, opts.perk ?? null)
   }
 
@@ -382,6 +420,10 @@ export class PopcornEngine {
     this.paused = false
     this.timeLeft = this.duration
     this.pendingClear = -1
+    this.fever = null
+    this.feverMine = false
+    this.feverAfter = -1
+    this.starT = 0
     this.pieces = []
     this.carried = []
     this.flying = []
@@ -416,6 +458,94 @@ export class PopcornEngine {
     this.emitStats(true)
   }
 
+  /** «ЛИХОРАДКА» — рандомный бонусный уровень: 3 секунды, весь экран в зёрнах
+      без мин (изредка прячется одна мина-штраф). Очки капают в счёт; если
+      схватить мину — всё заработанное в лихорадке сгорает. После итога
+      забег сразу продолжается со следующего уровня, без сундучка. */
+  startFever(nextLevel: number): void {
+    if (this.phase !== 'clear' && this.phase !== 'playing') return
+    this.perk = null
+    this.phase = 'playing'
+    this.paused = false
+    this.duration = FEVER_SECONDS
+    this.timeLeft = FEVER_SECONDS
+    this.quota = 999999
+    this.collected = 0
+    this.fever = { gained: 0, startScore: this.score, next: nextLevel, coinT: 0 }
+    this.feverMine = Math.random() < FEVER_MINE_CHANCE
+    this.feverAfter = -1
+    this.lastFeverGained = 0
+    this.pieces = []
+    this.carried = []
+    this.flying = []
+    this.particles = []
+    this.texts = []
+    this.pigeon = null
+    this.pigeonTimer = -1
+    this.waveDelay = -1
+    this.pendingClear = -1
+    this.fillPop = []
+    this.lastFill = 0
+    this.cupGlow = 0
+    this.shakeT = 0
+    this.shakeAmp = 0
+    this.banner = { text: this.L('banner.fever'), t: 0 }
+    this.lastSec = Math.ceil(this.timeLeft)
+    audio.setIntensity(3)
+    audio.play('fever')
+    this.spawnFeverField()
+    this.emitStats(true)
+  }
+
+  /** Экран лихорадки: смесь ценных зёрен, изредка — одна мина-штраф */
+  private spawnFeverField(): void {
+    const kinds: PieceKind[] = []
+    for (let i = 0; i < 36; i++) {
+      const r = Math.random()
+      kinds.push(r < 0.16 ? 'golden' : r < 0.34 ? 'butter' : r < 0.55 ? 'caramel' : 'popcorn')
+    }
+    if (this.feverMine) kinds[Math.floor(Math.random() * kinds.length)] = 'corn'
+    kinds.forEach((kind, i) => this.spawnPiece(i, kind))
+  }
+
+  /** Подсыпка зёрен, если экран лихорадки опустел */
+  private spawnFeverTop(): void {
+    for (let i = 0; i < 6; i++) {
+      const r = Math.random()
+      this.spawnPiece(i, r < 0.16 ? 'golden' : r < 0.34 ? 'butter' : r < 0.55 ? 'caramel' : 'popcorn')
+    }
+  }
+
+  /** Итог лихорадки: успех — очки остаются; мина — всё заработанное сгорает */
+  private feverEnd(success: boolean): void {
+    const f = this.fever
+    if (!f) return
+    this.fever = null
+    this.feverNextLvl = f.next
+    this.lastFeverGained = f.gained
+    /* Таймер-страховка: пока идёт пауза-итог, время не должно выйти */
+    this.timeLeft = 1.2
+    this.duration = 1.2
+    this.lastSec = Math.ceil(this.timeLeft)
+    this.feverAfter = 1.15
+    if (success) {
+      this.banner = { text: this.L('txt.feverWin', { n: f.gained }), t: 0 }
+      audio.play('record')
+      this.buzz([30, 40, 30, 40, 90])
+      this.crumbs(this.paw.x, this.paw.y, '#FFE066', 12)
+    } else {
+      this.score = Math.max(0, this.score - f.gained)
+      this.streak = 0
+      this.banner = { text: this.L('txt.feverBurn'), t: 0 }
+      audio.play('penalty')
+      this.doShake(9)
+      this.buzz([60, 40, 100])
+      this.crumbs(this.paw.x, this.paw.y, '#E5342E', 9)
+    }
+    this.emitStats(true)
+    this.cb.onFeverEnd?.({ gained: success ? f.gained : 0, success, next: f.next })
+  }
+
   setPaused(p: boolean): void {
     if (this.phase !== 'playing') return
     this.paused = p
@@ -433,6 +563,8 @@ export class PopcornEngine {
     this.particles = []
     this.texts = []
     this.pigeon = null
+    this.fever = null
+    this.feverAfter = -1
     this.banner = { text: '', t: 99 }
     this.shakeT = 0
     this.shakeAmp = 0
@@ -652,6 +784,17 @@ export class PopcornEngine {
   private update(dt: number): void {
     const u = this.u
 
+    /* Пауза-итог лихорадки: показываем результат и сразу идём на следующий
+       уровень (сундучок пропускается — так и задумано: было тяжело!) */
+    if (this.feverAfter >= 0) {
+      this.feverAfter -= dt
+      if (this.feverAfter <= 0) {
+        this.feverAfter = -1
+        this.startLevel(this.feverNextLvl, null)
+        return
+      }
+    }
+
     // Плавное следование лапки за пальцем/курсором («Тяжёлая лапа» — вдвое медленнее);
     // скины магазина делают лапку проворнее
     if (!this.paw.seen) {
@@ -688,6 +831,11 @@ export class PopcornEngine {
         // Кукуруза-мина: чем толще мина, тем шире радиус задевания
         if (d < 38 * u * (0.7 + 0.3 * this.cornScale)) {
           this.pieces.splice(i, 1)
+          if (this.fever) {
+            // Мина на лихорадке: весь накопленный там бонус сгорает!
+            this.feverEnd(false)
+            return
+          }
           const guard = this.pawBonus.guard ?? 0
           if (guard > 0 && Math.random() < guard) {
             // «Коготки-обереги»: мина обезврежена без штрафа
@@ -797,7 +945,12 @@ export class PopcornEngine {
             size: 24 * u,
           })
         }
-        audio.play('deposit')
+        if (this.fever) {
+          this.fever.gained += sum
+          audio.play('coin')
+        } else {
+          audio.play('deposit')
+        }
         this.buzz(12)
       }
     }
@@ -826,41 +979,93 @@ export class PopcornEngine {
       this.lastFill = fillN
     }
 
-    // Вся волна собрана → следующая. Кукуруза-мины НЕ мешает: считаем только попкорн
-    const hasPopcorn = this.pieces.some((p) => p.kind !== 'corn')
-    if (
-      this.waveDelay < 0 &&
-      !hasPopcorn &&
-      this.carried.length === 0 &&
-      this.flying.length === 0
-    ) {
-      this.waveDelay = this.baseWaveDelay
+    /* Лихорадка: дождь монеток на фоне и подсыпка зёрен, чтобы экран
+       оставался полным до конца трёх секунд */
+    if (this.fever) {
+      this.fever.coinT -= dt
+      if (this.fever.coinT <= 0) {
+        this.fever.coinT = 0.13
+        this.particles.push({
+          x: Math.random() * this.W,
+          y: -8,
+          vx: (Math.random() - 0.5) * 30 * u,
+          vy: (110 + Math.random() * 90) * u,
+          t: 0,
+          ttl: 2.4,
+          color: Math.random() < 0.5 ? '#FFE066' : '#FFC93C',
+          size: (3.5 + Math.random() * 2.5) * u,
+        })
+      }
+      let food = 0
+      for (const p of this.pieces) if (p.kind !== 'corn') food++
+      if (food < 12) this.spawnFeverTop()
     }
-    if (this.waveDelay >= 0) {
-      this.waveDelay -= dt
-      if (this.waveDelay <= 0) {
-        this.waveDelay = -1
-        this.wave++
-        this.banner = { text: this.L('banner.wave', { n: this.wave }), t: 0 }
-        audio.play('wave')
-        this.spawnWave()
+
+    /* Волшебная лапка: шлейф звёздочек сыплется из меха */
+    if (this.pawBonus.stars) {
+      this.starT -= dt
+      if (this.starT <= 0) {
+        this.starT = 0.09
+        const starColors = ['#FFE066', '#FFF6EC', '#FFC93C']
+        this.particles.push({
+          x: this.paw.x + (Math.random() - 0.5) * 14 * u,
+          y: this.paw.y + 20 * u + (Math.random() - 0.5) * 8 * u,
+          vx: (Math.random() - 0.5) * 26 * u,
+          vy: 46 * u,
+          t: 0,
+          ttl: 0.65,
+          color: starColors[Math.floor(Math.random() * starColors.length)] ?? '#FFE066',
+          size: (2 + Math.random() * 2) * u,
+        })
       }
     }
 
-    // Норма выполнена → короткая пауза (зёрна долетают) → уровень пройден
-    if (this.pendingClear < 0 && this.collected >= this.quota) {
-      this.pendingClear = CLEAR_DELAY
-    }
-    if (this.pendingClear >= 0) {
-      this.pendingClear -= dt
-      if (this.pendingClear <= 0) {
-        this.levelComplete()
-        return
+    if (!this.fever && this.feverAfter < 0) {
+      // Вся волна собрана → следующая. Кукуруза-мины НЕ мешает: считаем только попкорн
+      const hasPopcorn = this.pieces.some((p) => p.kind !== 'corn')
+      if (
+        this.waveDelay < 0 &&
+        !hasPopcorn &&
+        this.carried.length === 0 &&
+        this.flying.length === 0
+      ) {
+        this.waveDelay = this.baseWaveDelay
+      }
+      if (this.waveDelay >= 0) {
+        this.waveDelay -= dt
+        if (this.waveDelay <= 0) {
+          this.waveDelay = -1
+          this.wave++
+          this.banner = { text: this.L('banner.wave', { n: this.wave }), t: 0 }
+          audio.play('wave')
+          this.spawnWave()
+        }
+      }
+
+      // Норма выполнена → короткая пауза (зёрна долетают) → уровень пройден
+      if (this.pendingClear < 0 && this.collected >= this.quota) {
+        this.pendingClear = CLEAR_DELAY
+      }
+      if (this.pendingClear >= 0) {
+        this.pendingClear -= dt
+        if (this.pendingClear <= 0) {
+          this.levelComplete()
+          return
+        }
       }
     }
 
-    // Музыка зависит от оставшегося времени: >30с база, ≤30с +25%, ≤15с +40%, ≤5с 240 BPM
-    const stage = this.timeLeft > 30 ? 0 : this.timeLeft > 15 ? 1 : this.timeLeft > 5 ? 2 : 3
+    // Музыка зависит от оставшегося времени: >30с база, ≤30с +25%, ≤15с +40%, ≤5с 240 BPM.
+    // В лихорадке — максимальный накал: бешеный темп под звон автоматов!
+    const stage = this.fever
+      ? 3
+      : this.timeLeft > 30
+        ? 0
+        : this.timeLeft > 15
+          ? 1
+          : this.timeLeft > 5
+            ? 2
+            : 3
     if (stage !== this.audioStage) {
       this.audioStage = stage
       audio.setIntensity(stage)
@@ -871,10 +1076,15 @@ export class PopcornEngine {
     const sec = Math.max(0, Math.ceil(this.timeLeft))
     if (sec !== this.lastSec) {
       this.lastSec = sec
-      if (sec <= 5 && sec > 0) audio.play('tick')
+      if (sec <= 5 && sec > 0 && !this.fever && this.feverAfter < 0) audio.play('tick')
     }
     if (this.timeLeft <= 0) {
       this.timeLeft = 0
+      if (this.fever) {
+        // Время лихорадки вышло: всё собранное остаётся в счёте!
+        this.feverEnd(true)
+        return
+      }
       this.end()
       return
     }
@@ -1115,7 +1325,13 @@ export class PopcornEngine {
   private emitStats(force: boolean): void {
     if (!this.cb.onStats) return
     const sec = Math.ceil(this.timeLeft)
-    const key = `${this.score}|${this.lvl}|${this.quota}|${this.collected}|${this.carried.length}|${sec}|${this.paused}|${this.streak}|${this.goldenCount}|${this.pigeonsRun}`
+    const fever = !!this.fever || this.feverAfter >= 0
+    const feverGained = this.fever
+      ? this.fever.gained
+      : this.feverAfter >= 0
+        ? this.lastFeverGained
+        : 0
+    const key = `${this.score}|${this.lvl}|${this.quota}|${this.collected}|${this.carried.length}|${sec}|${this.paused}|${this.streak}|${this.goldenCount}|${this.pigeonsRun}|${fever}|${feverGained}|${this.wave}`
     if (!force && key === this.lastStatsKey) return
     this.lastStatsKey = key
     this.cb.onStats({
@@ -1132,6 +1348,9 @@ export class PopcornEngine {
       comboMult: this.comboMult,
       goldenCount: this.goldenCount,
       pigeonShooed: this.pigeonsRun,
+      fever,
+      feverGained,
+      wave: this.wave,
     })
   }
 
@@ -1141,6 +1360,14 @@ export class PopcornEngine {
     const { ctx } = this
     ctx.clearRect(0, 0, this.W, this.H)
     if (this.phase === 'idle') return
+
+    /* Виньетка контраста: лёгкое затемнение игровой зоны поверх фоновой
+       картинки — светлые зёрна, лапка и курсор читаются на любой комнате,
+       включая старые Android с блеклой передачей (жалоба на уровень 10) */
+    if (this.phase === 'playing' && !this.paused) {
+      ctx.fillStyle = 'rgba(30, 15, 5, 0.16)'
+      ctx.fillRect(0, 0, this.W, this.H)
+    }
 
     ctx.save()
     /* Тряска экрана при минах/голубе (настройка «Тряска экрана») */
@@ -1155,9 +1382,13 @@ export class PopcornEngine {
     this.drawFlying()
     this.drawParticles()
     this.drawPaw(ts)
+    /* Лихорадка: тёплая золотая дымка на фоне */
+    if (this.fever) this.drawFeverFx()
+    /* Туман рисуем ДО надписей: баннер «ВОЛНА N» и всплывающие тексты
+       читаются сквозь попкорновый туман (раньше туман их накрывал) */
+    if (this.perk === 'fog' && this.phase === 'playing') this.drawFog()
     this.drawTexts()
     this.drawBanner()
-    if (this.perk === 'fog' && this.phase === 'playing') this.drawFog()
 
     if (this.phase === 'ended' || this.phase === 'clear') {
       ctx.fillStyle = 'rgba(24, 10, 4, 0.35)'
@@ -1300,14 +1531,18 @@ export class PopcornEngine {
       const bob = Math.sin(ts * 0.004 + p.phase) * bobAmp * u
       const y = p.y + bob
       const pop = p.spawn > 0 ? easeOutBack(1 - p.spawn / (SPAWN_DUR + 0.5)) : 1
-      // Попкорн мельчает, мины толстеют — ступени каждые 5 уровней
-      const base = p.kind === 'corn' ? 2.3 * this.cornScale : 2.6 * this.popScale
+      // Попкорн мельчает, мины толстеют — ступени каждые 5 уровней.
+      // Ценные зёрна мельче: белое +1 крупное, золотое +5 — крохотное
+      const base =
+        p.kind === 'corn'
+          ? 2.3 * this.cornScale
+          : 2.6 * this.popScale * KIND_SCALE[p.kind]
       const scale = base * u * Math.max(0.05, pop)
 
-      // Тень
-      ctx.fillStyle = 'rgba(0, 0, 0, 0.16)'
+      // Тень (плотнее — зерно заметно на любом фоне, даже на тёмном чердаке)
+      ctx.fillStyle = 'rgba(0, 0, 0, 0.24)'
       ctx.beginPath()
-      ctx.ellipse(p.x, p.y + 9 * u, 12 * u * pop, 4 * u * pop, 0, 0, Math.PI * 2)
+      ctx.ellipse(p.x, p.y + 8 * u, 11 * u * pop, 5 * u * pop, 0, 0, Math.PI * 2)
       ctx.fill()
 
       const sprite = p.kind === 'corn'
@@ -1325,16 +1560,18 @@ export class PopcornEngine {
       // Режим дальтоников: пульсирующая белая метка над миной
       if (p.kind === 'corn' && this.opts.colorblind) {
         const blink = 0.6 + 0.4 * Math.sin(ts * 0.008 + p.phase)
+        ctx.save()
         ctx.globalAlpha = blink
         ctx.font = `700 ${Math.round(15 * u)}px system-ui, sans-serif`
         ctx.textAlign = 'center'
         ctx.textBaseline = 'middle'
+        this.applyUpright(ctx, p.x, y - 16 * u)
         ctx.lineWidth = 3 * u
         ctx.strokeStyle = 'rgba(18, 39, 92, 0.95)'
         ctx.strokeText('!', p.x, y - 16 * u)
         ctx.fillStyle = '#FFFFFF'
         ctx.fillText('!', p.x, y - 16 * u)
-        ctx.globalAlpha = 1
+        ctx.restore()
       }
       if (p.kind === 'golden') {
         drawSprite(ctx, this.sp.sparkle, p.x + 10 * u, y - 11 * u, 1.15 * u, {
@@ -1372,7 +1609,7 @@ export class PopcornEngine {
               : this.sp.popcorn,
         x,
         y,
-        2.6 * u * this.popScale * (1 - 0.45 * q),
+        2.6 * u * this.popScale * (KIND_SCALE[f.kind] ?? 1) * (1 - 0.45 * q),
         {
           rot: q * 3,
         },
@@ -1392,6 +1629,35 @@ export class PopcornEngine {
     const jy = shiver ? Math.cos(ts * 0.017) * 7 * u + Math.sin(ts * 0.053) * 4 * u : 0
     const px = this.paw.x + shake + jx
     const py = this.paw.y + jy
+
+    // Светлое пятно под лапкой: курсор виден на ЛЮБОМ фоне — тёмный чердак,
+    // ночной двор, старые Android-браузеры (была жалоба: «курсора не видно»)
+    ctx.fillStyle = 'rgba(255, 247, 220, 0.16)'
+    ctx.beginPath()
+    ctx.ellipse(px, py - 2 * u, 46 * u, 34 * u, 0, 0, Math.PI * 2)
+    ctx.fill()
+    ctx.fillStyle = 'rgba(255, 247, 220, 0.22)'
+    ctx.beginPath()
+    ctx.ellipse(px, py - 2 * u, 30 * u, 22 * u, 0, 0, Math.PI * 2)
+    ctx.fill()
+
+    /* Кольцо зоны подбора: тонкий пунктир, по которому видно «очертания»
+       ловли на любом фоне и любом экране (старые Android, тёмные комнаты) */
+    if (this.phase === 'playing' && !this.paused) {
+      const gr =
+        (this.perk === 'bigpaw' ? 58 : this.perk === 'smallpaw' ? 34 : 44) *
+        u *
+        (this.pawBonus.grabR ?? 1)
+      ctx.save()
+      ctx.globalAlpha = 0.16 + 0.05 * Math.sin(ts * 0.004)
+      ctx.strokeStyle = '#FFF3D0'
+      ctx.lineWidth = Math.max(1.5, 1.6 * u)
+      ctx.setLineDash([7 * u, 6 * u])
+      ctx.beginPath()
+      ctx.ellipse(px, py + 4 * u, gr * 1.12, gr * 0.82, 0, 0, Math.PI * 2)
+      ctx.stroke()
+      ctx.restore()
+    }
 
     // Тень лапки
     ctx.fillStyle = 'rgba(0, 0, 0, 0.18)'
@@ -1415,7 +1681,7 @@ export class PopcornEngine {
             : c.kind === 'butter'
               ? this.sp.butter
               : this.sp.popcorn
-      drawSprite(ctx, spr, px + wig, y, 2.3 * u * this.popScale, {
+      drawSprite(ctx, spr, px + wig, y, 2.3 * u * this.popScale * (KIND_SCALE[c.kind] ?? 1), {
         rot: Math.sin(ts * 0.006 + i) * 0.12,
       })
     })
@@ -1442,12 +1708,73 @@ export class PopcornEngine {
       ctx.font = `600 ${t.size}px "Handjet", system-ui, sans-serif`
       ctx.textAlign = 'center'
       ctx.textBaseline = 'middle'
+      /* Даже в зеркальном мире и на боку всплывающие тексты читаются прямо */
+      this.applyUpright(ctx, t.x, y)
       ctx.lineWidth = Math.max(3, t.size * 0.16)
       ctx.strokeStyle = 'rgba(46, 18, 6, 0.9)'
       ctx.strokeText(t.text, t.x, y)
       ctx.fillStyle = t.color
       ctx.fillText(t.text, t.x, y)
       ctx.restore()
+    }
+  }
+
+  /** «Лихорадка»: тёплая золотая дымка + постоянная крупная надпись
+      «ЛИХОРАДКА» с заработанным счётом — игрок всегда понимает, что идёт
+      бонусный уровень, даже когда баннер давно погас */
+  private drawFeverFx(): void {
+    const { ctx } = this
+    ctx.fillStyle = 'rgba(255, 196, 60, 0.10)'
+    ctx.fillRect(0, 0, this.W, this.H)
+    ctx.fillStyle = 'rgba(255, 150, 40, 0.08)'
+    ctx.fillRect(0, 0, this.W, 52)
+    ctx.fillRect(0, this.H - 52, this.W, 52)
+
+    const f = this.fever
+    if (!f) return
+    const u = this.u
+    const pulse = 1 + Math.sin(performance.now() * 0.009) * 0.06
+    const size = 26 * u * pulse
+    const y = 74 * u
+    ctx.save()
+    ctx.globalAlpha = 0.92
+    ctx.font = `700 ${size}px "Handjet", system-ui, sans-serif`
+    ctx.textAlign = 'center'
+    ctx.textBaseline = 'middle'
+    /* Надпись читается прямо даже в зеркальном мире и на боку */
+    this.applyUpright(ctx, this.W / 2, y)
+    ctx.lineWidth = Math.max(4, size * 0.18)
+    ctx.strokeStyle = 'rgba(46, 18, 6, 0.95)'
+    ctx.strokeText(this.L('banner.fever'), this.W / 2, y)
+    ctx.fillStyle = '#FFC93C'
+    ctx.fillText(this.L('banner.fever'), this.W / 2, y)
+    /* Заработанные в лихорадке очки — видно в реальном времени */
+    const gSize = 19 * u
+    ctx.font = `700 ${gSize}px "Handjet", system-ui, sans-serif`
+    ctx.globalAlpha = 0.85
+    const gained = `+${f.gained}`
+    ctx.lineWidth = Math.max(3, gSize * 0.16)
+    ctx.strokeText(gained, this.W / 2, y + gSize * 1.15)
+    ctx.fillStyle = '#FFE9B0'
+    ctx.fillText(gained, this.W / 2, y + gSize * 1.15)
+    ctx.restore()
+  }
+
+  /** Компенсация трансформаций экрана (зеркало/повороты): локально обращаем
+      трансформацию вокруг точки надписи — буквы всегда читаются прямо */
+  private applyUpright(ctx: CanvasRenderingContext2D, x: number, y: number): void {
+    if (this.perk === 'mirror') {
+      ctx.translate(x, y)
+      ctx.scale(-1, 1)
+      ctx.translate(-x, -y)
+    } else if (this.perk === 'rot180') {
+      ctx.translate(x, y)
+      ctx.rotate(Math.PI)
+      ctx.translate(-x, -y)
+    } else if (this.perk === 'rot90') {
+      ctx.translate(x, y)
+      ctx.rotate(-Math.PI / 2)
+      ctx.translate(-x, -y)
     }
   }
 
@@ -1463,6 +1790,8 @@ export class PopcornEngine {
     ctx.font = `700 ${size}px "Handjet", system-ui, sans-serif`
     ctx.textAlign = 'center'
     ctx.textBaseline = 'middle'
+    /* Даже в зеркальном мире и на боку надписи баннера читаются прямо */
+    this.applyUpright(ctx, this.W / 2, this.H * 0.3)
     ctx.lineWidth = Math.max(4, size * 0.18)
     ctx.strokeStyle = 'rgba(46, 18, 6, 0.9)'
     ctx.strokeText(this.banner.text, this.W / 2, this.H * 0.3)

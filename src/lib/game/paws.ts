@@ -21,6 +21,9 @@ export type PawId =
   | 'neon'
   | 'leopard'
   | 'goldenpaw'
+  | 'double'
+  | 'ghost'
+  | 'magic'
 
 /** Постоянные улучшения лапки */
 export interface PawBonus {
@@ -38,6 +41,8 @@ export interface PawBonus {
   carryPlus?: number
   /** Шанс 0..1, что мина не отнимет очко («коготки-обереги») */
   guard?: number
+  /** Волшебный шлейф звёздочек за лапкой */
+  stars?: boolean
 }
 
 export interface PawDef {
@@ -46,8 +51,10 @@ export interface PawDef {
   desc: string
   /** Короткая подпись бонуса для карточки магазина */
   bonusLabel: string
-  /** Цена в очках-опыте (0 — базовая, доступна сразу) */
+  /** Цена (валюта — currency; 0 — базовая, доступна сразу) */
   price: number
+  /** Валюта покупки: 'xp' — опыт 🍿 (по умолчанию), 'coins' — монетки 🪙 */
+  currency?: 'xp' | 'coins'
   palette: Partial<PawPalette>
   bonus: PawBonus
 }
@@ -261,6 +268,59 @@ export const PAWS: PawDef[] = [
       spots: '#FFF0B8',
     },
     bonus: { goldenAdd: 0.1, carryPlus: 1 },
+  },
+  /* ---------- артефакты за монетки 🪙 (выпадают из сундучков и лихорадки) ---------- */
+  {
+    id: 'double',
+    name: 'Двойная лапка',
+    desc: 'Двурукая лапка-чудо: гребёт шире и уносит больше зерна за раз!',
+    bonusLabel: 'Вместимость +1 зерно · радиус +10%',
+    price: 400,
+    currency: 'coins',
+    palette: {
+      fur: '#9B6BB3',
+      furShade: '#7E4F96',
+      pad: '#E7C7F5',
+      beans: '#F8ECFF',
+      claw: '#4A2A5E',
+      edge: '#5E3A72',
+    },
+    bonus: { carryPlus: 1, grabR: 1.1 },
+  },
+  {
+    id: 'ghost',
+    name: 'Призрачная шапка',
+    desc: 'Полупрозрачная лапка в волшебном колпаке — мины проходят сквозь неё мимо!',
+    bonusLabel: '50% шанс: мина не отнимет очко',
+    price: 650,
+    currency: 'coins',
+    palette: {
+      fur: '#DCE3F5',
+      furShade: '#BCC8E8',
+      pad: '#9FB4E8',
+      beans: '#F2F6FF',
+      claw: '#5A6BA8',
+      edge: '#6C7BB0',
+      hat: true,
+    },
+    bonus: { guard: 0.5 },
+  },
+  {
+    id: 'magic',
+    name: 'Волшебная лапка',
+    desc: 'Из меха сыплются звёздочки шлейфом, а золото липнет к ней само!',
+    bonusLabel: 'Шлейф звёзд · золота +6% · проворнее',
+    price: 900,
+    currency: 'coins',
+    palette: {
+      fur: '#4A5FBF',
+      furShade: '#38499A',
+      pad: '#FFD86B',
+      beans: '#FFF3C4',
+      claw: '#1E2A66',
+      edge: '#2A3780',
+    },
+    bonus: { stars: true, goldenAdd: 0.06, speed: 1.15 },
   },
 ]
 

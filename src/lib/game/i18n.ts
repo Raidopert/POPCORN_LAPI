@@ -42,6 +42,24 @@ const T: Record<string, Row> = {
   ],
   'menu.record': ['Рекорд: {{n}}', 'Best: {{n}}', 'Rekord: {{n}}', 'Récord: {{n}}'],
   'menu.xp': ['Опыт: {{n}}', 'XP: {{n}}', 'XP: {{n}}', 'Exp: {{n}}'],
+  'menu.charLevel': [
+    '🎖 Котик: ур. {{n}}',
+    '🎖 Kitty: lvl {{n}}',
+    '🎖 Kätzchen: Lvl {{n}}',
+    '🎖 Gatito: nv {{n}}',
+  ],
+  'menu.charLevelHint': [
+    'Уровень котика растёт сам — за каждый пройденный этап и каждую попытку. Стаж не сгорает никогда!',
+    'Your kitty level grows by itself — for every stage cleared and every attempt. It never burns away!',
+    'Das Kätzchen-Level steigt von selbst — für jedes geschaffte Level und jeden Versuch. Es verfällt nie!',
+    'El nivel del gatito crece solo: por cada nivel superado y cada intento. ¡Nunca se pierde!',
+  ],
+  'char.levelUp': [
+    '🎖 Котик подрос до уровня {{n}}!',
+    '🎖 Kitty reached level {{n}}!',
+    '🎖 Kätzchen erreicht Level {{n}}!',
+    '🎖 ¡El gatito llegó al nivel {{n}}!',
+  ],
   'menu.play': ['▶ ИГРАТЬ', '▶ PLAY', '▶ SPIELEN', '▶ JUGAR'],
   'menu.rules': ['📖 ПРАВИЛА', '📖 RULES', '📖 REGELN', '📖 REGLAS'],
   'menu.leaders': ['ЛИДЕРЫ', 'RANKING', 'BESTEN', 'RÉCORDS'],
@@ -127,11 +145,11 @@ const T: Record<string, Row> = {
 
   /* ---------- магазин ---------- */
   'shop.title': ['МАГАЗИН', 'SHOP', 'LADEN', 'TIENDA'],
-  'shop.xp': [
-    'Опыт: {{n}} 🍿 · покупки остаются навсегда',
-    'XP: {{n}} 🍿 · purchases are yours forever',
-    'XP: {{n}} 🍿 · Käufe bleiben für immer',
-    'Exp: {{n}} 🍿 · las compras son para siempre',
+  'shop.wallet': [
+    '🍿 Опыт: {{x}} · 🪙 Монетки: {{c}}',
+    '🍿 XP: {{x}} · 🪙 Coins: {{c}}',
+    '🍿 XP: {{x}} · 🪙 Münzen: {{c}}',
+    '🍿 Exp: {{x}} · 🪙 Monedas: {{c}}',
   ],
   'shop.tab.paws': ['🐾 ЛАПКИ', '🐾 PAWS', '🐾 PFOTEN', '🐾 PATITAS'],
   'shop.tab.upgrades': ['🛠 АПГРЕЙДЫ', '🛠 UPGRADES', '🛠 UPGRADES', '🛠 MEJORAS'],
@@ -300,6 +318,45 @@ const T: Record<string, Row> = {
     'Gold +10% and capacity +1',
     'Gold +10% und Kapazität +1',
     'Oro +10% y capacidad +1',
+  ],
+  'paw.double.name': ['Двойная лапка', 'Double Paw', 'Doppelpfote', 'Patita Doble'],
+  'paw.double.desc': [
+    'Двурукая лапка-чудо: гребёт шире и уносит больше зерна за раз!',
+    'A two-pawed wonder: scoops wider and carries more kernels at once!',
+    'Eine wunderliche Doppelpfote: greift weiter und trägt mehr Körner!',
+    '¡Una maravilla de doble pata: recoge más ancho y lleva más granos!',
+  ],
+  'paw.double.bonus': [
+    'Вместимость +1 зерно · радиус +10%',
+    'Capacity +1 kernel · radius +10%',
+    'Kapazität +1 Korn · Radius +10%',
+    'Capacidad +1 grano · radio +10%',
+  ],
+  'paw.ghost.name': ['Призрачная шапка', 'Ghost Hat', 'Geisterhut', 'Sombrero Fantasma'],
+  'paw.ghost.desc': [
+    'Полупрозрачная лапка в волшебном колпаке — мины проходят сквозь неё мимо!',
+    'A translucent paw in a magic hat — mines pass right through it!',
+    'Eine durchscheinende Pfote im Zaubershut — Minen fliegen einfach durch!',
+    '¡Una pata translúcida con sombrero mágico: las minas la atraviesan!',
+  ],
+  'paw.ghost.bonus': [
+    '50% шанс: мина не отнимет очко',
+    '50% chance a mine costs no point',
+    '50% Chance: Mine kostet keinen Punkt',
+    '50% de que la mina no quite punto',
+  ],
+  'paw.magic.name': ['Волшебная лапка', 'Magic Paw', 'Zauberpfote', 'Patita Mágica'],
+  'paw.magic.desc': [
+    'Из меха сыплются звёздочки шлейфом, а золото липнет к ней само!',
+    'A trail of stars spills from its fur, and gold sticks to it by itself!',
+    'Ein Sternenschleifchen rieselt aus dem Fell, Gold bleibt von allein kleben!',
+    '¡Un estela de estrellas cae de su pelaje y el oro se le pega solo!',
+  ],
+  'paw.magic.bonus': [
+    'Шлейф звёзд · золота +6% · проворнее',
+    'Star trail · gold +6% · nimbler',
+    'Sternenschleif · Gold +6% · flinker',
+    'Estela de estrellas · oro +6% · más ágil',
   ],
 
   'upg.capacity.name': ['Большой стаканчик', 'Big Cup', 'Großer Becher', 'Vaso Grande'],
@@ -591,6 +648,24 @@ const T: Record<string, Row> = {
     'Perks sind deaktiviert — das Level wartet, weiter geht',
     'Perks desactivados en ajustes: ¡el nivel espera, sigue!',
   ],
+  'chest.bonusCoins': [
+    'Сундучок подарил: +{{n}} 🪙 монеток!',
+    'The chest gave: +{{n}} 🪙 coins!',
+    'Die Truhe schenkte: +{{n}} 🪙 Münzen!',
+    '¡El cofre regaló: +{{n}} 🪙 monedas!',
+  ],
+  'chest.bonusXp': [
+    'Сундучок подарил: +{{n}} 🍿 опыта!',
+    'The chest gave: +{{n}} 🍿 XP!',
+    'Die Truhe schenkte: +{{n}} 🍿 XP!',
+    '¡El cofre regaló: +{{n}} 🍿 de exp!',
+  ],
+  'chest.others': [
+    'В других сундуках лежало:',
+    'The other chests held:',
+    'In den anderen Truhen lag:',
+    'En los otros cofres había:',
+  ],
   'quit.button': [
     '⏹ КОНЕЦ ИГРЫ — выйти в меню (опыт сохранится)',
     '⏹ END GAME — back to menu (XP is kept)',
@@ -622,6 +697,7 @@ const T: Record<string, Row> = {
   'hud.streak': ['серия {{n}}', 'streak {{n}}', 'Serie {{n}}', 'racha {{n}}'],
   'hud.level': ['УР. {{n}}', 'LV {{n}}', 'LVL {{n}}', 'NV {{n}}'],
   'hud.bestPill': ['Рекорд', 'Best', 'Rekord', 'Récord'],
+  'hud.fever': ['🔥 ЛИХОРАДКА +{{n}}', '🔥 FEVER +{{n}}', '🔥 FIEBER +{{n}}', '🔥 FIEBRE +{{n}}'],
 
   /* ---------- конец игры ---------- */
   'over.title': ['КВОТА ПРОВАЛЕНА!', 'QUOTA FAILED!', 'QUOTE VERPASST!', '¡CUOTA FALLIDA!'],
@@ -642,6 +718,12 @@ const T: Record<string, Row> = {
     '🍿 +{{s}} XP · total: {{t}}',
     '🍿 +{{s}} XP · gesamt: {{t}}',
     '🍿 +{{s}} exp · total: {{t}}',
+  ],
+  'over.charLevel': [
+    '🎖 Уровень котика: {{n}} — стаж растёт с каждой попыткой!',
+    '🎖 Kitty level: {{n}} — your skill grows with every attempt!',
+    '🎖 Kätzchen-Level: {{n}} — dein Können wächst mit jedem Versuch!',
+    '🎖 Nivel del gatito: {{n}} — ¡tu experiencia crece con cada intento!',
   ],
   'over.rank': [
     '🏆 Место {{n}} в списке лидеров!',
@@ -775,10 +857,10 @@ const T: Record<string, Row> = {
     'La patita crece: 3 granos, 4 tras el nivel 5, 5 tras el 10',
   ],
   'rules.r6': [
-    'Между уровнями открывай сундучок со случайным перком: бывают бонусы и проклятья',
-    'Between levels open a chest with a random perk: bonuses and curses await',
-    'Zwischen den Leveln: Truhe mit zufälligem Perk — Bonus oder Fluch',
-    'Entre niveles abre un cofre con un perk aleatorio: premios y maldiciones',
+    'Между уровнями открывай сундучок: случайный перк, а ещё в них попадаются монетки 🪙 и опыт 🍿. После выбора покажем, что лежало в остальных!',
+    'Between levels open a chest: a random perk, and chests can also hold coins 🪙 and XP 🍿. After choosing, we reveal what the others had!',
+    'Zwischen den Leveln: Truhe mit zufälligem Perk — außerdem liegen dort Münzen 🪙 und XP 🍿. Nach der Wahl zeigen wir, was in den anderen war!',
+    'Entre niveles abre un cofre: un perk aleatorio, y también pueden traer monedas 🪙 y exp 🍿. ¡Tras elegir te mostramos qué había en los otros!',
   ],
   'rules.r7': [
     'Комбо: за каждую сдачу без мины растёт серия — множитель до ×5! Мина или голубь сбрасывают серию',
@@ -885,10 +967,16 @@ const T: Record<string, Row> = {
     '🐾 ¡NANA creció! ¡Su habitación es más bonita!',
   ],
   'rules.grains': [
-    'Зёрна разной ценности: белое +1, карамель +2, масляное +3, золотое +5. Собирай дороже — комбо умножает всё!',
-    'Grains have different values: white +1, caramel +2, buttery +3, golden +5. Grab the pricey ones — combos multiply everything!',
-    'Körner haben unterschiedliche Werte: weiß +1, Karamell +2, Butter +3, golden +5. Nimm die teuren — Kombos vervielfachen alles!',
-    'Los granos valen distinto: blanco +1, caramelo +2, manteca +3, dorado +5. ¡Toma los caros: los combos lo multiplican todo!',
+    'Зёрна разной ценности и размера: белое +1 (крупное), карамель +2, масляное +3, золотое +5 (крохотное). Чем мельче зерно — тем оно ценнее! Комбо умножает всё!',
+    'Grains differ in value AND size: white +1 (big), caramel +2, buttery +3, golden +5 (tiny). The smaller the kernel — the pricier! Combos multiply everything!',
+    'Körner unterscheiden sich in Wert UND Größe: weiß +1 (groß), Karamell +2, Butter +3, golden +5 (winzig). Je kleiner das Korn — desto mehr wert! Kombos vervielfachen alles!',
+    'Los granos difieren en valor Y tamaño: blanco +1 (grande), caramelo +2, manteca +3, dorado +5 (diminuto). ¡Cuanto más pequeño, más caro! Los combos lo multiplican todo!',
+  ],
+  'rules.fever': [
+    '🔥 ЛИХОРАДКА: изредка после уровня весь экран заполняют зёрна без мин на 3 секунды — собирай как можно больше! Схватишь спрятанную мину — всё заработанное в лихорадке сгорит, а дальше сразу следующий уровень!',
+    '🔥 FEVER: sometimes after a level the whole screen fills with kernels (no mines) for 3 seconds — grab as many as you can! Grab the hidden mine and everything earned in the fever burns — and the next level starts right away!',
+    '🔥 FIEBER: manchmal füllt sich nach einem Level der ganze Bildschirm für 3 Sekunden mit Körnern (ohne Minen) — greif so viele wie möglich! Fassen die versteckte Mine, verbrennt alles — und das nächste Level startet sofort!',
+    '🔥 FIEBRE: a veces tras un nivel la pantalla se llena de granos (sin minas) durante 3 segundos: ¡coge cuantos puedas! Si coges la mina escondida, todo lo ganado en la fiebre se quema y el siguiente nivel empieza al instante.',
   ],
 
   /* ---------- настройки ---------- */
@@ -962,6 +1050,7 @@ const T: Record<string, Row> = {
   /* ---------- тексты движка ---------- */
   'banner.level': ['УРОВЕНЬ {{n}}', 'LEVEL {{n}}', 'LEVEL {{n}}', 'NIVEL {{n}}'],
   'banner.wave': ['ВОЛНА {{n}}', 'WAVE {{n}}', 'WELLE {{n}}', 'OLEADA {{n}}'],
+  'banner.fever': ['🔥 ЛИХОРАДКА! 🔥', '🔥 FEVER! 🔥', '🔥 FIEBER! 🔥', '🔥 ¡FIEBRE! 🔥'],
   'banner.revive': [
     'ВТОРОЙ ШАНС!',
     'SECOND CHANCE!',
@@ -975,6 +1064,19 @@ const T: Record<string, Row> = {
   'txt.empty': ['ПУСТО!', 'EMPTY!', 'LEER!', '¡VACÍO!'],
   'txt.guard': ['ОБЕРЕГ!', 'SAVED!', 'GERETTET!', '¡SALVADO!'],
   'txt.shield': ['ЩИТ!', 'SHIELD!', 'SCHILD!', '¡ESCUDO!'],
+  'txt.feverWin': [
+    '🔥 +{{n}} ЗА ЛИХОРАДКУ!',
+    '🔥 +{{n}} FEVER BONUS!',
+    '🔥 +{{n}} FIEBER-BONUS!',
+    '🔥 +{{n}} DE FIEBRE!',
+  ],
+  'txt.feverBurn': [
+    'МИНА! ОЧКИ СГОРЕЛИ!',
+    'MINE! FEVER POINTS BURNED!',
+    'MINE! FIEBER-PUNKTE VERBRANNT!',
+    '¡MINA! ¡PUNTOS PERDIDOS!',
+  ],
+  'fever.coins': ['монеток', 'coins', 'Münzen', 'monedas'],
 }
 
 /** Определение языка по браузеру (только при самом первом запуске) */

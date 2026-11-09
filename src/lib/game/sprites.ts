@@ -97,7 +97,7 @@ export type PopcornVariant = 'white' | 'golden' | 'caramel' | 'butter'
 export function makePopcornSprite(variant: PopcornVariant = 'white'): Sprite {
   const pal = {
     white: { body: '#FFFDF4', shade: '#F7D97B', shine: '#FFF0C9', edge: '#B8863B' },
-    golden: { body: '#FFE9A8', shade: '#EFB83C', shine: '#FFFBEB', edge: '#9A6A12' },
+    golden: { body: '#FFDF6B', shade: '#EFB83C', shine: '#FFFBEB', edge: '#9A6A12' },
     caramel: { body: '#FFC98A', shade: '#D97E2E', shine: '#FFE9CB', edge: '#9A5615' },
     butter: { body: '#FFED9C', shade: '#F0C235', shine: '#FFFBDC', edge: '#A87B14' },
   }[variant]
@@ -219,6 +219,8 @@ export interface PawPalette {
   fingers?: [string, string, string]
   /** Пятнышки по шерсти (леопардовая лапка) */
   spots?: string
+  /** Волшебный колпак поверх среднего пальца (призрачная шапка) */
+  hat?: boolean
 }
 
 const PAW_DEFAULT: PawPalette = {
@@ -307,6 +309,19 @@ export function makePawSprite(pal: Partial<PawPalette> = {}): Sprite {
     paintCircle(g, 6.6, 8.0, 1.5, p.beans)
     paintCircle(g, 12, 5.8, 1.6, p.beans)
     paintCircle(g, 17.4, 8.0, 1.5, p.beans)
+  }
+
+  // Волшебный колпак (призрачная шапка): острый треугольник с кантами
+  if (p.hat) {
+    const hatMain = '#8AA0D8'
+    const hatDark = '#66739F'
+    fillRect(g, 11, 0, 13, 0, hatDark) // острая верхушка
+    fillRect(g, 10, 1, 14, 1, hatMain)
+    fillRect(g, 9, 2, 15, 2, hatMain)
+    fillRect(g, 8, 3, 16, 3, hatDark)
+    fillRect(g, 7, 4, 17, 4, hatMain) // поля
+    fillRect(g, 7, 5, 17, 5, hatDark) // кант
+    g[1][12] = '#F2F6FF' // блик
   }
 
   outlineGrid(g, p.edge)
