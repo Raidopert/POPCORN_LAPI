@@ -4,16 +4,22 @@ import { useCallback, useEffect, useMemo, useRef, useState, useSyncExternalStore
 import { AnimatePresence, motion } from 'framer-motion'
 import {
   Cat,
+  CirclePlus,
+  EllipsisVertical,
   Heart,
+  Home,
+  MonitorDown,
   Music,
   Pause,
   Pencil,
   PawPrint,
   Popcorn,
   RotateCcw,
+  Share,
   Share2,
   Settings,
   Smartphone,
+  SquarePlus,
   Timer,
   Trophy,
   Volume2,
@@ -945,6 +951,128 @@ function RulesOverlay({ t, onClose }: { t: TranslateFn; onClose: () => void }) {
   )
 }
 
+type InstallPlatform = 'ios' | 'android' | 'desktop'
+
+/** Какая перед пользователем платформа: от неё зависит инструкция установки */
+function detectInstallPlatform(): InstallPlatform {
+  if (typeof navigator === 'undefined') return 'desktop'
+  const ua = navigator.userAgent
+  const isIOS =
+    /iPad|iPhone|iPod/.test(ua) ||
+    (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1)
+  if (isIOS) return 'ios'
+  if (/Android/i.test(ua)) return 'android'
+  return 'desktop'
+}
+
+/** Экран «Установить игру»: нативный диалог Chrome/Android/ПК или
+    пошаговая инструкция (iPhone/iPad — Safari не даёт beforeinstallprompt) */
+function InstallOverlay({
+  t,
+  canNative,
+  onNative,
+  onClose,
+}: {
+  t: TranslateFn
+  canNative: boolean
+  onNative: () => void
+  onClose: () => void
+}) {
+  const platform = useMemo(() => detectInstallPlatform(), [])
+
+  const rows: Record<InstallPlatform, Array<{ icon: React.ReactNode; key: string }>> = {
+    ios: [
+      { icon: <Share className="h-4 w-4" aria-hidden />, key: 'install.iosStep1' },
+      { icon: <Home className="h-4 w-4" aria-hidden />, key: 'install.iosStep2' },
+      { icon: <SquarePlus className="h-4 w-4" aria-hidden />, key: 'install.iosStep3' },
+    ],
+    android: [
+      { icon: <EllipsisVertical className="h-4 w-4" aria-hidden />, key: 'install.androidStep' },
+    ],
+    desktop: [
+      { icon: <CirclePlus className="h-4 w-4" aria-hidden />, key: 'install.desktopStep' },
+    ],
+  }
+  const titles: Record<InstallPlatform, string> = {
+    ios: t('install.iosTitle'),
+    android: t('install.androidTitle'),
+    desktop: t('install.desktopTitle'),
+  }
+  const order: InstallPlatform[] = ['ios', 'android', 'desktop']
+  const sorted = [...order].sort((a, b) => (a === platform ? -1 : b === platform ? 1 : 0))
+
+  return (
+    <motion.div
+      className="absolute inset-0 z-40 flex items-center justify-center overflow-y-auto bg-black/70 p-4 backdrop-blur-sm"
+      initial={{ opacity: 0 }}
+      animate={{ opacity: 1 }}
+      exit={{ opacity: 0 }}
+    >
+      <motion.div
+        className="my-auto w-full max-w-sm rounded-2xl border-4 border-[#8a5330] bg-[#FFF6E6] p-4 text-center shadow-[0_18px_50px_rgba(0,0,0,0.55)] sm:p-5"
+        initial={{ scale: 0.92, y: 14 }}
+        animate={{ scale: 1, y: 0 }}
+        exit={{ scale: 0.95, opacity: 0 }}
+        transition={{ type: 'spring', stiffness: 260, damping: 22 }}
+      >
+        <div aria-hidden className="text-3xl">
+          📲
+        </div>
+        <h2 className="mt-0.5 font-pixel text-xl font-bold text-[#B33A26]">{t('install.title')}</h2>
+
+        {canNative && (
+          <div className="mt-3 rounded-xl bg-amber-100 p-3 ring-2 ring-amber-200">
+            <GameButton onClick={onNative}>{t('install.nativeBtn')}</GameButton>
+            <p className="mt-2 font-ui text-[11px] leading-snug text-[#8a5330]">
+              {t('install.nativeHint')}
+            </p>
+          </div>
+        )}
+
+        <ul className="mt-3 space-y-2 text-left">
+          {sorted.map((p) => (
+            <li
+              key={p}
+              className={`rounded-xl p-2.5 ring-2 ${
+                p === platform
+                  ? 'bg-amber-100 ring-amber-300'
+                  : 'bg-[#f3e2c8]/60 opacity-70 ring-amber-200/60'
+              }`}
+            >
+              <div className="mb-1.5 flex items-center gap-1.5 font-pixel text-[11px] font-bold text-[#8a5330]">
+                <MonitorDown className="h-3.5 w-3.5 shrink-0" aria-hidden />
+                {titles[p]}
+              </div>
+              <ul className="space-y-1.5">
+                {rows[p].map((row) => (
+                  <li key={row.key} className="flex items-start gap-2">
+                    <span
+                      aria-hidden
+                      className="flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-white text-[#E24B3B] ring-2 ring-amber-200"
+                    >
+                      {row.icon}
+                    </span>
+                    <span className="font-ui text-xs leading-snug text-[#5C3A1E]">
+                      {t(row.key)}
+                    </span>
+                  </li>
+                ))}
+              </ul>
+            </li>
+          ))}
+        </ul>
+
+        <p className="mt-2.5 font-ui text-[11px] leading-snug text-[#a97c50]">
+          {t('install.where')}
+        </p>
+        <div className="mt-3">
+          <GameButton onClick={onClose}>{t('install.close')}</GameButton>
+        </div>
+      </motion.div>
+    </motion.div>
+  )
+}
+
 /** Экран «Создатели»: авторство, контакты и поддержка автора (QR + карта) */
 function CreatorsOverlay({ t, onClose }: { t: TranslateFn; onClose: () => void }) {
   const [copied, setCopied] = useState(false)
@@ -1698,7 +1826,7 @@ export function PopcornGame() {
   const [nickSetRaw, storeNickSet] = useStoredValue(NICKSET_KEY, '0')
   const [nickEdit, setNickEdit] = useState(false)
   const [overlay, setOverlay] = useState<
-    'leaders' | 'shop' | 'creators' | 'rules' | 'ach' | 'settings' | null
+    'leaders' | 'shop' | 'creators' | 'rules' | 'ach' | 'settings' | 'install' | null
   >(null)
   const [achToast, setAchToast] = useState<{ icon: string; name: string } | null>(null)
   const [shareNote, setShareNote] = useState<string | null>(null)
@@ -1710,6 +1838,8 @@ export function PopcornGame() {
   } | null>(null)
   const installRef = useRef<InstallPromptEvent | null>(null)
   const [canInstall, setCanInstall] = useState(false)
+  /** Игра уже работает как установленное приложение (standalone/fullscreen) */
+  const [isStandalone, setIsStandalone] = useState(false)
 
   const xp = Math.max(0, Number(xpRaw) || 0)
   const coins = Math.max(0, Number(coinsRaw) || 0)
@@ -1987,11 +2117,27 @@ export function PopcornGame() {
       installRef.current = e as InstallPromptEvent
       setCanInstall(true)
     }
+    /* Установили — прячем кнопку: игра уже открывается из иконки на устройстве */
+    const onInstalled = () => {
+      installRef.current = null
+      setCanInstall(false)
+      setIsStandalone(true)
+    }
+    const nav = window.navigator as Navigator & { standalone?: boolean }
+    const mq = window.matchMedia('(display-mode: standalone), (display-mode: fullscreen)')
+    const syncMode = () => setIsStandalone(mq.matches || nav.standalone === true)
+    syncMode()
+    mq.addEventListener?.('change', syncMode)
     window.addEventListener('beforeinstallprompt', onBip)
+    window.addEventListener('appinstalled', onInstalled)
     if (process.env.NODE_ENV === 'production' && 'serviceWorker' in navigator) {
       navigator.serviceWorker.register('/sw.js').catch(() => {})
     }
-    return () => window.removeEventListener('beforeinstallprompt', onBip)
+    return () => {
+      window.removeEventListener('beforeinstallprompt', onBip)
+      window.removeEventListener('appinstalled', onInstalled)
+      mq.removeEventListener?.('change', syncMode)
+    }
   }, [])
 
   const handleInstall = useCallback(async () => {
@@ -2795,10 +2941,17 @@ export function PopcornGame() {
                   </button>
                 </div>
 
-                {canInstall && (
+                {!isStandalone && (
                   <button
                     type="button"
-                    onClick={() => void handleInstall()}
+                    onClick={() => {
+                      audio.play('click')
+                      if (canInstall) {
+                        void handleInstall()
+                      } else {
+                        setOverlay('install')
+                      }
+                    }}
                     className="mt-2 flex w-full items-center justify-center gap-2 rounded-xl border-2 border-[#8a5330] bg-[#f3e2c8] px-4 py-2 font-pixel text-sm font-bold text-[#8a5330] transition hover:bg-[#eed7b4] active:scale-[0.98]"
                   >
                     <Smartphone className="h-4 w-4" aria-hidden /> {t('menu.install')}
@@ -3207,6 +3360,14 @@ export function PopcornGame() {
           )}
           {overlay === 'creators' && <CreatorsOverlay t={t} onClose={() => setOverlay(null)} />}
           {overlay === 'rules' && <RulesOverlay t={t} onClose={() => setOverlay(null)} />}
+          {overlay === 'install' && (
+            <InstallOverlay
+              t={t}
+              canNative={canInstall}
+              onNative={() => void handleInstall()}
+              onClose={() => setOverlay(null)}
+            />
+          )}
         </AnimatePresence>
 
         {/* Вход по никнейму (первый визит) и смена ника из меню */}
