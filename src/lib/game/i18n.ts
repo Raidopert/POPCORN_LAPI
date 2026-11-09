@@ -857,6 +857,40 @@ const T: Record<string, Row> = {
     'Cada donación significa una nueva sala para los gatos 🐾',
   ],
 
+  /* ---------- куница в меню ---------- */
+  'marten.aria': [
+    'Живая куница NANA играет с попкорном в своей комнате',
+    'Live marten NANA playing with popcorn in her room',
+    'Die lebende Marderin NANA spielt mit Popcorn in ihrem Zimmer',
+    'La marta viva NANA jugando con palomitas en su habitación',
+  ],
+  'marten.title': ['Куница NANA', 'NANA the marten', 'Marderin NANA', 'Marta NANA'],
+  'marten.st0': ['Котёнок', 'Kitten', 'Marderbaby', 'Cachorra'],
+  'marten.st1': ['Малышка', 'Little one', 'Kleinemaus', 'Pequeña'],
+  'marten.st2': ['Юная', 'Young', 'Jungmard', 'Joven'],
+  'marten.st3': ['Ловкая', 'Agile', 'Flink', 'Ágil'],
+  'marten.st4': ['Пушистая', 'Fluffy', 'Flauschig', 'Esponjosa'],
+  'marten.st5': ['Величественная', 'Majestic', 'Majestätisch', 'Majestuosa'],
+  'marten.st6': ['Легенда попкорна', 'Popcorn legend', 'Popcorn-Legende', 'Leyenda del pop'],
+  'marten.growHint': [
+    'NANA растёт от пройденных уровней и времени в игре: каждые 4–5 уровней она подрастает, а её комната обставляется красивее — гирлянды, ковры, монеты, игрушки!',
+    'NANA grows with cleared levels and play time: every 4–5 levels she gets bigger and her room gets fancier — garlands, rugs, coins, toys!',
+    'NANA wächst mit geschafften Leveln und Spielzeit: alle 4–5 Level wird sie größer, ihr Zimmer schöner — Girlanden, Teppiche, Münzen, Spielzeug!',
+    'NANA crece con los niveles superados y el tiempo de juego: cada 4–5 niveles crece y su habitación se adorna: guirnaldas, alfombras, monedas, juguetes!',
+  ],
+  'marten.levelUp': [
+    '🐾 NANA подросла! Комната стала наряднее!',
+    '🐾 NANA grew up! Her room got fancier!',
+    '🐾 NANA ist gewachsen! Ihr Zimmer ist schöner!',
+    '🐾 ¡NANA creció! ¡Su habitación es más bonita!',
+  ],
+  'rules.grains': [
+    'Зёрна разной ценности: белое +1, карамель +2, масляное +3, золотое +5. Собирай дороже — комбо умножает всё!',
+    'Grains have different values: white +1, caramel +2, buttery +3, golden +5. Grab the pricey ones — combos multiply everything!',
+    'Körner haben unterschiedliche Werte: weiß +1, Karamell +2, Butter +3, golden +5. Nimm die teuren — Kombos vervielfachen alles!',
+    'Los granos valen distinto: blanco +1, caramelo +2, manteca +3, dorado +5. ¡Toma los caros: los combos lo multiplican todo!',
+  ],
+
   /* ---------- настройки ---------- */
   'set.title': ['НАСТРОЙКИ', 'SETTINGS', 'EINSTELLUNGEN', 'AJUSTES'],
   'set.lang': ['Язык', 'Language', 'Sprache', 'Idioma'],

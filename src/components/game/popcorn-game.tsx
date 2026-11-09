@@ -1,7 +1,6 @@
 'use client'
 
 import { useCallback, useEffect, useMemo, useRef, useState, useSyncExternalStore } from 'react'
-import Image from 'next/image'
 import { AnimatePresence, motion } from 'framer-motion'
 import {
   Cat,
@@ -51,6 +50,15 @@ import {
 } from '@/lib/game/achievements'
 import QRCode from 'react-qr-code'
 import { ROOMS, roomForLevel, roomSrcForLevel } from '@/lib/game/rooms'
+import MartenScene from './marten-scene'
+import {
+  DEFAULT_MARTEN,
+  addMartenProgress,
+  getMartenSnapshot,
+  progressToNext,
+  stageOf,
+  subscribeMarten,
+} from '@/lib/game/marten'
 import { GAME_VERSION_LABEL } from '@/lib/game/version'
 import { tFor, LANGS, LOCALES, type Lang, type TranslateFn } from '@/lib/game/i18n'
 import {
@@ -873,6 +881,7 @@ function RulesOverlay({ t, onClose }: { t: TranslateFn; onClose: () => void }) {
     ['♾️', 'rules.r9'],
     ['🛒', 'rules.r10'],
     ['🗺️', 'rules.r11'],
+    ['🧺', 'rules.grains'],
     ['🏅', 'rules.r12'],
     ['⏹', 'rules.r13'],
     ['🏆', 'rules.r14'],
@@ -1533,7 +1542,7 @@ async function shareResult(
     c.fillStyle = '#FFF6E6'
     c.fillRect(38, 38, 524, 524)
     c.imageSmoothingEnabled = false
-    const spr = makePopcornSprite(false)
+    const spr = makePopcornSprite('white')
     c.drawImage(spr.canvas, 300 - 80, 66, 160, 160)
     c.textAlign = 'center'
     c.fillStyle = '#B33A26'
@@ -1736,6 +1745,44 @@ export function PopcornGame() {
       .catch(() => {})
   }, [])
 
+  /* ===== Куница NANA: растёт от пройденных уровней и времени в игре ===== */
+  const marten = useSyncExternalStore(subscribeMarten, getMartenSnapshot, () => DEFAULT_MARTEN)
+  const [martenCheer, setMartenCheer] = useState(false)
+  const martenStage = stageOf(marten)
+  /* Секунды забега копятся в ref и периодически сбрасываются в копилку роста */
+  const playSecsRef = useRef(0)
+
+  /** Добавить прогресс куницы; при переходе на новую стадию — праздничная плашка */
+  const growMarten = useCallback((lv: number, sec: number) => {
+    const before = stageOf(getMartenSnapshot())
+    const next = addMartenProgress(lv, sec)
+    if (stageOf(next) > before) {
+      setMartenCheer(true)
+      window.setTimeout(() => setMartenCheer(false), 4000)
+    }
+  }, [])
+
+  /* Таймер времени в игре: +1 сек, каждые 20 сек — флеш в копилку куницы */
+  useEffect(() => {
+    if (phase !== 'playing') return
+    const iv = window.setInterval(() => {
+      playSecsRef.current += 1
+      if (playSecsRef.current >= 20) {
+        growMarten(0, playSecsRef.current)
+        playSecsRef.current = 0
+      }
+    }, 1000)
+    return () => window.clearInterval(iv)
+  }, [phase, growMarten])
+
+  /* Финальный флеш при уходе со страницы */
+  useEffect(
+    () => () => {
+      if (playSecsRef.current > 0) addMartenProgress(0, playSecsRef.current)
+    },
+    [],
+  )
+
   /* Синхронизируем состояние звука с аудио-движком (внешняя система) */
   useEffect(() => {
     mutedRef.current = muted
@@ -1903,6 +1950,9 @@ export function PopcornGame() {
         if (cand.length > 0) announceAch(cand)
       },
       onLevelComplete: (r) => {
+        /* Куница NANA: уровень пройден — +1 к росту (плюс накопленные секунды) */
+        growMarten(1, playSecsRef.current)
+        playSecsRef.current = 0
         setClearInfo({ level: r.level, bonus: r.bonus })
         setOffers(rollOffers(3, devRef.current.forced ?? undefined))
         setOpenedIdx(null)
@@ -1910,6 +1960,9 @@ export function PopcornGame() {
         setPhase('chest')
       },
       onEnd: (r) => {
+        /* Куница NANA: фиксируем время забега (уровни уже учтены по ходу) */
+        growMarten(0, playSecsRef.current)
+        playSecsRef.current = 0
         const prevBest = Number(window.localStorage.getItem(BEST_KEY) ?? 0)
         const record = r.score > prevBest
         if (record) {
@@ -1972,7 +2025,7 @@ export function PopcornGame() {
       engineRef.current = null
       delete (window as unknown as { __popcornEngine?: PopcornEngine }).__popcornEngine
     }
-  }, [storeBest, addXpDelta, announceAch, rollOffers])
+  }, [storeBest, addXpDelta, announceAch, rollOffers, growMarten])
 
   /* Следим за размером контейнера */
   useEffect(() => {
@@ -2394,14 +2447,44 @@ export function PopcornGame() {
                 exit={{ scale: 0.95, y: 10, opacity: 0 }}
                 transition={{ type: 'spring', stiffness: 260, damping: 22 }}
               >
-                <Image
-                  src="/cat-menu.png"
-                  alt={t('img.catMenu')}
-                  width={1024}
-                  height={1024}
-                  priority
-                  className="animate-float-y mx-auto h-44 w-44 rounded-2xl border-4 border-[#E24B3B] object-cover shadow-lg sm:h-56 sm:w-56"
-                />
+                {/* Живая куница NANA: играет с попкорном, растёт с прогрессом игрока */}
+                <div className="relative mx-auto w-full max-w-[21rem]">
+                  <MartenScene
+                    stage={martenStage}
+                    ariaLabel={t('marten.aria')}
+                    className="h-44 w-full rounded-2xl border-4 border-[#E24B3B] bg-[#FFF0D8] shadow-lg sm:h-52"
+                  />
+                  {/* Стадия и прогресс до следующего роста */}
+                  <div
+                    className="mt-2 flex items-center gap-2 rounded-full bg-amber-100 px-3 py-1.5 ring-2 ring-amber-200"
+                    title={t('marten.growHint')}
+                  >
+                    <span aria-hidden className="text-sm">🐾</span>
+                    <span className="font-ui text-[11px] font-bold text-[#8a5330]">
+                      {t('marten.title')} · {t(`marten.st${martenStage}`)}
+                    </span>
+                    <span className="ml-auto h-2 w-20 overflow-hidden rounded-full bg-[#e3cba4]">
+                      <span
+                        className="block h-full rounded-full bg-[#E24B3B] transition-all duration-700"
+                        style={{ width: `${Math.round(progressToNext(marten) * 100)}%` }}
+                      />
+                    </span>
+                  </div>
+                  <AnimatePresence>
+                    {martenCheer && (
+                      <motion.div
+                        className="pointer-events-none absolute inset-x-0 top-3 z-10 flex justify-center"
+                        initial={{ opacity: 0, y: -8, scale: 0.9 }}
+                        animate={{ opacity: 1, y: 0, scale: 1 }}
+                        exit={{ opacity: 0, y: -8 }}
+                      >
+                        <span className="rounded-full bg-[#E24B3B] px-3 py-1.5 font-pixel text-[10px] font-bold text-white shadow-lg">
+                          {t('marten.levelUp')}
+                        </span>
+                      </motion.div>
+                    )}
+                  </AnimatePresence>
+                </div>
                 <h1 className="text-shadow-pixel mt-2.5 font-pixel text-2xl font-bold leading-tight text-[#B33A26] sm:text-3xl">
                   {t('app.title')}
                 </h1>

@@ -62,7 +62,15 @@ export interface EngineCallbacks {
   onEnd?(r: EndResult): void
 }
 
-type PieceKind = 'popcorn' | 'golden' | 'corn'
+export type PieceKind = 'popcorn' | 'caramel' | 'butter' | 'golden' | 'corn'
+
+/** Очки за зёрна: белое +1 · карамель +2 · масляное +3 · золотое +5 */
+export const KIND_POINTS: Record<Exclude<PieceKind, 'corn'>, number> = {
+  popcorn: 1,
+  caramel: 2,
+  butter: 3,
+  golden: 5,
+}
 
 interface FieldPiece {
   x: number
@@ -76,14 +84,14 @@ interface FieldPiece {
 }
 
 interface Carried {
-  golden: boolean
+  kind: Exclude<PieceKind, 'corn'>
   grabT: number
 }
 
 interface Flying {
   x0: number
   y0: number
-  golden: boolean
+  kind: Exclude<PieceKind, 'corn'>
   t: number
 }
 
@@ -199,6 +207,10 @@ export class PopcornEngine {
   private popPerWave = 10
   private cornPerWave = 3
   private goldenChance = 0.12
+  /** Шанс карамельного зерна (+2): растёт с уровнем */
+  private caramelChance = 0.04
+  /** Шанс масляного зерна (+3): с 3-го уровня */
+  private butterChance = 0
   private baseWaveDelay = 0.82
   private waveDelay = -1
   private pendingClear = -1
@@ -252,6 +264,8 @@ export class PopcornEngine {
 
   private sp: {
     popcorn: Sprite
+    caramel: Sprite
+    butter: Sprite
     golden: Sprite
     corn: Sprite
     cornCB: Sprite
@@ -271,8 +285,10 @@ export class PopcornEngine {
       typeof window.matchMedia === 'function' &&
       window.matchMedia('(pointer: coarse)').matches
     this.sp = {
-      popcorn: makePopcornSprite(false),
-      golden: makePopcornSprite(true),
+      popcorn: makePopcornSprite('white'),
+      caramel: makePopcornSprite('caramel'),
+      butter: makePopcornSprite('butter'),
+      golden: makePopcornSprite('golden'),
       corn: makeCornSprite(false),
       cornCB: makeCornSprite(true),
       cup: makeCupSprite(),
@@ -357,6 +373,9 @@ export class PopcornEngine {
     if (this.opts.difficulty === 'easy') this.cornPerWave = Math.max(0, this.cornPerWave - 1)
     if (this.opts.difficulty === 'hard') this.cornPerWave = Math.min(15, this.cornPerWave + 1)
     this.goldenChance = perk === 'goldenvein' ? 0.26 : Math.min(0.3, 0.12 + (this.pawBonus.goldenAdd ?? 0))
+    /* Разнообразие зёрен: карамель и масло появляются с ростом уровня */
+    this.caramelChance = Math.min(0.2, 0.04 + (this.lvl - 1) * 0.014)
+    this.butterChance = this.lvl >= 3 ? Math.min(0.1, 0.015 + (this.lvl - 3) * 0.007) : 0
     this.baseWaveDelay = Math.max(0.4, 0.8 - (level - 1) * 0.03)
 
     this.phase = 'playing'
@@ -500,10 +519,15 @@ export class PopcornEngine {
   /* ================= волны ================= */
 
   private spawnWave(): void {
-    /* Точный состав волны: норма попкорна + мины (ступень каждые 5 уровней) */
+    /* Точный состав волны: норма зёрен + мины (ступень каждые 5 уровней).
+       Внутри «вкусной» нормы — смесь: белое/карамель/масло/золото. */
     const kinds: PieceKind[] = []
     for (let i = 0; i < this.popPerWave; i++) {
-      kinds.push(Math.random() < this.goldenChance ? 'golden' : 'popcorn')
+      const r = Math.random()
+      const cB = this.goldenChance
+      const cC = cB + this.caramelChance
+      const cM = cC + this.butterChance
+      kinds.push(r < cB ? 'golden' : r < cC ? 'caramel' : r < cM ? 'butter' : 'popcorn')
     }
     for (let i = 0; i < this.cornPerWave; i++) kinds.push('corn')
     for (let i = kinds.length - 1; i > 0; i--) {
@@ -716,10 +740,10 @@ export class PopcornEngine {
       }
       if (d < grabR && this.carried.length < this.carryMax) {
         this.pieces.splice(i, 1)
-        this.carried.push({ golden: p.kind === 'golden', grabT: 0 })
+        this.carried.push({ kind: p.kind as Exclude<PieceKind, 'corn'>, grabT: 0 })
         if (p.kind === 'golden') this.goldenCount++
         this.paw.pulse = 1
-        this.crumbs(p.x, p.y, p.kind === 'golden' ? '#FFE066' : '#FFF3D6', 6)
+        this.crumbs(p.x, p.y, p.kind === 'golden' ? '#FFE066' : p.kind === 'caramel' ? '#FFC98A' : p.kind === 'butter' ? '#FFED9C' : '#FFF3D6', 6)
         audio.play(p.kind === 'golden' ? 'golden' : 'pickup')
         this.buzz(p.kind === 'golden' ? 18 : 8)
       }
@@ -733,8 +757,8 @@ export class PopcornEngine {
         let base = 0
         let hasGold = false
         for (const c of this.carried) {
-          base += c.golden ? 5 : 1
-          hasGold = hasGold || c.golden
+          base += KIND_POINTS[c.kind]
+          hasGold = hasGold || c.kind === 'golden'
         }
         this.streak++
         const cm = this.comboMult
@@ -745,7 +769,7 @@ export class PopcornEngine {
           this.flying.push({
             x0: this.paw.x + (i - 1) * 8 * u,
             y0: this.paw.y - 20 * u - i * 10 * u,
-            golden: c.golden,
+            kind: c.kind,
             t: 0,
           })
         })
@@ -757,7 +781,7 @@ export class PopcornEngine {
           x: this.cup.x,
           y: this.cup.y - this.cupH * 0.8,
           text: cm > 1 ? `+${sum} ×${cm}` : `+${sum}`,
-          color: hasGold || cm > 1 ? '#FFC93C' : '#FFFFFF',
+          color: hasGold || sum >= 8 || cm > 1 ? '#FFC93C' : '#FFFFFF',
           t: 0,
           dur: 0.9,
           size: 26 * u,
@@ -785,8 +809,8 @@ export class PopcornEngine {
       if (f.t >= 1) {
         this.flying.splice(i, 1)
         this.crumbs(this.cup.x, this.cup.y - this.cupH * 0.5, '#FFF6EC', 3)
-        // Звук падения зёрнышка на дно (у золотого — повыше и со искрой)
-        audio.play(f.golden ? 'plopGold' : 'plop')
+        // Звук падения зёрнышка на дно (у дорогих — повыше и со искрой)
+        audio.play(f.kind === 'golden' || f.kind === 'butter' ? 'plopGold' : 'plop')
         this.cup.squash = Math.min(1, Math.max(this.cup.squash, 0.35))
       }
     }
@@ -1292,7 +1316,11 @@ export class PopcornEngine {
           : this.sp.corn
         : p.kind === 'golden'
           ? this.sp.golden
-          : this.sp.popcorn
+          : p.kind === 'caramel'
+            ? this.sp.caramel
+            : p.kind === 'butter'
+              ? this.sp.butter
+              : this.sp.popcorn
       drawSprite(ctx, sprite, p.x, y, scale, { rot: p.rot })
       // Режим дальтоников: пульсирующая белая метка над миной
       if (p.kind === 'corn' && this.opts.colorblind) {
@@ -1314,6 +1342,13 @@ export class PopcornEngine {
           alpha: 0.95,
         })
       }
+      // Масляное зерно — скромный блеск, чтобы отличалось на бегу
+      if (p.kind === 'butter') {
+        drawSprite(ctx, this.sp.sparkle, p.x - 9 * u, y - 10 * u, 0.8 * u, {
+          rot: -ts * 0.003,
+          alpha: 0.5 + 0.3 * Math.sin(ts * 0.005 + p.phase),
+        })
+      }
     }
   }
 
@@ -1326,9 +1361,22 @@ export class PopcornEngine {
       const q = easeOutQuad(f.t)
       const x = f.x0 + (tx - f.x0) * q
       const y = f.y0 + (ty - f.y0) * q - Math.sin(q * Math.PI) * 30 * u
-      drawSprite(ctx, f.golden ? this.sp.golden : this.sp.popcorn, x, y, 2.6 * u * this.popScale * (1 - 0.45 * q), {
-        rot: q * 3,
-      })
+      drawSprite(
+        ctx,
+        f.kind === 'golden'
+          ? this.sp.golden
+          : f.kind === 'caramel'
+            ? this.sp.caramel
+            : f.kind === 'butter'
+              ? this.sp.butter
+              : this.sp.popcorn,
+        x,
+        y,
+        2.6 * u * this.popScale * (1 - 0.45 * q),
+        {
+          rot: q * 3,
+        },
+      )
     }
   }
 
@@ -1351,7 +1399,7 @@ export class PopcornEngine {
     ctx.ellipse(px, py + 28 * u, 26 * u, 7 * u, 0, 0, Math.PI * 2)
     ctx.fill()
 
-    const basePaw = this.perk === 'bigpaw' ? 4.8 : this.perk === 'smallpaw' ? 2.9 : 3.8
+    const basePaw = this.perk === 'bigpaw' ? 3.6 : this.perk === 'smallpaw' ? 2.17 : 2.85
     const s = basePaw * u * (1 + 0.13 * this.paw.pulse)
     drawSprite(ctx, this.sp.paw, px, py, s)
 
@@ -1359,7 +1407,15 @@ export class PopcornEngine {
     this.carried.forEach((c, i) => {
       const wig = Math.sin(ts * 0.012 + i * 2) * 1.6 * u
       const y = py - 30 * u - i * 14 * u * this.popScale + (1 - c.grabT) * 10 * u
-      drawSprite(ctx, c.golden ? this.sp.golden : this.sp.popcorn, px + wig, y, 2.3 * u * this.popScale, {
+      const spr =
+        c.kind === 'golden'
+          ? this.sp.golden
+          : c.kind === 'caramel'
+            ? this.sp.caramel
+            : c.kind === 'butter'
+              ? this.sp.butter
+              : this.sp.popcorn
+      drawSprite(ctx, spr, px + wig, y, 2.3 * u * this.popScale, {
         rot: Math.sin(ts * 0.006 + i) * 0.12,
       })
     })

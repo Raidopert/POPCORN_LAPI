@@ -90,28 +90,43 @@ function renderGrid(g: Grid): Sprite {
   return { canvas, w: cols, h: rows }
 }
 
-/* ================= Попкорн ================= */
+/* ================= Попкорн (4 варианта зёрен с разной ценностью) ================= */
 
-export function makePopcornSprite(golden = false): Sprite {
+export type PopcornVariant = 'white' | 'golden' | 'caramel' | 'butter'
+
+export function makePopcornSprite(variant: PopcornVariant = 'white'): Sprite {
+  const pal = {
+    white: { body: '#FFFDF4', shade: '#F7D97B', shine: '#FFF0C9', edge: '#B8863B' },
+    golden: { body: '#FFE9A8', shade: '#EFB83C', shine: '#FFFBEB', edge: '#9A6A12' },
+    caramel: { body: '#FFC98A', shade: '#D97E2E', shine: '#FFE9CB', edge: '#9A5615' },
+    butter: { body: '#FFED9C', shade: '#F0C235', shine: '#FFFBDC', edge: '#A87B14' },
+  }[variant]
   const g = createGrid(14, 14)
-  const body = golden ? '#FFE9A8' : '#FFFDF4'
-  const shade = golden ? '#EFB83C' : '#F7D97B'
-  const shine = golden ? '#FFFBEB' : '#FFF0C9'
-  const edge = golden ? '#9A6A12' : '#B8863B'
 
   // Пышные «облачка»
-  paintCircle(g, 7, 6.4, 3.9, body)
-  paintCircle(g, 4.2, 8.6, 2.7, body)
-  paintCircle(g, 9.8, 8.6, 2.7, body)
-  paintCircle(g, 7, 3.8, 2.6, body)
+  paintCircle(g, 7, 6.4, 3.9, pal.body)
+  paintCircle(g, 4.2, 8.6, 2.7, pal.body)
+  paintCircle(g, 9.8, 8.6, 2.7, pal.body)
+  paintCircle(g, 7, 3.8, 2.6, pal.body)
   // Тень снизу-справа
-  tintCircle(g, 9.4, 9.2, 2.7, shade)
-  tintCircle(g, 10.2, 5.2, 1.2, shade)
+  tintCircle(g, 9.4, 9.2, 2.7, pal.shade)
+  tintCircle(g, 10.2, 5.2, 1.2, pal.shade)
   // Блик сверху-слева
-  tintCircle(g, 5, 4.2, 1.6, shine)
-  tintCircle(g, 6.6, 7.4, 1.1, shine)
+  tintCircle(g, 5, 4.2, 1.6, pal.shine)
+  tintCircle(g, 6.6, 7.4, 1.1, pal.shine)
+  // Карамелька: поливка-дуга через верхушку
+  if (variant === 'caramel') {
+    tintCircle(g, 6.5, 2.4, 2.3, '#C8741F')
+    tintCircle(g, 4.4, 3.6, 1.1, '#C8741F')
+    tintCircle(g, 8.6, 3.6, 1.1, '#C8741F')
+  }
+  // Масляное: жирный белый блик-капля
+  if (variant === 'butter') {
+    tintCircle(g, 4.8, 6.6, 1.1, '#FFFFFF')
+    tintCircle(g, 9.6, 4.6, 0.9, '#FFFFFF')
+  }
 
-  outlineGrid(g, edge)
+  outlineGrid(g, pal.edge)
   return renderGrid(g)
 }
 
@@ -198,6 +213,8 @@ export interface PawPalette {
   beans: string
   claw: string
   edge: string
+  /** Светлая шерсть (блик слева); по умолчанию — цвет подушечки */
+  furLight?: string
   /** Три пальца разного цвета (радужная лапка) */
   fingers?: [string, string, string]
   /** Пятнышки по шерсти (леопардовая лапка) */
@@ -213,56 +230,83 @@ const PAW_DEFAULT: PawPalette = {
   edge: '#4E2C14',
 }
 
+/**
+ * Лапка куницы 24×30 — удвоенная детализация против прежней 18×22:
+ * клочья меха на запястье, светло-теневой объём, блики на коготках,
+ * микро-тени у «бобышек» и пушистые перепонки между пальцами.
+ */
 export function makePawSprite(pal: Partial<PawPalette> = {}): Sprite {
   const p: PawPalette = { ...PAW_DEFAULT, ...pal }
-  const g = createGrid(18, 22)
+  const light = p.furLight ?? p.pad
+  const g = createGrid(24, 30)
 
-  // Пушистая лапа/рука снизу (длинная)
-  paintCircle(g, 9, 18, 4.6, p.fur)
-  paintCircle(g, 9, 20.5, 4.0, p.fur)
-  paintCircle(g, 6.4, 16.4, 2.6, p.fur)
-  paintCircle(g, 11.6, 16.4, 2.6, p.fur)
-  // Основная подушечка
-  paintCircle(g, 9, 11.5, 4.8, p.fur)
+  // Пушистая рука/запястье снизу (длинное) + клочья меха по бокам
+  paintCircle(g, 12, 24.5, 5.6, p.fur)
+  paintCircle(g, 12, 27.6, 5.0, p.fur)
+  paintCircle(g, 8.4, 22.2, 3.0, p.fur)
+  paintCircle(g, 15.6, 22.2, 3.0, p.fur)
+  paintCircle(g, 6.6, 25.4, 1.8, p.fur)
+  paintCircle(g, 17.4, 25.4, 1.8, p.fur)
+  paintCircle(g, 12, 29.4, 3.7, p.fur)
+  // Основная пясть
+  paintCircle(g, 12, 15.5, 6.0, p.fur)
   // Три пальца
-  paintCircle(g, 5, 6.2, 2.3, p.fur)
-  paintCircle(g, 9, 4.8, 2.5, p.fur)
-  paintCircle(g, 13, 6.2, 2.3, p.fur)
-  // Мех между пальцами и ладонью
-  paintCircle(g, 6.8, 8.4, 1.8, p.fur)
-  paintCircle(g, 11.2, 8.4, 1.8, p.fur)
-  // Коготки
-  paintCircle(g, 5, 3.4, 0.9, p.claw)
-  paintCircle(g, 9, 1.9, 0.9, p.claw)
-  paintCircle(g, 13, 3.4, 0.9, p.claw)
-  // Подушечка и «бобышки»
-  paintCircle(g, 9, 12.2, 3.1, p.pad)
-  paintCircle(g, 5, 6, 1.15, p.beans)
-  paintCircle(g, 9, 4.6, 1.25, p.beans)
-  paintCircle(g, 13, 6, 1.15, p.beans)
-  // Тень на мехе справа и на лапе
-  tintCircle(g, 11.6, 14.2, 2.6, p.furShade)
-  tintCircle(g, 10.8, 19.4, 2.4, p.furShade)
+  paintCircle(g, 6.4, 8.2, 3.0, p.fur)
+  paintCircle(g, 12, 6.0, 3.2, p.fur)
+  paintCircle(g, 17.6, 8.2, 3.0, p.fur)
+  // Пушистые перепонки между пальцами и пястью
+  paintCircle(g, 8.8, 11.0, 2.3, p.fur)
+  paintCircle(g, 15.2, 11.0, 2.3, p.fur)
+
+  // Объём: свет слева-сверху, тень справа
+  tintCircle(g, 8.4, 14.2, 2.6, light)
+  tintCircle(g, 10.4, 8.6, 1.6, light)
+  tintCircle(g, 15.0, 18.2, 3.6, p.furShade)
+  tintCircle(g, 13.8, 25.4, 3.2, p.furShade)
+  tintCircle(g, 19.0, 10.6, 1.6, p.furShade)
+  // Складка меха между пальцами
+  tintCircle(g, 8.8, 12.4, 1.0, p.furShade)
+  tintCircle(g, 15.2, 12.4, 1.0, p.furShade)
+
+  // Коготки с белыми бликами
+  paintCircle(g, 6.4, 4.4, 1.15, p.claw)
+  paintCircle(g, 12, 2.4, 1.2, p.claw)
+  paintCircle(g, 17.6, 4.4, 1.15, p.claw)
+  tintCircle(g, 6.0, 4.0, 0.5, '#FFF6EC')
+  tintCircle(g, 11.6, 2.0, 0.5, '#FFF6EC')
+  tintCircle(g, 17.2, 4.0, 0.5, '#FFF6EC')
+
+  // Подушечка и «бобышки» + микро-тени под ними
+  paintCircle(g, 12, 16.4, 3.8, p.pad)
+  tintCircle(g, 13.4, 18.2, 2.0, p.furShade)
+  paintCircle(g, 6.6, 8.0, 1.5, p.beans)
+  paintCircle(g, 12, 5.8, 1.6, p.beans)
+  paintCircle(g, 17.4, 8.0, 1.5, p.beans)
+  tintCircle(g, 7.3, 8.7, 0.8, p.furShade)
+  tintCircle(g, 12.8, 6.5, 0.85, p.furShade)
+  tintCircle(g, 18.1, 8.7, 0.8, p.furShade)
+
   // Пятнистый окрас (леопард) — только по уже закрашенной шерсти
   if (p.spots) {
     const dots: Array<[number, number, number]> = [
-      [6.2, 9.8, 0.95],
-      [11.8, 12.4, 1.05],
-      [7.4, 16.8, 0.85],
-      [11.2, 16.2, 0.85],
-      [9.2, 8.2, 0.7],
-      [12.4, 19.6, 0.85],
+      [8.0, 12.6, 1.25],
+      [15.8, 15.6, 1.3],
+      [9.6, 21.4, 1.1],
+      [14.6, 20.8, 1.1],
+      [12.0, 10.6, 0.9],
+      [16.4, 25.6, 1.1],
+      [7.6, 17.0, 1.0],
     ]
     for (const [dx, dy, dr] of dots) tintCircle(g, dx, dy, dr, p.spots)
   }
   // Радужные пальцы — перекрашиваем поверх и возвращаем «бобышки»
   if (p.fingers) {
-    paintCircle(g, 5, 6.2, 2.3, p.fingers[0])
-    paintCircle(g, 9, 4.8, 2.5, p.fingers[1])
-    paintCircle(g, 13, 6.2, 2.3, p.fingers[2])
-    paintCircle(g, 5, 6, 1.15, p.beans)
-    paintCircle(g, 9, 4.6, 1.25, p.beans)
-    paintCircle(g, 13, 6, 1.15, p.beans)
+    paintCircle(g, 6.4, 8.2, 3.0, p.fingers[0])
+    paintCircle(g, 12, 6.0, 3.2, p.fingers[1])
+    paintCircle(g, 17.6, 8.2, 3.0, p.fingers[2])
+    paintCircle(g, 6.6, 8.0, 1.5, p.beans)
+    paintCircle(g, 12, 5.8, 1.6, p.beans)
+    paintCircle(g, 17.4, 8.0, 1.5, p.beans)
   }
 
   outlineGrid(g, p.edge)
