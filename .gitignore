@@ -67,3 +67,4 @@ skills/
 dev.log
 *.log
 popcorn-game-github.zip
+.agent-ctx/

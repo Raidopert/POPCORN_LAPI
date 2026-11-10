@@ -13,7 +13,10 @@
  *    с сердечками, моргание, пышный хвост с бегущей синусоидой;
  *  - 3 зерна попкорна с физикой: гравитация, отскоки с затуханием, вращение,
  *    переспавн за краем экрана;
- *  - тап по кунице → happy + сердечки, тап по полу → куница идёт к точке.
+ *  - тап по кунице → happy + сердечки, тап по полу → куница идёт к точке;
+ *  - КЛИКЕР: каждый тап по комнате (пока NANA дома) даёт валюту — наружу
+ *    торчит колбэк onTap, сцена рисует летящие «+1» и не даёт фермить
+ *    автокликером быстрее ~6 тапов в секунду.
  *
  * Один rAF-цикл, dt капается до 50 мс, пауза рендера при document.hidden,
  * DPR-масштабирование (кап 2) через ResizeObserver, полная очистка в cleanup.
@@ -25,7 +28,7 @@ import { useEffect, useRef } from 'react'
 
 type MartenState = 'idle' | 'walk' | 'bat' | 'happy'
 type ChaseMode = 'kernel' | 'point'
-type ParticleKind = 'heart' | 'confetti'
+type ParticleKind = 'heart' | 'confetti' | 'gain'
 type GarlandMode = 'flags' | 'paws' | 'gold'
 
 interface Marten {
@@ -70,6 +73,8 @@ interface Particle {
   rot: number
   vrot: number
   color: string
+  /** Текст для частиц «gain» (кликер): «+1🪙», «+2🐾»… */
+  label?: string
 }
 
 interface MartenSceneProps {
@@ -77,6 +82,8 @@ interface MartenSceneProps {
   stage: number
   /** Куница ушла в путешествие — в комнате только зёрна и декор */
   away?: boolean
+  /** Кликер: тап по комнате (не чаще ~6/с) — наружу для начисления валюты */
+  onTap?: (x: number, y: number) => void
   className?: string
   /** a11y подпись canvas */
   ariaLabel?: string
@@ -127,10 +134,11 @@ const WHISKERS: Array<[number, number]> = [
 
 /* ─────────────────────────── Компонент ─────────────────────────── */
 
-export default function MartenScene({ stage, away = false, className, ariaLabel }: MartenSceneProps) {
+export default function MartenScene({ stage, away = false, onTap, className, ariaLabel }: MartenSceneProps) {
   const canvasRef = useRef<HTMLCanvasElement | null>(null)
   const stageRef = useRef(stage)
   const awayRef = useRef(away)
+  const onTapRef = useRef(onTap)
 
   // стадия и «отъезд» меняются без перезапуска анимационного эффекта
   useEffect(() => {
@@ -139,6 +147,9 @@ export default function MartenScene({ stage, away = false, className, ariaLabel 
   useEffect(() => {
     awayRef.current = away
   }, [away])
+  useEffect(() => {
+    onTapRef.current = onTap
+  }, [onTap])
 
   useEffect(() => {
     const canvas = canvasRef.current
@@ -193,6 +204,8 @@ export default function MartenScene({ stage, away = false, className, ariaLabel 
 
     const particles: Particle[] = []
     let confettiTimer = 1
+    /** Время последнего кликер-начисления (анти-автоклик, ~160 мс) */
+    let lastGain = -1e9
 
     /** Допустимые границы ходьбы с учётом хвоста и морды */
     const walkBounds = (): [number, number] => {
@@ -250,8 +263,40 @@ export default function MartenScene({ stage, away = false, className, ariaLabel 
       }
     }
 
+    /** Летящие «+1» кликера: монетка и опыт из точки тапа */
+    const spawnGain = (px: number, py: number): void => {
+      const push = (label: string, dx: number, dy: number, color: string): void => {
+        if (particles.length >= 110) return
+        const life = rand(0.65, 0.9)
+        particles.push({
+          kind: 'gain',
+          x: px + dx,
+          y: py + dy,
+          vx: rand(-8, 8),
+          vy: -rand(46, 64),
+          life,
+          maxLife: life,
+          size: 13,
+          phase: rand(0, Math.PI * 2),
+          rot: 0,
+          vrot: 0,
+          color,
+          label,
+        })
+      }
+      push('+1🪙', -10, -6, '#FFE066')
+      push('+1🐾', 14, -26, '#FF9E8C')
+    }
+
     const handleTap = (px: number, py: number): void => {
       if (awayRef.current) return // куница в походе — тапы ни к чему
+      // КЛИКЕР: тап по комнате приносит валюту; анти-автоклик ~160 мс
+      const now = performance.now()
+      if (now - lastGain >= 160) {
+        lastGain = now
+        spawnGain(px, py)
+        onTapRef.current?.(px, py)
+      }
       const st = stageRef.current
       const s = martenScale(st)
       const bl = bodyLenOf(st) * s
@@ -479,6 +524,9 @@ export default function MartenScene({ stage, away = false, className, ariaLabel 
         if (p.kind === 'heart') {
           p.vy -= 12 * dt // ускоряется вверх
           p.vx += Math.sin(time * 4 + p.phase) * 22 * dt
+        } else if (p.kind === 'gain') {
+          p.vy -= 18 * dt // текст разгоняется вверх
+          p.vx += Math.sin(time * 6 + p.phase) * 16 * dt
         } else {
           p.vy -= 5 * dt
           p.vx += Math.sin(time * 2 + p.phase) * 14 * dt
@@ -1077,6 +1125,18 @@ export default function MartenScene({ stage, away = false, className, ariaLabel 
           ctx.lineTo(3.9, -0.6)
           ctx.closePath()
           ctx.fill()
+        } else if (p.kind === 'gain') {
+          // летящий текст «+1🪙 / +1🐾»: жирный монospace с тёмной обводкой
+          ctx.globalAlpha = Math.min(1, lifeK * 1.6)
+          ctx.font = '700 13px ui-monospace, SFMono-Regular, Menlo, monospace'
+          ctx.textAlign = 'center'
+          ctx.textBaseline = 'middle'
+          ctx.lineWidth = 3
+          ctx.lineJoin = 'round'
+          ctx.strokeStyle = 'rgba(43, 26, 14, 0.85)'
+          ctx.strokeText(p.label ?? '+1', p.x, p.y)
+          ctx.fillStyle = p.color
+          ctx.fillText(p.label ?? '+1', p.x, p.y)
         } else {
           ctx.globalAlpha = 0.55 * lifeK
           ctx.translate(p.x, p.y)
@@ -1149,6 +1209,7 @@ export default function MartenScene({ stage, away = false, className, ariaLabel 
       }
       for (const k of kernels) drawKernel(k)
       drawParticles('heart')
+      drawParticles('gain')
     }
     rafId = requestAnimationFrame(frame)
 

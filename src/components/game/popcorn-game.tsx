@@ -24,6 +24,7 @@ import {
   ShoppingBag,
   Smartphone,
   SquarePlus,
+  Store,
   Timer,
   Trophy,
   Volume2,
@@ -94,24 +95,55 @@ import {
   DEFAULT_MARTEN,
   addMartenXp,
   addMartenProgress,
+  addMartenDiamonds,
+  buyMartenBag,
   buyMartenBoots,
+  buyMartenHat,
   claimMartenTrip,
+  equipMartenBag,
   equipMartenBoots,
+  equipMartenHat,
   fmtTripDur,
   fmtTripMs,
   getMartenSnapshot,
   martenLevelOf,
   progressToNext,
+  spendMartenDiamonds,
   stageOf,
   startMartenTrip,
   subscribeMarten,
   tripReward,
+  BAGS,
   BOOTS,
+  HATS,
+  HATS_MAP,
   TRIPS,
+  type BagId,
   type BootsId,
+  type HatId,
   type MartenState,
   type TripId,
 } from '@/lib/game/marten'
+import {
+  ZERO_MARKET_BONUS,
+  DEFAULT_MARKET,
+  addGrains,
+  buyArtifact,
+  countClick,
+  exchangeQuote,
+  getMarketSnapshot,
+  marketBonuses,
+  spendGrains,
+  subscribeMarket,
+  ARTIFACTS,
+  ARTIFACT_MAP,
+  CURRENCIES,
+  MARKET_FEE,
+  type ArtifactId,
+  type Currency,
+  type MarketBonuses,
+  type MarketState,
+} from '@/lib/game/market'
 import { GAME_VERSION_LABEL } from '@/lib/game/version'
 import { tFor, LANGS, LOCALES, type Lang, type TranslateFn } from '@/lib/game/i18n'
 import {
@@ -342,15 +374,20 @@ function IconBtn({
 function GameButton({
   onClick,
   children,
+  disabled,
+  className,
 }: {
   onClick: () => void
   children: React.ReactNode
+  disabled?: boolean
+  className?: string
 }) {
   return (
     <button
       type="button"
       onClick={onClick}
-      className="w-full rounded-xl bg-[#E24B3B] px-6 py-3.5 font-pixel text-base text-white shadow-[0_5px_0_#9c2f22] transition-all hover:bg-[#ef5a4a] active:translate-y-[3px] active:shadow-[0_2px_0_#9c2f22] sm:text-lg"
+      disabled={disabled}
+      className={`w-full rounded-xl bg-[#E24B3B] px-6 py-3.5 font-pixel text-base text-white shadow-[0_5px_0_#9c2f22] transition-all hover:bg-[#ef5a4a] active:translate-y-[3px] active:shadow-[0_2px_0_#9c2f22] disabled:cursor-not-allowed disabled:opacity-60 sm:text-lg ${className ?? ''}`}
     >
       {children}
     </button>
@@ -548,16 +585,40 @@ function ToggleRow({
 const OVERLAY_SCROLL =
   '[scrollbar-width:thin] [&::-webkit-scrollbar]:w-1.5 [&::-webkit-scrollbar-thumb]:rounded-full [&::-webkit-scrollbar-thumb]:bg-[#d9b98c] [&::-webkit-scrollbar-track]:bg-transparent'
 
-/* ---------- Путешествие куницы: авто-забег за зерном и алмазами ---------- */
+/* ---------- Путешествие куницы: авто-забег за зерном, алмазами и особым лутом ---------- */
+
+/** Иконки маршрутов: классика и дальние «особые» путешествия */
+const TRIP_ICON: Record<TripId, string> = {
+  t10: '🏠',
+  t30: '🌻',
+  t60: '🌾',
+  t180: '🌙',
+  t360: '🚜',
+  t720: '🏭',
+}
+
+/** Строка особых наград маршрута: 🪙 и 🌾 (пусто, если их нет) */
+function tripLootText(coins: number, grains: number): string {
+  const parts: string[] = []
+  if (coins > 0) parts.push(`🪙 +${coins}`)
+  if (grains > 0) parts.push(`🌾 +${grains}`)
+  return parts.join(' · ')
+}
 
 function TravelOverlay({
   marten,
+  martenLvl,
+  gemMult,
+  xpMult,
   t,
   onSend,
   onClaim,
   onClose,
 }: {
   marten: MartenState
+  martenLvl: number
+  gemMult: number
+  xpMult: number
   t: TranslateFn
   onSend: (id: TripId) => void
   onClaim: () => void
@@ -570,6 +631,7 @@ function TravelOverlay({
     const total = Math.max(1, trip.endsAt - trip.startedAt)
     const left = Math.max(0, trip.endsAt - Date.now())
     const pct = Math.min(100, Math.round(((total - left) / total) * 100))
+    const loot = tripLootText(trip.coins, trip.grains)
     return (
       <motion.div
         className="absolute inset-0 z-40 flex items-center justify-center overflow-y-auto bg-black/70 p-4 backdrop-blur-sm"
@@ -611,6 +673,7 @@ function TravelOverlay({
               {done ? (
                 <span className="font-pixel text-[13px] text-[#3f6b28]">
                   {t('travel.reward')}: 💎 {trip.diamonds} · 🐾 {trip.xp} XP
+                  {loot ? ` · ${loot}` : ''}
                 </span>
               ) : (
                 <>
@@ -626,11 +689,14 @@ function TravelOverlay({
             <div className="mt-3">
               <GameButton onClick={onClaim}>
                 {t('travel.claim')} · 💎{trip.diamonds} 🐾{trip.xp}
+                {trip.coins > 0 ? ` 🪙${trip.coins}` : ''}
+                {trip.grains > 0 ? ` 🌾${trip.grains}` : ''}
               </GameButton>
             </div>
           ) : (
             <p className="mt-2 font-ui text-[10px] text-[#a97c50]">
               {t('travel.reward')}: 💎 {trip.diamonds} · 🐾 {trip.xp} XP
+              {loot ? ` · ${loot}` : ''}
             </p>
           )}
           <button
@@ -645,7 +711,7 @@ function TravelOverlay({
     )
   }
 
-  /* Дома: выбор из трёх путешествий (с учётом ботинок) */
+  /* Дома: выбор из шести путешествий (с учётом снаряжения и артефактов) */
   return (
     <motion.div
       className="absolute inset-0 z-40 flex items-center justify-center overflow-y-auto bg-black/70 p-4 backdrop-blur-sm"
@@ -666,31 +732,58 @@ function TravelOverlay({
         <h2 className="mt-0.5 font-pixel text-xl font-bold text-[#B33A26]">{t('travel.title')}</h2>
         <p className="mt-1 font-ui text-xs font-medium text-[#8a5330]">{t('travel.subtitle')}</p>
 
-        <ul className="mt-3 space-y-2 text-left">
+        <ul
+          className={`mt-3 max-h-[46vh] space-y-2 overflow-y-auto pr-1 text-left sm:max-h-[26rem] ${OVERLAY_SCROLL}`}
+        >
           {TRIPS.map((def) => {
-            const rw = tripReward(def.id, marten.boots)
+            const locked = martenLvl < def.lock
+            const rw = tripReward(
+              def.id,
+              { boots: marten.boots, hat: marten.hat, bag: marten.bag },
+              gemMult,
+              xpMult,
+            )
+            const loot = tripLootText(rw.coins, rw.grains)
             return (
               <li
                 key={def.id}
-                className="flex items-center gap-2.5 rounded-xl border-2 border-[#e3cba4] bg-[#fdf3e0] p-2.5"
+                className={`flex items-center gap-2.5 rounded-xl border-2 p-2.5 ${
+                  locked ? 'border-[#d9c6a8] bg-[#f3e8d8] opacity-80' : 'border-[#e3cba4] bg-[#fdf3e0]'
+                }`}
               >
                 <span aria-hidden className="text-2xl">
-                  {def.id === 't10' ? '🏠' : def.id === 't30' ? '🌻' : '🌾'}
+                  {TRIP_ICON[def.id]}
                 </span>
                 <div className="min-w-0 flex-1">
                   <div className="font-pixel text-[13px] font-bold leading-tight text-[#5C3A1E]">
+                    {locked ? '🔒 ' : ''}
                     {t(`travel.${def.id}.name`)}
                   </div>
                   <div className="font-ui text-[11px] font-semibold leading-snug text-[#8a5330]">
                     ⏱ {fmtTripDur(rw.ms)} · 💎 {rw.diamonds} · 🐾 {rw.xp} XP
                   </div>
+                  {loot ? (
+                    <div className="font-ui text-[10px] font-bold leading-snug text-[#3f6b28]">
+                      {loot} · {t('travel.special')}
+                    </div>
+                  ) : null}
+                  {locked ? (
+                    <div className="font-ui text-[10px] font-bold leading-snug text-[#B33A26]">
+                      {t('travel.lock', { n: def.lock })}
+                    </div>
+                  ) : null}
                 </div>
                 <button
                   type="button"
+                  disabled={locked}
                   onClick={() => onSend(def.id)}
-                  className="shrink-0 rounded-lg bg-[#E24B3B] px-2.5 py-2 font-ui text-[11px] font-bold text-white shadow-[0_3px_0_#9c2f22] transition hover:bg-[#ef5a4a] active:scale-95"
+                  className={`shrink-0 rounded-lg px-2.5 py-2 font-ui text-[11px] font-bold transition active:scale-95 ${
+                    locked
+                      ? 'cursor-not-allowed bg-[#d9c6a8] text-[#8a755c]'
+                      : 'bg-[#E24B3B] text-white shadow-[0_3px_0_#9c2f22] hover:bg-[#ef5a4a]'
+                  }`}
                 >
-                  {t('travel.send')}
+                  {locked ? '🔒' : t('travel.send')}
                 </button>
               </li>
             )
@@ -709,29 +802,122 @@ function TravelOverlay({
   )
 }
 
-/* ---------- Минимаркет куницы: ботиночки путешественницы ---------- */
+/* ---------- Лавка куницы: ботиночки, шляпки и сумочки ---------- */
+
+/** Иконки снаряжения для карточек лавки */
+const BOOTS_ICON: Record<BootsId, string> = {
+  none: '🐾',
+  sapozhki: '🥿',
+  krest: '🥾',
+  sluzh: '👠',
+  leopard: '🐆',
+}
+const HAT_ICON: Record<HatId, string> = {
+  none: '🐾',
+  straw: '👒',
+  cap: '🧢',
+  crown: '👑',
+  superleo: '🎩',
+}
+const BAG_ICON: Record<BagId, string> = {
+  none: '🐾',
+  packet: '🛍️',
+  tote: '👝',
+  baguette: '👜',
+  leobag: '👛',
+}
+
+/** Общая строка «эффектов снаряжения»: 💎+15% · 🐾+15% · ⏱−5% · 👆+4 · 🪙+10 · 🌾+80 */
+function gearEffText(parts: Array<[string, string]>): string {
+  return parts.length > 0 ? parts.map(([k, v]) => `${k} ${v}`).join(' · ') : '—'
+}
 
 function MShopOverlay({
   marten,
   t,
-  onBuy,
-  onEquip,
+  onBuyBoots,
+  onEquipBoots,
+  onBuyHat,
+  onEquipHat,
+  onBuyBag,
+  onEquipBag,
   onClose,
 }: {
   marten: MartenState
   t: TranslateFn
-  onBuy: (id: BootsId) => void
-  onEquip: (id: BootsId) => void
+  onBuyBoots: (id: BootsId) => void
+  onEquipBoots: (id: BootsId) => void
+  onBuyHat: (id: HatId) => void
+  onEquipHat: (id: HatId) => void
+  onBuyBag: (id: BagId) => void
+  onEquipBag: (id: BagId) => void
   onClose: () => void
 }) {
-  /* Эффекты ботинок короткой строкой: 💎+15% · 🐾+15% · ⏱−5% */
-  const effText = (gemMul: number, xpMul: number, timeMul: number): string => {
-    const parts: string[] = []
-    if (gemMul !== 1) parts.push(`💎 +${Math.round((gemMul - 1) * 100)}%`)
-    if (xpMul !== 1) parts.push(`🐾 +${Math.round((xpMul - 1) * 100)}%`)
-    if (timeMul !== 1) parts.push(`⏱ −${Math.round((1 - timeMul) * 100)}%`)
-    return parts.length > 0 ? parts.join(' · ') : '—'
-  }
+  const [tab, setTab] = useState<'boots' | 'hats' | 'bags'>('boots')
+  /* Порядок карточек: дешёвые сверху */
+  const list =
+    tab === 'boots'
+      ? BOOTS.map((d) => ({
+          id: d.id,
+          price: d.price,
+          owned: marten.ownedBoots.includes(d.id),
+          equipped: marten.boots === d.id,
+          icon: BOOTS_ICON[d.id],
+          eff: gearEffText([
+            ...(d.gemMul !== 1 ? ([['💎', `+${Math.round((d.gemMul - 1) * 100)}%`]] as Array<[string, string]>) : []),
+            ...(d.xpMul !== 1 ? ([['🐾', `+${Math.round((d.xpMul - 1) * 100)}%`]] as Array<[string, string]>) : []),
+            ...(d.timeMul !== 1 ? ([['⏱', `−${Math.round((1 - d.timeMul) * 100)}%`]] as Array<[string, string]>) : []),
+          ]),
+          nameKey: `boots.${d.id}.name`,
+          descKey: `boots.${d.id}.desc`,
+          premium: d.id === 'leopard',
+        }))
+      : tab === 'hats'
+        ? HATS.map((d) => ({
+            id: d.id,
+            price: d.price,
+            owned: marten.ownedHats.includes(d.id),
+            equipped: marten.hat === d.id,
+            icon: HAT_ICON[d.id],
+            eff: gearEffText([
+              ...(d.clickXp > 0 ? ([['👆', `+${d.clickXp}🐾`]] as Array<[string, string]>) : []),
+              ...(d.gemMul !== 1 ? ([['💎', `+${Math.round((d.gemMul - 1) * 100)}%`]] as Array<[string, string]>) : []),
+              ...(d.xpMul !== 1 ? ([['🐾', `+${Math.round((d.xpMul - 1) * 100)}%`]] as Array<[string, string]>) : []),
+              ...(d.timeMul !== 1 ? ([['⏱', `−${Math.round((1 - d.timeMul) * 100)}%`]] as Array<[string, string]>) : []),
+            ]),
+            nameKey: `hat.${d.id}.name`,
+            descKey: `hat.${d.id}.desc`,
+            premium: d.id === 'superleo',
+          }))
+        : BAGS.map((d) => ({
+            id: d.id,
+            price: d.price,
+            owned: marten.ownedBags.includes(d.id),
+            equipped: marten.bag === d.id,
+            icon: BAG_ICON[d.id],
+            eff: gearEffText([
+              ...(d.coins > 0 ? ([['🪙', `+${d.coins}`]] as Array<[string, string]>) : []),
+              ...(d.grains > 0 ? ([['🌾', `+${d.grains}`]] as Array<[string, string]>) : []),
+              ...(d.gemAdd > 1 ? ([['💎', `+${Math.round((d.gemAdd - 1) * 100)}%`]] as Array<[string, string]>) : []),
+            ]),
+            nameKey: `bag.${d.id}.name`,
+            descKey: `bag.${d.id}.desc`,
+            premium: d.id === 'leobag',
+          }))
+
+  const handleBuy =
+    tab === 'boots'
+      ? (id: string) => onBuyBoots(id as BootsId)
+      : tab === 'hats'
+        ? (id: string) => onBuyHat(id as HatId)
+        : (id: string) => onBuyBag(id as BagId)
+  const handleEquip =
+    tab === 'boots'
+      ? (id: string) => onEquipBoots(id as BootsId)
+      : tab === 'hats'
+        ? (id: string) => onEquipHat(id as HatId)
+        : (id: string) => onEquipBag(id as BagId)
+
   return (
     <motion.div
       className="absolute inset-0 z-40 flex items-center justify-center overflow-y-auto bg-black/70 p-4 backdrop-blur-sm"
@@ -747,7 +933,7 @@ function MShopOverlay({
         transition={{ type: 'spring', stiffness: 260, damping: 22 }}
       >
         <div aria-hidden className="text-3xl">
-          🛍️👢
+          🛍️👢👒👛
         </div>
         <h2 className="mt-0.5 font-pixel text-xl font-bold text-[#B33A26]">{t('mshop.title')}</h2>
         <p className="mt-1 font-ui text-xs font-medium text-[#8a5330]">{t('mshop.subtitle')}</p>
@@ -759,60 +945,90 @@ function MShopOverlay({
           </span>
         </div>
 
+        {/* Табы: ботинки / шляпки / сумки */}
+        <div className="mt-3 grid grid-cols-3 gap-1" role="tablist" aria-label={t('mshop.title')}>
+          {(
+            [
+              ['boots', '👢', 'mshop.tabBoots'],
+              ['hats', '👒', 'mshop.tabHats'],
+              ['bags', '👛', 'mshop.tabBags'],
+            ] as Array<['boots' | 'hats' | 'bags', string, string]>
+          ).map(([id, icon, key]) => (
+            <button
+              key={id}
+              type="button"
+              role="tab"
+              aria-selected={tab === id}
+              onClick={() => {
+                audio.play('click')
+                setTab(id)
+              }}
+              className={`rounded-lg border-2 px-1 py-1.5 font-pixel text-[10px] font-bold transition active:scale-95 ${
+                tab === id
+                  ? 'border-[#E24B3B] bg-[#ffe9e2] text-[#B33A26]'
+                  : 'border-[#d9c6a8] bg-[#f3e2c8] text-[#8a5330] hover:bg-[#eed7b4]'
+              }`}
+            >
+              <span aria-hidden className="mr-0.5">
+                {icon}
+              </span>
+              {t(key)}
+            </button>
+          ))}
+        </div>
+
         <ul
-          className={`mt-3 max-h-[38vh] space-y-2 overflow-y-auto pr-1 text-left sm:max-h-64 ${OVERLAY_SCROLL}`}
+          className={`mt-3 max-h-[34vh] space-y-2 overflow-y-auto pr-1 text-left sm:max-h-56 ${OVERLAY_SCROLL}`}
         >
-          {BOOTS.map((def) => {
-            const isOwned = marten.ownedBoots.includes(def.id)
-            const isEquipped = marten.boots === def.id
-            const canBuy = !isOwned && marten.diamonds >= def.price
+          {list.map((item) => {
+            const canBuy = !item.owned && marten.diamonds >= item.price
             return (
               <li
-                key={def.id}
+                key={item.id}
                 className={`flex items-center gap-2.5 rounded-xl border-2 p-2 ${
-                  isEquipped ? 'border-amber-400 bg-amber-50' : 'border-[#e3cba4] bg-[#fdf3e0]'
+                  item.equipped ? 'border-amber-400 bg-amber-50' : 'border-[#e3cba4] bg-[#fdf3e0]'
                 }`}
               >
                 <span
                   aria-hidden
                   className={`flex h-10 w-10 shrink-0 items-center justify-center rounded-lg text-2xl ${
-                    def.id === 'leopard'
+                    item.premium
                       ? 'bg-[#3a2a12] shadow-[inset_0_0_12px_rgba(255,209,102,0.35)]'
                       : 'bg-[#f3e2c8]'
                   }`}
                 >
-                  {def.id === 'none' ? '🐾' : def.id === 'sapozhki' ? '🥿' : def.id === 'krest' ? '🥾' : def.id === 'sluzh' ? '👠' : '🐆'}
+                  {item.icon}
                 </span>
                 <div className="min-w-0 flex-1">
                   <div className="font-pixel text-sm font-bold leading-tight text-[#5C3A1E]">
-                    {t(`boots.${def.id}.name`)}
+                    {t(item.nameKey)}
                   </div>
                   <div
                     className="font-ui text-[10px] font-bold leading-snug text-[#3f6b28]"
-                    title={t(`boots.${def.id}.desc`)}
+                    title={t(item.descKey)}
                   >
-                    {effText(def.gemMul, def.xpMul, def.timeMul)}
+                    {item.eff}
                   </div>
                   <div
                     className="font-ui text-[10px] leading-tight text-[#a97c50]"
-                    title={t(`boots.${def.id}.desc`)}
+                    title={t(item.descKey)}
                   >
-                    {t(`boots.${def.id}.desc`)}
+                    {t(item.descKey)}
                   </div>
                 </div>
-                {isEquipped ? (
+                {item.equipped ? (
                   <span className="shrink-0 rounded-full bg-amber-400 px-2.5 py-1.5 font-ui text-[10px] font-bold text-[#5C3A1E]">
                     {t('mshop.on')}
                   </span>
-                ) : isOwned ? (
+                ) : item.owned ? (
                   <button
                     type="button"
-                    onClick={() => onEquip(def.id)}
+                    onClick={() => handleEquip(item.id)}
                     className="shrink-0 rounded-lg border-2 border-[#8a5330] bg-[#FFF6E6] px-2.5 py-1.5 font-ui text-[11px] font-bold text-[#8a5330] transition hover:bg-[#f3e2c8] active:scale-95"
                   >
                     {t('mshop.equip')}
                   </button>
-                ) : def.id === 'none' ? (
+                ) : item.price === 0 ? (
                   <span className="shrink-0 font-ui text-[10px] text-[#a97c50]">
                     {t('mshop.bare')}
                   </span>
@@ -820,21 +1036,344 @@ function MShopOverlay({
                   <button
                     type="button"
                     disabled={!canBuy}
-                    onClick={() => onBuy(def.id)}
-                    title={canBuy ? t(`boots.${def.id}.desc`) : t('mshop.need')}
+                    onClick={() => handleBuy(item.id)}
+                    title={canBuy ? t(item.descKey) : t('mshop.need')}
                     className={`shrink-0 rounded-lg px-2.5 py-1.5 font-ui text-[11px] font-bold transition active:scale-95 ${
                       canBuy
                         ? 'bg-[#E24B3B] text-white shadow-[0_3px_0_#9c2f22] hover:bg-[#ef5a4a]'
                         : 'cursor-not-allowed bg-[#d9c6a8] text-[#8a755c]'
                     }`}
                   >
-                    💎 {def.price}
+                    💎 {item.price}
                   </button>
                 )}
               </li>
             )
           })}
         </ul>
+
+        <button
+          type="button"
+          onClick={onClose}
+          className="mt-3 w-full rounded-xl border-2 border-[#8a5330] bg-[#f3e2c8] px-4 py-2 font-pixel text-sm font-bold text-[#8a5330] transition hover:bg-[#eed7b4] active:scale-[0.98]"
+        >
+          {t('shop.close')}
+        </button>
+      </motion.div>
+    </motion.div>
+  )
+}
+
+/* ---------- РЫНОК: обмен всех валют + постоянные артефакты ---------- */
+
+/** Короткая подпись валюты для чипов кошелька */
+const CURRENCY_META: Record<Currency, { icon: string; hintKey: string }> = {
+  gems: { icon: '💎', hintKey: 'market.cur.gems' },
+  coins: { icon: '🪙', hintKey: 'market.cur.coins' },
+  xp: { icon: '🍿', hintKey: 'market.cur.xp' },
+  grains: { icon: '🌾', hintKey: 'market.cur.grains' },
+}
+
+/** Артефактные иконки */
+const ARTIFACT_ICON: Record<ArtifactId, string> = {
+  piggy: '🐷',
+  academy: '🎓',
+  sieve: '🧺',
+  travelmap: '🧭',
+  bell: '🔔',
+}
+
+function MarketOverlay({
+  marten,
+  coins,
+  xp,
+  market,
+  t,
+  onExchange,
+  onBuyArtifact,
+  onClose,
+}: {
+  marten: MartenState
+  coins: number
+  xp: number
+  market: MarketState
+  t: TranslateFn
+  onExchange: (from: Currency, to: Currency, amount: number) => boolean
+  onBuyArtifact: (id: ArtifactId) => void
+  onClose: () => void
+}) {
+  const [tab, setTab] = useState<'swap' | 'artifacts'>('swap')
+  const [from, setFrom] = useState<Currency>('grains')
+  const [to, setTo] = useState<Currency>('coins')
+  /** Доля кошелька на обмен: 0.1..1 (кнопки 10% / 25% / 50% / MAX) */
+  const [frac, setFrac] = useState(0.25)
+
+  const balanceOf = (c: Currency): number =>
+    c === 'gems' ? marten.diamonds : c === 'coins' ? coins : c === 'xp' ? xp : market.grains
+
+  const wallet: Array<[Currency, number]> = [
+    ['gems', marten.diamonds],
+    ['coins', coins],
+    ['xp', xp],
+    ['grains', market.grains],
+  ]
+
+  const bank = balanceOf(from)
+  const amount = Math.floor(bank * frac)
+  const got = exchangeQuote(from, to, amount)
+  const sameCur = from === to
+  const canSwap = !sameCur && amount > 0 && got > 0
+
+  const pickCurrency = (slot: 'from' | 'to', c: Currency): void => {
+    if (slot === 'from') {
+      if (c === to) setTo(from) // обмен местами
+      setFrom(c)
+    } else {
+      if (c === from) setFrom(to)
+      setTo(c)
+    }
+    audio.play('click')
+  }
+
+  return (
+    <motion.div
+      className="absolute inset-0 z-40 flex items-center justify-center overflow-y-auto bg-black/70 p-4 backdrop-blur-sm"
+      initial={{ opacity: 0 }}
+      animate={{ opacity: 1 }}
+      exit={{ opacity: 0 }}
+    >
+      <motion.div
+        className="my-auto w-full max-w-sm rounded-2xl border-4 border-[#8a5330] bg-[#FFF6E6] p-4 text-center shadow-[0_18px_50px_rgba(0,0,0,0.55)] sm:p-5"
+        initial={{ scale: 0.92, y: 14 }}
+        animate={{ scale: 1, y: 0 }}
+        exit={{ scale: 0.95, opacity: 0 }}
+        transition={{ type: 'spring', stiffness: 260, damping: 22 }}
+      >
+        <div aria-hidden className="text-3xl">
+          🏪💱
+        </div>
+        <h2 className="mt-0.5 font-pixel text-xl font-bold text-[#B33A26]">{t('market.title')}</h2>
+        <p className="mt-1 font-ui text-xs font-medium text-[#8a5330]">{t('market.subtitle')}</p>
+
+        {/* Кошелёк: все четыре валюты */}
+        <div className="mt-2 grid grid-cols-4 gap-1">
+          {wallet.map(([c, n]) => (
+            <div
+              key={c}
+              className="rounded-lg border-2 border-[#e3cba4] bg-[#fdf3e0] px-1 py-1"
+              title={t(CURRENCY_META[c].hintKey)}
+            >
+              <div aria-hidden className="text-sm leading-none">
+                {CURRENCY_META[c].icon}
+              </div>
+              <div className="font-pixel text-[10px] font-bold tabular-nums text-[#5C3A1E]">
+                {n >= 100000 ? `${Math.floor(n / 1000)}k` : n}
+              </div>
+            </div>
+          ))}
+        </div>
+
+        {/* Табы: обмен / артефакты */}
+        <div className="mt-3 grid grid-cols-2 gap-1" role="tablist" aria-label={t('market.title')}>
+          {(
+            [
+              ['swap', '🔁', 'market.tabSwap'],
+              ['artifacts', '🏺', 'market.tabArtifacts'],
+            ] as Array<['swap' | 'artifacts', string, string]>
+          ).map(([id, icon, key]) => (
+            <button
+              key={id}
+              type="button"
+              role="tab"
+              aria-selected={tab === id}
+              onClick={() => {
+                audio.play('click')
+                setTab(id)
+              }}
+              className={`rounded-lg border-2 px-1 py-1.5 font-pixel text-[10px] font-bold transition active:scale-95 ${
+                tab === id
+                  ? 'border-[#E24B3B] bg-[#ffe9e2] text-[#B33A26]'
+                  : 'border-[#d9c6a8] bg-[#f3e2c8] text-[#8a5330] hover:bg-[#eed7b4]'
+              }`}
+            >
+              <span aria-hidden className="mr-0.5">
+                {icon}
+              </span>
+              {t(key)}
+            </button>
+          ))}
+        </div>
+
+        {tab === 'swap' ? (
+          <div className="mt-3 text-left">
+            {/* Отдаём */}
+            <div className="font-ui text-[10px] font-bold uppercase tracking-wide text-[#a97c50]">
+              {t('market.give')}
+            </div>
+            <div className="mt-1 grid grid-cols-4 gap-1">
+              {CURRENCIES.map((c) => (
+                <button
+                  key={c}
+                  type="button"
+                  aria-pressed={from === c}
+                  onClick={() => pickCurrency('from', c)}
+                  className={`rounded-lg border-2 py-1.5 text-center transition active:scale-95 ${
+                    from === c
+                      ? 'border-[#B33A26] bg-[#ffe9e2]'
+                      : 'border-[#e3cba4] bg-[#fdf3e0] hover:bg-[#f3e2c8]'
+                  }`}
+                >
+                  <span aria-hidden className="block text-base leading-none">
+                    {CURRENCY_META[c].icon}
+                  </span>
+                </button>
+              ))}
+            </div>
+            {/* Получаем */}
+            <div className="mt-2 font-ui text-[10px] font-bold uppercase tracking-wide text-[#a97c50]">
+              {t('market.get')}
+            </div>
+            <div className="mt-1 grid grid-cols-4 gap-1">
+              {CURRENCIES.map((c) => (
+                <button
+                  key={c}
+                  type="button"
+                  aria-pressed={to === c}
+                  onClick={() => pickCurrency('to', c)}
+                  className={`rounded-lg border-2 py-1.5 text-center transition active:scale-95 ${
+                    to === c
+                      ? 'border-[#3f6b28] bg-[#eaf3dd]'
+                      : 'border-[#e3cba4] bg-[#fdf3e0] hover:bg-[#f3e2c8]'
+                  }`}
+                >
+                  <span aria-hidden className="block text-base leading-none">
+                    {CURRENCY_META[c].icon}
+                  </span>
+                </button>
+              ))}
+            </div>
+
+            {/* Доля кошелька */}
+            <div className="mt-2 grid grid-cols-4 gap-1">
+              {(
+                [
+                  [0.1, '10%'],
+                  [0.25, '25%'],
+                  [0.5, '50%'],
+                  [1, t('market.max')],
+                ] as Array<[number, string]>
+              ).map(([f, label]) => (
+                <button
+                  key={label}
+                  type="button"
+                  aria-pressed={frac === f}
+                  onClick={() => {
+                    audio.play('click')
+                    setFrac(f)
+                  }}
+                  className={`rounded-lg border-2 py-1 font-pixel text-[10px] font-bold transition active:scale-95 ${
+                    frac === f
+                      ? 'border-[#8a5330] bg-[#f3e2c8] text-[#5C3A1E]'
+                      : 'border-[#e3cba4] bg-[#fdf3e0] text-[#8a5330] hover:bg-[#f3e2c8]'
+                  }`}
+                >
+                  {label}
+                </button>
+              ))}
+            </div>
+
+            {/* Итог обмена */}
+            <div className="mt-2 rounded-xl border-2 border-[#e3cba4] bg-[#fdf3e0] p-2.5 text-center">
+              {sameCur ? (
+                <p className="font-ui text-[11px] font-bold text-[#B33A26]">{t('market.same')}</p>
+              ) : (
+                <>
+                  <div className="font-pixel text-[13px] font-bold text-[#5C3A1E]">
+                    {CURRENCY_META[from].icon} {amount} →{' '}
+                    <span className="text-[#3f6b28]">
+                      {CURRENCY_META[to].icon} {got}
+                    </span>
+                  </div>
+                  <p className="mt-1 font-ui text-[10px] leading-tight text-[#a97c50]">
+                    {t('market.fee', { n: Math.round(MARKET_FEE * 100) })}
+                  </p>
+                </>
+              )}
+            </div>
+
+            <GameButton
+              onClick={() => {
+                if (!canSwap) return
+                if (onExchange(from, to, amount)) audio.play('perk')
+                else audio.play('penalty')
+              }}
+              disabled={!canSwap}
+              className={canSwap ? '' : 'pointer-events-none opacity-50'}
+            >
+              {t('market.swap')} · {CURRENCY_META[from].icon}
+              {amount} → {CURRENCY_META[to].icon}
+              {got}
+            </GameButton>
+          </div>
+        ) : (
+          /* Артефакты: постоянные усиления за алмазы */
+          <ul
+            className={`mt-3 max-h-[36vh] space-y-2 overflow-y-auto pr-1 text-left sm:max-h-60 ${OVERLAY_SCROLL}`}
+          >
+            {ARTIFACTS.map((def) => {
+              const owned = market.artifacts.includes(def.id)
+              const canBuy = !owned && marten.diamonds >= def.price
+              return (
+                <li
+                  key={def.id}
+                  className={`flex items-center gap-2.5 rounded-xl border-2 p-2 ${
+                    owned ? 'border-amber-400 bg-amber-50' : 'border-[#e3cba4] bg-[#fdf3e0]'
+                  }`}
+                >
+                  <span
+                    aria-hidden
+                    className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg bg-[#f3e2c8] text-2xl"
+                  >
+                    {ARTIFACT_ICON[def.id]}
+                  </span>
+                  <div className="min-w-0 flex-1">
+                    <div className="font-pixel text-sm font-bold leading-tight text-[#5C3A1E]">
+                      {t(`artifact.${def.id}.name`)}
+                    </div>
+                    <div
+                      className="font-ui text-[10px] font-bold leading-snug text-[#3f6b28]"
+                      title={t(`artifact.${def.id}.desc`)}
+                    >
+                      {t(`artifact.${def.id}.effect`)}
+                    </div>
+                    <div className="font-ui text-[10px] leading-tight text-[#a97c50]">
+                      {t(`artifact.${def.id}.desc`)}
+                    </div>
+                  </div>
+                  {owned ? (
+                    <span className="shrink-0 rounded-full bg-amber-400 px-2.5 py-1.5 font-ui text-[10px] font-bold text-[#5C3A1E]">
+                      {t('market.owned')}
+                    </span>
+                  ) : (
+                    <button
+                      type="button"
+                      disabled={!canBuy}
+                      onClick={() => onBuyArtifact(def.id)}
+                      title={canBuy ? t(`artifact.${def.id}.desc`) : t('mshop.need')}
+                      className={`shrink-0 rounded-lg px-2.5 py-1.5 font-ui text-[11px] font-bold transition active:scale-95 ${
+                        canBuy
+                          ? 'bg-[#E24B3B] text-white shadow-[0_3px_0_#9c2f22] hover:bg-[#ef5a4a]'
+                          : 'cursor-not-allowed bg-[#d9c6a8] text-[#8a755c]'
+                      }`}
+                    >
+                      💎 {def.price}
+                    </button>
+                  )}
+                </li>
+              )
+            })}
+          </ul>
+        )}
 
         <button
           type="button"
@@ -2450,6 +2989,7 @@ export function PopcornGame() {
     | 'tree'
     | 'travel'
     | 'mshop'
+    | 'market'
     | null
   >(null)
   const [achToast, setAchToast] = useState<{ icon: string; name: string } | null>(null)
@@ -2558,6 +3098,8 @@ export function PopcornGame() {
 
   /* ===== Куница NANA: растёт от пройденных уровней и времени в игре ===== */
   const marten = useSyncExternalStore(subscribeMarten, getMartenSnapshot, () => DEFAULT_MARTEN)
+  /* ===== РЫНОК: зерновой сейф, артефакты и счётчик кликов ===== */
+  const market = useSyncExternalStore(subscribeMarket, getMarketSnapshot, () => DEFAULT_MARKET)
   const [martenCheer, setMartenCheer] = useState(false)
   const martenStage = stageOf(marten)
   /* Боевой уровень куницы (xp от очков и путешествий) + тост левелапа */
@@ -2565,6 +3107,20 @@ export function PopcornGame() {
   const [martenLvlToast, setMartenLvlToast] = useState<number | null>(null)
   /* Секунды забега копятся в ref и периодически сбрасываются в копилку роста */
   const playSecsRef = useRef(0)
+
+  /* Множители артефактов рынка — в ref для колбэков без перезапуска эффектов */
+  const marketRef = useRef<MarketBonuses>(ZERO_MARKET_BONUS)
+  useEffect(() => {
+    marketRef.current = marketBonuses(market)
+  }, [market])
+  /* Те же множители для рендера (карточки путешествий показывают итоговые награды) */
+  const marketBonus = useMemo<MarketBonuses>(() => marketBonuses(market), [market])
+
+  /* Сеттер банка опыта в ref: обменник рынка пишет напрямую, без зависимостей */
+  const storeXpRef = useRef(storeXp)
+  useEffect(() => {
+    storeXpRef.current = storeXp
+  }, [storeXp])
 
   /** Добавить прогресс куницы; при переходе на новую стадию — праздничная плашка */
   const growMarten = useCallback((lv: number, sec: number) => {
@@ -2585,6 +3141,16 @@ export function PopcornGame() {
       setMartenLvlToast(after)
       window.setTimeout(() => setMartenLvlToast(null), 3600)
     }
+  }, [])
+
+  /* ===== КЛИКЕР: тап по кунице/комнате = +1🐾 опыта NANA + монетка(и) ===== */
+  const handleMartenTap = useCallback(() => {
+    const b = marketRef.current
+    const hat = HATS_MAP[getMartenSnapshot().hat] ?? HATS_MAP.none
+    /* Опыт: 1 базово + бонус шляпки; монетки: 1 × колокольчик */
+    addMartenXp(1 + hat.clickXp)
+    addCoins(Math.max(1, Math.round(b.clickCoin)))
+    countClick()
   }, [])
 
   /* Тик таймера путешествия: перерисовка раз в секунду, пока NANA в пути */
@@ -2610,11 +3176,13 @@ export function PopcornGame() {
     }
   }, [tripReady, marten.trip])
 
-  /* ===== Управление куницей: путешествия и минимаркет ===== */
+  /* ===== Управление куницей: путешествия, лавка, рынок ===== */
 
   const handleSendTrip = useCallback((id: TripId) => {
     audio.play('click')
-    startMartenTrip(id)
+    /* Множители «Карты странствий» применяются в момент отправки */
+    const b = marketRef.current
+    startMartenTrip(id, b.gemTrip, b.xpTrip)
   }, [])
 
   const handleClaimTrip = useCallback(() => {
@@ -2622,6 +3190,9 @@ export function PopcornGame() {
     const res = claimMartenTrip()
     if (!res) return
     audio.play('coin')
+    /* Особый лут дальних маршрутов: монетки котика и зёрна в сейф */
+    if (res.coins > 0) addCoins(res.coins)
+    if (res.grains > 0) addGrains(res.grains)
     const after = martenLevelOf(getMartenSnapshot()).level
     if (after > before) {
       setMartenLvlToast(after)
@@ -2640,6 +3211,81 @@ export function PopcornGame() {
   const handleEquipBoots = useCallback((id: BootsId) => {
     audio.play('click')
     equipMartenBoots(id)
+  }, [])
+
+  const handleBuyHat = useCallback((id: HatId) => {
+    if (buyMartenHat(id)) {
+      audio.play('coin')
+    } else {
+      audio.play('penalty')
+    }
+  }, [])
+
+  const handleEquipHat = useCallback((id: HatId) => {
+    audio.play('click')
+    equipMartenHat(id)
+  }, [])
+
+  const handleBuyBag = useCallback((id: BagId) => {
+    if (buyMartenBag(id)) {
+      audio.play('coin')
+    } else {
+      audio.play('penalty')
+    }
+  }, [])
+
+  const handleEquipBag = useCallback((id: BagId) => {
+    audio.play('click')
+    equipMartenBag(id)
+  }, [])
+
+  /* ===== РЫНОК: обмен валют ===== */
+  const handleExchange = useCallback((from: Currency, to: Currency, amount: number): boolean => {
+    const quote = exchangeQuote(from, to, amount)
+    if (from === to || amount <= 0 || quote <= 0) return false
+    /* Списываем валюту from */
+    if (from === 'gems') {
+      if (!spendMartenDiamonds(amount)) return false
+    } else if (from === 'coins') {
+      if (getCoins() < amount) return false
+      addCoins(-amount)
+    } else if (from === 'xp') {
+      const bank = Math.max(0, Number(window.localStorage.getItem(XP_KEY) ?? 0) || 0)
+      if (bank < amount) return false
+      /* Прямая запись: рынок не добавляет стаж котику — только банк опыта */
+      storeXpRef.current(String(bank - amount))
+    } else {
+      if (!spendGrains(amount)) return false
+    }
+    /* Начисляем валюту to */
+    if (to === 'gems') {
+      addMartenDiamonds(quote)
+    } else if (to === 'coins') {
+      addCoins(quote)
+    } else if (to === 'xp') {
+      const bank = Math.max(0, Number(window.localStorage.getItem(XP_KEY) ?? 0) || 0)
+      storeXpRef.current(String(bank + quote))
+    } else {
+      addGrains(quote)
+    }
+    audio.play('coin')
+    return true
+  }, [])
+
+  /* ===== РЫНОК: покупка постоянного артефакта за алмазы ===== */
+  const handleBuyArtifact = useCallback((id: ArtifactId) => {
+    const def = ARTIFACT_MAP[id]
+    if (!def) return
+    if (getMarketSnapshot().artifacts.includes(id)) return
+    if (getMartenSnapshot().diamonds < def.price) {
+      audio.play('penalty')
+      return
+    }
+    if (spendMartenDiamonds(def.price) && buyArtifact(id, def.price)) {
+      audio.play('perk')
+    } else {
+      audio.play('penalty')
+    }
   }, [])
 
   /* Таймер времени в игре: +1 сек, каждые 20 сек — флеш в копилку куницы */
@@ -2821,9 +3467,10 @@ export function PopcornGame() {
   const awardStage = useCallback(
     (lvl: number) => {
       const before = charLevel(getTotalXp())
-      /* Награда за этап — с нулями: опыт ×10, монетки ×10 (и цены в магазине тоже) */
+      /* Награда за этап — с нулями: опыт ×10, монетки ×10 (и цены в магазине тоже)
+         Артефакт «Котоакадемия» добавляет +25% к опыту-стажу */
       const tr = treeRef.current
-      addTotalXp(Math.round((100 + lvl * 10) * (1 + (tr.xpAdd ?? 0))))
+      addTotalXp(Math.round((100 + lvl * 10) * (1 + (tr.xpAdd ?? 0)) * marketRef.current.xpGift))
       addCoins(Math.round(120 * (1 + (tr.coinsAdd ?? 0))))
       const after = charLevel(getTotalXp())
       if (after > before) {
@@ -2966,6 +3613,9 @@ export function PopcornGame() {
         const pv = prevRunRef.current
         if (s.runGrains > pv.grains) {
           addLife({ grains: s.runGrains - pv.grains })
+          /* Зерновой сейф рынка: каждое сданное зерно капает туда же
+             (артефакт «Золотое ситечко» — +25%) */
+          addGrains(Math.round((s.runGrains - pv.grains) * marketRef.current.grain))
           pv.grains = s.runGrains
         }
         if (s.goldenCount > pv.golden) {
@@ -3036,9 +3686,10 @@ export function PopcornGame() {
           cv.classList.remove('popcorn-hue')
         }
         layoutRef.current()
-        /* Монетки за успех: чем больше очков — тем щедрее награда */
+        /* Монетки за успех: чем больше очков — тем щедрее награда.
+           Артефакт «Копилка-хрюшка» добавляет +25% */
         if (r.success) {
-          const coins = Math.max(100, Math.round(r.gained / 3))
+          const coins = Math.max(100, Math.round((r.gained / 3) * marketRef.current.coinGift))
           addCoins(coins)
           setFeverCoins(coins)
           window.setTimeout(() => setFeverCoins(null), 3200)
@@ -3367,11 +4018,12 @@ export function PopcornGame() {
     (i: number) => {
       audio.play('chest')
       setOpenedIdx(i)
-      /* Подарок из сундука: монетки или опыт — начисляем сразу */
+      /* Подарок из сундука: монетки или опыт — начисляем сразу.
+         Артефакты рынка усиливают подарки: Копилка (монетки), Котоакадемия (опыт) */
       const ex = extras[i]
       if (ex) {
-        if (ex.kind === 'coins') addCoins(ex.n)
-        else addTotalXp(ex.n)
+        if (ex.kind === 'coins') addCoins(Math.round(ex.n * marketRef.current.coinGift))
+        else addTotalXp(Math.round(ex.n * marketRef.current.xpGift))
       }
       window.setTimeout(() => audio.play('perk'), 380)
     },
@@ -3662,6 +4314,7 @@ export function PopcornGame() {
                       <MartenScene
                         stage={martenStage}
                         away={tripActive}
+                        onTap={handleMartenTap}
                         ariaLabel={t('marten.aria')}
                         className="h-44 w-full rounded-2xl border-4 border-[#E24B3B] bg-[#FFF0D8] shadow-lg sm:h-52"
                       />
@@ -3744,20 +4397,39 @@ export function PopcornGame() {
                           {t('marten.travel')}
                         </span>
                       </button>
-                      {/* Кнопка: минимаркет куницы */}
-                      <button
-                        type="button"
-                        onClick={() => {
-                          audio.play('click')
-                          setOverlay('mshop')
-                        }}
-                        className="flex flex-1 flex-col items-center justify-center gap-0.5 rounded-xl border-2 border-[#8a5330] bg-[#f3e2c8] px-1 py-1 text-[#8a5330] shadow-[0_3px_0_#c9a97a] transition hover:bg-[#eed7b4] active:translate-y-[2px] active:shadow-[0_1px_0_#c9a97a]"
-                      >
-                        <ShoppingBag className="h-4.5 w-4.5" aria-hidden />
-                        <span className="font-pixel text-[8px] font-bold leading-none">
-                          {t('marten.market')}
-                        </span>
-                      </button>
+                      {/* Ряд: ЛАВКА (снаряжение) + РЫНОК (обмен валют) */}
+                      <div className="grid shrink-0 grid-cols-2 gap-1">
+                        <button
+                          type="button"
+                          onClick={() => {
+                            audio.play('click')
+                            setOverlay('mshop')
+                          }}
+                          title={t('mshop.title')}
+                          aria-label={t('mshop.title')}
+                          className="flex h-11 flex-col items-center justify-center gap-0.5 rounded-xl border-2 border-[#8a5330] bg-[#f3e2c8] px-0.5 py-1 text-[#8a5330] shadow-[0_3px_0_#c9a97a] transition hover:bg-[#eed7b4] active:translate-y-[2px] active:shadow-[0_1px_0_#c9a97a] sm:h-12"
+                        >
+                          <ShoppingBag className="h-3.5 w-3.5" aria-hidden />
+                          <span className="font-pixel text-[8px] font-bold leading-none">
+                            {t('marten.shop')}
+                          </span>
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => {
+                            audio.play('click')
+                            setOverlay('market')
+                          }}
+                          title={t('market.title')}
+                          aria-label={t('market.title')}
+                          className="relative flex h-11 flex-col items-center justify-center gap-0.5 rounded-xl border-2 border-[#3f6b28] bg-[#eaf3dd] px-0.5 py-1 text-[#3f6b28] shadow-[0_3px_0_#5C8A3A] transition hover:bg-[#e0eecb] active:translate-y-[2px] active:shadow-[0_1px_0_#5C8A3A] sm:h-12"
+                        >
+                          <Store className="h-3.5 w-3.5" aria-hidden />
+                          <span className="font-pixel text-[8px] font-bold leading-none">
+                            {t('marten.market')}
+                          </span>
+                        </button>
+                      </div>
                     </div>
                   </div>
 
@@ -4418,12 +5090,15 @@ export function PopcornGame() {
           )}
         </AnimatePresence>
 
-        {/* Куница: путешествие и минимаркет — поверх меню (отдельный AnimatePresence,
+        {/* Куница: путешествие, лавка и рынок — поверх меню (отдельный AnimatePresence,
             чтобы тик таймера не мешал остальным оверлеям) */}
         <AnimatePresence>
           {phase === 'start' && overlay === 'travel' && (
             <TravelOverlay
               marten={marten}
+              martenLvl={martenLvl.level}
+              gemMult={marketBonus.gemTrip}
+              xpMult={marketBonus.xpTrip}
               t={t}
               onSend={handleSendTrip}
               onClaim={handleClaimTrip}
@@ -4434,8 +5109,24 @@ export function PopcornGame() {
             <MShopOverlay
               marten={marten}
               t={t}
-              onBuy={handleBuyBoots}
-              onEquip={handleEquipBoots}
+              onBuyBoots={handleBuyBoots}
+              onEquipBoots={handleEquipBoots}
+              onBuyHat={handleBuyHat}
+              onEquipHat={handleEquipHat}
+              onBuyBag={handleBuyBag}
+              onEquipBag={handleEquipBag}
+              onClose={() => setOverlay(null)}
+            />
+          )}
+          {phase === 'start' && overlay === 'market' && (
+            <MarketOverlay
+              marten={marten}
+              coins={coins}
+              xp={xp}
+              market={market}
+              t={t}
+              onExchange={handleExchange}
+              onBuyArtifact={handleBuyArtifact}
               onClose={() => setOverlay(null)}
             />
           )}
