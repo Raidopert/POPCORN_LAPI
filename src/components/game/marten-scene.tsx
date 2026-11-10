@@ -84,6 +84,10 @@ interface MartenSceneProps {
   away?: boolean
   /** Кликер: тап по комнате (не чаще ~6/с) — наружу для начисления валюты */
   onTap?: (x: number, y: number) => void
+  /** Честное количество монеток за тап — рисуется в летящих частицах */
+  tapCoins?: number
+  /** Честное количество опыта NANA за тап — рисуется в летящих частицах */
+  tapXp?: number
   className?: string
   /** a11y подпись canvas */
   ariaLabel?: string
@@ -134,11 +138,20 @@ const WHISKERS: Array<[number, number]> = [
 
 /* ─────────────────────────── Компонент ─────────────────────────── */
 
-export default function MartenScene({ stage, away = false, onTap, className, ariaLabel }: MartenSceneProps) {
+export default function MartenScene({
+  stage,
+  away = false,
+  onTap,
+  tapCoins = 1,
+  tapXp = 1,
+  className,
+  ariaLabel,
+}: MartenSceneProps) {
   const canvasRef = useRef<HTMLCanvasElement | null>(null)
   const stageRef = useRef(stage)
   const awayRef = useRef(away)
   const onTapRef = useRef(onTap)
+  const tapGainRef = useRef<{ coins: number; xp: number }>({ coins: tapCoins, xp: tapXp })
 
   // стадия и «отъезд» меняются без перезапуска анимационного эффекта
   useEffect(() => {
@@ -150,6 +163,9 @@ export default function MartenScene({ stage, away = false, onTap, className, ari
   useEffect(() => {
     onTapRef.current = onTap
   }, [onTap])
+  useEffect(() => {
+    tapGainRef.current = { coins: tapCoins, xp: tapXp }
+  }, [tapCoins, tapXp])
 
   useEffect(() => {
     const canvas = canvasRef.current
@@ -263,8 +279,9 @@ export default function MartenScene({ stage, away = false, onTap, className, ari
       }
     }
 
-    /** Летящие «+1» кликера: монетка и опыт из точки тапа */
+    /** Летящие «+N» кликера: честные монетки и опыт из точки тапа */
     const spawnGain = (px: number, py: number): void => {
+      const { coins, xp } = tapGainRef.current
       const push = (label: string, dx: number, dy: number, color: string): void => {
         if (particles.length >= 110) return
         const life = rand(0.65, 0.9)
@@ -284,8 +301,8 @@ export default function MartenScene({ stage, away = false, onTap, className, ari
           label,
         })
       }
-      push('+1🪙', -10, -6, '#FFE066')
-      push('+1🐾', 14, -26, '#FF9E8C')
+      push(`+${coins}🪙`, -10, -6, '#FFE066')
+      push(`+${xp}🐾`, 14, -26, '#FF9E8C')
     }
 
     const handleTap = (px: number, py: number): void => {

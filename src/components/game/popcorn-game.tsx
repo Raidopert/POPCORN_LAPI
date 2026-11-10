@@ -107,6 +107,8 @@ import {
   fmtTripMs,
   getMartenSnapshot,
   martenLevelOf,
+  nanaClickCoins,
+  nanaLevelBonus,
   progressToNext,
   spendMartenDiamonds,
   stageOf,
@@ -3143,15 +3145,21 @@ export function PopcornGame() {
     }
   }, [])
 
-  /* ===== КЛИКЕР: тап по кунице/комнате = +1🐾 опыта NANA + монетка(и) ===== */
+  /* ===== КЛИКЕР: тап по кунице/комнате = опыт NANA + монетки =====
+     Опыт: 1 базово + шляпка (+1…+9🐾). Монетки растут с уровнем NANA
+     (+1🪙 за каждые 5 уровней) и удваиваются артефактом «Кликер-колокольчик».
+     Частицы «+N» рисует сцена — передаём ей честные значения. */
+  const tapCoins = useMemo(
+    () => nanaClickCoins(martenLvl.level) * Math.max(1, Math.round(marketBonus.clickCoin)),
+    [martenLvl.level, marketBonus.clickCoin],
+  )
+  const tapXp = useMemo(() => 1 + (HATS_MAP[marten.hat] ?? HATS_MAP.none).clickXp, [marten.hat])
   const handleMartenTap = useCallback(() => {
-    const b = marketRef.current
-    const hat = HATS_MAP[getMartenSnapshot().hat] ?? HATS_MAP.none
-    /* Опыт: 1 базово + бонус шляпки; монетки: 1 × колокольчик */
-    addMartenXp(1 + hat.clickXp)
-    addCoins(Math.max(1, Math.round(b.clickCoin)))
+    addCoins(tapCoins)
     countClick()
-  }, [])
+    /* grantMartenXp (не addMartenXp): левелап от кликера тоже показывает тост */
+    grantMartenXp(tapXp)
+  }, [tapXp, tapCoins, grantMartenXp])
 
   /* Тик таймера путешествия: перерисовка раз в секунду, пока NANA в пути */
   const [, tripTick] = useReducer((c: number) => c + 1, 0)
@@ -3180,9 +3188,10 @@ export function PopcornGame() {
 
   const handleSendTrip = useCallback((id: TripId) => {
     audio.play('click')
-    /* Множители «Карты странствий» применяются в момент отправки */
+    /* Множители «Карты странствий» и уровня NANA применяются в момент отправки */
     const b = marketRef.current
-    startMartenTrip(id, b.gemTrip, b.xpTrip)
+    const lvlBonus = nanaLevelBonus(martenLevelOf(getMartenSnapshot()).level)
+    startMartenTrip(id, b.gemTrip * lvlBonus, b.xpTrip * lvlBonus)
   }, [])
 
   const handleClaimTrip = useCallback(() => {
@@ -3468,10 +3477,11 @@ export function PopcornGame() {
     (lvl: number) => {
       const before = charLevel(getTotalXp())
       /* Награда за этап — с нулями: опыт ×10, монетки ×10 (и цены в магазине тоже)
-         Артефакт «Котоакадемия» добавляет +25% к опыту-стажу */
+         Артефакт «Котоакадемия» добавляет +25% к опыту-стажу,
+         «Копилка-хрюшка» — +25% к монеткам этапа (бережёт каждую монетку) */
       const tr = treeRef.current
       addTotalXp(Math.round((100 + lvl * 10) * (1 + (tr.xpAdd ?? 0)) * marketRef.current.xpGift))
-      addCoins(Math.round(120 * (1 + (tr.coinsAdd ?? 0))))
+      addCoins(Math.round(120 * (1 + (tr.coinsAdd ?? 0)) * marketRef.current.coinGift))
       const after = charLevel(getTotalXp())
       if (after > before) {
         setCharToast(after)
@@ -4311,10 +4321,40 @@ export function PopcornGame() {
                   <div className="flex items-stretch gap-1.5">
                     {/* Сцена: куница играет с зерном (в походе — комната пустая) */}
                     <div className="relative min-w-0 flex-1">
+                      {/* Бейдж боевого уровня NANA: цифра + полоска опыта + бонус уровня */}
+                      <div
+                        className="pointer-events-none absolute left-1.5 top-1.5 z-10 rounded-lg border-2 border-amber-300/80 bg-[#2b1a0e]/85 px-1.5 py-0.5 shadow-md"
+                        title={t('marten.xpHint')}
+                      >
+                        <div className="flex items-center gap-1">
+                          <PawPrint className="h-3 w-3 text-amber-200" aria-hidden />
+                          <span className="font-pixel text-[10px] font-bold leading-none text-amber-200 tabular-nums">
+                            {t('marten.lvlBadge')} {martenLvl.level}
+                          </span>
+                        </div>
+                        <span
+                          aria-hidden
+                          className="mt-0.5 block h-1 w-full overflow-hidden rounded-full bg-white/20"
+                        >
+                          <span
+                            className="block h-full rounded-full bg-amber-300 transition-all duration-700"
+                            style={{
+                              width: `${Math.min(100, Math.round((martenLvl.into / Math.max(1, martenLvl.need)) * 100))}%`,
+                            }}
+                          />
+                        </span>
+                        <div className="mt-0.5 font-ui text-[8px] font-bold leading-none text-amber-100/90">
+                          {t('marten.lvlBonusHint', {
+                            n: Math.round((nanaLevelBonus(martenLvl.level) - 1) * 100),
+                          })}
+                        </div>
+                      </div>
                       <MartenScene
                         stage={martenStage}
                         away={tripActive}
                         onTap={handleMartenTap}
+                        tapCoins={tapCoins}
+                        tapXp={tapXp}
                         ariaLabel={t('marten.aria')}
                         className="h-44 w-full rounded-2xl border-4 border-[#E24B3B] bg-[#FFF0D8] shadow-lg sm:h-52"
                       />
@@ -4443,7 +4483,10 @@ export function PopcornGame() {
                         exit={{ opacity: 0, y: 8 }}
                       >
                         <span className="rounded-full bg-[#5C8A3A] px-3 py-1.5 font-pixel text-[10px] font-bold text-white shadow-lg">
-                          {t('marten.xpToast', { n: martenLvlToast })}
+                          {t('marten.xpToast', {
+                            n: martenLvlToast,
+                            p: Math.round((nanaLevelBonus(martenLvlToast) - 1) * 100),
+                          })}
                         </span>
                       </motion.div>
                     )}
@@ -5097,8 +5140,8 @@ export function PopcornGame() {
             <TravelOverlay
               marten={marten}
               martenLvl={martenLvl.level}
-              gemMult={marketBonus.gemTrip}
-              xpMult={marketBonus.xpTrip}
+              gemMult={marketBonus.gemTrip * nanaLevelBonus(martenLvl.level)}
+              xpMult={marketBonus.xpTrip * nanaLevelBonus(martenLvl.level)}
               t={t}
               onSend={handleSendTrip}
               onClaim={handleClaimTrip}
