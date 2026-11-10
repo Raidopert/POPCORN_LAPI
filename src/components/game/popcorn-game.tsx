@@ -392,7 +392,7 @@ function ChestImg({ open }: { open: boolean }) {
     ctx.clearRect(0, 0, c.width, c.height)
     ctx.drawImage(spr.canvas, 0, 0, c.width, c.height)
   }, [open])
-  return <canvas ref={ref} aria-hidden className="pixelated h-auto w-16 sm:w-20" />
+  return <canvas ref={ref} aria-hidden className="pixelated h-auto w-16 sm:w-20 [@media(max-height:520px)]:w-11 sm:[@media(max-height:520px)]:w-11" />
 }
 
 /** Пиксельная лапка выбранного окраса (магазин скинов) */
@@ -3480,28 +3480,30 @@ export function PopcornGame() {
               exit={{ opacity: 0 }}
             >
               <motion.div
-                className="mx-auto my-auto flex max-h-full w-full max-w-sm flex-col overflow-hidden rounded-2xl border-4 border-[#8a5330] bg-[#FFF6E6] shadow-[0_18px_50px_rgba(0,0,0,0.55)]"
+                className="mx-auto my-auto flex max-h-full w-full max-w-sm flex-col overflow-hidden rounded-2xl border-4 border-[#8a5330] bg-[#FFF6E6] shadow-[0_18px_50px_rgba(0,0,0,0.55)] sm:max-w-md"
                 initial={{ scale: 0.9, y: 14 }}
                 animate={{ scale: 1, y: 0 }}
                 exit={{ scale: 0.95, opacity: 0 }}
                 transition={{ type: 'spring', stiffness: 260, damping: 22 }}
               >
-                {/* Прокручиваемое содержимое: сундуки с надписями и описание перка */}
-                <div className="min-h-0 flex-1 overflow-y-auto p-3 text-center sm:p-4">
-                  <div aria-hidden className="text-3xl sm:text-4xl">
+                {/* Прокручиваемое содержимое: сундуки с надписями и описание перка.
+                    На низких экранах (телефон боком) всё ужимается, чтобы сундуки
+                    с описаниями были видны без прокрутки */}
+                <div className="min-h-0 flex-1 overflow-y-auto p-3 text-center sm:p-4 [@media(max-height:520px)]:p-2 sm:[@media(max-height:520px)]:p-2">
+                  <div aria-hidden className="text-3xl sm:text-4xl [@media(max-height:520px)]:hidden">
                     🎁
                   </div>
-                  <h2 className="mt-0.5 font-pixel text-lg font-bold text-[#B33A26] sm:text-2xl">
+                  <h2 className="mt-0.5 font-pixel text-lg font-bold text-[#B33A26] sm:text-2xl [@media(max-height:520px)]:mt-0 [@media(max-height:520px)]:text-sm sm:[@media(max-height:520px)]:mt-0 sm:[@media(max-height:520px)]:text-sm">
                     {t('chest.title', { n: clearInfo.level })}
                   </h2>
-                  <p className="mt-0.5 font-ui text-[11px] font-medium text-[#8a5330] sm:text-xs">
+                  <p className="mt-0.5 font-ui text-[11px] font-medium text-[#8a5330] sm:text-xs [@media(max-height:520px)]:mt-0 [@media(max-height:520px)]:text-[9px] sm:[@media(max-height:520px)]:mt-0 sm:[@media(max-height:520px)]:text-[9px]">
                     {t('chest.bonus', { b: clearInfo.bonus, s: stats.score })}
                   </p>
                   {offers.length > 0 ? (
                     <>
-                      <p className="mt-1.5 font-ui text-[11px] text-[#5C3A1E]">{t('chest.choose')}</p>
-                      {/* Сундучки: что внутри — написано ПРЯМО НА сундучке */}
-                      <div className="mt-2 grid grid-cols-3 gap-1.5 sm:gap-2">
+                      <p className="mt-1.5 font-ui text-[11px] text-[#5C3A1E] [@media(max-height:520px)]:hidden">{t('chest.choose')}</p>
+                      {/* Сундучки: что внутри — написано ПРЯМО НА сундучке (видно ДО выбора) */}
+                      <div className="mt-2 grid grid-cols-3 gap-1.5 sm:gap-2 [@media(max-height:520px)]:mt-1">
                         {offers.map((p, i) => {
                           const isOpen = openedIdx === i
                           const dimmed = openedIdx !== null && !isOpen
@@ -3510,10 +3512,10 @@ export function PopcornGame() {
                             <motion.button
                               key={p.id}
                               type="button"
-                              aria-label={`${t('chest.openN', { n: i + 1 })}: ${t(`perk.${p.id}.name`)}`}
+                              aria-label={`${t('chest.openN', { n: i + 1 })}: ${t(`perk.${p.id}.name`)} — ${t(`perk.${p.id}.desc`)}`}
                               disabled={openedIdx !== null}
                               onClick={() => openChest(i)}
-                              className={`flex flex-col items-center rounded-xl border-[3px] px-1 pb-1.5 pt-1.5 transition-colors ${
+                              className={`flex flex-col items-center rounded-xl border-[3px] px-1 pb-1.5 pt-1.5 transition-colors [@media(max-height:520px)]:pb-1 [@media(max-height:520px)]:pt-1 ${
                                 isOpen
                                   ? 'border-amber-400 bg-amber-100'
                                   : dimmed
@@ -3549,11 +3551,10 @@ export function PopcornGame() {
                                   {ex.kind === 'coins' ? `+${ex.n} 🪙` : `+${ex.n} 🍿`}
                                 </span>
                               )}
-                              {isOpen && (
-                                <span className="mt-1 break-words font-ui text-[10px] font-medium leading-tight text-[#5C3A1E]">
-                                  {t(`perk.${p.id}.desc`)}
-                                </span>
-                              )}
+                              {/* Содержимое видно ДО выбора: описание эффекта — прямо на сундучке */}
+                              <span className="mt-1 break-words font-ui text-[8px] font-medium leading-tight text-[#5C3A1E] sm:text-[9px] [@media(max-height:520px)]:mt-0.5">
+                                {t(`perk.${p.id}.desc`)}
+                              </span>
                             </motion.button>
                           )
                         })}

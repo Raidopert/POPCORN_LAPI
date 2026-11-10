@@ -1162,10 +1162,10 @@ const T: Record<string, Row> = {
     'Bonus de velocidad: +{{b}} · Puntos: {{s}}',
   ],
   'chest.choose': [
-    'Выбери сундучок — он решит судьбу следующего уровня',
-    'Pick a chest — it decides the fate of your next level',
-    'Wähle eine Truhe — sie entscheidet das nächste Level',
-    'Elige un cofre: decidirá el destino de tu próximo nivel',
+    'Внутри каждого всё видно заранее — выбирай сундучок, он решит судьбу следующего уровня',
+    'Everything inside is visible up front — pick the chest that decides your next level',
+    'Der Inhalt ist vorab sichtbar — wähle die Truhe, die dein nächstes Level entscheidet',
+    'El contenido se ve de antemano: elige el cofre que decidirá tu próximo nivel',
   ],
   'chest.pick': [
     '👇 Выбери сундучок!',
@@ -1405,10 +1405,10 @@ const T: Record<string, Row> = {
     'La patita crece: 3 granos, 4 tras el nivel 5, 5 tras el 10',
   ],
   'rules.r6': [
-    'Между уровнями открывай сундучок: случайный перк, а ещё в них попадаются монетки 🪙 и опыт 🍿. После выбора покажем, что лежало в остальных!',
-    'Between levels open a chest: a random perk, and chests can also hold coins 🪙 and XP 🍿. After choosing, we reveal what the others had!',
-    'Zwischen den Leveln: Truhe mit zufälligem Perk — außerdem liegen dort Münzen 🪙 und XP 🍿. Nach der Wahl zeigen wir, was in den anderen war!',
-    'Entre niveles abre un cofre: un perk aleatorio, y también pueden traer monedas 🪙 y exp 🍿. ¡Tras elegir te mostramos qué había en los otros!',
+    'Между уровнями открывай сундучок: что внутри — видно сразу (перк, а иногда монетки 🪙 и опыт 🍿). Выбирай, что по душе!',
+    'Between levels open a chest: what is inside is visible right away (a perk, plus sometimes coins 🪙 and XP 🍿). Pick what you like!',
+    'Zwischen den Leveln: Truhe öffnen — der Inhalt ist sofort sichtbar (Perk, manchmal Münzen 🪙 und XP 🍿). Wähle, was dir gefällt!',
+    'Entre niveles abre un cofre: el contenido se ve al instante (un perk, y a veces monedas 🪙 y exp 🍿). ¡Elige lo que más te guste!',
   ],
   'rules.r7': [
     'Комбо: за каждую сдачу без мины растёт серия — множитель до ×5! Мина или голубь сбрасывают серию',
