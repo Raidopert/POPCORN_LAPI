@@ -75,6 +75,8 @@ interface Particle {
 interface MartenSceneProps {
   /** Стадия роста куницы 0..6 — управляет размером зверя и декором комнаты */
   stage: number
+  /** Куница ушла в путешествие — в комнате только зёрна и декор */
+  away?: boolean
   className?: string
   /** a11y подпись canvas */
   ariaLabel?: string
@@ -125,14 +127,18 @@ const WHISKERS: Array<[number, number]> = [
 
 /* ─────────────────────────── Компонент ─────────────────────────── */
 
-export default function MartenScene({ stage, className, ariaLabel }: MartenSceneProps) {
+export default function MartenScene({ stage, away = false, className, ariaLabel }: MartenSceneProps) {
   const canvasRef = useRef<HTMLCanvasElement | null>(null)
   const stageRef = useRef(stage)
+  const awayRef = useRef(away)
 
-  // стадия меняется без перезапуска анимационного эффекта
+  // стадия и «отъезд» меняются без перезапуска анимационного эффекта
   useEffect(() => {
     stageRef.current = stage
   }, [stage])
+  useEffect(() => {
+    awayRef.current = away
+  }, [away])
 
   useEffect(() => {
     const canvas = canvasRef.current
@@ -245,6 +251,7 @@ export default function MartenScene({ stage, className, ariaLabel }: MartenScene
     }
 
     const handleTap = (px: number, py: number): void => {
+      if (awayRef.current) return // куница в походе — тапы ни к чему
       const st = stageRef.current
       const s = martenScale(st)
       const bl = bodyLenOf(st) * s
@@ -1123,7 +1130,7 @@ export default function MartenScene({ stage, className, ariaLabel }: MartenScene
       if (dt > 0.05) dt = 0.05 // кап 50 мс
       time += dt
 
-      updateMarten(dt)
+      if (!awayRef.current) updateMarten(dt)
       updateKernels(dt)
       updateParticles(dt)
 
@@ -1136,8 +1143,10 @@ export default function MartenScene({ stage, className, ariaLabel }: MartenScene
       if (st >= 6) drawGarland(w * 0.04, w * 0.96, 8, 22 + Math.sin(time * 0.8) * 2.2, 'gold')
       drawFloorDecor()
       drawParticles('confetti') // фоновые конфетти-искры
-      drawMartenShadow()
-      drawMarten()
+      if (!awayRef.current) {
+        drawMartenShadow()
+        drawMarten()
+      }
       for (const k of kernels) drawKernel(k)
       drawParticles('heart')
     }

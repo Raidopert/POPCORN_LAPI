@@ -1,11 +1,13 @@
 'use client'
 
-import { useCallback, useEffect, useMemo, useRef, useState, useSyncExternalStore } from 'react'
+import { useCallback, useEffect, useMemo, useReducer, useRef, useState, useSyncExternalStore } from 'react'
 import { AnimatePresence, motion } from 'framer-motion'
 import {
   Cat,
   CirclePlus,
+  Compass,
   EllipsisVertical,
+  Gem,
   Heart,
   Home,
   MonitorDown,
@@ -19,6 +21,7 @@ import {
   Share,
   Share2,
   Settings,
+  ShoppingBag,
   Smartphone,
   SquarePlus,
   Timer,
@@ -89,11 +92,25 @@ import { ROOMS, roomForLevel, roomSrcForLevel } from '@/lib/game/rooms'
 import MartenScene from './marten-scene'
 import {
   DEFAULT_MARTEN,
+  addMartenXp,
   addMartenProgress,
+  buyMartenBoots,
+  claimMartenTrip,
+  equipMartenBoots,
+  fmtTripDur,
+  fmtTripMs,
   getMartenSnapshot,
+  martenLevelOf,
   progressToNext,
   stageOf,
+  startMartenTrip,
   subscribeMarten,
+  tripReward,
+  BOOTS,
+  TRIPS,
+  type BootsId,
+  type MartenState,
+  type TripId,
 } from '@/lib/game/marten'
 import { GAME_VERSION_LABEL } from '@/lib/game/version'
 import { tFor, LANGS, LOCALES, type Lang, type TranslateFn } from '@/lib/game/i18n'
@@ -531,7 +548,308 @@ function ToggleRow({
 const OVERLAY_SCROLL =
   '[scrollbar-width:thin] [&::-webkit-scrollbar]:w-1.5 [&::-webkit-scrollbar-thumb]:rounded-full [&::-webkit-scrollbar-thumb]:bg-[#d9b98c] [&::-webkit-scrollbar-track]:bg-transparent'
 
-/** Магазин: лапки (за опыт 🍿 или монетки 🪙) + постоянные апгрейды */
+/* ---------- Путешествие куницы: авто-забег за зерном и алмазами ---------- */
+
+function TravelOverlay({
+  marten,
+  t,
+  onSend,
+  onClaim,
+  onClose,
+}: {
+  marten: MartenState
+  t: TranslateFn
+  onSend: (id: TripId) => void
+  onClaim: () => void
+  onClose: () => void
+}) {
+  const trip = marten.trip
+  /* Активный поход: прогресс-бар от startedAt до endsAt */
+  if (trip) {
+    const done = Date.now() >= trip.endsAt
+    const total = Math.max(1, trip.endsAt - trip.startedAt)
+    const left = Math.max(0, trip.endsAt - Date.now())
+    const pct = Math.min(100, Math.round(((total - left) / total) * 100))
+    return (
+      <motion.div
+        className="absolute inset-0 z-40 flex items-center justify-center overflow-y-auto bg-black/70 p-4 backdrop-blur-sm"
+        initial={{ opacity: 0 }}
+        animate={{ opacity: 1 }}
+        exit={{ opacity: 0 }}
+      >
+        <motion.div
+          className="my-auto w-full max-w-sm rounded-2xl border-4 border-[#8a5330] bg-[#FFF6E6] p-4 text-center shadow-[0_18px_50px_rgba(0,0,0,0.55)] sm:p-5"
+          initial={{ scale: 0.92, y: 14 }}
+          animate={{ scale: 1, y: 0 }}
+          exit={{ scale: 0.95, opacity: 0 }}
+          transition={{ type: 'spring', stiffness: 260, damping: 22 }}
+        >
+          <div aria-hidden className="text-3xl">
+            {done ? '🎒✨' : '🧭✈️'}
+          </div>
+          <h2 className="mt-0.5 font-pixel text-xl font-bold text-[#B33A26]">{t('travel.title')}</h2>
+          <p className="mt-1 font-ui text-xs font-medium text-[#8a5330]">
+            {done ? t('travel.ready') : t('travel.awayTitle')}
+          </p>
+          <div className="mt-3 rounded-xl border-2 border-[#e3cba4] bg-[#fdf3e0] p-3">
+            <div className="font-pixel text-sm font-bold text-[#5C3A1E]">
+              {t(`travel.${trip.id}.name`)}
+            </div>
+            {/* Прогресс пути */}
+            <span
+              aria-hidden
+              className="mt-2 block h-3 w-full overflow-hidden rounded-full bg-[#e3cba4] ring-2 ring-[#d8bd92]"
+            >
+              <span
+                className={`block h-full rounded-full transition-all duration-1000 ${
+                  done ? 'bg-[#5C8A3A]' : 'bg-gradient-to-r from-[#F2A24B] to-[#E24B3B]'
+                }`}
+                style={{ width: `${done ? 100 : pct}%` }}
+              />
+            </span>
+            <div className="mt-2 font-ui text-xs font-semibold text-[#8a5330]">
+              {done ? (
+                <span className="font-pixel text-[13px] text-[#3f6b28]">
+                  {t('travel.reward')}: 💎 {trip.diamonds} · 🐾 {trip.xp} XP
+                </span>
+              ) : (
+                <>
+                  {t('travel.left')}:{' '}
+                  <span className="font-pixel tabular-nums text-[#B33A26]">
+                    {fmtTripMs(left)}
+                  </span>
+                </>
+              )}
+            </div>
+          </div>
+          {done ? (
+            <div className="mt-3">
+              <GameButton onClick={onClaim}>
+                {t('travel.claim')} · 💎{trip.diamonds} 🐾{trip.xp}
+              </GameButton>
+            </div>
+          ) : (
+            <p className="mt-2 font-ui text-[10px] text-[#a97c50]">
+              {t('travel.reward')}: 💎 {trip.diamonds} · 🐾 {trip.xp} XP
+            </p>
+          )}
+          <button
+            type="button"
+            onClick={onClose}
+            className="mt-3 w-full rounded-xl border-2 border-[#8a5330] bg-[#f3e2c8] px-4 py-2 font-pixel text-sm font-bold text-[#8a5330] transition hover:bg-[#eed7b4] active:scale-[0.98]"
+          >
+            {t('shop.close')}
+          </button>
+        </motion.div>
+      </motion.div>
+    )
+  }
+
+  /* Дома: выбор из трёх путешествий (с учётом ботинок) */
+  return (
+    <motion.div
+      className="absolute inset-0 z-40 flex items-center justify-center overflow-y-auto bg-black/70 p-4 backdrop-blur-sm"
+      initial={{ opacity: 0 }}
+      animate={{ opacity: 1 }}
+      exit={{ opacity: 0 }}
+    >
+      <motion.div
+        className="my-auto w-full max-w-sm rounded-2xl border-4 border-[#8a5330] bg-[#FFF6E6] p-4 text-center shadow-[0_18px_50px_rgba(0,0,0,0.55)] sm:p-5"
+        initial={{ scale: 0.92, y: 14 }}
+        animate={{ scale: 1, y: 0 }}
+        exit={{ scale: 0.95, opacity: 0 }}
+        transition={{ type: 'spring', stiffness: 260, damping: 22 }}
+      >
+        <div aria-hidden className="text-3xl">
+          🧭✈️
+        </div>
+        <h2 className="mt-0.5 font-pixel text-xl font-bold text-[#B33A26]">{t('travel.title')}</h2>
+        <p className="mt-1 font-ui text-xs font-medium text-[#8a5330]">{t('travel.subtitle')}</p>
+
+        <ul className="mt-3 space-y-2 text-left">
+          {TRIPS.map((def) => {
+            const rw = tripReward(def.id, marten.boots)
+            return (
+              <li
+                key={def.id}
+                className="flex items-center gap-2.5 rounded-xl border-2 border-[#e3cba4] bg-[#fdf3e0] p-2.5"
+              >
+                <span aria-hidden className="text-2xl">
+                  {def.id === 't10' ? '🏠' : def.id === 't30' ? '🌻' : '🌾'}
+                </span>
+                <div className="min-w-0 flex-1">
+                  <div className="font-pixel text-[13px] font-bold leading-tight text-[#5C3A1E]">
+                    {t(`travel.${def.id}.name`)}
+                  </div>
+                  <div className="font-ui text-[11px] font-semibold leading-snug text-[#8a5330]">
+                    ⏱ {fmtTripDur(rw.ms)} · 💎 {rw.diamonds} · 🐾 {rw.xp} XP
+                  </div>
+                </div>
+                <button
+                  type="button"
+                  onClick={() => onSend(def.id)}
+                  className="shrink-0 rounded-lg bg-[#E24B3B] px-2.5 py-2 font-ui text-[11px] font-bold text-white shadow-[0_3px_0_#9c2f22] transition hover:bg-[#ef5a4a] active:scale-95"
+                >
+                  {t('travel.send')}
+                </button>
+              </li>
+            )
+          })}
+        </ul>
+
+        <button
+          type="button"
+          onClick={onClose}
+          className="mt-3 w-full rounded-xl border-2 border-[#8a5330] bg-[#f3e2c8] px-4 py-2 font-pixel text-sm font-bold text-[#8a5330] transition hover:bg-[#eed7b4] active:scale-[0.98]"
+        >
+          {t('shop.close')}
+        </button>
+      </motion.div>
+    </motion.div>
+  )
+}
+
+/* ---------- Минимаркет куницы: ботиночки путешественницы ---------- */
+
+function MShopOverlay({
+  marten,
+  t,
+  onBuy,
+  onEquip,
+  onClose,
+}: {
+  marten: MartenState
+  t: TranslateFn
+  onBuy: (id: BootsId) => void
+  onEquip: (id: BootsId) => void
+  onClose: () => void
+}) {
+  /* Эффекты ботинок короткой строкой: 💎+15% · 🐾+15% · ⏱−5% */
+  const effText = (gemMul: number, xpMul: number, timeMul: number): string => {
+    const parts: string[] = []
+    if (gemMul !== 1) parts.push(`💎 +${Math.round((gemMul - 1) * 100)}%`)
+    if (xpMul !== 1) parts.push(`🐾 +${Math.round((xpMul - 1) * 100)}%`)
+    if (timeMul !== 1) parts.push(`⏱ −${Math.round((1 - timeMul) * 100)}%`)
+    return parts.length > 0 ? parts.join(' · ') : '—'
+  }
+  return (
+    <motion.div
+      className="absolute inset-0 z-40 flex items-center justify-center overflow-y-auto bg-black/70 p-4 backdrop-blur-sm"
+      initial={{ opacity: 0 }}
+      animate={{ opacity: 1 }}
+      exit={{ opacity: 0 }}
+    >
+      <motion.div
+        className="my-auto w-full max-w-sm rounded-2xl border-4 border-[#8a5330] bg-[#FFF6E6] p-4 text-center shadow-[0_18px_50px_rgba(0,0,0,0.55)] sm:p-5"
+        initial={{ scale: 0.92, y: 14 }}
+        animate={{ scale: 1, y: 0 }}
+        exit={{ scale: 0.95, opacity: 0 }}
+        transition={{ type: 'spring', stiffness: 260, damping: 22 }}
+      >
+        <div aria-hidden className="text-3xl">
+          🛍️👢
+        </div>
+        <h2 className="mt-0.5 font-pixel text-xl font-bold text-[#B33A26]">{t('mshop.title')}</h2>
+        <p className="mt-1 font-ui text-xs font-medium text-[#8a5330]">{t('mshop.subtitle')}</p>
+        {/* Кошелёк: алмазы */}
+        <div className="mt-2 inline-flex items-center gap-1.5 rounded-full bg-[#eaf3dd] px-3 py-1 ring-2 ring-[#7FB069]">
+          <Gem className="h-4 w-4 text-[#3f6b28]" aria-hidden />
+          <span className="font-pixel text-sm font-bold tabular-nums text-[#3f6b28]">
+            {marten.diamonds}
+          </span>
+        </div>
+
+        <ul
+          className={`mt-3 max-h-[38vh] space-y-2 overflow-y-auto pr-1 text-left sm:max-h-64 ${OVERLAY_SCROLL}`}
+        >
+          {BOOTS.map((def) => {
+            const isOwned = marten.ownedBoots.includes(def.id)
+            const isEquipped = marten.boots === def.id
+            const canBuy = !isOwned && marten.diamonds >= def.price
+            return (
+              <li
+                key={def.id}
+                className={`flex items-center gap-2.5 rounded-xl border-2 p-2 ${
+                  isEquipped ? 'border-amber-400 bg-amber-50' : 'border-[#e3cba4] bg-[#fdf3e0]'
+                }`}
+              >
+                <span
+                  aria-hidden
+                  className={`flex h-10 w-10 shrink-0 items-center justify-center rounded-lg text-2xl ${
+                    def.id === 'leopard'
+                      ? 'bg-[#3a2a12] shadow-[inset_0_0_12px_rgba(255,209,102,0.35)]'
+                      : 'bg-[#f3e2c8]'
+                  }`}
+                >
+                  {def.id === 'none' ? '🐾' : def.id === 'sapozhki' ? '🥿' : def.id === 'krest' ? '🥾' : def.id === 'sluzh' ? '👠' : '🐆'}
+                </span>
+                <div className="min-w-0 flex-1">
+                  <div className="font-pixel text-sm font-bold leading-tight text-[#5C3A1E]">
+                    {t(`boots.${def.id}.name`)}
+                  </div>
+                  <div
+                    className="font-ui text-[10px] font-bold leading-snug text-[#3f6b28]"
+                    title={t(`boots.${def.id}.desc`)}
+                  >
+                    {effText(def.gemMul, def.xpMul, def.timeMul)}
+                  </div>
+                  <div
+                    className="font-ui text-[10px] leading-tight text-[#a97c50]"
+                    title={t(`boots.${def.id}.desc`)}
+                  >
+                    {t(`boots.${def.id}.desc`)}
+                  </div>
+                </div>
+                {isEquipped ? (
+                  <span className="shrink-0 rounded-full bg-amber-400 px-2.5 py-1.5 font-ui text-[10px] font-bold text-[#5C3A1E]">
+                    {t('mshop.on')}
+                  </span>
+                ) : isOwned ? (
+                  <button
+                    type="button"
+                    onClick={() => onEquip(def.id)}
+                    className="shrink-0 rounded-lg border-2 border-[#8a5330] bg-[#FFF6E6] px-2.5 py-1.5 font-ui text-[11px] font-bold text-[#8a5330] transition hover:bg-[#f3e2c8] active:scale-95"
+                  >
+                    {t('mshop.equip')}
+                  </button>
+                ) : def.id === 'none' ? (
+                  <span className="shrink-0 font-ui text-[10px] text-[#a97c50]">
+                    {t('mshop.bare')}
+                  </span>
+                ) : (
+                  <button
+                    type="button"
+                    disabled={!canBuy}
+                    onClick={() => onBuy(def.id)}
+                    title={canBuy ? t(`boots.${def.id}.desc`) : t('mshop.need')}
+                    className={`shrink-0 rounded-lg px-2.5 py-1.5 font-ui text-[11px] font-bold transition active:scale-95 ${
+                      canBuy
+                        ? 'bg-[#E24B3B] text-white shadow-[0_3px_0_#9c2f22] hover:bg-[#ef5a4a]'
+                        : 'cursor-not-allowed bg-[#d9c6a8] text-[#8a755c]'
+                    }`}
+                  >
+                    💎 {def.price}
+                  </button>
+                )}
+              </li>
+            )
+          })}
+        </ul>
+
+        <button
+          type="button"
+          onClick={onClose}
+          className="mt-3 w-full rounded-xl border-2 border-[#8a5330] bg-[#f3e2c8] px-4 py-2 font-pixel text-sm font-bold text-[#8a5330] transition hover:bg-[#eed7b4] active:scale-[0.98]"
+        >
+          {t('shop.close')}
+        </button>
+      </motion.div>
+    </motion.div>
+  )
+}
+
+/* ---------- Магазин: лапки (за опыт 🍿 или монетки 🪙) + постоянные апгрейды ---------- */
+
 function ShopOverlay({
   xp,
   coins,
@@ -2122,7 +2440,17 @@ export function PopcornGame() {
   const [nickSetRaw, storeNickSet] = useStoredValue(NICKSET_KEY, '0')
   const [nickEdit, setNickEdit] = useState(false)
   const [overlay, setOverlay] = useState<
-    'leaders' | 'shop' | 'creators' | 'rules' | 'ach' | 'settings' | 'install' | 'tree' | null
+    | 'leaders'
+    | 'shop'
+    | 'creators'
+    | 'rules'
+    | 'ach'
+    | 'settings'
+    | 'install'
+    | 'tree'
+    | 'travel'
+    | 'mshop'
+    | null
   >(null)
   const [achToast, setAchToast] = useState<{ icon: string; name: string } | null>(null)
   const [shareNote, setShareNote] = useState<string | null>(null)
@@ -2232,6 +2560,9 @@ export function PopcornGame() {
   const marten = useSyncExternalStore(subscribeMarten, getMartenSnapshot, () => DEFAULT_MARTEN)
   const [martenCheer, setMartenCheer] = useState(false)
   const martenStage = stageOf(marten)
+  /* Боевой уровень куницы (xp от очков и путешествий) + тост левелапа */
+  const martenLvl = useMemo(() => martenLevelOf(marten), [marten])
+  const [martenLvlToast, setMartenLvlToast] = useState<number | null>(null)
   /* Секунды забега копятся в ref и периодически сбрасываются в копилку роста */
   const playSecsRef = useRef(0)
 
@@ -2243,6 +2574,72 @@ export function PopcornGame() {
       setMartenCheer(true)
       window.setTimeout(() => setMartenCheer(false), 4000)
     }
+  }, [])
+
+  /** Дать кунице боевой опыт; при новом уровне — тост «NANA подросла» */
+  const grantMartenXp = useCallback((n: number) => {
+    const before = martenLevelOf(getMartenSnapshot()).level
+    addMartenXp(n)
+    const after = martenLevelOf(getMartenSnapshot()).level
+    if (after > before) {
+      setMartenLvlToast(after)
+      window.setTimeout(() => setMartenLvlToast(null), 3600)
+    }
+  }, [])
+
+  /* Тик таймера путешествия: перерисовка раз в секунду, пока NANA в пути */
+  const [, tripTick] = useReducer((c: number) => c + 1, 0)
+  const tripActive = marten.trip !== null
+  useEffect(() => {
+    if (!tripActive) return
+    const iv = window.setInterval(tripTick, 1000)
+    return () => window.clearInterval(iv)
+  }, [tripActive])
+
+  /* Куница вернулась, пока открыт экран путешествия — один звук по готовности */
+  const tripReadyAnnouncedRef = useRef<string | null>(null)
+  const tripReady = marten.trip !== null && Date.now() >= marten.trip.endsAt
+  useEffect(() => {
+    if (tripReady && marten.trip) {
+      if (tripReadyAnnouncedRef.current !== marten.trip.id) {
+        tripReadyAnnouncedRef.current = marten.trip.id
+        audio.play('coin')
+      }
+    } else {
+      tripReadyAnnouncedRef.current = null
+    }
+  }, [tripReady, marten.trip])
+
+  /* ===== Управление куницей: путешествия и минимаркет ===== */
+
+  const handleSendTrip = useCallback((id: TripId) => {
+    audio.play('click')
+    startMartenTrip(id)
+  }, [])
+
+  const handleClaimTrip = useCallback(() => {
+    const before = martenLevelOf(getMartenSnapshot()).level
+    const res = claimMartenTrip()
+    if (!res) return
+    audio.play('coin')
+    const after = martenLevelOf(getMartenSnapshot()).level
+    if (after > before) {
+      setMartenLvlToast(after)
+      window.setTimeout(() => setMartenLvlToast(null), 3600)
+    }
+  }, [])
+
+  const handleBuyBoots = useCallback((id: BootsId) => {
+    if (buyMartenBoots(id)) {
+      audio.play('coin')
+    } else {
+      audio.play('penalty')
+    }
+  }, [])
+
+  const handleEquipBoots = useCallback((id: BootsId) => {
+    audio.play('click')
+    equipMartenBoots(id)
   }, [])
 
   /* Таймер времени в игре: +1 сек, каждые 20 сек — флеш в копилку куницы */
@@ -2656,6 +3053,8 @@ export function PopcornGame() {
         /* Куница NANA: фиксируем время забега (уровни уже учтены по ходу) */
         growMarten(0, playSecsRef.current)
         playSecsRef.current = 0
+        /* Боевой опыт куницы: 1 🐾XP за каждые 10 очков забега */
+        grantMartenXp(Math.round(r.score / 10))
         const prevBest = Number(window.localStorage.getItem(BEST_KEY) ?? 0)
         const record = r.score > prevBest
         if (record) {
@@ -2725,7 +3124,7 @@ export function PopcornGame() {
       engineRef.current = null
       delete (window as unknown as { __popcornEngine?: PopcornEngine }).__popcornEngine
     }
-  }, [storeBest, addXpDelta, announceAch, checkLifeAch, rollExtras, rollOffers, growMarten, awardStage])
+  }, [storeBest, addXpDelta, announceAch, checkLifeAch, rollExtras, rollOffers, growMarten, awardStage, grantMartenXp])
 
   /* Следим за размером контейнера */
   useEffect(() => {
@@ -3255,13 +3654,129 @@ export function PopcornGame() {
                 exit={{ scale: 0.95, y: 10, opacity: 0 }}
                 transition={{ type: 'spring', stiffness: 260, damping: 22 }}
               >
-                {/* Живая куница NANA: играет с попкорном, растёт с прогрессом игрока */}
+                {/* Живая куница NANA + панель управления справа (путешествия, маркет) */}
                 <div className="relative mx-auto w-full max-w-[21rem]">
-                  <MartenScene
-                    stage={martenStage}
-                    ariaLabel={t('marten.aria')}
-                    className="h-44 w-full rounded-2xl border-4 border-[#E24B3B] bg-[#FFF0D8] shadow-lg sm:h-52"
-                  />
+                  <div className="flex items-stretch gap-1.5">
+                    {/* Сцена: куница играет с зерном (в походе — комната пустая) */}
+                    <div className="relative min-w-0 flex-1">
+                      <MartenScene
+                        stage={martenStage}
+                        away={tripActive}
+                        ariaLabel={t('marten.aria')}
+                        className="h-44 w-full rounded-2xl border-4 border-[#E24B3B] bg-[#FFF0D8] shadow-lg sm:h-52"
+                      />
+                      {/* Бейдж похода: таймер или «забрать награду» */}
+                      <AnimatePresence>
+                        {marten.trip && (
+                          <motion.div
+                            className="absolute inset-x-1.5 bottom-1.5 z-10 flex justify-center"
+                            initial={{ opacity: 0, y: 10, scale: 0.9 }}
+                            animate={{ opacity: 1, y: 0, scale: 1 }}
+                            exit={{ opacity: 0, y: 10 }}
+                            transition={{ type: 'spring', stiffness: 320, damping: 24 }}
+                          >
+                            {Date.now() >= marten.trip.endsAt ? (
+                              <button
+                                type="button"
+                                onClick={handleClaimTrip}
+                                className="animate-pulse rounded-full border-2 border-amber-300 bg-[#5C8A3A] px-2.5 py-1 font-pixel text-[9px] font-bold text-white shadow-[0_4px_14px_rgba(0,0,0,0.4)] transition active:scale-95 sm:text-[10px]"
+                              >
+                                🎉 {t('marten.claim')}
+                              </button>
+                            ) : (
+                              <span className="rounded-full border-2 border-amber-300/80 bg-[#2b1a0e]/90 px-2.5 py-1 font-pixel text-[9px] font-bold text-amber-200 shadow-lg sm:text-[10px]">
+                                ✈ {t('marten.away')} ·{' '}
+                                <span className="tabular-nums">
+                                  {fmtTripMs(marten.trip.endsAt - Date.now())}
+                                </span>
+                              </span>
+                            )}
+                          </motion.div>
+                        )}
+                      </AnimatePresence>
+                    </div>
+
+                    {/* Вертикальная панель управления куницей (справа) */}
+                    <div className="flex w-[4.25rem] shrink-0 flex-col gap-1 sm:w-20">
+                      {/* Алмазы */}
+                      <div
+                        className="flex items-center justify-center gap-1 rounded-xl border-2 border-[#7FB069] bg-[#eaf3dd] px-1 py-1.5"
+                        title={t('marten.diamondsHint')}
+                      >
+                        <Gem className="h-3.5 w-3.5 shrink-0 text-[#3f6b28]" aria-hidden />
+                        <span className="font-pixel text-[11px] font-bold tabular-nums text-[#3f6b28]">
+                          {marten.diamonds}
+                        </span>
+                      </div>
+                      {/* Уровень куницы + прогресс опыта */}
+                      <div
+                        className="flex items-center justify-center gap-1 rounded-xl border-2 border-[#E24B3B] bg-[#ffe9e2] px-1 py-1.5"
+                        title={t('marten.xpHint')}
+                        aria-label={t('marten.lvlFull', { n: martenLvl.level })}
+                      >
+                        <PawPrint className="h-3.5 w-3.5 shrink-0 text-[#B33A26]" aria-hidden />
+                        <span className="font-pixel text-[11px] font-bold tabular-nums text-[#B33A26]">
+                          {martenLvl.level}
+                        </span>
+                      </div>
+                      <span
+                        aria-hidden
+                        className="mx-auto block h-1.5 w-full max-w-14 overflow-hidden rounded-full bg-[#f0d9c8]"
+                      >
+                        <span
+                          className="block h-full rounded-full bg-[#E24B3B] transition-all duration-700"
+                          style={{
+                            width: `${Math.min(100, Math.round((martenLvl.into / Math.max(1, martenLvl.need)) * 100))}%`,
+                          }}
+                        />
+                      </span>
+                      {/* Кнопка: отправить в путешествие */}
+                      <button
+                        type="button"
+                        onClick={() => {
+                          audio.play('click')
+                          setOverlay('travel')
+                        }}
+                        className="flex flex-1 flex-col items-center justify-center gap-0.5 rounded-xl border-2 border-[#8a5330] bg-[#f3e2c8] px-1 py-1 text-[#8a5330] shadow-[0_3px_0_#c9a97a] transition hover:bg-[#eed7b4] active:translate-y-[2px] active:shadow-[0_1px_0_#c9a97a]"
+                      >
+                        <Compass className="h-4.5 w-4.5" aria-hidden />
+                        <span className="font-pixel text-[8px] font-bold leading-none">
+                          {t('marten.travel')}
+                        </span>
+                      </button>
+                      {/* Кнопка: минимаркет куницы */}
+                      <button
+                        type="button"
+                        onClick={() => {
+                          audio.play('click')
+                          setOverlay('mshop')
+                        }}
+                        className="flex flex-1 flex-col items-center justify-center gap-0.5 rounded-xl border-2 border-[#8a5330] bg-[#f3e2c8] px-1 py-1 text-[#8a5330] shadow-[0_3px_0_#c9a97a] transition hover:bg-[#eed7b4] active:translate-y-[2px] active:shadow-[0_1px_0_#c9a97a]"
+                      >
+                        <ShoppingBag className="h-4.5 w-4.5" aria-hidden />
+                        <span className="font-pixel text-[8px] font-bold leading-none">
+                          {t('marten.market')}
+                        </span>
+                      </button>
+                    </div>
+                  </div>
+
+                  {/* Тост: боевой уровень куницы вырос */}
+                  <AnimatePresence>
+                    {martenLvlToast !== null && (
+                      <motion.div
+                        className="pointer-events-none absolute inset-x-0 bottom-9 z-20 flex justify-center"
+                        initial={{ opacity: 0, y: 12, scale: 0.9 }}
+                        animate={{ opacity: 1, y: 0, scale: 1 }}
+                        exit={{ opacity: 0, y: 8 }}
+                      >
+                        <span className="rounded-full bg-[#5C8A3A] px-3 py-1.5 font-pixel text-[10px] font-bold text-white shadow-lg">
+                          {t('marten.xpToast', { n: martenLvlToast })}
+                        </span>
+                      </motion.div>
+                    )}
+                  </AnimatePresence>
+
                   {/* Стадия и прогресс до следующего роста */}
                   <div
                     className="mt-2 flex items-center gap-2 rounded-full bg-amber-100 px-3 py-1.5 ring-2 ring-amber-200"
@@ -3898,6 +4413,29 @@ export function PopcornGame() {
               tree={tree}
               points={treePts}
               totalXp={Math.max(0, Number(totalRaw) || 0)}
+              onClose={() => setOverlay(null)}
+            />
+          )}
+        </AnimatePresence>
+
+        {/* Куница: путешествие и минимаркет — поверх меню (отдельный AnimatePresence,
+            чтобы тик таймера не мешал остальным оверлеям) */}
+        <AnimatePresence>
+          {phase === 'start' && overlay === 'travel' && (
+            <TravelOverlay
+              marten={marten}
+              t={t}
+              onSend={handleSendTrip}
+              onClaim={handleClaimTrip}
+              onClose={() => setOverlay(null)}
+            />
+          )}
+          {phase === 'start' && overlay === 'mshop' && (
+            <MShopOverlay
+              marten={marten}
+              t={t}
+              onBuy={handleBuyBoots}
+              onEquip={handleEquipBoots}
               onClose={() => setOverlay(null)}
             />
           )}
