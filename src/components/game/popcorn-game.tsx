@@ -32,13 +32,16 @@ import {
   TREE_NODES,
   TREE_KEY,
   TREE_MAP,
+  ZERO_BONUS,
   buyNode,
   canBuy,
   capGain,
   parseTreeRaw,
   treeBonuses,
+  treeNodesOpened,
   treePoints,
   treeSpent,
+  type TreeBonus,
   type TreeBuyError,
   type TreeId,
   type TreeState,
@@ -46,6 +49,7 @@ import {
 import {
   PERKS,
   PERK_MAP,
+  perkCanvasFilter,
   quotaFor,
   rollPerkOffer,
   transformFor,
@@ -78,6 +82,7 @@ import {
   unlockMany,
   type AchId,
 } from '@/lib/game/achievements'
+import { addLife, flushLife, getLife } from '@/lib/game/lifestats'
 import QRCode from 'react-qr-code'
 import { ROOMS, roomForLevel, roomSrcForLevel } from '@/lib/game/rooms'
 import MartenScene from './marten-scene'
@@ -177,6 +182,16 @@ interface OnlineLeader {
 interface InstallPromptEvent extends Event {
   prompt(): Promise<void>
   userChoice: Promise<{ outcome: 'accepted' | 'dismissed' }>
+}
+
+/** Перк → ачивка «сыграть с этим перком» (новые механики 0.0.9) */
+const PERK_ACH: Partial<Record<PerkId, AchId>> = {
+  nightshift: 'bgBlack',
+  whiteout: 'bgWhite',
+  popcornfall: 'bgPopcorn',
+  rainbow: 'rainbowrun',
+  neon: 'neonrun',
+  pigeonfeast: 'pigeonfeast',
 }
 
 const BEST_KEY = 'popcorn-best'
@@ -1092,33 +1107,58 @@ function InstallOverlay({
   )
 }
 
-/** Позиции узлов древа на SVG-сетке (в процентах контейнера): корень → 3 ветки → 3 вершины */
+/** Позиции узлов древа на SVG-сетке (в процентах контейнера):
+    корень → 3 ветки → 6 детей → 6 вершин (БОЛЬШОЕ ДЕРЕВО, 16 узлов) */
 const TREE_POS: Record<TreeId, { x: number; y: number }> = {
-  harvest: { x: 50, y: 10 },
-  swift: { x: 18, y: 45 },
-  cap: { x: 50, y: 45 },
-  seeds: { x: 82, y: 45 },
-  feverluck: { x: 16, y: 81 },
-  shield: { x: 50, y: 81 },
-  goldluck: { x: 84, y: 81 },
+  harvest: { x: 50, y: 7 },
+  swift: { x: 20, y: 31 },
+  cap: { x: 50, y: 31 },
+  seeds: { x: 80, y: 31 },
+  magnet: { x: 8.5, y: 58 },
+  guard: { x: 25, y: 58 },
+  goldluck: { x: 41.5, y: 58 },
+  coins: { x: 58, y: 58 },
+  feverluck: { x: 74.5, y: 58 },
+  fevertime: { x: 91.5, y: 58 },
+  miner: { x: 8.5, y: 86 },
+  stun: { x: 25, y: 86 },
+  combo: { x: 41.5, y: 86 },
+  xpboost: { x: 58, y: 86 },
+  shield: { x: 74.5, y: 86 },
+  double: { x: 91.5, y: 86 },
 }
 
-/** Ветки дерева: корень расходится на 3 ветки, каждая ведёт к своей вершине */
-const TREE_LINKS: Array<{ to: TreeId; d: string }> = [
-  { to: 'swift', d: 'M50,10 Q31,24 18,45' },
-  { to: 'cap', d: 'M50,10 Q50,26 50,45' },
-  { to: 'seeds', d: 'M50,10 Q69,24 82,45' },
-  { to: 'feverluck', d: 'M18,45 Q12,62 16,81' },
-  { to: 'shield', d: 'M50,45 Q50,62 50,81' },
-  { to: 'goldluck', d: 'M82,45 Q88,62 84,81' },
-]
+/** Ветви дерева строятся из родителей: каждый узел ведёт от своего предка */
+function treeLinkPath(a: { x: number; y: number }, b: { x: number; y: number }): string {
+  const mx = (a.x + b.x) / 2
+  const my = (a.y + b.y) / 2 + 7
+  return `M${a.x},${a.y} Q${mx},${my} ${b.x},${b.y}`
+}
+
+const TREE_LINKS: Array<{ to: TreeId; d: string }> = TREE_NODES.flatMap((n) =>
+  n.parent ? [{ to: n.id, d: treeLinkPath(TREE_POS[n.parent], TREE_POS[n.id]) }] : [],
+)
 
 /** Число в подсказке узла: суммарный эффект на текущем уровне
     (для не купленных — эффект первой покупки) */
 function treeEffectN(id: TreeId, lvl: number): number {
-  if (id === 'harvest') return 5 * Math.max(lvl, 1) // +5% за каждый уровень
-  if (id === 'cap') return capGain(Math.max(lvl, 1)) // +1, +3, +6, +10 зерна всего
-  return Math.max(lvl, 1) // щит: 1/2/3 щита за забег
+  const L = Math.max(lvl, 1)
+  if (id === 'harvest') return 5 * L // +5% за каждый уровень
+  if (id === 'cap') return capGain(L) // +1, +3, +6, +10 зерна всего
+  if (id === 'swift') return 5 * L
+  if (id === 'seeds') return 2 * L
+  if (id === 'magnet') return 8 * L
+  if (id === 'guard') return 15 * L
+  if (id === 'goldluck') return 10 * L
+  if (id === 'coins') return 10 * L
+  if (id === 'feverluck') return 5 * L
+  if (id === 'fevertime') return L
+  if (id === 'miner') return L
+  if (id === 'stun') return Math.round(0.3 * L * 10) / 10
+  if (id === 'xpboost') return 10 * L
+  if (id === 'shield') return L
+  if (id === 'double') return 25 * L
+  return 1 // комбо
 }
 
 /** Экран «Древо улучшений» (тестовая ветка): постоянные бонусы за очки
@@ -1159,8 +1199,10 @@ function TreeOverlay({
       const check = canBuy(id, tree, totalXp)
       if (check !== 'ok') {
         const def = TREE_MAP[id]
-        if (check === 'root') showErr(t('tree.needRoot'))
-        else if (check === 'points') showErr(t('tree.needPoints'))
+        if (check === 'root') {
+          const pid = def.parent
+          showErr(t('tree.needParent', { s: pid ? t(`tree.${pid}.name`) : t('tree.harvest.name') }))
+        } else if (check === 'points') showErr(t('tree.needPoints'))
         else if (check === 'level') showErr(t('tree.needLevel', { n: def.reqLevel }))
         else showErr(t('tree.maxed'))
         return
@@ -1174,9 +1216,9 @@ function TreeOverlay({
   const nodeState = (id: TreeId): 'bought' | 'ready' | 'idle' | 'locked' => {
     const lvl = tree[id] ?? 0
     if (lvl >= TREE_MAP[id].maxLevel) return 'bought'
-    if (lvl > 0) return 'ready' // «Урожай» докупается за новые очки
     const check = canBuy(id, tree, totalXp)
     if (check === 'ok') return 'ready'
+    if (lvl > 0) return 'idle' // куплен, но очков на следующий уровень нет
     if (check === 'level' || check === 'root') return 'locked'
     return 'idle'
   }
@@ -1218,8 +1260,8 @@ function TreeOverlay({
           )}
         </div>
 
-        {/* Сетка-дерево: SVG-ветки под узлами (3 яруса) */}
-        <div className="relative mx-auto h-80 w-full max-w-[340px]">
+        {/* Сетка-дерево: SVG-ветки под узлами (4 яруса, 16 узлов) */}
+        <div className="relative mx-auto h-[400px] w-full max-w-[430px]">
           <svg
             aria-hidden
             className="absolute inset-0 h-full w-full"
@@ -1255,28 +1297,28 @@ function TreeOverlay({
                 type="button"
                 onClick={() => onNode(node.id)}
                 style={{ left: `${p.x}%`, top: `${p.y}%` }}
-                className="absolute flex -translate-x-1/2 -translate-y-1/2 flex-col items-center focus:outline-none focus-visible:ring-2 focus-visible:ring-[#E24B3B] rounded-lg"
+                className="absolute flex -translate-x-1/2 -translate-y-1/2 flex-col items-center rounded-lg focus:outline-none focus-visible:ring-2 focus-visible:ring-[#E24B3B]"
                 aria-label={`${t(`tree.${node.id}.name`)} — ${t(`tree.${node.id}.effect`, { n: treeEffectN(node.id, lvl) })}`}
               >
                 <span
-                  className={`relative flex h-14 w-14 items-center justify-center rounded-full border-4 text-2xl transition active:scale-90 ${styles[st]}`}
+                  className={`relative flex h-11 w-11 items-center justify-center rounded-full border-4 text-xl transition active:scale-90 sm:h-12 sm:w-12 ${styles[st]}`}
                 >
                   <span aria-hidden>{node.icon}</span>
                   {lvl > 0 && (
-                    <span className="absolute -bottom-1.5 -right-1.5 flex h-6 min-w-6 items-center justify-center rounded-full border-2 border-white bg-[#5C8A3A] px-1 font-ui text-[10px] font-bold text-white">
+                    <span className="absolute -bottom-1.5 -right-1.5 flex h-5 min-w-5 items-center justify-center rounded-full border-2 border-white bg-[#5C8A3A] px-1 font-ui text-[9px] font-bold text-white">
                       {lvl >= node.maxLevel ? 'MAX' : lvl}
                     </span>
                   )}
                   {st === 'locked' && (
-                    <span className="absolute -bottom-1.5 -right-1.5 flex h-5 min-w-5 items-center justify-center rounded-full border-2 border-white bg-[#8d7f6d] px-1 font-ui text-[9px] font-bold text-white">
-                      🔒{t('tree.locked', { n: TREE_MAP[node.id].reqLevel })}
+                    <span className="absolute -bottom-1.5 -right-1.5 flex h-4.5 min-w-4.5 items-center justify-center rounded-full border-2 border-white bg-[#8d7f6d] px-1 font-ui text-[8px] font-bold text-white">
+                      🔒{TREE_MAP[node.id].reqLevel}
                     </span>
                   )}
                 </span>
-                <span className="mt-1 w-24 text-center font-pixel text-[10px] font-bold leading-tight text-[#5C3A1E]">
+                <span className="mt-1 w-[15.5%] min-w-14 max-w-[70px] text-center font-pixel text-[8px] font-bold leading-[1.1] text-[#5C3A1E] sm:w-20 sm:text-[9px]">
                   {t(`tree.${node.id}.name`)}
                 </span>
-                <span className="w-24 text-center font-ui text-[9px] leading-tight text-[#a97c50]">
+                <span className="w-[15.5%] min-w-14 max-w-[70px] text-center font-ui text-[8px] leading-tight text-[#a97c50] sm:w-20 sm:text-[9px]">
                   {t(`tree.${node.id}.effect`, { n: treeEffectN(node.id, lvl) })}
                 </span>
               </button>
@@ -2013,6 +2055,10 @@ export function PopcornGame() {
     feverGained: 0,
     wave: 0,
     shields: 0,
+    runGrains: 0,
+    runNipples: 0,
+    minesHit: 0,
+    shieldSaves: 0,
   })
   const [bestRaw, storeBest] = useStoredValue(BEST_KEY, '0')
   const [mutedRaw, storeMuted] = useStoredValue(MUTE_KEY, '0')
@@ -2036,6 +2082,10 @@ export function PopcornGame() {
   const waveTimerRef = useRef<number | null>(null)
   /** Тост «монетки за Лихорадку» — сколько 🪙 упало в кошелёк */
   const [feverCoins, setFeverCoins] = useState<number | null>(null)
+  /** Сколько счётчиков забега уже учтено в пожизненной статистике (ачивки) */
+  const prevRunRef = useRef({ grains: 0, golden: 0, pigeons: 0, nipples: 0, mines: 0, saves: 0 })
+  /** Когда начался текущий забег (ачивка-марафон) */
+  const runStartRef = useRef(0)
 
   /* Мета-прогресс: опыт, магазин лапок, апгрейды, ачивки, лидеры, имя */
   const [xpRaw, storeXp] = useStoredValue(XP_KEY, '0')
@@ -2069,7 +2119,8 @@ export function PopcornGame() {
   /* Древо улучшений: купленные узлы (localStorage + событие магазина) */
   const [treeRaw] = useStoredValue(TREE_KEY, '{}')
   const tree = useMemo(() => parseTreeRaw(treeRaw), [treeRaw])
-  const treeRef = useRef(tree)
+  /** Числовые бонусы древа — в ref для колбэков без перезапуска эффектов */
+  const treeRef = useRef<TreeBonus>(ZERO_BONUS)
   /** Доступные очки древа: уровень котика − потрачено */
   const treePts = useMemo(
     () => treePoints(Math.max(0, Number(totalRaw) || 0), treeSpent(tree)),
@@ -2303,6 +2354,35 @@ export function PopcornGame() {
     [t],
   )
 
+  /** Проверить пожизненные условия ачивок: счётчики стажа, монеты, банк,
+      уровень котика. Дёшево — можно звать после любого события. */
+  const checkLifeAch = useCallback(() => {
+    const L = getLife()
+    const cand: AchId[] = []
+    if (L.grains >= 5000) cand.push('grainsLife5k')
+    if (L.grains >= 25000) cand.push('grainsLife25k')
+    if (L.golden >= 100) cand.push('golden100')
+    if (L.pigeons >= 25) cand.push('pigeon25')
+    if (L.nipples >= 50) cand.push('nipple50')
+    if (L.mines >= 1) cand.push('mine1')
+    if (L.fevers >= 10) cand.push('fever10')
+    if (L.curse >= 5) cand.push('curse5')
+    if (L.bonus >= 10) cand.push('bonus10')
+    if (L.runs >= 10) cand.push('runs10')
+    if (getCoins() >= 10000) cand.push('coins10k')
+    if (getCoins() >= 50000) cand.push('coins50k')
+    try {
+      const bank = Math.max(0, Number(window.localStorage.getItem(XP_KEY) ?? 0) || 0)
+      if (bank >= 100000) cand.push('xp100k')
+    } catch {
+      /* нет localStorage — не беда */
+    }
+    const cl = charLevel(getTotalXp())
+    if (cl >= 10) cand.push('catlvl10')
+    if (cl >= 20) cand.push('catlvl20')
+    announceAch(cand)
+  }, [announceAch])
+
   /** Начислить дельту очков в банк опыта сразу — очки попкорна = опыт.
       Та же дельта (без минуса) капает в суммарный стаж котика. */
   const addXpDelta = useCallback((delta: number) => {
@@ -2318,39 +2398,57 @@ export function PopcornGame() {
   }, [])
 
   /** Награда за пройденный этап: опыт стажа котика + горсть монеток.
-      Если уровень персонажа вырос — праздничный тост. */
-  const awardStage = useCallback((lvl: number) => {
-    const before = charLevel(getTotalXp())
-    /* Награда за этап — с нулями: опыт ×10, монетки ×10 (и цены в магазине тоже) */
-    addTotalXp(100 + lvl * 10)
-    addCoins(120)
-    const after = charLevel(getTotalXp())
-    if (after > before) {
-      setCharToast(after)
-      audio.play('record')
-      window.setTimeout(() => setCharToast(null), 3400)
-    }
-  }, [])
+      Если уровень персонажа вырос — праздничный тост.
+      Древо («Стаж», «Монетный дождь») умножает обе награды. */
+  const awardStage = useCallback(
+    (lvl: number) => {
+      const before = charLevel(getTotalXp())
+      /* Награда за этап — с нулями: опыт ×10, монетки ×10 (и цены в магазине тоже) */
+      const tr = treeRef.current
+      addTotalXp(Math.round((100 + lvl * 10) * (1 + (tr.xpAdd ?? 0))))
+      addCoins(Math.round(120 * (1 + (tr.coinsAdd ?? 0))))
+      const after = charLevel(getTotalXp())
+      if (after > before) {
+        setCharToast(after)
+        audio.play('record')
+        window.setTimeout(() => setCharToast(null), 3400)
+      }
+      checkLifeAch()
+    },
+    [checkLifeAch],
+  )
 
-  /** Случайный подарок в каждом из трёх сундуков (или null — просто перк) */
+  /** Случайный подарок в каждом из трёх сундуков (или null — просто перк).
+      Древо «Щедрость» увеличивает ценность подарков. */
   const rollExtras = useCallback((): Array<ChestExtra | null> => {
+    const gift = 1 + (treeRef.current.giftAdd ?? 0)
+    const round10 = (n: number) => Math.max(10, Math.round((n * gift) / 10) * 10)
     return [0, 1, 2].map(() => {
       const r = Math.random()
       if (r < 0.3) {
-        return { kind: 'coins' as const, n: [150, 250, 400][Math.floor(Math.random() * 3)] ?? 150 }
+        return { kind: 'coins' as const, n: round10([150, 250, 400][Math.floor(Math.random() * 3)] ?? 150) }
       }
       if (r < 0.55) {
-        return { kind: 'xp' as const, n: [250, 600, 1200][Math.floor(Math.random() * 3)] ?? 250 }
+        return { kind: 'xp' as const, n: round10([250, 600, 1200][Math.floor(Math.random() * 3)] ?? 250) }
       }
       return null
     })
   }, [])
 
-  /* Древо улучшений: при покупке узла сразу перекидываем бонусы в движок */
+  /* Древо улучшений: при покупке узла сразу перекидываем бонусы в движок;
+     застройка дерева — тоже ачивки («Садовник», «Лесовод») */
   useEffect(() => {
-    treeRef.current = tree
-    engineRef.current?.setTree(treeBonuses(tree))
-  }, [tree])
+    const bonuses = treeBonuses(tree)
+    treeRef.current = bonuses
+    engineRef.current?.setTree(bonuses)
+    const cand: AchId[] = []
+    if (treeNodesOpened(tree) >= 5) cand.push('tree5')
+    if (treeSpent(tree) >= 15) cand.push('tree15')
+    if (cand.length > 0) {
+      /* Отложенный тост: не дёргаем setState синхронно внутри эффекта */
+      window.setTimeout(() => announceAch(cand), 0)
+    }
+  }, [tree, announceAch])
 
   /* PWA: ловим событие установки и регистрируем service worker (только прод) */
   useEffect(() => {
@@ -2418,13 +2516,47 @@ export function PopcornGame() {
           if (waveTimerRef.current) window.clearTimeout(waveTimerRef.current)
           waveTimerRef.current = window.setTimeout(() => setWaveToast(null), 1900)
         }
-        /* Достижения по ходу забега */
+        /* Достижения по ходу забега + пожизненные счётчики */
         const cand: AchId[] = []
         if (s.goldenCount > 0) cand.push('golden1')
+        if (s.goldenCount >= 10) cand.push('golden10')
         if (s.streak >= 10) cand.push('combo10')
+        if (s.streak >= 20) cand.push('combo20')
         if (s.pigeonShooed > 0) cand.push('pigeon1')
+        if (s.pigeonShooed >= 5) cand.push('pigeon5')
+        if (s.wave >= 5) cand.push('wave5')
+        if (s.wave >= 10) cand.push('wave10')
+        if (s.level >= 5) cand.push('level5')
+        if (s.level >= 10) cand.push('level10')
+        if (s.level >= 20) cand.push('level20')
+        if (s.shields >= 3) cand.push('shield3')
+        if (s.minesHit > 0) cand.push('mine1')
+        if (s.shieldSaves > 0) cand.push('shieldUse')
+        /* Дельты в пожизненную статистику (ленивая запись — flushLife) */
+        const pv = prevRunRef.current
+        if (s.runGrains > pv.grains) {
+          addLife({ grains: s.runGrains - pv.grains })
+          pv.grains = s.runGrains
+        }
+        if (s.goldenCount > pv.golden) {
+          addLife({ golden: s.goldenCount - pv.golden })
+          pv.golden = s.goldenCount
+        }
+        if (s.pigeonShooed > pv.pigeons) {
+          addLife({ pigeons: s.pigeonShooed - pv.pigeons })
+          pv.pigeons = s.pigeonShooed
+        }
+        if (s.runNipples > pv.nipples) {
+          addLife({ nipples: s.runNipples - pv.nipples })
+          pv.nipples = s.runNipples
+        }
+        if (s.minesHit > pv.mines) {
+          addLife({ mines: s.minesHit - pv.mines })
+          pv.mines = s.minesHit
+        }
         if ((Number(window.localStorage.getItem(XP_KEY) ?? 0) || 0) >= 10000) cand.push('rich1k')
-        if (cand.length > 0) announceAch(cand)
+        announceAch(cand)
+        checkLifeAch()
       },
       onLevelComplete: (r) => {
         /* Куница NANA: уровень пройден — +1 к росту (плюс накопленные секунды) */
@@ -2432,6 +2564,8 @@ export function PopcornGame() {
         playSecsRef.current = 0
         /* Награда за этап: опыт стажа котика + горсть монеток (мета-прогресс) */
         awardStage(r.level)
+        /* «Чистая работа»: уровень без мин и краж */
+        if (r.clean) announceAch(['perfect'])
         /* ЛИХОРАДКА: случайный бонусный уровень (шанс 25%, не раньше 2-го;
            ?fever=1 — всегда). Вместо сундучка — 3 секунды безумного сбора,
            потом сразу следующий обычный уровень */
@@ -2457,7 +2591,10 @@ export function PopcornGame() {
         setPerk(null)
         transformRef.current = 'none'
         const cv = canvasRef.current
-        if (cv) cv.style.filter = ''
+        if (cv) {
+          cv.style.filter = ''
+          cv.classList.remove('popcorn-hue')
+        }
         layoutRef.current()
         /* Монетки за успех: чем больше очков — тем щедрее награда */
         if (r.success) {
@@ -2466,6 +2603,11 @@ export function PopcornGame() {
           setFeverCoins(coins)
           window.setTimeout(() => setFeverCoins(null), 3200)
         }
+        /* Ачивки лихорадки: «Горячка», «Жар-птица», «Пять сотен в огне» */
+        addLife({ fevers: 1 })
+        announceAch(['fever1'])
+        if (r.success && r.gained >= 500) announceAch(['fever500'])
+        checkLifeAch()
       },
       onEnd: (r) => {
         /* Куница NANA: фиксируем время забега (уровни уже учтены по ходу) */
@@ -2491,12 +2633,17 @@ export function PopcornGame() {
         list = list.slice(0, 10)
         window.localStorage.setItem(LEADERS_KEY, JSON.stringify(list))
         window.dispatchEvent(new Event(STORE_EVENT))
-        /* Достижения конца забега */
+        /* Достижения конца забега: очки за забег (уровневые — по ходу в onStats) */
         const cand: AchId[] = []
         if (r.score >= 1000) cand.push('score100')
-        if (r.level >= 5) cand.push('level5')
-        if (r.level >= 10) cand.push('level10')
+        if (r.score >= 10000) cand.push('score10k')
+        if (r.score >= 50000) cand.push('score50k')
         announceAch(cand)
+        /* «Марафон попкорна»: 10 минут в одном забеге */
+        if (runStartRef.current > 0 && Date.now() - runStartRef.current >= 10 * 60 * 1000) {
+          announceAch(['marathon'])
+        }
+        flushLife()
         /* «Девятая жизнь»: если апгрейд куплен и ещё не потрачен — предлагаем второй шанс */
         const ups = parseUpgrades(window.localStorage.getItem(UPG_KEY))
         const canRevive = ups.life > 0 && !(engineRef.current?.lifeSpent ?? true)
@@ -2527,7 +2674,7 @@ export function PopcornGame() {
     })
     engine.setLang(s.lang)
     /* Древо улучшений: применяем купленные узлы к движку */
-    engine.setTree(treeBonuses(treeRef.current))
+    engine.setTree(treeRef.current)
     layoutRef.current()
 
     return () => {
@@ -2535,7 +2682,7 @@ export function PopcornGame() {
       engineRef.current = null
       delete (window as unknown as { __popcornEngine?: PopcornEngine }).__popcornEngine
     }
-  }, [storeBest, addXpDelta, announceAch, rollExtras, rollOffers, growMarten, awardStage])
+  }, [storeBest, addXpDelta, announceAch, checkLifeAch, rollExtras, rollOffers, growMarten, awardStage])
 
   /* Следим за размером контейнера */
   useEffect(() => {
@@ -2599,10 +2746,22 @@ export function PopcornGame() {
     transformRef.current = onLevel ? transformFor(perk) : 'none'
     const canvas = canvasRef.current
     if (canvas) {
-      canvas.style.filter = onLevel && perk === 'grayscale' ? 'grayscale(1) contrast(1.05)' : ''
+      canvas.style.filter = onLevel ? perkCanvasFilter(perk) : ''
+      canvas.classList.toggle('popcorn-hue', onLevel && perk === 'rainbow')
     }
     layoutRef.current()
   }, [perk, phase])
+
+  /* Пожизненные счётчики ачивок дольём на диск при уходе со страницы */
+  useEffect(() => {
+    const onFlush = () => flushLife()
+    window.addEventListener('pagehide', onFlush)
+    document.addEventListener('visibilitychange', onFlush)
+    return () => {
+      window.removeEventListener('pagehide', onFlush)
+      document.removeEventListener('visibilitychange', onFlush)
+    }
+  }, [])
 
   /* Автопауза при сворачивании вкладки: игру и музыку ставим на паузу,
      чтобы троттлинг таймеров не копил отставание аудио-планировщика.
@@ -2628,7 +2787,10 @@ export function PopcornGame() {
     lastScoreRef.current = 0
     transformRef.current = 'none'
     const canvas = canvasRef.current
-    if (canvas) canvas.style.filter = ''
+    if (canvas) {
+      canvas.style.filter = ''
+      canvas.classList.remove('popcorn-hue')
+    }
     audio.ensure()
     audio.setMuted(mutedRef.current)
     audio.startMusic('game')
@@ -2646,7 +2808,13 @@ export function PopcornGame() {
     setPerk(startPerk)
     lockOrientation(settingsRef.current.orientation)
     setPhase('playing')
-  }, [lockOrientation])
+    /* Ачивки забега: счётчик забегов, ночная игра; дельты — с нуля */
+    addLife({ runs: 1 })
+    prevRunRef.current = { grains: 0, golden: 0, pigeons: 0, nipples: 0, mines: 0, saves: 0 }
+    runStartRef.current = Date.now()
+    if (new Date().getHours() < 6) announceAch(['nightowl'])
+    checkLifeAch()
+  }, [lockOrientation, announceAch, checkLifeAch])
 
   const beginLevel = useCallback(
     (lvl: number, perkId: PerkId | null) => {
@@ -2657,15 +2825,25 @@ export function PopcornGame() {
       transformRef.current = transformFor(perkId)
       const canvas = canvasRef.current
       if (canvas) {
-        canvas.style.filter = perkId === 'grayscale' ? 'grayscale(1) contrast(1.05)' : ''
+        /* Цветовые перки — CSS-фильтром канваса; «Хамелеон» — анимированным классом */
+        canvas.style.filter = perkCanvasFilter(perkId)
+        canvas.classList.toggle('popcorn-hue', perkId === 'rainbow')
       }
       layoutRef.current()
       engineRef.current?.startLevel(lvl, perkId)
       setPerk(perkId)
       lockOrientation(settingsRef.current.orientation)
       setPhase('playing')
+      /* Статистика перков: проклятья/бонусы за всё время + ачивки новых механик */
+      if (perkId) {
+        const def = PERK_MAP[perkId]
+        addLife(def.curse ? { curse: 1 } : { bonus: 1 })
+        const ach = PERK_ACH[perkId]
+        if (ach) announceAch([ach])
+        checkLifeAch()
+      }
     },
-    [lockOrientation],
+    [lockOrientation, announceAch, checkLifeAch],
   )
 
   const resumeGame = useCallback(() => {
@@ -2693,7 +2871,11 @@ export function PopcornGame() {
     setOpenedIdx(null)
     transformRef.current = 'none'
     const canvas = canvasRef.current
-    if (canvas) canvas.style.filter = ''
+    if (canvas) {
+      canvas.style.filter = ''
+      canvas.classList.remove('popcorn-hue')
+    }
+    flushLife() // дольём пожизненные счётчики перед выходом
     unlockOrientation()
     layoutRef.current()
     setPhase('start')
@@ -2824,9 +3006,6 @@ export function PopcornGame() {
   const onLevel = phase === 'playing' || phase === 'paused'
   const quotaPct = Math.min(100, (stats.collected / Math.max(1, stats.quota)) * 100)
   const chosen: PerkDef | null = openedIdx !== null ? (offers[openedIdx] ?? null) : null
-  /** Подарок выбранного сундука: монетки или опыт */
-  const chosenExtra: ChestExtra | null =
-    openedIdx !== null ? (extras[openedIdx] ?? null) : null
   const activePerk = perk ? PERK_MAP[perk] : null
   /* Локация уровня: в меню — кинозал, в игре — комната по номеру уровня */
   const activeRoom = roomForLevel(stats.level)
@@ -3295,206 +3474,181 @@ export function PopcornGame() {
           {phase === 'chest' && clearInfo && (
             <motion.div
               key="chest"
-              className="absolute inset-0 z-30 flex items-center justify-center overflow-y-auto bg-black/70 p-4 backdrop-blur-sm"
+              className="absolute inset-0 z-30 flex flex-col bg-black/70 p-2 backdrop-blur-sm sm:p-4"
               initial={{ opacity: 0 }}
               animate={{ opacity: 1 }}
               exit={{ opacity: 0 }}
             >
               <motion.div
-                className="my-auto w-full max-w-sm rounded-2xl border-4 border-[#8a5330] bg-[#FFF6E6] p-4 text-center shadow-[0_18px_50px_rgba(0,0,0,0.55)] sm:p-6"
+                className="mx-auto my-auto flex max-h-full w-full max-w-sm flex-col overflow-hidden rounded-2xl border-4 border-[#8a5330] bg-[#FFF6E6] shadow-[0_18px_50px_rgba(0,0,0,0.55)]"
                 initial={{ scale: 0.9, y: 14 }}
                 animate={{ scale: 1, y: 0 }}
                 exit={{ scale: 0.95, opacity: 0 }}
                 transition={{ type: 'spring', stiffness: 260, damping: 22 }}
               >
-                <div aria-hidden className="text-4xl">
-                  🎁
-                </div>
-                <h2 className="mt-1 font-pixel text-xl font-bold text-[#B33A26] sm:text-2xl">
-                  {t('chest.title', { n: clearInfo.level })}
-                </h2>
-                <p className="mt-1 font-ui text-xs font-medium text-[#8a5330]">
-                  {t('chest.bonus', { b: clearInfo.bonus, s: stats.score })}
-                </p>
-                {offers.length > 0 ? (
-                  <>
-                    <p className="mt-2 font-ui text-xs text-[#5C3A1E]">{t('chest.choose')}</p>
-                    <div className="mt-3 flex items-end justify-center gap-2 sm:gap-4">
-                      {offers.map((p, i) => {
-                        const isOpen = openedIdx === i
-                        const dimmed = openedIdx !== null && !isOpen
-                        return (
-                          <motion.button
-                            key={p.id}
-                            type="button"
-                            aria-label={t('chest.openN', { n: i + 1 })}
-                            disabled={openedIdx !== null}
-                            onClick={() => openChest(i)}
-                            className={`flex flex-col items-center rounded-xl border-4 px-3 pb-1.5 pt-2.5 transition-colors sm:px-4 ${
-                              isOpen
-                                ? 'border-amber-400 bg-amber-100'
-                                : dimmed
-                                  ? 'border-[#c9a97a] bg-[#f3e2c8] opacity-40'
-                                  : 'border-[#8a5330] bg-[#f3e2c8] hover:bg-[#eed7b4] active:scale-95'
-                            }`}
-                            animate={isOpen ? { rotate: [0, -7, 7, -4, 0], y: [0, -8, 0] } : {}}
-                            transition={{ duration: 0.45 }}
-                          >
-                            <ChestImg open={isOpen} />
-                            <span className="font-pixel text-[10px] text-[#8a5330] sm:text-xs">
-                              {isOpen ? t('chest.opened') : t('chest.chest')}
-                            </span>
-                          </motion.button>
-                        )
-                      })}
-                    </div>
-
-                    <AnimatePresence mode="wait">
-                      {chosen && (
-                        <motion.div
-                          key={chosen.id}
-                          className={`mt-3 rounded-xl border-2 p-3 ${
-                            chosen.curse
-                              ? 'border-red-300 bg-red-50'
-                              : 'border-emerald-300 bg-emerald-50'
-                          }`}
-                          initial={{ opacity: 0, y: 12, scale: 0.94 }}
-                          animate={{ opacity: 1, y: 0, scale: 1 }}
-                          exit={{ opacity: 0, y: -8 }}
-                          transition={{ type: 'spring', stiffness: 300, damping: 22 }}
-                        >
-                          <div className="flex min-w-0 items-center justify-center gap-2">
-                            <span aria-hidden className="shrink-0 text-3xl">
-                              {chosen.icon}
-                            </span>
-                            <div className="min-w-0 text-left">
-                              <div className="break-words font-pixel text-base font-bold leading-snug text-[#5C3A1E] sm:text-lg">
-                                {t(`perk.${chosen.id}.name`)}
-                              </div>
-                              <span
-                                className={`inline-block rounded-full px-2 py-0.5 font-ui text-[10px] font-bold ${
-                                  chosen.curse
-                                    ? 'bg-red-200 text-red-800'
-                                    : 'bg-emerald-200 text-emerald-800'
-                                }`}
-                              >
-                                {chosen.curse ? t('perk.tag.curse') : t('perk.tag.bonus')}
-                              </span>
-                            </div>
-                          </div>
-                          <p className="mt-2 font-ui text-xs leading-snug text-[#5C3A1E]">
-                            {t(`perk.${chosen.id}.desc`)}
-                          </p>
-                          {/* Подарок из выбранного сундука: монетки или опыт */}
-                          {chosenExtra && (
-                            <p
-                              className={`mt-2 rounded-xl px-2.5 py-1.5 font-ui text-[11px] font-bold leading-snug ${
-                                chosenExtra.kind === 'coins'
-                                  ? 'bg-amber-100 text-[#8a5a16]'
-                                  : 'bg-sky-50 text-[#2b6a7c]'
+                {/* Прокручиваемое содержимое: сундуки с надписями и описание перка */}
+                <div className="min-h-0 flex-1 overflow-y-auto p-3 text-center sm:p-4">
+                  <div aria-hidden className="text-3xl sm:text-4xl">
+                    🎁
+                  </div>
+                  <h2 className="mt-0.5 font-pixel text-lg font-bold text-[#B33A26] sm:text-2xl">
+                    {t('chest.title', { n: clearInfo.level })}
+                  </h2>
+                  <p className="mt-0.5 font-ui text-[11px] font-medium text-[#8a5330] sm:text-xs">
+                    {t('chest.bonus', { b: clearInfo.bonus, s: stats.score })}
+                  </p>
+                  {offers.length > 0 ? (
+                    <>
+                      <p className="mt-1.5 font-ui text-[11px] text-[#5C3A1E]">{t('chest.choose')}</p>
+                      {/* Сундучки: что внутри — написано ПРЯМО НА сундучке */}
+                      <div className="mt-2 grid grid-cols-3 gap-1.5 sm:gap-2">
+                        {offers.map((p, i) => {
+                          const isOpen = openedIdx === i
+                          const dimmed = openedIdx !== null && !isOpen
+                          const ex = extras[i]
+                          return (
+                            <motion.button
+                              key={p.id}
+                              type="button"
+                              aria-label={`${t('chest.openN', { n: i + 1 })}: ${t(`perk.${p.id}.name`)}`}
+                              disabled={openedIdx !== null}
+                              onClick={() => openChest(i)}
+                              className={`flex flex-col items-center rounded-xl border-[3px] px-1 pb-1.5 pt-1.5 transition-colors ${
+                                isOpen
+                                  ? 'border-amber-400 bg-amber-100'
+                                  : dimmed
+                                    ? 'border-[#c9a97a] bg-[#f3e2c8] opacity-40'
+                                    : 'border-[#8a5330] bg-[#f3e2c8] hover:bg-[#eed7b4] active:scale-95'
                               }`}
+                              animate={isOpen ? { rotate: [0, -6, 6, -3, 0], y: [0, -6, 0] } : {}}
+                              transition={{ duration: 0.45 }}
                             >
-                              {chosenExtra.kind === 'coins'
-                                ? t('chest.bonusCoins', { n: chosenExtra.n })
-                                : t('chest.bonusXp', { n: chosenExtra.n })}
-                            </p>
-                          )}
-                          <p className="mt-1.5 font-ui text-[11px] text-[#8a5330]">
-                            {t('chest.quotaInfo', {
-                              n: runLevel,
-                              q: Math.round(
-                                quotaFor(runLevel, chosen.id === 'doublepoints') *
-                                  (settings.difficulty === 'easy'
-                                    ? 0.8
-                                    : settings.difficulty === 'hard'
-                                      ? 1.2
-                                      : 1),
-                              ),
-                              s:
-                                (chosen.id === 'timeplus' ? 75 : 60) +
-                                (settings.difficulty === 'easy'
-                                  ? 10
-                                  : settings.difficulty === 'hard'
-                                    ? -10
-                                    : 0),
-                            })}
-                          </p>
-                        </motion.div>
-                      )}
-                    </AnimatePresence>
-
-                    {/* Прозрачные сундуки: после выбора показываем, что лежало в остальных */}
-                    {chosen && offers.length > 1 && (
-                      <div className="mt-2.5 rounded-xl bg-[#f7e8cf] px-3 py-2 ring-1 ring-[#e3cba4]">
-                        <p className="font-ui text-[10px] font-semibold uppercase tracking-wide text-[#a97c50]">
-                          {t('chest.others')}
-                        </p>
-                        <div className="mt-1.5 flex flex-wrap items-stretch justify-center gap-1.5">
-                          {offers.map((p, i) => {
-                            if (i === openedIdx) return null
-                            const ex = extras[i]
-                            return (
-                              <span
-                                key={p.id}
-                                className="inline-flex items-center gap-1 rounded-lg bg-[#FFF6E6] px-2 py-1 ring-1 ring-[#e3cba4]"
-                              >
-                                <span aria-hidden className="text-sm">
+                              <ChestImg open={isOpen} />
+                              {/* Название перка и подарок — на самом сундучке */}
+                              <span className="mt-1 flex items-center justify-center gap-1">
+                                <span aria-hidden className="text-sm leading-none">
                                   {p.icon}
                                 </span>
-                                <span className="max-w-36 break-words text-left font-ui text-[11px] font-semibold leading-snug text-[#5C3A1E]">
+                                <span
+                                  className={`font-pixel text-[9px] font-bold leading-tight sm:text-[11px] ${
+                                    p.curse ? 'text-[#B33A26]' : 'text-[#3f6b28]'
+                                  }`}
+                                >
                                   {t(`perk.${p.id}.name`)}
                                 </span>
-                                {ex && (
-                                  <span className="font-ui text-[10px] font-bold text-[#8a5330]">
-                                    {ex.kind === 'coins' ? `+${ex.n}🪙` : `+${ex.n}🍿`}
-                                  </span>
-                                )}
                               </span>
-                            )
-                          })}
-                        </div>
+                              <span
+                                className={`mt-0.5 rounded-full px-1.5 py-px font-ui text-[8px] font-bold leading-tight sm:text-[9px] ${
+                                  p.curse ? 'bg-red-200 text-red-800' : 'bg-emerald-200 text-emerald-800'
+                                }`}
+                              >
+                                {p.curse ? t('perk.tag.curse') : t('perk.tag.bonus')}
+                              </span>
+                              {ex && (
+                                <span className="mt-0.5 font-ui text-[9px] font-bold text-[#8a5a16]">
+                                  {ex.kind === 'coins' ? `+${ex.n} 🪙` : `+${ex.n} 🍿`}
+                                </span>
+                              )}
+                              {isOpen && (
+                                <span className="mt-1 break-words font-ui text-[10px] font-medium leading-tight text-[#5C3A1E]">
+                                  {t(`perk.${p.id}.desc`)}
+                                </span>
+                              )}
+                            </motion.button>
+                          )
+                        })}
                       </div>
-                    )}
-                  </>
-                ) : (
-                  <p className="mt-2 font-ui text-xs text-[#5C3A1E]">{t('chest.noperks')}</p>
-                )}
 
-                {chosen && (
-                  <div className="mt-3 space-y-2">
-                    <GameButton onClick={() => beginLevel(runLevel, chosen.id)}>
-                      {t('chest.next', { n: runLevel })}
-                    </GameButton>
-                    <button
-                      type="button"
-                      onClick={() => setOverlay('shop')}
-                      className="w-full rounded-xl border-2 border-[#8a5330] bg-[#f3e2c8] px-4 py-2 font-pixel text-sm font-bold text-[#8a5330] transition hover:bg-[#eed7b4] active:scale-[0.98]"
-                    >
-                      {t('chest.shop')}
-                    </button>
-                    <button
-                      type="button"
-                      onClick={quitToMenu}
-                      className="w-full rounded-xl px-4 py-1.5 font-ui text-[11px] font-semibold text-[#a97c50] transition hover:text-[#8a5330] hover:underline"
-                    >
-                      {t('quit.button')}
-                    </button>
-                  </div>
-                )}
-                {offers.length === 0 && (
-                  <div className="mt-3 space-y-2">
-                    <GameButton onClick={() => beginLevel(runLevel, null)}>
-                      {t('chest.next', { n: runLevel })}
-                    </GameButton>
-                    <button
-                      type="button"
-                      onClick={quitToMenu}
-                      className="w-full rounded-xl px-4 py-1.5 font-ui text-[11px] font-semibold text-[#a97c50] transition hover:text-[#8a5330] hover:underline"
-                    >
-                      {t('quit.button')}
-                    </button>
-                  </div>
-                )}
+                      {/* Описание выбранного перка + что ждёт на следующем уровне */}
+                      <AnimatePresence mode="wait">
+                        {chosen && (
+                          <motion.div
+                            key={chosen.id}
+                            className={`mt-2.5 rounded-xl border-2 p-2 ${
+                              chosen.curse ? 'border-red-300 bg-red-50' : 'border-emerald-300 bg-emerald-50'
+                            }`}
+                            initial={{ opacity: 0, y: 10, scale: 0.96 }}
+                            animate={{ opacity: 1, y: 0, scale: 1 }}
+                            exit={{ opacity: 0, y: -8 }}
+                            transition={{ type: 'spring', stiffness: 300, damping: 22 }}
+                          >
+                            <p className="break-words font-ui text-[11px] leading-snug text-[#5C3A1E]">
+                              {t(`perk.${chosen.id}.desc`)}
+                            </p>
+                            <p className="mt-1 font-ui text-[10px] leading-tight text-[#8a5330]">
+                              {t('chest.quotaInfo', {
+                                n: runLevel,
+                                q: Math.round(
+                                  quotaFor(runLevel, chosen.id === 'doublepoints') *
+                                    (settings.difficulty === 'easy'
+                                      ? 0.8
+                                      : settings.difficulty === 'hard'
+                                        ? 1.2
+                                        : 1) *
+                                    (chosen.id === 'milky' ? 1.2 : 1),
+                                ),
+                                s:
+                                  (chosen.id === 'timeplus' ? 75 : 60) +
+                                  (settings.difficulty === 'easy'
+                                    ? 10
+                                    : settings.difficulty === 'hard'
+                                      ? -10
+                                      : 0),
+                              })}
+                            </p>
+                          </motion.div>
+                        )}
+                      </AnimatePresence>
+                    </>
+                  ) : (
+                    <p className="mt-2 font-ui text-xs text-[#5C3A1E]">{t('chest.noperks')}</p>
+                  )}
+                </div>
+
+                {/* ЗАКРЕПЛЁННЫЙ низ: кнопка «ДАЛЕЕ» всегда видна без прокрутки —
+                    даже на телефоне боком, когда высоты впритык */}
+                <div className="shrink-0 space-y-1.5 border-t-2 border-[#e3cba4] bg-[#fdf3e0] px-3 py-2.5 pb-[max(0.625rem,env(safe-area-inset-bottom))]">
+                  {chosen ? (
+                    <>
+                      <GameButton onClick={() => beginLevel(runLevel, chosen.id)}>
+                        {t('chest.next', { n: runLevel })}
+                      </GameButton>
+                      <div className="flex gap-1.5">
+                        <button
+                          type="button"
+                          onClick={() => setOverlay('shop')}
+                          className="min-h-9 flex-1 rounded-xl border-2 border-[#8a5330] bg-[#f3e2c8] px-2 py-1.5 font-pixel text-[11px] font-bold text-[#8a5330] transition hover:bg-[#eed7b4] active:scale-[0.98]"
+                        >
+                          {t('chest.shop')}
+                        </button>
+                        <button
+                          type="button"
+                          onClick={quitToMenu}
+                          className="min-h-9 rounded-xl px-2 py-1.5 font-ui text-[10px] font-semibold text-[#a97c50] transition hover:text-[#8a5330] hover:underline"
+                        >
+                          {t('quit.short')}
+                        </button>
+                      </div>
+                    </>
+                  ) : offers.length > 0 ? (
+                    <p className="text-center font-pixel text-[11px] font-bold text-[#8a5330]">
+                      {t('chest.pick')}
+                    </p>
+                  ) : (
+                    <>
+                      <GameButton onClick={() => beginLevel(runLevel, null)}>
+                        {t('chest.next', { n: runLevel })}
+                      </GameButton>
+                      <button
+                        type="button"
+                        onClick={quitToMenu}
+                        className="w-full rounded-xl px-4 py-1 font-ui text-[11px] font-semibold text-[#a97c50] transition hover:text-[#8a5330] hover:underline"
+                      >
+                        {t('quit.button')}
+                      </button>
+                    </>
+                  )}
+                </div>
               </motion.div>
             </motion.div>
           )}
@@ -3502,104 +3656,110 @@ export function PopcornGame() {
           {phase === 'ended' && result && (
             <motion.div
               key="ended"
-              className="absolute inset-0 z-30 flex items-center justify-center overflow-y-auto bg-black/60 p-4 backdrop-blur-sm"
+              className="absolute inset-0 z-30 flex flex-col bg-black/60 p-2 backdrop-blur-sm sm:p-4"
               initial={{ opacity: 0 }}
               animate={{ opacity: 1 }}
               exit={{ opacity: 0 }}
             >
               <motion.div
-                className="relative my-auto w-full max-w-sm overflow-hidden rounded-2xl border-4 border-[#8a5330] bg-[#FFF6E6] p-6 text-center shadow-[0_18px_50px_rgba(0,0,0,0.55)]"
+                className="relative mx-auto my-auto flex max-h-full w-full max-w-sm flex-col overflow-hidden rounded-2xl border-4 border-[#8a5330] bg-[#FFF6E6] shadow-[0_18px_50px_rgba(0,0,0,0.55)]"
                 initial={{ scale: 0.9, y: 14 }}
                 animate={{ scale: 1, y: 0 }}
                 exit={{ scale: 0.95, opacity: 0 }}
                 transition={{ type: 'spring', stiffness: 260, damping: 22 }}
               >
                 {result.record && <Confetti />}
-                <h2 className="font-pixel text-xl font-bold text-[#B33A26] sm:text-2xl">
-                  {t('over.title')}
-                </h2>
-                <p className="mt-1 font-ui text-xs font-medium text-[#8a5330]">
-                  {t('over.timeup', { n: result.level })}
-                </p>
-                <div className="mt-3 flex items-center justify-center gap-2">
-                  <Popcorn className="h-8 w-8 text-amber-500" aria-hidden />
-                  <span className="font-pixel text-5xl font-bold tabular-nums text-[#5C3A1E]">
-                    {result.score}
-                  </span>
-                </div>
-                <p className="mt-1 font-ui text-xs font-medium text-[#8a5330]">
-                  {t('over.points', { n: result.level })}
-                </p>
-                <p className="mt-1.5 font-ui text-xs font-bold text-[#5C3A1E]">
-                  {t('over.xp', { s: result.score, t: xp })}
-                </p>
-                {result.rank >= 0 && result.rank < 10 && (
-                  <p className="mt-1 font-ui text-xs font-bold text-[#B33A26]">
-                    {t('over.rank', { n: result.rank + 1 })}
+                {/* Прокручиваемая сводка */}
+                <div className="min-h-0 flex-1 overflow-y-auto p-4 text-center sm:p-6">
+                  <h2 className="font-pixel text-xl font-bold text-[#B33A26] sm:text-2xl">
+                    {t('over.title')}
+                  </h2>
+                  <p className="mt-1 font-ui text-xs font-medium text-[#8a5330]">
+                    {t('over.timeup', { n: result.level })}
                   </p>
-                )}
+                  <div className="mt-2 flex items-center justify-center gap-2">
+                    <Popcorn className="h-8 w-8 text-amber-500" aria-hidden />
+                    <span className="font-pixel text-5xl font-bold tabular-nums text-[#5C3A1E]">
+                      {result.score}
+                    </span>
+                  </div>
+                  <p className="mt-1 font-ui text-xs font-medium text-[#8a5330]">
+                    {t('over.points', { n: result.level })}
+                  </p>
+                  <p className="mt-1.5 font-ui text-xs font-bold text-[#5C3A1E]">
+                    {t('over.xp', { s: result.score, t: xp })}
+                  </p>
+                  {result.rank >= 0 && result.rank < 10 && (
+                    <p className="mt-1 font-ui text-xs font-bold text-[#B33A26]">
+                      {t('over.rank', { n: result.rank + 1 })}
+                    </p>
+                  )}
 
-                {/* Имя для мировой таблицы лидеров */}
-                <div className="mt-3 text-left">
-                  <label
-                    htmlFor="leader-name"
-                    className="font-ui text-[10px] font-semibold text-[#8a5330]"
-                  >
-                    {t('over.nameLabel')}
-                  </label>
-                  <input
-                    id="leader-name"
-                    type="text"
-                    inputMode="text"
-                    maxLength={24}
-                    value={nameRaw}
-                    onChange={(e) => storeName(e.target.value.slice(0, 24))}
-                    placeholder={t('nick.default')}
-                    className="mt-1 w-full rounded-lg border-2 border-[#e3cba4] bg-white/70 px-2.5 py-1.5 font-ui text-sm text-[#5C3A1E] outline-none transition focus:border-amber-400"
-                  />
+                  {/* Имя для мировой таблицы лидеров */}
+                  <div className="mt-3 text-left">
+                    <label
+                      htmlFor="leader-name"
+                      className="font-ui text-[10px] font-semibold text-[#8a5330]"
+                    >
+                      {t('over.nameLabel')}
+                    </label>
+                    <input
+                      id="leader-name"
+                      type="text"
+                      inputMode="text"
+                      maxLength={24}
+                      value={nameRaw}
+                      onChange={(e) => storeName(e.target.value.slice(0, 24))}
+                      placeholder={t('nick.default')}
+                      className="mt-1 w-full rounded-lg border-2 border-[#e3cba4] bg-white/70 px-2.5 py-1.5 font-ui text-sm text-[#5C3A1E] outline-none transition focus:border-amber-400"
+                    />
+                  </div>
+
+                  {result.record ? (
+                    <motion.div
+                      className="mt-3 inline-block rounded-full bg-amber-400 px-4 py-2 font-ui text-xs font-bold text-[#5C3A1E] shadow-md"
+                      animate={{ scale: [1, 1.08, 1] }}
+                      transition={{ repeat: Infinity, duration: 0.9 }}
+                    >
+                      {t('over.newRecord')}
+                    </motion.div>
+                  ) : (
+                    <div className="mt-3 inline-flex items-center gap-1.5 rounded-full bg-amber-100 px-4 py-1.5 font-ui text-xs font-semibold text-[#8a5330] ring-2 ring-amber-200">
+                      <Trophy className="h-4 w-4 text-amber-500" aria-hidden />
+                      {t('menu.record', { n: best })}
+                    </div>
+                  )}
+                  {shareNote && (
+                    <p className="mt-2 font-ui text-[11px] font-semibold text-emerald-700">
+                      {shareNote}
+                    </p>
+                  )}
                 </div>
 
-                {result.record ? (
-                  <motion.div
-                    className="mt-4 inline-block rounded-full bg-amber-400 px-4 py-2 font-ui text-xs font-bold text-[#5C3A1E] shadow-md"
-                    animate={{ scale: [1, 1.08, 1] }}
-                    transition={{ repeat: Infinity, duration: 0.9 }}
-                  >
-                    {t('over.newRecord')}
-                  </motion.div>
-                ) : (
-                  <div className="mt-4 inline-flex items-center gap-1.5 rounded-full bg-amber-100 px-4 py-1.5 font-ui text-xs font-semibold text-[#8a5330] ring-2 ring-amber-200">
-                    <Trophy className="h-4 w-4 text-amber-500" aria-hidden />
-                    {t('menu.record', { n: best })}
-                  </div>
-                )}
-
-                <div className="mt-5 space-y-2">
-                  {result.canRevive && (
-                    <GameButton onClick={reviveRun}>{t('over.revive')}</GameButton>
-                  )}
+                {/* ЗАКРЕПЛЁННЫЙ низ: «ЕЩЁ РАЗ» видна без прокрутки на любом экране */}
+                <div className="shrink-0 space-y-2 border-t-2 border-[#e3cba4] bg-[#fdf3e0] px-4 py-3 pb-[max(0.75rem,env(safe-area-inset-bottom))]">
+                  {result.canRevive && <GameButton onClick={reviveRun}>{t('over.revive')}</GameButton>}
                   <GameButton onClick={startGame}>
                     <span className="inline-flex items-center justify-center gap-2">
                       <RotateCcw className="h-5 w-5" aria-hidden /> {t('over.retry')}
                     </span>
                   </GameButton>
-                  <button
-                    type="button"
-                    onClick={() => void handleShare()}
-                    className="flex w-full items-center justify-center gap-2 rounded-xl border-2 border-[#8a5330] bg-[#f3e2c8] px-4 py-2 font-pixel text-sm font-bold text-[#8a5330] transition hover:bg-[#eed7b4] active:scale-[0.98]"
-                  >
-                    <Share2 className="h-4 w-4" aria-hidden /> {t('over.share')}
-                  </button>
-                  {shareNote && (
-                    <p className="font-ui text-[11px] font-semibold text-emerald-700">{shareNote}</p>
-                  )}
-                  <button
-                    type="button"
-                    onClick={quitToMenu}
-                    className="w-full rounded-xl border-2 border-[#8a5330] bg-[#f3e2c8] px-4 py-2 font-pixel text-sm font-bold text-[#8a5330] transition hover:bg-[#eed7b4] active:scale-[0.98]"
-                  >
-                    {t('over.menu')}
-                  </button>
+                  <div className="flex gap-1.5">
+                    <button
+                      type="button"
+                      onClick={() => void handleShare()}
+                      className="flex min-h-9 flex-1 items-center justify-center gap-2 rounded-xl border-2 border-[#8a5330] bg-[#f3e2c8] px-3 py-1.5 font-pixel text-[11px] font-bold text-[#8a5330] transition hover:bg-[#eed7b4] active:scale-[0.98]"
+                    >
+                      <Share2 className="h-4 w-4" aria-hidden /> {t('over.share')}
+                    </button>
+                    <button
+                      type="button"
+                      onClick={quitToMenu}
+                      className="min-h-9 rounded-xl border-2 border-[#8a5330] bg-[#f3e2c8] px-3 py-1.5 font-pixel text-[11px] font-bold text-[#8a5330] transition hover:bg-[#eed7b4] active:scale-[0.98]"
+                    >
+                      {t('quit.short')}
+                    </button>
+                  </div>
                 </div>
               </motion.div>
             </motion.div>

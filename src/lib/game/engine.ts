@@ -8,7 +8,12 @@
  */
 
 import { audio } from './audio'
-import { quotaFor, type PerkId } from './perks'
+import {
+  quotaFor,
+  perkScoreMult,
+  bgPerkFor,
+  type PerkId,
+} from './perks'
 import { PAW_MAP, type PawBonus, type PawId } from './paws'
 import {
   makePopcornSprite,
@@ -18,6 +23,7 @@ import {
   makeCornSprite,
   makePigeonSprite,
   makeGlowSprite,
+  makeNippleSprite,
   drawSprite,
   easeOutBack,
   easeOutQuad,
@@ -56,12 +62,22 @@ export interface EngineStats {
   feverGained: number
   /** Номер текущей волны внутри уровня — для HTML-индикатора поверх тумана */
   wave: number
+  /** Зёрен подобрано за забег (для пожизненных ачивок) */
+  runGrains: number
+  /** Сосок 🍼 подобрано за забег (перк «Соски-малышки») */
+  runNipples: number
+  /** Мин поймано (со шком) за забег */
+  minesHit: number
+  /** Сколько мин за забег погасили щиты */
+  shieldSaves: number
 }
 
 export interface LevelResult {
   level: number
   score: number
   bonus: number
+  /** Уровень пройден без единого шока от мины и без краж голубя */
+  clean: boolean
 }
 
 export interface EndResult {
@@ -83,24 +99,28 @@ export interface EngineCallbacks {
   onFeverEnd?(r: FeverResult): void
 }
 
-export type PieceKind = 'popcorn' | 'caramel' | 'butter' | 'golden' | 'corn'
+export type PieceKind = 'popcorn' | 'caramel' | 'butter' | 'golden' | 'corn' | 'nipple'
 
-/** Очки за зёрна: белое +10 · карамель +20 · масляное +30 · золотое +50.
+/** Очки за зёрна: белое +10 · карамель +20 · масляное +30 · золотое +50 ·
+    соска (перк «Соски-малышки») +40.
     Все цифры в игре с нулями — проще читать и приятнее копить */
 export const KIND_POINTS: Record<Exclude<PieceKind, 'corn'>, number> = {
   popcorn: 10,
   caramel: 20,
   butter: 30,
   golden: 50,
+  nipple: 40,
 }
 
 /** Относительный размер зерна на поле: чем ценнее — тем мельче.
-    Белое +1 — крупное и заметное, золотое +5 — крохотное, но яркое */
+    Белое +1 — крупное и заметное, золотое +5 — крохотное, но яркое.
+    Соска — самая крупная: её видно издалека (и малышам удобнее) */
 const KIND_SCALE: Record<Exclude<PieceKind, 'corn'>, number> = {
   popcorn: 1,
   caramel: 0.84,
   butter: 0.72,
   golden: 0.58,
+  nipple: 1.06,
 }
 
 const FEVER_SECONDS = 3
@@ -293,6 +313,15 @@ export class PopcornEngine {
   /* --- счётчики забега для достижений --- */
   private goldenCount = 0
   private pigeonsRun = 0
+  /** Зёрен/сосок подобрано за забег (пожизненные ачивки) */
+  private runGrains = 0
+  private runNipples = 0
+  /** Мин поймано и мин погашено щитами за забег */
+  private minesHit = 0
+  private shieldSaves = 0
+  /** Кражи голубя и шоки мины за ТЕКУЩИЙ уровень (ачивка «Чистая работа») */
+  private levelStolen = 0
+  private levelShock = 0
   /* --- голубь-воришка --- */
   private pigeon: Pigeon | null = null
   private pigeonTimer = -1
@@ -350,6 +379,7 @@ export class PopcornEngine {
     sparkle: Sprite
     pigeon0: Sprite
     pigeon1: Sprite
+    nipple: Sprite
   }
 
   constructor(canvas: HTMLCanvasElement, cb: EngineCallbacks = {}) {
@@ -373,6 +403,7 @@ export class PopcornEngine {
       sparkle: makeSparkleSprite(),
       pigeon0: makePigeonSprite(false),
       pigeon1: makePigeonSprite(true),
+      nipple: makeNippleSprite(),
     }
     this.lastTs = performance.now()
     this.raf = requestAnimationFrame(this.loop)
@@ -419,6 +450,10 @@ export class PopcornEngine {
     this.streak = 0
     this.goldenCount = 0
     this.pigeonsRun = 0
+    this.runGrains = 0
+    this.runNipples = 0
+    this.minesHit = 0
+    this.shieldSaves = 0
     this.lifeUsed = false
     this.fever = null
     this.feverAfter = -1
@@ -443,6 +478,8 @@ export class PopcornEngine {
     if (!this.debugFast && this.opts.difficulty !== 'normal') {
       this.quota = Math.max(3, Math.round(this.quota * (this.opts.difficulty === 'easy' ? 0.8 : 1.2)))
     }
+    /* «Соски-малышки»: каждая соска жирнее (+40), потому и норма +20% */
+    if (perk === 'milky') this.quota = Math.max(3, Math.round(this.quota * 1.2))
     this.collected = 0
     this.wave = 1
     /* Ступень сложности каждые 5 уровней: пропорционально больше попкорна
@@ -453,6 +490,8 @@ export class PopcornEngine {
     if (perk === 'cornrain') this.cornPerWave = Math.min(14, this.cornPerWave * 2)
     /* Лапка-оберег от мин: меньше кукурузы в каждой волне */
     this.cornPerWave = Math.max(0, this.cornPerWave - (this.pawBonus.cornCut ?? 0))
+    /* Древо «Шахтёр»: мин в волне стало меньше */
+    this.cornPerWave = Math.max(0, this.cornPerWave - (this.tree.cornCut ?? 0))
     /* Сложность: лёгкая — на мину меньше, сложная — на мину больше */
     if (this.opts.difficulty === 'easy') this.cornPerWave = Math.max(0, this.cornPerWave - 1)
     if (this.opts.difficulty === 'hard') this.cornPerWave = Math.min(15, this.cornPerWave + 1)
@@ -486,10 +525,18 @@ export class PopcornEngine {
     audio.setMusicLevel(level >= 3 ? 1 : 0)
     this.audioStage = 0
     this.shieldLeft = (perk === 'shield' ? 1 : 0) + (this.tree.shields ?? 0)
-    /* Голубь-воришка: с 3-го уровня прилетает через ~11 секунд (можно отключить в настройках) */
+    /* Голубь-воришка: с 3-го уровня прилетает через ~11 секунд (можно отключить в настройках).
+        «Птичий базар»: воришки рвутся в бой втрое раньше */
     this.pigeon = null
     this.pigeonTimer =
-      this.opts.pigeon && level >= 3 ? PIGEON_FIRST_AT + Math.random() * 4 : -1
+      this.opts.pigeon && level >= 3
+        ? perk === 'pigeonfeast'
+          ? 3.5 + Math.random() * 1.5
+          : PIGEON_FIRST_AT + Math.random() * 4
+        : -1
+    /* Ачивка «Чистая работа»: считаем шоки и кражи за уровень */
+    this.levelStolen = 0
+    this.levelShock = 0
     /* Наполнение стаканчика сбрасывается: анимация зёрен заново */
     this.fillPop = []
     this.lastFill = 0
@@ -517,8 +564,10 @@ export class PopcornEngine {
     this.perk = null
     this.phase = 'playing'
     this.paused = false
-    this.duration = FEVER_SECONDS
-    this.timeLeft = FEVER_SECONDS
+    /* «Долгая лихорадка» из древа: +1 сек за каждый уровень узла */
+    const dur = FEVER_SECONDS + (this.tree.feverPlus ?? 0)
+    this.duration = dur
+    this.timeLeft = dur
     this.quota = 999999
     this.collected = 0
     this.fever = { gained: 0, startScore: this.score, next: nextLevel, coinT: 0 }
@@ -707,6 +756,13 @@ export class PopcornEngine {
       kinds.push(r < cB ? 'golden' : r < cC ? 'caramel' : r < cM ? 'butter' : 'popcorn')
     }
     for (let i = 0; i < this.cornPerWave; i++) kinds.push('corn')
+    /* «Соски-малышки»: все обычные зёрна — соски (золотые остаются золотыми) */
+    if (this.perk === 'milky') {
+      for (let i = 0; i < kinds.length; i++) {
+        const k = kinds[i]
+        if (k === 'popcorn' || k === 'caramel' || k === 'butter') kinds[i] = 'nipple'
+      }
+    }
     for (let i = kinds.length - 1; i > 0; i--) {
       const j = Math.floor(Math.random() * (i + 1))
       ;[kinds[i], kinds[j]] = [kinds[j], kinds[i]]
@@ -763,9 +819,19 @@ export class PopcornEngine {
     )
   }
 
-  /** Комбо-множитель: +1 за каждые 6 сдач подряд, потолок ×5 */
+  /** Комбо-множитель: +1 за каждые 6 сдач подряд (с «Комбо-тренером» — 5), потолок ×5 */
   private get comboMult(): number {
-    return 1 + Math.min(4, Math.floor(this.streak / 6))
+    return 1 + Math.min(4, Math.floor(this.streak / (this.tree.comboFast ? 5 : 6)))
+  }
+
+  /** Радиус подбора лапки: перки + скин + древо («Магнит» +8% за уровень) */
+  private get grabR(): number {
+    return (
+      (this.perk === 'bigpaw' ? 58 : this.perk === 'smallpaw' ? 34 : 44) *
+      this.u *
+      (this.pawBonus.grabR ?? 1) *
+      (1 + (this.tree.grabR01 ?? 0))
+    )
   }
 
   /** Попкорн каждые 5 уровней немного мельчает — на поле остаётся место */
@@ -877,11 +943,8 @@ export class PopcornEngine {
     // Голубь-воришка: влетает с 3-го уровня и таскает попкорн из стаканчика
     this.updatePigeon(dt)
 
-    // Радиус подбора зависит от перка лапки и скина из магазина
-    const grabR =
-      (this.perk === 'bigpaw' ? 58 : this.perk === 'smallpaw' ? 34 : 44) *
-      u *
-      (this.pawBonus.grabR ?? 1)
+    // Радиус подбора зависит от перка лапки, скина и древа (геттер grabR)
+    const grabR = this.grabR
 
     // Подбор попкорна / ловушка-кукуруза. В шоке лапка ничего не берёт
     // и мины не задевает — стоит столбом, пока не отпустит
@@ -899,7 +962,7 @@ export class PopcornEngine {
             this.feverEnd(false)
             return
           }
-          const guard = this.pawBonus.guard ?? 0
+          const guard = (this.pawBonus.guard ?? 0) + (this.tree.guardAdd ?? 0)
           if (guard > 0 && Math.random() < guard) {
             // «Коготки-обереги»: мина обезврежена без штрафа
             this.texts.push({
@@ -914,8 +977,9 @@ export class PopcornEngine {
             this.crumbs(p.x, p.y, '#BFF3E6', 6)
             audio.play('click')
           } else if (this.shieldLeft > 0) {
-            // «Кошачий щит»: первая мина за уровень прощается
+            // «Кошачий щит»: мина прощена — щит лопается вместо штрафа
             this.shieldLeft--
+            this.shieldSaves++
             this.texts.push({
               x: this.paw.x,
               y: this.paw.y - 34 * u,
@@ -933,7 +997,9 @@ export class PopcornEngine {
             // высыпается на пол, а сама лапка секунду стоит столбом
             this.streak = 0 // мина сбрасывает комбо
             this.shockDrop()
-            this.stun = MINE_SHOCK_SECONDS
+            this.minesHit++
+            this.levelShock++
+            this.stun = Math.max(0.4, MINE_SHOCK_SECONDS - (this.tree.stunCut ?? 0))
             this.score = Math.max(0, this.score - MINE_SCORE_PENALTY)
             this.paw.hurt = 1.6
             this.doShake(9) // тряска экрана (отключается в настройках)
@@ -956,9 +1022,24 @@ export class PopcornEngine {
       if (d < grabR && this.carried.length < this.carryMax) {
         this.pieces.splice(i, 1)
         this.carried.push({ kind: p.kind as Exclude<PieceKind, 'corn'>, grabT: 0 })
+        this.runGrains++
+        if (p.kind === 'nipple') this.runNipples++
         if (p.kind === 'golden') this.goldenCount++
         this.paw.pulse = 1
-        this.crumbs(p.x, p.y, p.kind === 'golden' ? '#FFE066' : p.kind === 'caramel' ? '#FFC98A' : p.kind === 'butter' ? '#FFED9C' : '#FFF3D6', 6)
+        this.crumbs(
+          p.x,
+          p.y,
+          p.kind === 'golden'
+            ? '#FFE066'
+            : p.kind === 'caramel'
+              ? '#FFC98A'
+              : p.kind === 'butter'
+                ? '#FFED9C'
+                : p.kind === 'nipple'
+                  ? '#FFC2D9'
+                  : '#FFF3D6',
+          6,
+        )
         audio.play(p.kind === 'golden' ? 'golden' : 'pickup')
         this.buzz(p.kind === 'golden' ? 18 : 8)
       }
@@ -978,7 +1059,8 @@ export class PopcornEngine {
         }
         this.streak++
         const cm = this.comboMult
-        const mult = (this.perk === 'doublepoints' ? 2 : 1) * cm * (1 + (this.tree.grainMult01 ?? 0))
+        const mult =
+          perkScoreMult(this.perk) * cm * (1 + (this.tree.grainMult01 ?? 0))
         const sum = base * mult
         this.collected += this.carried.length
         this.carried.forEach((c, i) => {
@@ -1207,7 +1289,12 @@ export class PopcornEngine {
     audio.play('levelwin')
     this.buzz([30, 40, 60])
     this.emitStats(true)
-    this.cb.onLevelComplete?.({ level: this.lvl, score: Math.floor(this.score), bonus })
+    this.cb.onLevelComplete?.({
+      level: this.lvl,
+      score: Math.floor(this.score),
+      bonus,
+      clean: this.levelShock === 0 && this.levelStolen === 0,
+    })
   }
 
   private end(): void {
@@ -1356,7 +1443,9 @@ export class PopcornEngine {
       g.y -= rise * u * dt
       if (g.x < -60 * u || g.x > this.W + 60 * u) {
         this.pigeon = null
-        this.pigeonTimer = PIGEON_RESPAWN[0] + Math.random() * (PIGEON_RESPAWN[1] - PIGEON_RESPAWN[0])
+        const base = PIGEON_RESPAWN[0] + Math.random() * (PIGEON_RESPAWN[1] - PIGEON_RESPAWN[0])
+        /* «Птичий базар»: без голубей скучно — возвращаются втрое быстрее */
+        this.pigeonTimer = this.perk === 'pigeonfeast' ? base * 0.35 : base
       }
     }
     /* Отлёт после удара: импульс гаснет, в парении воришка возвращается
@@ -1392,12 +1481,14 @@ export class PopcornEngine {
       this.paw.pulse = 1
       this.crumbs(g.x, g.y, '#E8E4DC', 7) // перья полетели
       if (g.hp <= 0) {
-        // ПОВЕРЖЕН! Улетает кувырком, возвращая всё украденное в стаканчик
+        // ПОВЕРЖЕН! Улетает кувырком, возвращая всё украденное в стаканчик.
+        // «Птичий базар»: воришек больше — но и награда вдвое жирнее
         g.state = 'flee'
         g.downed = true
         g.stateT = 0
         this.pigeonsRun++
-        this.score += PIGEON_KO_BONUS
+        const ko = this.perk === 'pigeonfeast' ? PIGEON_KO_BONUS * 2 : PIGEON_KO_BONUS
+        this.score += ko
         if (g.stolen > 0) {
           this.collected += g.stolen
           for (let i = 0; i < g.stolen; i++) {
@@ -1413,7 +1504,7 @@ export class PopcornEngine {
         this.texts.push({
           x: g.x,
           y: g.y - 34 * u,
-          text: this.L('txt.downed', { n: PIGEON_KO_BONUS }),
+          text: this.L('txt.downed', { n: ko }),
           color: '#FFE066',
           t: 0,
           dur: 1.2,
@@ -1444,6 +1535,7 @@ export class PopcornEngine {
     if (this.collected > 0) {
       this.collected--
       if (this.pigeon) this.pigeon.stolen++ // при победе вернём в стаканчик
+      this.levelStolen++ // ачивка «Чистая работа» сгорела
       this.streak = 0 // воришка сбивает серию
       this.pendingClear = -1 // украденное зерно отменяет близкое «уровень пройден»
       this.cup.squash = 1
@@ -1596,7 +1688,7 @@ export class PopcornEngine {
       : this.feverAfter >= 0
         ? this.lastFeverGained
         : 0
-    const key = `${this.score}|${this.lvl}|${this.quota}|${this.collected}|${this.carried.length}|${sec}|${this.paused}|${this.streak}|${this.goldenCount}|${this.pigeonsRun}|${fever}|${feverGained}|${this.wave}|${this.shieldLeft}`
+    const key = `${this.score}|${this.lvl}|${this.quota}|${this.collected}|${this.carried.length}|${sec}|${this.paused}|${this.streak}|${this.goldenCount}|${this.pigeonsRun}|${fever}|${feverGained}|${this.wave}|${this.shieldLeft}|${this.runGrains}|${this.runNipples}|${this.minesHit}|${this.shieldSaves}`
     if (!force && key === this.lastStatsKey) return
     this.lastStatsKey = key
     this.cb.onStats({
@@ -1617,20 +1709,71 @@ export class PopcornEngine {
       feverGained,
       wave: this.wave,
       shields: this.shieldLeft,
+      runGrains: this.runGrains,
+      runNipples: this.runNipples,
+      minesHit: this.minesHit,
+      shieldSaves: this.shieldSaves,
     })
   }
 
   /* ================= отрисовка ================= */
+
+  /** Тайловый паттерн для перка «Попкорнопад»: пререндерим плитку со
+      россыпью зёрен один раз (256×256) и закрашиваем ей весь экран */
+  private bgPattern: CanvasPattern | null = null
+  private ensureBgPattern(): CanvasPattern | null {
+    if (this.bgPattern) return this.bgPattern
+    const T = 128
+    const tile = document.createElement('canvas')
+    tile.width = T
+    tile.height = T
+    const c = tile.getContext('2d')
+    if (!c) return null
+    c.imageSmoothingEnabled = false
+    const kinds = [this.sp.popcorn, this.sp.caramel, this.sp.popcorn, this.sp.butter, this.sp.popcorn, this.sp.golden]
+    let i = 0
+    for (let y = 0; y < 4; y++) {
+      for (let x = 0; x < 4; x++) {
+        const spr = kinds[(x * 3 + y * 5 + i) % kinds.length] ?? this.sp.popcorn
+        i++
+        const scale = 1.9 + ((x + y) % 3) * 0.45
+        const w = spr.w * scale
+        c.globalAlpha = 0.55 + ((x + y * 2) % 4) * 0.1
+        c.drawImage(spr.canvas, x * 32 + (y % 2) * 16 - w / 2, y * 32 + (x % 2) * 16 - w / 2, w, w)
+      }
+    }
+    this.bgPattern = this.ctx.createPattern(tile, 'repeat')
+    return this.bgPattern
+  }
 
   private render(ts: number): void {
     const { ctx } = this
     ctx.clearRect(0, 0, this.W, this.H)
     if (this.phase === 'idle') return
 
+    /* Фоновые перки: полностью перекрываем комнату (чёрная тьма, белое пекло
+        или весь пол в попкорне). Заливка — в самом канвасе: не создаёт
+        лишних DOM-слоёв и честно переворачивается вместе с миром */
+    const bg = bgPerkFor(this.perk)
+    if (bg === 'nightshift') {
+      ctx.fillStyle = '#0A0502'
+      ctx.fillRect(0, 0, this.W, this.H)
+    } else if (bg === 'whiteout') {
+      ctx.fillStyle = '#F5F1E4'
+      ctx.fillRect(0, 0, this.W, this.H)
+    } else if (bg === 'popcornfall') {
+      const pat = this.ensureBgPattern()
+      if (pat) {
+        ctx.fillStyle = pat
+        ctx.fillRect(0, 0, this.W, this.H)
+      }
+    }
+
     /* Виньетка контраста: лёгкое затемнение игровой зоны поверх фоновой
        картинки — светлые зёрна, лапка и курсор читаются на любой комнате,
-       включая старые Android с блеклой передачей (жалоба на уровень 10) */
-    if (this.phase === 'playing' && !this.paused) {
+       включая старые Android с блеклой передачей (жалоба на уровень 10).
+       С фоновыми перками не нужна — они сами красят всё поле */
+    if (!bg && this.phase === 'playing' && !this.paused) {
       ctx.fillStyle = 'rgba(30, 15, 5, 0.16)'
       ctx.fillRect(0, 0, this.W, this.H)
     }
@@ -1887,7 +2030,9 @@ export class PopcornEngine {
             ? this.sp.caramel
             : p.kind === 'butter'
               ? this.sp.butter
-              : this.sp.popcorn
+              : p.kind === 'nipple'
+                ? this.sp.nipple
+                : this.sp.popcorn
       drawSprite(ctx, sprite, p.x, y, scale, { rot: p.rot })
       // Золотое зерно светится: готовый радиальный спрайт поверх зерна
       // с globalCompositeOperation='lighter' — свечение почти бесплатно,
@@ -1949,7 +2094,9 @@ export class PopcornEngine {
             ? this.sp.caramel
             : f.kind === 'butter'
               ? this.sp.butter
-              : this.sp.popcorn,
+              : f.kind === 'nipple'
+                ? this.sp.nipple
+                : this.sp.popcorn,
         x,
         y,
         2.6 * u * this.popScale * (KIND_SCALE[f.kind] ?? 1) * (1 - 0.45 * q),
@@ -1990,10 +2137,7 @@ export class PopcornEngine {
     /* Кольцо зоны подбора: тонкий пунктир, по которому видно «очертания»
        ловли на любом фоне и любом экране (старые Android, тёмные комнаты) */
     if (this.phase === 'playing' && !this.paused) {
-      const gr =
-        (this.perk === 'bigpaw' ? 58 : this.perk === 'smallpaw' ? 34 : 44) *
-        u *
-        (this.pawBonus.grabR ?? 1)
+      const gr = this.grabR
       ctx.save()
       ctx.globalAlpha = 0.16 + 0.05 * Math.sin(ts * 0.004)
       ctx.strokeStyle = '#FFF3D0'
@@ -2026,7 +2170,9 @@ export class PopcornEngine {
             ? this.sp.caramel
             : c.kind === 'butter'
               ? this.sp.butter
-              : this.sp.popcorn
+              : c.kind === 'nipple'
+                ? this.sp.nipple
+                : this.sp.popcorn
       drawSprite(ctx, spr, px + wig, y, 2.3 * u * this.popScale * (KIND_SCALE[c.kind] ?? 1), {
         rot: Math.sin(ts * 0.006 + i) * 0.12,
       })

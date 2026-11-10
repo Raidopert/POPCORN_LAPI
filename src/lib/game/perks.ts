@@ -23,6 +23,13 @@ export type PerkId =
   | 'shield'
   | 'secondcup'
   | 'slowmo'
+  | 'milky'
+  | 'nightshift'
+  | 'whiteout'
+  | 'popcornfall'
+  | 'neon'
+  | 'rainbow'
+  | 'pigeonfeast'
 
 export interface PerkDef {
   id: PerkId
@@ -162,6 +169,55 @@ export const PERKS: PerkDef[] = [
     icon: '🐢',
     curse: false,
   },
+  {
+    id: 'milky',
+    name: 'Соски-малышки',
+    desc: 'Все обычные зёрна заменены на соски 🍼: каждая +40 очков, но и норма подросла на 20%!',
+    icon: '🍼',
+    curse: false,
+  },
+  {
+    id: 'nightshift',
+    name: 'Ночная смена',
+    desc: 'Полная тьма: фон гаснет до чёрного, зёрна светятся как звёзды. +20% очков!',
+    icon: '🌙',
+    curse: false,
+  },
+  {
+    id: 'whiteout',
+    name: 'Засвет',
+    desc: 'Белое пекло: фон выжигает все краски, белые зёрна почти невидимы! +25% очков.',
+    icon: '🔆',
+    curse: false,
+  },
+  {
+    id: 'popcornfall',
+    name: 'Попкорнопад',
+    desc: 'Весь пол засыпан фоновым попкорном — свои зёрна ищи среди тысяч! +40% очков.',
+    icon: '🍿',
+    curse: false,
+  },
+  {
+    id: 'neon',
+    name: 'Неон',
+    desc: 'Мир перекрашен в кислотные цвета — ищи зёрна по форме, а не по цвету!',
+    icon: '🟣',
+    curse: true,
+  },
+  {
+    id: 'rainbow',
+    name: 'Хамелеон',
+    desc: 'Цвета бегут по кругу каждые несколько секунд — глаза разбегаются!',
+    icon: '🦎',
+    curse: true,
+  },
+  {
+    id: 'pigeonfeast',
+    name: 'Птичий базар',
+    desc: 'Голуби прилетают втрое чаще, но за каждого поверженного — двойные очки!',
+    icon: '🕊️',
+    curse: true,
+  },
 ]
 
 export const PERK_MAP: Record<PerkId, PerkDef> = Object.fromEntries(
@@ -214,4 +270,30 @@ export function transformFor(perk: PerkId | null): ScreenTransform {
   if (perk === 'rot180') return 'rot180'
   if (perk === 'mirror') return 'mirror'
   return 'none'
+}
+
+/** Множитель очков уровня от перка (сверх комбо и древа).
+    Фоновые перки сложнее обычной игры — за это платим очками. */
+export function perkScoreMult(perk: PerkId | null): number {
+  if (perk === 'doublepoints') return 2
+  if (perk === 'popcornfall') return 1.4
+  if (perk === 'whiteout') return 1.25
+  if (perk === 'nightshift') return 1.2
+  return 1
+}
+
+/** CSS-фильтр игрового канваса для цветовых перков (как «Чёрно-белое кино»).
+    «Хамелеон» анимируется отдельным CSS-классом — здесь фильтр не нужен. */
+export function perkCanvasFilter(perk: PerkId | null): string {
+  if (perk === 'grayscale') return 'grayscale(1) contrast(1.05)'
+  if (perk === 'neon') return 'hue-rotate(150deg) saturate(2.2) contrast(1.1)'
+  return ''
+}
+
+/** Фоновый перк: чем залить игровое поле вместо комнаты (в движке) */
+export type BgPerk = 'nightshift' | 'whiteout' | 'popcornfall' | null
+
+export function bgPerkFor(perk: PerkId | null): BgPerk {
+  if (perk === 'nightshift' || perk === 'whiteout' || perk === 'popcornfall') return perk
+  return null
 }

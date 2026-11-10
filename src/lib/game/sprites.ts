@@ -485,6 +485,34 @@ export function makeChestSprite(open = false): Sprite {
   return renderGrid(g)
 }
 
+/* ================= Соска 🍼 (перк «Соски-малышки») ================= */
+
+/** Детская соска: розовое кольцо-держатель + белый круглый наконечник.
+    Крупнее обычного зерна, ловится легко, но и стоит дороже (+40). */
+export function makeNippleSprite(): Sprite {
+  const g = createGrid(14, 14)
+  const ring = '#FF8FB8' // розовое кольцо
+  const ringDark = '#D96A96'
+  const ringLight = '#FFC2D9'
+  const knob = '#FFFDF4' // белый наконечник
+  const knobShade = '#F0DFC8'
+  const edge = '#8A4A5E'
+
+  // Кольцо-держатель: широкая «бублик»-дуга снизу
+  paintCircle(g, 7, 9.4, 4.4, ring)
+  paintCircle(g, 7, 9.0, 2.1, '#FCEFF2') // дырка бублика
+  tintCircle(g, 9.6, 11.4, 2.2, ringDark)
+  tintCircle(g, 4.6, 7.2, 1.6, ringLight)
+
+  // Наконечник: белый овал сверху, чуть смещён вверх
+  paintCircle(g, 7, 4.6, 3.3, knob)
+  tintCircle(g, 5.6, 3.4, 1.5, '#FFFFFF')
+  tintCircle(g, 8.6, 6.0, 1.8, knobShade)
+
+  outlineGrid(g, edge)
+  return renderGrid(g)
+}
+
 /* ================= Блёстка для золотого зерна ================= */
 
 export function makeSparkleSprite(): Sprite {

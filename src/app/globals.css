@@ -185,3 +185,18 @@ body {
     ),
     radial-gradient(ellipse at center, transparent 58%, rgba(10, 4, 0, 0.28) 100%);
 }
+
+/* Перк «Хамелеон»: цвета игрового мира бегут по кругу.
+   Живёт на CSS-анимации композитора — игровой цикл не трогаем. */
+.popcorn-hue {
+  animation: popcorn-hue-rotate 7s linear infinite;
+}
+
+@keyframes popcorn-hue-rotate {
+  from {
+    filter: hue-rotate(0deg) saturate(1.35);
+  }
+  to {
+    filter: hue-rotate(360deg) saturate(1.35);
+  }
+}
