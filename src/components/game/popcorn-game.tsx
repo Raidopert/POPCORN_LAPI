@@ -49,6 +49,7 @@ import {
 import {
   PERKS,
   PERK_MAP,
+  isHarshCurse,
   perkCanvasFilter,
   quotaFor,
   rollPerkOffer,
@@ -2418,19 +2419,27 @@ export function PopcornGame() {
     [checkLifeAch],
   )
 
-  /** Случайный подарок в каждом из трёх сундуков (или null — просто перк).
-      Древо «Щедрость» увеличивает ценность подарков. */
-  const rollExtras = useCallback((): Array<ChestExtra | null> => {
+  /** Приз в каждом из трёх сундуков — адекватен «злости» перка:
+      тяжёлое проклятье (зеркало, чёрная комната…) → обязательная компенсация
+      опытом 🍿; лёгкое проклятье → изредка мелочь монетками 🪙 или опытом;
+      бонусный перк сам по себе приз → сундучок пуст (0).
+      Древо «Щедрость» по-прежнему усиливает ценность подарков. */
+  const rollExtras = useCallback((offers: PerkDef[]): Array<ChestExtra | null> => {
     const gift = 1 + (treeRef.current.giftAdd ?? 0)
     const round10 = (n: number) => Math.max(10, Math.round((n * gift) / 10) * 10)
-    return [0, 1, 2].map(() => {
-      const r = Math.random()
-      if (r < 0.3) {
-        return { kind: 'coins' as const, n: round10([150, 250, 400][Math.floor(Math.random() * 3)] ?? 150) }
+    return offers.map((p) => {
+      /* Тяжёлое проклятье — заметная компенсация опытом */
+      if (isHarshCurse(p.id)) {
+        return { kind: 'xp' as const, n: round10([600, 1000, 1800][Math.floor(Math.random() * 3)] ?? 600) }
       }
-      if (r < 0.55) {
-        return { kind: 'xp' as const, n: round10([250, 600, 1200][Math.floor(Math.random() * 3)] ?? 250) }
+      if (p.curse) {
+        /* Лёгкое проклятье — иногда маленький подарок */
+        const r = Math.random()
+        if (r < 0.4) return { kind: 'coins' as const, n: round10([80, 120, 200][Math.floor(Math.random() * 3)] ?? 80) }
+        if (r < 0.6) return { kind: 'xp' as const, n: round10([150, 250, 400][Math.floor(Math.random() * 3)] ?? 150) }
+        return null
       }
+      /* Бонусный перк — ноль: сам перк и есть приз */
       return null
     })
   }, [])
@@ -2580,8 +2589,10 @@ export function PopcornGame() {
           return
         }
         setClearInfo({ level: r.level, bonus: r.bonus })
-        setOffers(rollOffers(3, devRef.current.forced ?? undefined))
-        setExtras(rollExtras())
+        const offs = rollOffers(3, devRef.current.forced ?? undefined)
+        setOffers(offs)
+        /* Подарки зависят от того, какой перк лежит в каждом сундучке */
+        setExtras(rollExtras(offs))
         setOpenedIdx(null)
         setRunLevel(r.level + 1)
         setPhase('chest')
@@ -3552,7 +3563,7 @@ export function PopcornGame() {
                                 </span>
                               )}
                               {/* Содержимое видно ДО выбора: описание эффекта — прямо на сундучке */}
-                              <span className="mt-1 break-words font-ui text-[8px] font-medium leading-tight text-[#5C3A1E] sm:text-[9px] [@media(max-height:520px)]:mt-0.5">
+                              <span className="mt-1 break-words font-ui text-[9px] font-medium leading-tight text-[#5C3A1E] sm:text-[10px] [@media(max-height:520px)]:mt-0.5">
                                 {t(`perk.${p.id}.desc`)}
                               </span>
                             </motion.button>

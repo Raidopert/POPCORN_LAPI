@@ -1405,10 +1405,10 @@ const T: Record<string, Row> = {
     'La patita crece: 3 granos, 4 tras el nivel 5, 5 tras el 10',
   ],
   'rules.r6': [
-    'Между уровнями открывай сундучок: что внутри — видно сразу (перк, а иногда монетки 🪙 и опыт 🍿). Выбирай, что по душе!',
-    'Between levels open a chest: what is inside is visible right away (a perk, plus sometimes coins 🪙 and XP 🍿). Pick what you like!',
-    'Zwischen den Leveln: Truhe öffnen — der Inhalt ist sofort sichtbar (Perk, manchmal Münzen 🪙 und XP 🍿). Wähle, was dir gefällt!',
-    'Entre niveles abre un cofre: el contenido se ve al instante (un perk, y a veces monedas 🪙 y exp 🍿). ¡Elige lo que más te guste!',
+    'Между уровнями открывай сундучок: что внутри — видно сразу. За злые проклятья (зеркало, чёрная комната) — компенсация опытом 🍿, а бонусный перк — сам по себе приз!',
+    'Between levels open a chest: what is inside is visible right away. Harsh curses (mirror, blackout) come with XP 🍿 compensation — a bonus perk is a prize on its own!',
+    'Zwischen den Leveln: Truhe öffnen — der Inhalt ist sofort sichtbar. Harte Flüche (Spiegel, Dunkelheit) bringen XP 🍿-Entschädigung — ein Bonus-Perk ist selbst der Preis!',
+    'Entre niveles abre un cofre: el contenido se ve al instante. Las maldiciones duras (espejo, oscuridad) traen compensación de exp 🍿; ¡el perk bueno es el premio en sí!',
   ],
   'rules.r7': [
     'Комбо: за каждую сдачу без мины растёт серия — множитель до ×5! Мина или голубь сбрасывают серию',

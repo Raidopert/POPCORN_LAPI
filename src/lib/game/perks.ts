@@ -224,6 +224,29 @@ export const PERK_MAP: Record<PerkId, PerkDef> = Object.fromEntries(
   PERKS.map((p) => [p.id, p]),
 ) as Record<PerkId, PerkDef>
 
+/* ============ «злость» перков → адекватные призы сундучков ============ */
+
+/** Жёсткие проклятья: целиком переворачивают, перекрашивают или засыпают
+    экран — играть с ними труднее всего, поэтому сундучок с таким перком
+    обязан компенсировать игрока опытом 🍿 (зеркало, чёрная комната и т.п.) */
+const HARSH_CURSES: readonly PerkId[] = [
+  'rot180',
+  'rot90',
+  'mirror',
+  'grayscale',
+  'fog',
+  'nightshift',
+  'whiteout',
+  'popcornfall',
+  'neon',
+  'rainbow',
+]
+
+/** Тяжёлое ли это проклятье (для сундучка: компенсация опытом) */
+export function isHarshCurse(id: PerkId): boolean {
+  return HARSH_CURSES.includes(id)
+}
+
 /** Случайные N различных перков для сундучков.
     force — перк, который гарантированно входит;
     allow — фильтр из настроек (проклятья/бонусы можно отключать) */
