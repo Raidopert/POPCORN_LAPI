@@ -201,6 +201,13 @@ const T: Record<string, Row> = {
     'Schilde pro Lauf: {{n}}',
     'Escudos por ronda: {{n}}',
   ],
+  'set.crt': ['CRT-развёртка', 'CRT scanlines', 'CRT-Raster', 'Líneas CRT'],
+  'set.crtHint': [
+    'Ретро-эффект старого телевизора. Почти не влияет на FPS',
+    'Retro TV effect. Almost no FPS impact',
+    'Retro-TV-Effekt. Fast kein FPS-Einfluss',
+    'Efecto de TV retro. Casi sin impacto en FPS',
+  ],
   'main.aria': [
     'Игровое поле: соберите рассыпанный попкорн в стаканчик лапкой куницы',
     'Play field: gather spilled popcorn into the cup with the marten paw',

@@ -1669,6 +1669,12 @@ function SettingsOverlay({
               value={settings.colorblind}
               onChange={(v) => set({ colorblind: v })}
             />
+            <ToggleRow
+              label={t('set.crt')}
+              hint={t('set.crtHint')}
+              value={settings.crt}
+              onChange={(v) => set({ crt: v })}
+            />
           </section>
 
           {/* Громкость: музыка и звуки отдельно — живой эффект */}
@@ -2958,6 +2964,10 @@ export function PopcornGame() {
           className="absolute z-10 touch-none"
           onContextMenu={(e) => e.preventDefault()}
         />
+
+        {/* CRT-развёртка (настройка): чистый CSS поверх канваса — канвас
+            и игровой цикл не трогаем, рисует композитор GPU бесплатно */}
+        {settings.crt && <div aria-hidden className="popcorn-crt pointer-events-none absolute inset-0 z-20" />}
 
         {/* Индикатор «ВОЛНА N»: HTML поверх канваса — виден сквозь попкорновый
             туман и любую темноту (туман рисуется внутри канваса) */}

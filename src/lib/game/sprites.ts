@@ -5,9 +5,30 @@
  */
 
 export interface Sprite {
-  canvas: HTMLCanvasElement
+  /** HTML-канвас или OffscreenCanvas (где поддерживается — он дешевле) */
+  canvas: HTMLCanvasElement | OffscreenCanvas
   w: number
   h: number
+}
+
+/**
+ * Создать канвас для пререндера. Если браузер умеет OffscreenCanvas —
+ * используем его: рисование в такой канвас может уходить в фоновый поток,
+ * а главное — он не участвует в DOM-компоновке страницы.
+ * (Старые Android/iOS спокойно падают обратно на обычный canvas.)
+ */
+function mkCanvas(w: number, h: number): HTMLCanvasElement | OffscreenCanvas {
+  if (typeof OffscreenCanvas !== 'undefined') {
+    try {
+      return new OffscreenCanvas(w, h)
+    } catch {
+      /* очень старый Safari: конструктор есть, а работать не умеет */
+    }
+  }
+  const c = document.createElement('canvas')
+  c.width = w
+  c.height = h
+  return c
 }
 
 type Grid = (string | null)[][]
@@ -74,10 +95,10 @@ function outlineGrid(g: Grid, color: string): void {
 function renderGrid(g: Grid): Sprite {
   const rows = g.length
   const cols = g[0].length
-  const canvas = document.createElement('canvas')
-  canvas.width = cols
-  canvas.height = rows
-  const c = canvas.getContext('2d')!
+  const canvas = mkCanvas(cols, rows)
+  const c = canvas.getContext('2d') as CanvasRenderingContext2D | null
+  if (!c) return { canvas, w: cols, h: rows }
+  c.imageSmoothingEnabled = false
   for (let y = 0; y < rows; y++) {
     for (let x = 0; x < cols; x++) {
       const color = g[y][x]
@@ -88,6 +109,28 @@ function renderGrid(g: Grid): Sprite {
     }
   }
   return { canvas, w: cols, h: rows }
+}
+
+/* ================= Свечение (glow) для ценных зёрен ================= */
+
+/**
+ * Мягкий радиальный ореол под золотое зерно. Пререндерится ОДИН раз:
+ * рисовать radial-gradient каждый кадр — дорого, а готовый спрайт
+ * поверх зерна с globalCompositeOperation='lighter' — почти бесплатно.
+ */
+export function makeGlowSprite(color = '#FFE066'): Sprite {
+  const S = 48
+  const canvas = mkCanvas(S, S)
+  const c = canvas.getContext('2d') as CanvasRenderingContext2D | null
+  if (c) {
+    const g = c.createRadialGradient(S / 2, S / 2, 2, S / 2, S / 2, S / 2)
+    g.addColorStop(0, color)
+    g.addColorStop(0.45, color + '55') /* 8-битный hex-alpha: полупрозрачно */
+    g.addColorStop(1, color + '00')
+    c.fillStyle = g
+    c.fillRect(0, 0, S, S)
+  }
+  return { canvas, w: S, h: S }
 }
 
 /* ================= Попкорн (4 варианта зёрен с разной ценностью) ================= */

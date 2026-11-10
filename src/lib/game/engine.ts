@@ -17,11 +17,14 @@ import {
   makeSparkleSprite,
   makeCornSprite,
   makePigeonSprite,
+  makeGlowSprite,
   drawSprite,
   easeOutBack,
   easeOutQuad,
   type Sprite,
 } from './sprites'
+import { Pool } from './pool'
+import { FpsMeter } from './fps'
 import { tFor, type Lang, type TranslateFn } from './i18n'
 import type { Difficulty, Quality } from './settings'
 import type { TreeBonus } from './skill-tree'
@@ -166,6 +169,9 @@ interface Particle {
   size: number
 }
 
+/** Завод пустой частицы для Object Pool: поля заполняются при obtain() */
+const makeParticle = (): Particle => ({ x: 0, y: 0, vx: 0, vy: 0, t: 0, ttl: 1, color: '', size: 0 })
+
 interface FloatText {
   x: number
   y: number
@@ -271,7 +277,9 @@ export class PopcornEngine {
   private pieces: FieldPiece[] = []
   private carried: Carried[] = []
   private flying: Flying[] = []
-  private particles: Particle[] = []
+  /* Частицы и монетки — через Object Pool: нулевые аллокации в кадре,
+     «удаление» — swap-remove без splice и мусора для GC */
+  private particles = new Pool<Particle>(192, makeParticle)
   private texts: FloatText[] = []
   private paw = { x: 0, y: 0, tx: 0, ty: 0, seen: false, pulse: 0, hurt: 0 }
   private cup = { x: 0, y: 0, squash: 0 }
@@ -334,6 +342,7 @@ export class PopcornEngine {
     caramel: Sprite
     butter: Sprite
     golden: Sprite
+    goldenGlow: Sprite
     corn: Sprite
     cornCB: Sprite
     cup: Sprite
@@ -356,6 +365,7 @@ export class PopcornEngine {
       caramel: makePopcornSprite('caramel'),
       butter: makePopcornSprite('butter'),
       golden: makePopcornSprite('golden'),
+      goldenGlow: makeGlowSprite('#FFE066'),
       corn: makeCornSprite(false),
       cornCB: makeCornSprite(true),
       cup: makeCupSprite(),
@@ -467,8 +477,8 @@ export class PopcornEngine {
     this.pieces = []
     this.carried = []
     this.flying = []
-    this.particles = []
-    this.texts = []
+    this.particles.clear()
+    this.texts.length = 0
     this.waveDelay = -1
     this.lastSec = Math.ceil(this.timeLeft)
     this.banner = { text: this.L('banner.level', { n: level }), t: 0 }
@@ -518,8 +528,8 @@ export class PopcornEngine {
     this.pieces = []
     this.carried = []
     this.flying = []
-    this.particles = []
-    this.texts = []
+    this.particles.clear()
+    this.texts.length = 0
     this.pigeon = null
     this.pigeonTimer = -1
     this.waveDelay = -1
@@ -601,8 +611,8 @@ export class PopcornEngine {
     this.pieces = []
     this.carried = []
     this.flying = []
-    this.particles = []
-    this.texts = []
+    this.particles.clear()
+    this.texts.length = 0
     this.pigeon = null
     this.fever = null
     this.feverAfter = -1
@@ -654,17 +664,10 @@ export class PopcornEngine {
 
     const oldW = this.W
     const oldH = this.H
-    /* На телефонах полноэкранный canvas в DPR 2 съедает кадровый бюджет:
-       ограничиваем (качество из настроек: низкое — 1.2, высокое — 2) */
-    const dprCap =
-      this.opts.quality === 'low' ? 1.2 : this.opts.quality === 'high' ? 2 : this.coarse ? 1.6 : 2
-    this.dpr = Math.min(window.devicePixelRatio || 1, dprCap)
     this.W = w
     this.H = h
-    this.canvas.width = Math.round(w * this.dpr)
-    this.canvas.height = Math.round(h * this.dpr)
-    this.ctx.setTransform(this.dpr, 0, 0, this.dpr, 0, 0)
-    this.ctx.imageSmoothingEnabled = false
+    /* DPR: потолок из настроек качества (+ авто-потолок на низком тире) */
+    this.applyDpr()
 
     this.u = Math.max(0.7, Math.min(1.5, Math.min(w, h) / 420))
 
@@ -1062,16 +1065,15 @@ export class PopcornEngine {
       this.fever.coinT -= dt
       if (this.fever.coinT <= 0) {
         this.fever.coinT = 0.13
-        this.particles.push({
-          x: Math.random() * this.W,
-          y: -8,
-          vx: (Math.random() - 0.5) * 30 * u,
-          vy: (110 + Math.random() * 90) * u,
-          t: 0,
-          ttl: 2.4,
-          color: Math.random() < 0.5 ? '#FFE066' : '#FFC93C',
-          size: (3.5 + Math.random() * 2.5) * u,
-        })
+        const c = this.particles.obtain()
+        c.x = Math.random() * this.W
+        c.y = -8
+        c.vx = (Math.random() - 0.5) * 30 * u
+        c.vy = (110 + Math.random() * 90) * u
+        c.t = 0
+        c.ttl = 2.4
+        c.color = Math.random() < 0.5 ? '#FFE066' : '#FFC93C'
+        c.size = (3.5 + Math.random() * 2.5) * u
       }
       let food = 0
       for (const p of this.pieces) if (p.kind !== 'corn') food++
@@ -1084,16 +1086,15 @@ export class PopcornEngine {
       if (this.starT <= 0) {
         this.starT = 0.09
         const starColors = ['#FFE066', '#FFF6EC', '#FFC93C']
-        this.particles.push({
-          x: this.paw.x + (Math.random() - 0.5) * 14 * u,
-          y: this.paw.y + 20 * u + (Math.random() - 0.5) * 8 * u,
-          vx: (Math.random() - 0.5) * 26 * u,
-          vy: 46 * u,
-          t: 0,
-          ttl: 0.65,
-          color: starColors[Math.floor(Math.random() * starColors.length)] ?? '#FFE066',
-          size: (2 + Math.random() * 2) * u,
-        })
+        const c = this.particles.obtain()
+        c.x = this.paw.x + (Math.random() - 0.5) * 14 * u
+        c.y = this.paw.y + 20 * u + (Math.random() - 0.5) * 8 * u
+        c.vx = (Math.random() - 0.5) * 26 * u
+        c.vy = 46 * u
+        c.t = 0
+        c.ttl = 0.65
+        c.color = starColors[Math.floor(Math.random() * starColors.length)] ?? '#FFE066'
+        c.size = (2 + Math.random() * 2) * u
       }
     }
 
@@ -1178,19 +1179,23 @@ export class PopcornEngine {
     for (const p of this.pieces) p.spawn = Math.max(0, p.spawn - dt)
     for (const c of this.carried) c.grabT = Math.min(1, c.grabT + dt * 8)
     for (let i = 0; i < this.fillPop.length; i++) this.fillPop[i] += dt
+    /* Частицы: обход с конца + swap-remove — без splice и без мусора */
     for (let i = this.particles.length - 1; i >= 0; i--) {
-      const p = this.particles[i]
+      const p = this.particles.items[i]
       p.t += dt
       p.vy += 900 * u * dt
       p.x += p.vx * dt
       p.y += p.vy * dt
-      if (p.t >= p.ttl) this.particles.splice(i, 1)
+      if (p.t >= p.ttl) this.particles.release(i)
     }
-    for (let i = this.texts.length - 1; i >= 0; i--) {
+    /* Тексты: компактируем живые на месте — тоже без splice/аллокаций */
+    let w = 0
+    for (let i = 0; i < this.texts.length; i++) {
       const t = this.texts[i]
       t.t += dt
-      if (t.t >= t.dur) this.texts.splice(i, 1)
+      if (t.t < t.dur) this.texts[w++] = t
     }
+    this.texts.length = w
   }
 
   private levelComplete(): void {
@@ -1216,21 +1221,25 @@ export class PopcornEngine {
 
   private crumbs(x: number, y: number, color: string, n: number): void {
     const u = this.u
-    // На телефонах режем количество частиц — слабые GPU скажут спасибо
-    const count = this.coarse ? Math.max(3, Math.round(n * 0.65)) : n
+    // На телефонах режем количество частиц — слабые GPU скажут спасибо.
+    // Автокачество (perfTier) урезает ещё сильнее, если FPS просел
+    const tierMul = this.perfTier === 0 ? 1 : this.perfTier === 1 ? 0.5 : 0.3
+    const count = Math.max(
+      2,
+      Math.round((this.coarse ? 0.65 : 1) * tierMul * n),
+    )
     for (let i = 0; i < count; i++) {
       const a = Math.random() * Math.PI * 2
       const sp = (60 + Math.random() * 120) * u
-      this.particles.push({
-        x,
-        y,
-        vx: Math.cos(a) * sp,
-        vy: Math.sin(a) * sp - 60 * u,
-        t: 0,
-        ttl: 0.35 + Math.random() * 0.25,
-        color,
-        size: (2 + Math.random() * 2.5) * u,
-      })
+      const c = this.particles.obtain()
+      c.x = x
+      c.y = y
+      c.vx = Math.cos(a) * sp
+      c.vy = Math.sin(a) * sp - 60 * u
+      c.t = 0
+      c.ttl = 0.35 + Math.random() * 0.25
+      c.color = color
+      c.size = (2 + Math.random() * 2.5) * u
     }
   }
 
@@ -1526,13 +1535,60 @@ export class PopcornEngine {
         console.error('[popcorn] update error:', err)
       }
     }
+    /* FPS-монитор: если долго ниже 45 — переходим на облегчённый режим,
+       когда снова стабильно выше 55 — возвращаем эффекты */
+    const newTier = this.fpsMeter.tick(dt, ts)
+    if (newTier !== null) this.setPerfTier(newTier)
     this.render(ts)
     this.emitStats(false)
     this.raf = requestAnimationFrame(this.loop)
   }
 
+  /** Текущий сглаженный FPS (для отладки: window.__popcornEngine.fps) */
+  get fps(): number {
+    return Math.round(this.fpsMeter.fps)
+  }
+
+  /** Активный perf-тир авто-качества (0 — все эффекты, 2 — минимум) */
+  get perfTier(): number {
+    return this.fpsMeter.tier
+  }
+
+  /** Смена авто-качества: на тире 2 ещё и урезаем DPR-потолок до 1.2 */
+  private setPerfTier(tier: number): void {
+    this.applyDpr()
+  }
+
+  /** Пересчитать DPR канваса: потолок из настроек качества,
+      плюс авто-потолок 1.2 на нижнем тире (реальный буст на телефонах) */
+  private applyDpr(): void {
+    const dprCap =
+      this.opts.quality === 'low'
+        ? 1.2
+        : this.opts.quality === 'high'
+          ? 2
+          : this.coarse
+            ? 1.6
+            : 2
+    const cap = this.fpsMeter.tier >= 2 ? Math.min(dprCap, 1.2) : dprCap
+    this.dpr = Math.min(window.devicePixelRatio || 1, cap)
+    this.canvas.width = Math.round(this.W * this.dpr)
+    this.canvas.height = Math.round(this.H * this.dpr)
+    this.ctx.setTransform(this.dpr, 0, 0, this.dpr, 0, 0)
+    this.ctx.imageSmoothingEnabled = false
+  }
+
+  private fpsMeter = new FpsMeter()
+  /** Момент последнего обновления HUD-статистики (троттлинг emitStats) */
+  private lastStatsEmit = 0
+
   private emitStats(force: boolean): void {
     if (!this.cb.onStats) return
+    /* Троттлинг: HUD не нужен 60 раз в секунду — 7 Гц хватает глаз,
+       а сборка строкового ключа каждый кадр — лишний мусор для GC */
+    const now = performance.now()
+    if (!force && now - this.lastStatsEmit < 150) return
+    this.lastStatsEmit = now
     const sec = Math.ceil(this.timeLeft)
     const fever = !!this.fever || this.feverAfter >= 0
     const feverGained = this.fever
@@ -1797,15 +1853,19 @@ export class PopcornEngine {
           : 2.6 * this.popScale * KIND_SCALE[p.kind]
       const scale = base * u * Math.max(0.05, pop)
 
-      // Тень (плотнее — зерно заметно на любом фоне, даже на тёмном чердаке)
-      ctx.fillStyle = 'rgba(0, 0, 0, 0.24)'
-      ctx.beginPath()
-      ctx.ellipse(p.x, p.y + 8 * u, 11 * u * pop, 5 * u * pop, 0, 0, Math.PI * 2)
-      ctx.fill()
+      // Тень (плотнее — зерно заметно на любом фоне, даже на тёмном чердаке).
+      // На низком тире авто-качества тени выключаются — экономим fillPath
+      if (this.perfTier < 2) {
+        ctx.fillStyle = 'rgba(0, 0, 0, 0.24)'
+        ctx.beginPath()
+        ctx.ellipse(p.x, p.y + 8 * u, 11 * u * pop, 5 * u * pop, 0, 0, Math.PI * 2)
+        ctx.fill()
+      }
 
       // Кольцо опасности: пульсирует вокруг каждой мины — «заряжено!» видно
-      // краем глаза, ещё до того, как рассмотрел шипы
-      if (p.kind === 'corn') {
+      // краем глаза, ещё до того, как рассмотрел шипы. На нижнем тире — статичный
+      // спрайт мины и так красноречив, а stroke-дуги на слабых GPU дороги
+      if (p.kind === 'corn' && this.perfTier < 2) {
         const pulse = 0.5 + 0.5 * Math.sin(ts * 0.006 + p.phase * 3)
         ctx.save()
         ctx.globalAlpha = 0.2 + 0.18 * pulse
@@ -1829,6 +1889,17 @@ export class PopcornEngine {
               ? this.sp.butter
               : this.sp.popcorn
       drawSprite(ctx, sprite, p.x, y, scale, { rot: p.rot })
+      // Золотое зерно светится: готовый радиальный спрайт поверх зерна
+      // с globalCompositeOperation='lighter' — свечение почти бесплатно,
+      // потому что градиент пререндерен один раз в спрайт
+      if (p.kind === 'golden' && this.perfTier < 1) {
+        ctx.save()
+        ctx.globalCompositeOperation = 'lighter'
+        ctx.globalAlpha = 0.4 + 0.2 * Math.sin(ts * 0.005 + p.phase * 2)
+        const glowScale = (scale * this.sp.golden.w * 3.2) / this.sp.goldenGlow.w
+        drawSprite(ctx, this.sp.goldenGlow, p.x, y, glowScale)
+        ctx.restore()
+      }
       // Режим дальтоников: пульсирующая белая метка над миной
       if (p.kind === 'corn' && this.opts.colorblind) {
         const blink = 0.6 + 0.4 * Math.sin(ts * 0.008 + p.phase)
@@ -1980,7 +2051,10 @@ export class PopcornEngine {
 
   private drawParticles(): void {
     const { ctx } = this
-    for (const p of this.particles) {
+    /* Активные частицы — префикс пула [0..length): рисуем без аллокаций */
+    const items = this.particles.items
+    for (let i = 0, n = this.particles.length; i < n; i++) {
+      const p = items[i]
       ctx.globalAlpha = 1 - p.t / p.ttl
       ctx.fillStyle = p.color
       ctx.fillRect(p.x - p.size / 2, p.y - p.size / 2, p.size, p.size)

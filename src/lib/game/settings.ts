@@ -36,6 +36,8 @@ export interface GameSettings {
   volumeSfx: number
   /** Режим для дальтоников: сине-оранжевые мины с меткой */
   colorblind: boolean
+  /** CRT-развёртка (ретро-сканлайны поверх экрана, чистый CSS — почти бесплатно) */
+  crt: boolean
   /** Яркость 0.6..1.4 */
   brightness: number
   /** Контраст 0.6..1.6 */
@@ -55,6 +57,7 @@ export const DEFAULT_SETTINGS: GameSettings = {
   volumeMusic: 1,
   volumeSfx: 1,
   colorblind: false,
+  crt: false,
   brightness: 1,
   contrast: 1,
 }
@@ -98,6 +101,7 @@ export function parseSettingsRaw(raw: string): GameSettings {
       volumeMusic: clamp(o.volumeMusic as number, 0, 1, 1),
       volumeSfx: clamp(o.volumeSfx as number, 0, 1, 1),
       colorblind: o.colorblind === true,
+      crt: o.crt === true,
       brightness: clamp(o.brightness as number, 0.6, 1.4, 1),
       contrast: clamp(o.contrast as number, 0.6, 1.6, 1),
     }
