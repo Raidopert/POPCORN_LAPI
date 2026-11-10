@@ -637,13 +637,13 @@ function TravelOverlay({
         className="absolute inset-0 z-40 flex items-center justify-center overflow-y-auto bg-black/70 p-4 backdrop-blur-sm"
         initial={{ opacity: 0 }}
         animate={{ opacity: 1 }}
-        exit={{ opacity: 0 }}
+        exit={{ opacity: 0, pointerEvents: 'none' }}
       >
         <motion.div
           className="my-auto w-full max-w-sm rounded-2xl border-4 border-[#8a5330] bg-[#FFF6E6] p-4 text-center shadow-[0_18px_50px_rgba(0,0,0,0.55)] sm:p-5"
           initial={{ scale: 0.92, y: 14 }}
           animate={{ scale: 1, y: 0 }}
-          exit={{ scale: 0.95, opacity: 0 }}
+          exit={{ scale: 0.95, opacity: 0, pointerEvents: 'none' }}
           transition={{ type: 'spring', stiffness: 260, damping: 22 }}
         >
           <div aria-hidden className="text-3xl">
@@ -717,13 +717,13 @@ function TravelOverlay({
       className="absolute inset-0 z-40 flex items-center justify-center overflow-y-auto bg-black/70 p-4 backdrop-blur-sm"
       initial={{ opacity: 0 }}
       animate={{ opacity: 1 }}
-      exit={{ opacity: 0 }}
+      exit={{ opacity: 0, pointerEvents: 'none' }}
     >
       <motion.div
         className="my-auto w-full max-w-sm rounded-2xl border-4 border-[#8a5330] bg-[#FFF6E6] p-4 text-center shadow-[0_18px_50px_rgba(0,0,0,0.55)] sm:p-5"
         initial={{ scale: 0.92, y: 14 }}
         animate={{ scale: 1, y: 0 }}
-        exit={{ scale: 0.95, opacity: 0 }}
+        exit={{ scale: 0.95, opacity: 0, pointerEvents: 'none' }}
         transition={{ type: 'spring', stiffness: 260, damping: 22 }}
       >
         <div aria-hidden className="text-3xl">
@@ -923,13 +923,13 @@ function MShopOverlay({
       className="absolute inset-0 z-40 flex items-center justify-center overflow-y-auto bg-black/70 p-4 backdrop-blur-sm"
       initial={{ opacity: 0 }}
       animate={{ opacity: 1 }}
-      exit={{ opacity: 0 }}
+      exit={{ opacity: 0, pointerEvents: 'none' }}
     >
       <motion.div
         className="my-auto w-full max-w-sm rounded-2xl border-4 border-[#8a5330] bg-[#FFF6E6] p-4 text-center shadow-[0_18px_50px_rgba(0,0,0,0.55)] sm:p-5"
         initial={{ scale: 0.92, y: 14 }}
         animate={{ scale: 1, y: 0 }}
-        exit={{ scale: 0.95, opacity: 0 }}
+        exit={{ scale: 0.95, opacity: 0, pointerEvents: 'none' }}
         transition={{ type: 'spring', stiffness: 260, damping: 22 }}
       >
         <div aria-hidden className="text-3xl">
@@ -1140,13 +1140,13 @@ function MarketOverlay({
       className="absolute inset-0 z-40 flex items-center justify-center overflow-y-auto bg-black/70 p-4 backdrop-blur-sm"
       initial={{ opacity: 0 }}
       animate={{ opacity: 1 }}
-      exit={{ opacity: 0 }}
+      exit={{ opacity: 0, pointerEvents: 'none' }}
     >
       <motion.div
         className="my-auto w-full max-w-sm rounded-2xl border-4 border-[#8a5330] bg-[#FFF6E6] p-4 text-center shadow-[0_18px_50px_rgba(0,0,0,0.55)] sm:p-5"
         initial={{ scale: 0.92, y: 14 }}
         animate={{ scale: 1, y: 0 }}
-        exit={{ scale: 0.95, opacity: 0 }}
+        exit={{ scale: 0.95, opacity: 0, pointerEvents: 'none' }}
         transition={{ type: 'spring', stiffness: 260, damping: 22 }}
       >
         <div aria-hidden className="text-3xl">
@@ -1430,13 +1430,13 @@ function ShopOverlay({
       className="absolute inset-0 z-40 flex items-center justify-center overflow-y-auto bg-black/70 p-4 backdrop-blur-sm"
       initial={{ opacity: 0 }}
       animate={{ opacity: 1 }}
-      exit={{ opacity: 0 }}
+      exit={{ opacity: 0, pointerEvents: 'none' }}
     >
       <motion.div
         className="my-auto w-full max-w-sm rounded-2xl border-4 border-[#8a5330] bg-[#FFF6E6] p-4 text-center shadow-[0_18px_50px_rgba(0,0,0,0.55)] sm:p-5"
         initial={{ scale: 0.92, y: 14 }}
         animate={{ scale: 1, y: 0 }}
-        exit={{ scale: 0.95, opacity: 0 }}
+        exit={{ scale: 0.95, opacity: 0, pointerEvents: 'none' }}
         transition={{ type: 'spring', stiffness: 260, damping: 22 }}
       >
         <div aria-hidden className="text-3xl">
@@ -1664,13 +1664,13 @@ function LeadersOverlay({
       className="absolute inset-0 z-40 flex items-center justify-center overflow-y-auto bg-black/70 p-4 backdrop-blur-sm"
       initial={{ opacity: 0 }}
       animate={{ opacity: 1 }}
-      exit={{ opacity: 0 }}
+      exit={{ opacity: 0, pointerEvents: 'none' }}
     >
       <motion.div
         className="my-auto w-full max-w-sm rounded-2xl border-4 border-[#8a5330] bg-[#FFF6E6] p-4 text-center shadow-[0_18px_50px_rgba(0,0,0,0.55)] sm:p-5"
         initial={{ scale: 0.92, y: 14 }}
         animate={{ scale: 1, y: 0 }}
-        exit={{ scale: 0.95, opacity: 0 }}
+        exit={{ scale: 0.95, opacity: 0, pointerEvents: 'none' }}
         transition={{ type: 'spring', stiffness: 260, damping: 22 }}
       >
         <div aria-hidden className="text-3xl">
@@ -1813,13 +1813,13 @@ function RulesOverlay({ t, onClose }: { t: TranslateFn; onClose: () => void }) {
       className="absolute inset-0 z-40 flex items-center justify-center overflow-y-auto bg-black/70 p-4 backdrop-blur-sm"
       initial={{ opacity: 0 }}
       animate={{ opacity: 1 }}
-      exit={{ opacity: 0 }}
+      exit={{ opacity: 0, pointerEvents: 'none' }}
     >
       <motion.div
         className="my-auto w-full max-w-sm rounded-2xl border-4 border-[#8a5330] bg-[#FFF6E6] p-4 text-center shadow-[0_18px_50px_rgba(0,0,0,0.55)] sm:p-5"
         initial={{ scale: 0.92, y: 14 }}
         animate={{ scale: 1, y: 0 }}
-        exit={{ scale: 0.95, opacity: 0 }}
+        exit={{ scale: 0.95, opacity: 0, pointerEvents: 'none' }}
         transition={{ type: 'spring', stiffness: 260, damping: 22 }}
       >
         <div aria-hidden className="text-3xl">
@@ -1903,13 +1903,13 @@ function InstallOverlay({
       className="absolute inset-0 z-40 flex items-center justify-center overflow-y-auto bg-black/70 p-4 backdrop-blur-sm"
       initial={{ opacity: 0 }}
       animate={{ opacity: 1 }}
-      exit={{ opacity: 0 }}
+      exit={{ opacity: 0, pointerEvents: 'none' }}
     >
       <motion.div
         className="my-auto w-full max-w-sm rounded-2xl border-4 border-[#8a5330] bg-[#FFF6E6] p-4 text-center shadow-[0_18px_50px_rgba(0,0,0,0.55)] sm:p-5"
         initial={{ scale: 0.92, y: 14 }}
         animate={{ scale: 1, y: 0 }}
-        exit={{ scale: 0.95, opacity: 0 }}
+        exit={{ scale: 0.95, opacity: 0, pointerEvents: 'none' }}
         transition={{ type: 'spring', stiffness: 260, damping: 22 }}
       >
         <div aria-hidden className="text-3xl">
@@ -2103,13 +2103,13 @@ function TreeOverlay({
       className="absolute inset-0 z-40 flex items-center justify-center overflow-y-auto bg-black/70 p-4 backdrop-blur-sm"
       initial={{ opacity: 0 }}
       animate={{ opacity: 1 }}
-      exit={{ opacity: 0 }}
+      exit={{ opacity: 0, pointerEvents: 'none' }}
     >
       <motion.div
         className="my-auto max-h-[94dvh] w-full max-w-sm overflow-y-auto rounded-2xl border-4 border-[#8a5330] bg-[#FFF6E6] p-4 text-center shadow-[0_18px_50px_rgba(0,0,0,0.55)] sm:p-5"
         initial={{ scale: 0.92, y: 14 }}
         animate={{ scale: 1, y: 0 }}
-        exit={{ scale: 0.95, opacity: 0 }}
+        exit={{ scale: 0.95, opacity: 0, pointerEvents: 'none' }}
         transition={{ type: 'spring', stiffness: 260, damping: 22 }}
       >
         <div aria-hidden className="text-3xl">
@@ -2228,13 +2228,13 @@ function CreatorsOverlay({ t, onClose }: { t: TranslateFn; onClose: () => void }
       className="absolute inset-0 z-40 flex items-center justify-center overflow-y-auto bg-black/70 p-4 backdrop-blur-sm"
       initial={{ opacity: 0 }}
       animate={{ opacity: 1 }}
-      exit={{ opacity: 0 }}
+      exit={{ opacity: 0, pointerEvents: 'none' }}
     >
       <motion.div
         className="my-auto w-full max-w-sm rounded-2xl border-4 border-[#8a5330] bg-[#FFF6E6] p-5 text-center shadow-[0_18px_50px_rgba(0,0,0,0.55)] sm:p-6"
         initial={{ scale: 0.92, y: 14 }}
         animate={{ scale: 1, y: 0 }}
-        exit={{ scale: 0.95, opacity: 0 }}
+        exit={{ scale: 0.95, opacity: 0, pointerEvents: 'none' }}
         transition={{ type: 'spring', stiffness: 260, damping: 22 }}
       >
         <div aria-hidden className="text-4xl">
@@ -2368,13 +2368,13 @@ function AchievementsOverlay({
       className="absolute inset-0 z-40 flex items-center justify-center overflow-y-auto bg-black/70 p-4 backdrop-blur-sm"
       initial={{ opacity: 0 }}
       animate={{ opacity: 1 }}
-      exit={{ opacity: 0 }}
+      exit={{ opacity: 0, pointerEvents: 'none' }}
     >
       <motion.div
         className="my-auto w-full max-w-sm rounded-2xl border-4 border-[#8a5330] bg-[#FFF6E6] p-4 text-center shadow-[0_18px_50px_rgba(0,0,0,0.55)] sm:p-5"
         initial={{ scale: 0.92, y: 14 }}
         animate={{ scale: 1, y: 0 }}
-        exit={{ scale: 0.95, opacity: 0 }}
+        exit={{ scale: 0.95, opacity: 0, pointerEvents: 'none' }}
         transition={{ type: 'spring', stiffness: 260, damping: 22 }}
       >
         <div aria-hidden className="text-3xl">
@@ -2443,13 +2443,13 @@ function SettingsOverlay({
       className="absolute inset-0 z-[60] flex items-center justify-center overflow-y-auto bg-black/80 p-4 backdrop-blur-sm"
       initial={{ opacity: 0 }}
       animate={{ opacity: 1 }}
-      exit={{ opacity: 0 }}
+      exit={{ opacity: 0, pointerEvents: 'none' }}
     >
       <motion.div
         className="my-auto w-full max-w-sm rounded-2xl border-4 border-[#8a5330] bg-[#FFF6E6] p-4 text-center shadow-[0_18px_50px_rgba(0,0,0,0.55)] sm:p-5"
         initial={{ scale: 0.92, y: 14 }}
         animate={{ scale: 1, y: 0 }}
-        exit={{ scale: 0.95, opacity: 0 }}
+        exit={{ scale: 0.95, opacity: 0, pointerEvents: 'none' }}
         transition={{ type: 'spring', stiffness: 260, damping: 22 }}
       >
         <div aria-hidden className="text-3xl">
@@ -2725,13 +2725,13 @@ function NickDialog({
       className="absolute inset-0 z-[46] flex items-center justify-center overflow-y-auto bg-black/80 p-4 backdrop-blur-sm"
       initial={{ opacity: 0 }}
       animate={{ opacity: 1 }}
-      exit={{ opacity: 0 }}
+      exit={{ opacity: 0, pointerEvents: 'none' }}
     >
       <motion.div
         className="my-auto w-full max-w-sm rounded-2xl border-4 border-[#8a5330] bg-[#FFF6E6] p-5 text-center shadow-[0_18px_50px_rgba(0,0,0,0.55)]"
         initial={{ scale: 0.92, y: 14 }}
         animate={{ scale: 1, y: 0 }}
-        exit={{ scale: 0.95, opacity: 0 }}
+        exit={{ scale: 0.95, opacity: 0, pointerEvents: 'none' }}
         transition={{ type: 'spring', stiffness: 260, damping: 22 }}
       >
         <div aria-hidden className="text-4xl">
@@ -4239,7 +4239,7 @@ export function PopcornGame() {
               style={{ backgroundImage: `url('${roomSrc}')` }}
               initial={{ opacity: 0 }}
               animate={{ opacity: 1 }}
-              exit={{ opacity: 0 }}
+              exit={{ opacity: 0, pointerEvents: 'none' }}
               transition={{ duration: 0.55, ease: 'easeOut' }}
             />
           </AnimatePresence>
@@ -4297,13 +4297,13 @@ export function PopcornGame() {
               className="absolute inset-0 z-30 flex items-center justify-center overflow-y-auto bg-black/60 p-4 backdrop-blur-sm"
               initial={{ opacity: 0 }}
               animate={{ opacity: 1 }}
-              exit={{ opacity: 0 }}
+              exit={{ opacity: 0, pointerEvents: 'none' }}
             >
               <motion.div
                 className="relative my-auto w-full max-w-sm rounded-2xl border-4 border-[#8a5330] bg-[#FFF6E6] p-4 text-center shadow-[0_18px_50px_rgba(0,0,0,0.55)] [@media(max-height:700px)]:p-3 sm:p-6"
                 initial={{ scale: 0.92, y: 14 }}
                 animate={{ scale: 1, y: 0 }}
-                exit={{ scale: 0.95, y: 10, opacity: 0 }}
+                exit={{ scale: 0.95, y: 10, opacity: 0, pointerEvents: 'none' }}
                 transition={{ type: 'spring', stiffness: 260, damping: 22 }}
               >
                 {/* Живая куница NANA + панель управления справа (путешествия, маркет) */}
@@ -4678,13 +4678,13 @@ export function PopcornGame() {
               className="absolute inset-0 z-30 flex items-center justify-center bg-black/60 p-4 backdrop-blur-sm"
               initial={{ opacity: 0 }}
               animate={{ opacity: 1 }}
-              exit={{ opacity: 0 }}
+              exit={{ opacity: 0, pointerEvents: 'none' }}
             >
               <motion.div
                 className="w-full max-w-xs rounded-2xl border-4 border-[#8a5330] bg-[#FFF6E6] p-6 text-center shadow-2xl"
                 initial={{ scale: 0.9 }}
                 animate={{ scale: 1 }}
-                exit={{ scale: 0.94, opacity: 0 }}
+                exit={{ scale: 0.94, opacity: 0, pointerEvents: 'none' }}
               >
                 <h2 className="font-pixel text-2xl font-bold text-[#B33A26]">{t('pause.title')}</h2>
                 <p className="mt-2 font-ui text-xs font-medium text-[#8a5330]">
@@ -4725,13 +4725,13 @@ export function PopcornGame() {
               className="absolute inset-0 z-30 flex flex-col bg-black/70 p-2 backdrop-blur-sm sm:p-4"
               initial={{ opacity: 0 }}
               animate={{ opacity: 1 }}
-              exit={{ opacity: 0 }}
+              exit={{ opacity: 0, pointerEvents: 'none' }}
             >
               <motion.div
                 className="mx-auto my-auto flex max-h-full w-full max-w-sm flex-col overflow-hidden rounded-2xl border-4 border-[#8a5330] bg-[#FFF6E6] shadow-[0_18px_50px_rgba(0,0,0,0.55)] sm:max-w-md"
                 initial={{ scale: 0.9, y: 14 }}
                 animate={{ scale: 1, y: 0 }}
-                exit={{ scale: 0.95, opacity: 0 }}
+                exit={{ scale: 0.95, opacity: 0, pointerEvents: 'none' }}
                 transition={{ type: 'spring', stiffness: 260, damping: 22 }}
               >
                 {/* Прокручиваемое содержимое: сундуки с надписями и описание перка.
@@ -4930,13 +4930,13 @@ export function PopcornGame() {
               className="absolute inset-0 z-30 flex flex-col bg-black/60 p-2 backdrop-blur-sm sm:p-4"
               initial={{ opacity: 0 }}
               animate={{ opacity: 1 }}
-              exit={{ opacity: 0 }}
+              exit={{ opacity: 0, pointerEvents: 'none' }}
             >
               <motion.div
                 className="relative mx-auto my-auto flex max-h-full w-full max-w-sm flex-col overflow-hidden rounded-2xl border-4 border-[#8a5330] bg-[#FFF6E6] shadow-[0_18px_50px_rgba(0,0,0,0.55)]"
                 initial={{ scale: 0.9, y: 14 }}
                 animate={{ scale: 1, y: 0 }}
-                exit={{ scale: 0.95, opacity: 0 }}
+                exit={{ scale: 0.95, opacity: 0, pointerEvents: 'none' }}
                 transition={{ type: 'spring', stiffness: 260, damping: 22 }}
               >
                 {result.record && <Confetti />}
