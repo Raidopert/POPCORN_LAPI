@@ -24,6 +24,8 @@ export type PawId =
   | 'double'
   | 'ghost'
   | 'magic'
+  | 'heartpaw'
+  | 'candy'
 
 /** Постоянные улучшения лапки */
 export interface PawBonus {
@@ -43,6 +45,8 @@ export interface PawBonus {
   guard?: number
   /** Волшебный шлейф звёздочек за лапкой */
   stars?: boolean
+  /** +1 сердечко к максимуму забега (механика 5 жизней) */
+  heartsPlus?: number
 }
 
 export interface PawDef {
@@ -321,6 +325,40 @@ export const PAWS: PawDef[] = [
       edge: '#2A3780',
     },
     bonus: { stars: true, goldenAdd: 0.06, speed: 1.15 },
+  },
+  /* ---------- сердечная ветка (механика 5 жизней) ---------- */
+  {
+    id: 'heartpaw',
+    name: 'Сердоликовая лапка',
+    desc: 'Тёплая лапка с сердоликовой подушечкой: любовь котика — лучшая броня. Дарит лишнее сердечко в каждом забеге!',
+    bonusLabel: 'Сердечек +1 ❤️ · оберег от мин 15%',
+    price: 15000,
+    palette: {
+      fur: '#E86A8A',
+      furShade: '#C74E6E',
+      pad: '#FFC2D4',
+      beans: '#FFE4EC',
+      claw: '#8A3350',
+      edge: '#A34462',
+      spots: '#FFD1DE',
+    },
+    bonus: { heartsPlus: 1, guard: 0.15 },
+  },
+  {
+    id: 'candy',
+    name: 'Мурчащая валентинка',
+    desc: 'Розовая лапка с карамельными сердечками: мурчет так, что зёрна сами прыгают в ладошку!',
+    bonusLabel: 'Сладкий шлейф · проворнее на 5%',
+    price: 7000,
+    palette: {
+      fur: '#FF9EBB',
+      furShade: '#E87DA0',
+      pad: '#FFDCE7',
+      beans: '#FFF0F5',
+      claw: '#A34A6B',
+      edge: '#C25C80',
+    },
+    bonus: { stars: true, speed: 1.05 },
   },
 ]
 

@@ -3,10 +3,11 @@
  * Покупаются за опыт один раз и навсегда (у некоторых несколько ступеней):
  *  - «Большой стаканчик» — лапка носит больше зёрен в каждом забеге;
  *  - «Девятая жизнь» — раз за забег можно продолжить после провала;
- *  - «Счастливый сундучок» — забег начинается со случайным бонусным перком.
+ *  - «Счастливый сундучок» — забег начинается со случайным бонусным перком;
+ *  - «Крепкое сердце» — +1 сердечко к максимуму (механика 5 жизней).
  */
 
-export type UpgradeId = 'capacity' | 'life' | 'startperk'
+export type UpgradeId = 'capacity' | 'life' | 'startperk' | 'hearts'
 
 export interface UpgradeDef {
   id: UpgradeId
@@ -46,6 +47,14 @@ export const UPGRADES: UpgradeDef[] = [
     effectLabel: (level) =>
       level > 0 ? 'Забег стартует с бонус-перком' : 'Пока без стартового перка',
   },
+  {
+    id: 'hearts',
+    name: 'Крепкое сердце',
+    desc: 'Плюс одно сердечко ❤️ к максимуму в каждом забеге: мины и голуби станут не так страшны. Можно купить дважды!',
+    icon: '❤️',
+    prices: [15000, 40000],
+    effectLabel: (level) => (level > 0 ? `Максимум сердец +${level}` : 'Пока без бонуса'),
+  },
 ]
 
 export const UPGRADE_MAP: Record<UpgradeId, UpgradeDef> = Object.fromEntries(
@@ -57,9 +66,10 @@ export interface UpgradeState {
   capacity: number
   life: number
   startperk: number
+  hearts: number
 }
 
-export const DEFAULT_UPGRADES: UpgradeState = { capacity: 0, life: 0, startperk: 0 }
+export const DEFAULT_UPGRADES: UpgradeState = { capacity: 0, life: 0, startperk: 0, hearts: 0 }
 
 export function parseUpgrades(raw: string | null): UpgradeState {
   try {
@@ -70,6 +80,7 @@ export function parseUpgrades(raw: string | null): UpgradeState {
         capacity: Math.max(0, Math.min(2, Number(o.capacity) || 0)),
         life: Math.max(0, Math.min(1, Number(o.life) || 0)),
         startperk: Math.max(0, Math.min(1, Number(o.startperk) || 0)),
+        hearts: Math.max(0, Math.min(2, Number(o.hearts) || 0)),
       }
     }
   } catch {

@@ -1,7 +1,7 @@
 /**
  * Древо улучшений «Кошачьего попкорнного Беспредела» — БОЛЬШОЕ ДЕРЕВО.
  *
- *  🌳 Постоянные улучшения в виде дерева-сетки (4 яруса, 16 узлов):
+ *  🌳 Постоянные улучшения в виде дерева-сетки (5 ярусов, 18 узлов):
  *
  *     Ярус 1 — корень «Урожай» (+5% к очкам за зёрна, качается до 10 раз);
  *     Ярус 2 — три ветки: «Проворство» (скорость лапки), «Вместимость»
@@ -17,6 +17,8 @@
  *              мины короче), «Комбо-тренер» (комбо растёт быстрее), «Стаж»
  *              (+10% опыта котика), «Щит» (1–3 щита от мин) и «Щедрость»
  *              (+25% ценность подарков из сундучков).
+ *     Ярус 5 — сердечная ветка: «Плюшевое сердце» (+1 максимум сердец) и
+ *              «Лапка-целитель» (+1 сердце за пройденный уровень сверх обычного).
  *
  *  🎖 Очки древа: по 1 очку за каждый уровень котика (опыт за всё время).
  *     Узел открывается, только если куплен его родитель.
@@ -44,11 +46,13 @@ export type TreeId =
   | 'xpboost'
   | 'shield'
   | 'double'
+  | 'heartmax'
+  | 'healer'
 
 export interface TreeNodeDef {
   id: TreeId
-  /** Ярус дерева: 1 — корень, 2 — ветки, 3 — дети веток, 4 — вершины */
-  tier: 1 | 2 | 3 | 4
+  /** Ярус дерева: 1 — корень, 2 — ветки, 3 — дети веток, 4 — вершины, 5 — сердечная ветка */
+  tier: 1 | 2 | 3 | 4 | 5
   /** Уровень котика, с которого узел доступен */
   reqLevel: number
   /** Сколько раз можно купить узел */
@@ -79,6 +83,9 @@ export const TREE_NODES: TreeNodeDef[] = [
   { id: 'xpboost', tier: 4, reqLevel: 8, maxLevel: 3, parent: 'coins', icon: '🎖' },
   { id: 'shield', tier: 4, reqLevel: 7, maxLevel: 3, parent: 'feverluck', icon: '🛡️' },
   { id: 'double', tier: 4, reqLevel: 8, maxLevel: 2, parent: 'fevertime', icon: '🍀' },
+  /* ярус 5 — сердечная ветка */
+  { id: 'heartmax', tier: 5, reqLevel: 10, maxLevel: 2, parent: 'shield', icon: '🧸' },
+  { id: 'healer', tier: 5, reqLevel: 12, maxLevel: 1, parent: 'double', icon: '💞' },
 ]
 
 export const TREE_MAP = Object.fromEntries(TREE_NODES.map((n) => [n.id, n])) as Record<
@@ -195,6 +202,10 @@ export interface TreeBonus {
   xpAdd: number
   /** «Щедрость»: +25% ценность подарков из сундучков за уровень */
   giftAdd: number
+  /** «Плюшевое сердце»: +1 к максимуму сердец за уровень */
+  heartsMax: number
+  /** «Лапка-целитель»: +1 сердце за пройденный уровень сверх обычного */
+  healPlus: number
 }
 
 const ZERO_BONUS: TreeBonus = {
@@ -214,6 +225,8 @@ const ZERO_BONUS: TreeBonus = {
   coinsAdd: 0,
   xpAdd: 0,
   giftAdd: 0,
+  heartsMax: 0,
+  healPlus: 0,
 }
 
 export function treeBonuses(state: TreeState): TreeBonus {
@@ -234,6 +247,8 @@ export function treeBonuses(state: TreeState): TreeBonus {
     coinsAdd: 0.1 * (state.coins ?? 0),
     xpAdd: 0.1 * (state.xpboost ?? 0),
     giftAdd: 0.25 * (state.double ?? 0),
+    heartsMax: state.heartmax ?? 0,
+    healPlus: state.healer ?? 0,
   }
 }
 

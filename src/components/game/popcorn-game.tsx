@@ -158,6 +158,8 @@ interface ResultState {
   rank: number
   /** Куплен апгрейд «Девятая жизнь» и он ещё не использован в этом забеге */
   canRevive: boolean
+  /** Почему забег кончился: время / сердечки / разграбленная корзина */
+  reason: 'time' | 'hearts' | 'ransacked'
 }
 
 interface ClearState {
@@ -560,6 +562,9 @@ function ShopOverlay({
     }
     if (id === 'life') {
       return level > 0 ? t('upg.life.effect') : t('upg.life.effectNone')
+    }
+    if (id === 'hearts') {
+      return level > 0 ? t('upg.hearts.effect', { n: level }) : t('upg.hearts.effectNone')
     }
     return level > 0 ? t('upg.startperk.effect') : t('upg.startperk.effectNone')
   }
@@ -1127,6 +1132,9 @@ const TREE_POS: Record<TreeId, { x: number; y: number }> = {
   xpboost: { x: 58, y: 86 },
   shield: { x: 74.5, y: 86 },
   double: { x: 91.5, y: 86 },
+  /* ярус 5 — сердечная ветка */
+  heartmax: { x: 66.5, y: 97 },
+  healer: { x: 83, y: 97 },
 }
 
 /** Ветви дерева строятся из родителей: каждый узел ведёт от своего предка */
@@ -1159,6 +1167,8 @@ function treeEffectN(id: TreeId, lvl: number): number {
   if (id === 'xpboost') return 10 * L
   if (id === 'shield') return L
   if (id === 'double') return 25 * L
+  if (id === 'heartmax') return L
+  if (id === 'healer') return L
   return 1 // комбо
 }
 
@@ -1239,7 +1249,7 @@ function TreeOverlay({
       exit={{ opacity: 0 }}
     >
       <motion.div
-        className="my-auto w-full max-w-sm rounded-2xl border-4 border-[#8a5330] bg-[#FFF6E6] p-4 text-center shadow-[0_18px_50px_rgba(0,0,0,0.55)] sm:p-5"
+        className="my-auto max-h-[94dvh] w-full max-w-sm overflow-y-auto rounded-2xl border-4 border-[#8a5330] bg-[#FFF6E6] p-4 text-center shadow-[0_18px_50px_rgba(0,0,0,0.55)] sm:p-5"
         initial={{ scale: 0.92, y: 14 }}
         animate={{ scale: 1, y: 0 }}
         exit={{ scale: 0.95, opacity: 0 }}
@@ -1261,8 +1271,8 @@ function TreeOverlay({
           )}
         </div>
 
-        {/* Сетка-дерево: SVG-ветки под узлами (4 яруса, 16 узлов) */}
-        <div className="relative mx-auto h-[400px] w-full max-w-[430px]">
+        {/* Сетка-дерево: SVG-ветки под узлами (5 ярусов, 18 узлов) */}
+        <div className="relative mx-auto h-[500px] w-full max-w-[430px]">
           <svg
             aria-hidden
             className="absolute inset-0 h-full w-full"
@@ -2029,6 +2039,10 @@ export function PopcornGame() {
     forced: null,
     fever: false,
   })
+  /* Сердечки: сколько было на прошлом HUD-тике (потеря → ачивка «Первый шрам») */
+  const prevHeartsRef = useRef<number>(5)
+  /* Серия уровней без потери сердец (ачивка «Целая и невредимая») */
+  const heartFreeStreakRef = useRef<number>(0)
   const equippedRef = useRef<PawId>(DEFAULT_PAW)
   /** Счёт забега, уже зачисленный в банк опыта (очки = опыт) */
   const lastScoreRef = useRef(0)
@@ -2060,6 +2074,8 @@ export function PopcornGame() {
     runNipples: 0,
     minesHit: 0,
     shieldSaves: 0,
+    hearts: 5,
+    maxHearts: 5,
   })
   const [bestRaw, storeBest] = useStoredValue(BEST_KEY, '0')
   const [mutedRaw, storeMuted] = useStoredValue(MUTE_KEY, '0')
@@ -2097,7 +2113,10 @@ export function PopcornGame() {
   const [pawRaw, storePaw] = useStoredValue(PAW_KEY, DEFAULT_PAW)
   const [ownedRaw, storeOwned] = useStoredValue(OWNED_KEY, JSON.stringify([DEFAULT_PAW]))
   const [leadersRaw] = useStoredValue(LEADERS_KEY, '[]')
-  const [upgRaw, storeUpgrades] = useStoredValue(UPG_KEY, JSON.stringify({ capacity: 0, life: 0, startperk: 0 }))
+  const [upgRaw, storeUpgrades] = useStoredValue(
+    UPG_KEY,
+    JSON.stringify({ capacity: 0, life: 0, startperk: 0, hearts: 0 }),
+  )
   const [achRaw] = useStoredValue(ACH_KEY, '[]')
   const [nameRaw, storeName] = useStoredValue(NAME_KEY, 'Котик')
   const [nickSetRaw, storeNickSet] = useStoredValue(NICKSET_KEY, '0')
@@ -2364,6 +2383,7 @@ export function PopcornGame() {
     if (L.grains >= 25000) cand.push('grainsLife25k')
     if (L.golden >= 100) cand.push('golden100')
     if (L.pigeons >= 25) cand.push('pigeon25')
+    if (L.pigeons >= 50) cand.push('pigeon50')
     if (L.nipples >= 50) cand.push('nipple50')
     if (L.mines >= 1) cand.push('mine1')
     if (L.fevers >= 10) cand.push('fever10')
@@ -2541,6 +2561,10 @@ export function PopcornGame() {
         if (s.shields >= 3) cand.push('shield3')
         if (s.minesHit > 0) cand.push('mine1')
         if (s.shieldSaves > 0) cand.push('shieldUse')
+        /* Сердечки: потеря — «Первый шрам»; собран максимум 7+ — «Семь жизней» */
+        if (s.hearts < prevHeartsRef.current) announceAch(['heart1'])
+        prevHeartsRef.current = s.hearts
+        if (s.maxHearts >= 7) cand.push('sevenhearts')
         /* Дельты в пожизненную статистику (ленивая запись — flushLife) */
         const pv = prevRunRef.current
         if (s.runGrains > pv.grains) {
@@ -2575,6 +2599,14 @@ export function PopcornGame() {
         awardStage(r.level)
         /* «Чистая работа»: уровень без мин и краж */
         if (r.clean) announceAch(['perfect'])
+        /* Сердечные ачивки: 5 уровней без потерь; уровень на одном сердечке */
+        if (r.lostHearts === 0) {
+          heartFreeStreakRef.current++
+          if (heartFreeStreakRef.current >= 5) announceAch(['heartsFree5'])
+        } else {
+          heartFreeStreakRef.current = 0
+        }
+        if (r.hearts === 1) announceAch(['heartsLast'])
         /* ЛИХОРАДКА: случайный бонусный уровень (шанс 25%, не раньше 2-го;
            ?fever=1 — всегда). Вместо сундучка — 3 секунды безумного сбора,
            потом сразу следующий обычный уровень */
@@ -2667,7 +2699,7 @@ export function PopcornGame() {
             body: JSON.stringify({ name, score: r.score, level: r.level }),
           }).catch(() => {})
         }
-        setResult({ score: r.score, level: r.level, record, rank: list.indexOf(entry), canRevive })
+        setResult({ score: r.score, level: r.level, record, rank: list.indexOf(entry), canRevive, reason: r.reason })
         setPhase('ended')
       },
     })
@@ -2808,7 +2840,7 @@ export function PopcornGame() {
     audio.play('click')
     /* Постоянные апгрейды: вместимость — в движок, счастливый сундучок — случайный бонус-перк */
     const ups = parseUpgrades(window.localStorage.getItem(UPG_KEY))
-    engineRef.current?.setUpgrades({ carryPlus: ups.capacity })
+    engineRef.current?.setUpgrades({ carryPlus: ups.capacity, heartsPlus: ups.hearts })
     let startPerk: PerkId | null = null
     if (ups.startperk > 0 && settingsRef.current.perksBonus) {
       const bonusPool = PERKS.filter((p) => !p.curse)
@@ -2816,6 +2848,9 @@ export function PopcornGame() {
     }
     engineRef.current?.setPawSkin(equippedRef.current)
     engineRef.current?.startRun({ fast: devRef.current.fast, perk: startPerk })
+    /* Сердечные счётчики нового забега */
+    prevHeartsRef.current = -1 // первый же HUD-тик проставит актуальное
+    heartFreeStreakRef.current = 0
     setPerk(startPerk)
     lockOrientation(settingsRef.current.orientation)
     setPhase('playing')
@@ -3036,6 +3071,21 @@ export function PopcornGame() {
           <StatPill className="font-pixel text-[13px]">
             <Popcorn className="h-3.5 w-3.5 text-amber-300" aria-hidden />
             <span className="tabular-nums">{stats.score}</span>
+          </StatPill>
+          {/* Сердечки-жизни: мина и повторный клюв голубя отнимают, за уровень возвращается */}
+          <StatPill
+            aria-label={t('hud.hearts', { n: stats.hearts, m: stats.maxHearts })}
+            className={stats.hearts <= 1 ? 'animate-pulse border-red-400/70' : ''}
+          >
+            <span className="flex items-center gap-px" aria-hidden>
+              {Array.from({ length: stats.maxHearts }).map((_, i) => (
+                <Heart
+                  key={i}
+                  strokeWidth={2.5}
+                  className={`h-3.5 w-3.5 ${i < stats.hearts ? 'fill-red-500 text-red-500' : 'text-white/25'}`}
+                />
+              ))}
+            </span>
           </StatPill>
           <StatPill>
             <span aria-hidden>🥤</span>
@@ -3513,18 +3563,24 @@ export function PopcornGame() {
                   {offers.length > 0 ? (
                     <>
                       <p className="mt-1.5 font-ui text-[11px] text-[#5C3A1E] [@media(max-height:520px)]:hidden">{t('chest.choose')}</p>
-                      {/* Сундучки: что внутри — написано ПРЯМО НА сундучке (видно ДО выбора) */}
+                      {/* Сундучки: ДО выбора — тайна (никто не знает, что внутри),
+                          ПОСЛЕ открытия — показываем содержимое ВСЕХ трёх */}
                       <div className="mt-2 grid grid-cols-3 gap-1.5 sm:gap-2 [@media(max-height:520px)]:mt-1">
                         {offers.map((p, i) => {
                           const isOpen = openedIdx === i
-                          const dimmed = openedIdx !== null && !isOpen
+                          const revealed = openedIdx !== null
+                          const dimmed = revealed && !isOpen
                           const ex = extras[i]
                           return (
                             <motion.button
                               key={p.id}
                               type="button"
-                              aria-label={`${t('chest.openN', { n: i + 1 })}: ${t(`perk.${p.id}.name`)} — ${t(`perk.${p.id}.desc`)}`}
-                              disabled={openedIdx !== null}
+                              aria-label={
+                                revealed
+                                  ? `${t('chest.openN', { n: i + 1 })}: ${t(`perk.${p.id}.name`)} — ${t(`perk.${p.id}.desc`)}`
+                                  : t('chest.openN', { n: i + 1 })
+                              }
+                              disabled={revealed}
                               onClick={() => openChest(i)}
                               className={`flex flex-col items-center rounded-xl border-[3px] px-1 pb-1.5 pt-1.5 transition-colors [@media(max-height:520px)]:pb-1 [@media(max-height:520px)]:pt-1 ${
                                 isOpen
@@ -3537,35 +3593,51 @@ export function PopcornGame() {
                               transition={{ duration: 0.45 }}
                             >
                               <ChestImg open={isOpen} />
-                              {/* Название перка и подарок — на самом сундучке */}
-                              <span className="mt-1 flex items-center justify-center gap-1">
-                                <span aria-hidden className="text-sm leading-none">
-                                  {p.icon}
-                                </span>
-                                <span
-                                  className={`font-pixel text-[9px] font-bold leading-tight sm:text-[11px] ${
-                                    p.curse ? 'text-[#B33A26]' : 'text-[#3f6b28]'
-                                  }`}
-                                >
-                                  {t(`perk.${p.id}.name`)}
-                                </span>
-                              </span>
-                              <span
-                                className={`mt-0.5 rounded-full px-1.5 py-px font-ui text-[8px] font-bold leading-tight sm:text-[9px] ${
-                                  p.curse ? 'bg-red-200 text-red-800' : 'bg-emerald-200 text-emerald-800'
-                                }`}
-                              >
-                                {p.curse ? t('perk.tag.curse') : t('perk.tag.bonus')}
-                              </span>
-                              {ex && (
-                                <span className="mt-0.5 font-ui text-[9px] font-bold text-[#8a5a16]">
-                                  {ex.kind === 'coins' ? `+${ex.n} 🪙` : `+${ex.n} 🍿`}
-                                </span>
+                              {revealed ? (
+                                <>
+                                  {/* Содержимое открыто: перк, метка и подарок */}
+                                  <span className="mt-1 flex items-center justify-center gap-1">
+                                    <span aria-hidden className="text-sm leading-none">
+                                      {p.icon}
+                                    </span>
+                                    <span
+                                      className={`font-pixel text-[9px] font-bold leading-tight sm:text-[11px] ${
+                                        p.curse ? 'text-[#B33A26]' : 'text-[#3f6b28]'
+                                      }`}
+                                    >
+                                      {t(`perk.${p.id}.name`)}
+                                    </span>
+                                  </span>
+                                  <span
+                                    className={`mt-0.5 rounded-full px-1.5 py-px font-ui text-[8px] font-bold leading-tight sm:text-[9px] ${
+                                      p.curse ? 'bg-red-200 text-red-800' : 'bg-emerald-200 text-emerald-800'
+                                    }`}
+                                  >
+                                    {p.curse ? t('perk.tag.curse') : t('perk.tag.bonus')}
+                                  </span>
+                                  {ex && (
+                                    <span className="mt-0.5 font-ui text-[9px] font-bold text-[#8a5a16]">
+                                      {ex.kind === 'coins' ? `+${ex.n} 🪙` : `+${ex.n} 🍿`}
+                                    </span>
+                                  )}
+                                  {/* Полное описание — только у выбранного сундучка */}
+                                  {isOpen && (
+                                    <span className="mt-1 break-words font-ui text-[9px] font-medium leading-tight text-[#5C3A1E] sm:text-[10px] [@media(max-height:520px)]:mt-0.5">
+                                      {t(`perk.${p.id}.desc`)}
+                                    </span>
+                                  )}
+                                </>
+                              ) : (
+                                <>
+                                  {/* ДО выбора — тайна: только номер и знак вопроса */}
+                                  <span className="mt-1 font-pixel text-[9px] font-bold leading-tight text-[#8a5330] sm:text-[11px]">
+                                    {t('chest.chest')} {i + 1}
+                                  </span>
+                                  <span aria-hidden className="font-pixel text-lg font-bold leading-none text-[#c9a97a]">
+                                    ?
+                                  </span>
+                                </>
                               )}
-                              {/* Содержимое видно ДО выбора: описание эффекта — прямо на сундучке */}
-                              <span className="mt-1 break-words font-ui text-[9px] font-medium leading-tight text-[#5C3A1E] sm:text-[10px] [@media(max-height:520px)]:mt-0.5">
-                                {t(`perk.${p.id}.desc`)}
-                              </span>
                             </motion.button>
                           )
                         })}
@@ -3687,7 +3759,11 @@ export function PopcornGame() {
                     {t('over.title')}
                   </h2>
                   <p className="mt-1 font-ui text-xs font-medium text-[#8a5330]">
-                    {t('over.timeup', { n: result.level })}
+                    {result.reason === 'hearts'
+                      ? t('over.hearts')
+                      : result.reason === 'ransacked'
+                        ? t('over.ransacked')
+                        : t('over.timeup', { n: result.level })}
                   </p>
                   <div className="mt-2 flex items-center justify-center gap-2">
                     <Popcorn className="h-8 w-8 text-amber-500" aria-hidden />

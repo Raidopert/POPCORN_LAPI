@@ -70,6 +70,10 @@ export interface EngineStats {
   minesHit: number
   /** Сколько мин за забег погасили щиты */
   shieldSaves: number
+  /** Сердечек осталось (механика 5 жизней) */
+  hearts: number
+  /** Максимум сердечек в этом забеге */
+  maxHearts: number
 }
 
 export interface LevelResult {
@@ -78,11 +82,17 @@ export interface LevelResult {
   bonus: number
   /** Уровень пройден без единого шока от мины и без краж голубя */
   clean: boolean
+  /** Осталось сердечек к моменту сдачи нормы */
+  hearts: number
+  /** Сколько сердечек потеряно за уровень */
+  lostHearts: number
 }
 
 export interface EndResult {
   score: number
   level: number
+  /** Почему забег кончился: время вышло / сердечки кончились / голуби разграбили корзину */
+  reason: 'time' | 'hearts' | 'ransacked'
 }
 
 /** Итог «Лихорадки»: gained — заработанные очки (0, если схватил мину) */
@@ -168,6 +178,8 @@ interface Pigeon {
   maxHp: number
   /** Сколько зёрен успел украсть: при победе вернутся в стаканчик */
   stolen: number
+  /** Сколько раз уже клюнул корзину: со второго клюва — минус сердечко */
+  pecks: number
   /** Кулдаун между ударами и вспышка после попадания */
   hitCd: number
   flash: number
@@ -214,6 +226,7 @@ const PIGEON_HIT_R = 50 // радиус касания лапкой (в един
 const PIGEON_KO_BONUS = 50 // очки за поверженного воришку
 const MINE_SHOCK_SECONDS = 1 // сколько секунд лапка «опешила» после мины
 const MINE_SCORE_PENALTY = 50 // сколько очков сгорает при касании мины
+const MAX_HEARTS_BASE = 5 // сердечек в забеге (плюс апгрейды, древо и лапка)
 const REVIVE_SECONDS = 15 // «девятая жизнь»: столько секунд даёт второй шанс
 
 /** Настройки игрового процесса, управляемые из меню настроек */
@@ -329,6 +342,17 @@ export class PopcornEngine {
   private shieldLeft = 0
   /* --- постоянный апгрейд «Большой стаканчик» (+вместимость) --- */
   private upgCarry = 0
+  /* --- постоянный апгрейд «Крепкое сердце» (+максимум сердец) --- */
+  private upgHearts = 0
+  /* ---------- механика сердец ---------- */
+  /** Сердечки-жизни: мина и повторный клюв голубя отнимают сердце,
+      ноль сердец — поражение. За пройденный уровень +1 сердце */
+  private hearts = MAX_HEARTS_BASE
+  private maxHearts = MAX_HEARTS_BASE
+  /** Сердец потеряно за текущий уровень (ачивки «без потерь») */
+  private heartLost = 0
+  /** Почему закончился забег */
+  private endReason: EndResult['reason'] = 'time'
   /* --- «Девятая жизнь»: второй шанс уже использован в этом забеге? --- */
   private lifeUsed = false
   /* --- «Лихорадка»: рандомный бонусный уровень на 3 секунды --- */
@@ -424,8 +448,9 @@ export class PopcornEngine {
   }
 
   /** Постоянные апгрейды магазина (действуют во всех забегах) */
-  setUpgrades(u: { carryPlus?: number }): void {
+  setUpgrades(u: { carryPlus?: number; heartsPlus?: number }): void {
     this.upgCarry = u.carryPlus ?? 0
+    this.upgHearts = u.heartsPlus ?? 0
   }
 
   /** Древо улучшений: постоянные бонусы (пересчитывается при покупке узла) */
@@ -457,6 +482,12 @@ export class PopcornEngine {
     this.lifeUsed = false
     this.fever = null
     this.feverAfter = -1
+    /* Сердечки: максимум зависит от апгрейдов, древа и лапки; в новом забеге запас полон */
+    this.maxHearts = Math.min(
+      9,
+      MAX_HEARTS_BASE + this.upgHearts + (this.tree.heartsMax ?? 0) + (this.pawBonus.heartsPlus ?? 0),
+    )
+    this.hearts = this.maxHearts
     this.startLevel(1, opts.perk ?? null)
   }
 
@@ -525,18 +556,19 @@ export class PopcornEngine {
     audio.setMusicLevel(level >= 3 ? 1 : 0)
     this.audioStage = 0
     this.shieldLeft = (perk === 'shield' ? 1 : 0) + (this.tree.shields ?? 0)
-    /* Голубь-воришка: с 3-го уровня прилетает через ~11 секунд (можно отключить в настройках).
-        «Птичий базар»: воришки рвутся в бой втрое раньше */
+    /* Голубь-воришка: с 3-го уровня, и чем дальше — тем раньше прилетает
+        (с 3-го ~11 сек, дальше ramp до ~4 сек). «Птичий базар» — втрое раньше */
     this.pigeon = null
     this.pigeonTimer =
       this.opts.pigeon && level >= 3
         ? perk === 'pigeonfeast'
           ? 3.5 + Math.random() * 1.5
-          : PIGEON_FIRST_AT + Math.random() * 4
+          : Math.max(4, PIGEON_FIRST_AT - (level - 3)) + Math.random() * 3
         : -1
-    /* Ачивка «Чистая работа»: считаем шоки и кражи за уровень */
+    /* Ачивка «Чистая работа»: считаем шоки и кражи за уровень; и потери сердец */
     this.levelStolen = 0
     this.levelShock = 0
+    this.heartLost = 0
     /* Наполнение стаканчика сбрасывается: анимация зёрен заново */
     this.fillPop = []
     this.lastFill = 0
@@ -681,6 +713,8 @@ export class PopcornEngine {
     this.phase = 'playing'
     this.paused = false
     this.stun = 0
+    /* Второй шанс возвращает и сердца — полный запас */
+    this.hearts = this.maxHearts
     this.timeLeft = REVIVE_SECONDS
     this.duration = REVIVE_SECONDS
     this.lastSec = Math.ceil(this.timeLeft)
@@ -1015,6 +1049,8 @@ export class PopcornEngine {
             this.crumbs(p.x, p.y, '#E5342E', 9)
             audio.play('penalty')
             this.buzz([60, 40, 100])
+            /* Мина теперь ещё и бьёт по сердцам */
+            this.loseHeart('mine')
           }
         }
         continue
@@ -1285,6 +1321,8 @@ export class PopcornEngine {
     /* Бонус за оставшееся время: секунды ×10 — цифры с нулями, как и зёрна */
     const bonus = Math.ceil(this.timeLeft) * 10
     this.score += bonus
+    /* За пройденный уровень возвращается +1 сердечко (древо «Лапка-целитель» — больше) */
+    this.hearts = Math.min(this.maxHearts, this.hearts + 1 + (this.tree.healPlus ?? 0))
     audio.stopMusic()
     audio.play('levelwin')
     this.buzz([30, 40, 60])
@@ -1294,16 +1332,42 @@ export class PopcornEngine {
       score: Math.floor(this.score),
       bonus,
       clean: this.levelShock === 0 && this.levelStolen === 0,
+      hearts: this.hearts,
+      lostHearts: this.heartLost,
     })
   }
 
-  private end(): void {
+  private end(reason: EndResult['reason'] = 'time'): void {
+    if (this.phase === 'ended') return // поражение уже зафиксировано
+    this.endReason = reason
     this.phase = 'ended'
     audio.stopMusic()
     audio.play('gameover')
     this.buzz([60, 40, 60, 40, 120])
     this.emitStats(true)
-    this.cb.onEnd?.({ score: Math.floor(this.score), level: this.lvl })
+    this.cb.onEnd?.({ score: Math.floor(this.score), level: this.lvl, reason })
+  }
+
+  /** Потеря сердечка: мина или повторный клюв голубя. Ноль — поражение */
+  private loseHeart(where: 'mine' | 'pigeon'): void {
+    if (this.phase !== 'playing' || this.hearts <= 0) return
+    const u = this.u
+    this.hearts--
+    this.heartLost++
+    this.texts.push({
+      x: where === 'mine' ? this.paw.x : this.cup.x,
+      y: where === 'mine' ? this.paw.y - 64 * u : this.cup.y - this.cupH * 1.5,
+      text: this.L('txt.heart'),
+      color: '#FF6B8A',
+      t: 0,
+      dur: 1.1,
+      size: 24 * u,
+    })
+    this.doShake(6)
+    audio.play('penalty')
+    this.buzz([40, 60])
+    this.emitStats(true)
+    if (this.hearts <= 0) this.end('hearts')
   }
 
   private crumbs(x: number, y: number, color: string, n: number): void {
@@ -1380,6 +1444,7 @@ export class PopcornEngine {
       hp: maxHp,
       maxHp,
       stolen: 0,
+      pecks: 0,
       hitCd: 0,
       flash: 0,
       kx: 0,
@@ -1417,7 +1482,8 @@ export class PopcornEngine {
       const dx = g.hx - g.x
       const dy = g.hy - g.y
       const d = Math.hypot(dx, dy)
-      const step = 150 * u * dt
+      /* Голуби стали вдвое быстрее — успей запугать, пока не расклевала корзину */
+      const step = 300 * u * dt
       if (d <= step) {
         g.x = g.hx
         g.y = g.hy
@@ -1431,7 +1497,8 @@ export class PopcornEngine {
       g.y += Math.sin(g.stateT * 6) * 12 * u * dt
       g.peckT -= dt
       if (g.peckT <= 0) {
-        g.peckT = PIGEON_PECK_EVERY + Math.random() * 0.8
+        /* Чем выше уровень, тем чаще клюёт (2.2с → 1.2с) */
+        g.peckT = Math.max(1.2, PIGEON_PECK_EVERY - this.lvl * 0.05) + Math.random() * 0.8
         this.pigeonPeck()
       }
     } else {
@@ -1443,9 +1510,14 @@ export class PopcornEngine {
       g.y -= rise * u * dt
       if (g.x < -60 * u || g.x > this.W + 60 * u) {
         this.pigeon = null
-        const base = PIGEON_RESPAWN[0] + Math.random() * (PIGEON_RESPAWN[1] - PIGEON_RESPAWN[0])
-        /* «Птичий базар»: без голубей скучно — возвращаются втрое быстрее */
-        this.pigeonTimer = this.perk === 'pigeonfeast' ? base * 0.35 : base
+        /* Чем выше уровень, тем чаще возвращаются воришки: ramp с ×1 (3-й ур.)
+           до ×0.32. «Птичий базар» убыстряет сверх того. С 7-го уровня птичья
+           стая: шанс 40%, что воришка вернётся уже через пару секунд */
+        const ramp = Math.max(0.32, 1 - (this.lvl - 3) * 0.07)
+        let base = (PIGEON_RESPAWN[0] + Math.random() * (PIGEON_RESPAWN[1] - PIGEON_RESPAWN[0])) * ramp
+        if (this.perk === 'pigeonfeast') base *= 0.35
+        if (this.lvl >= 7 && Math.random() < 0.4) base = 1.5 + Math.random() * 1.5
+        this.pigeonTimer = base
       }
     }
     /* Отлёт после удара: импульс гаснет, в парении воришка возвращается
@@ -1533,8 +1605,13 @@ export class PopcornEngine {
     const u = this.u
     if (!this.pigeon) return
     if (this.collected > 0) {
-      this.collected--
-      if (this.pigeon) this.pigeon.stolen++ // при победе вернём в стаканчик
+      const g = this.pigeon
+      /* Воришка становится наглее с уровнем: с 5-го тащит по 2 зерна,
+         с 10-го — по 3, с 15-го — по 4 за клюв */
+      const steal = Math.min(this.collected, 1 + Math.floor((this.lvl - 1) / 5))
+      this.collected -= steal
+      g.stolen += steal
+      g.pecks++ // со второго клюва — минус сердечко
       this.levelStolen++ // ачивка «Чистая работа» сгорела
       this.streak = 0 // воришка сбивает серию
       this.pendingClear = -1 // украденное зерно отменяет близкое «уровень пройден»
@@ -1552,6 +1629,13 @@ export class PopcornEngine {
       this.crumbs(this.cup.x, this.cup.y - this.cupH * 0.4, '#C8CFD8', 6)
       audio.play('penalty')
       this.buzz(40)
+      /* Разграбленная корзина: унесли всё до последнего зерна — поражение */
+      if (this.collected <= 0) {
+        this.end('ransacked')
+        return
+      }
+      /* Повторный клюв по корзине — минус сердечко */
+      if (g.pecks >= 2) this.loseHeart('pigeon')
     } else {
       this.texts.push({
         x: this.cup.x,
@@ -1688,7 +1772,7 @@ export class PopcornEngine {
       : this.feverAfter >= 0
         ? this.lastFeverGained
         : 0
-    const key = `${this.score}|${this.lvl}|${this.quota}|${this.collected}|${this.carried.length}|${sec}|${this.paused}|${this.streak}|${this.goldenCount}|${this.pigeonsRun}|${fever}|${feverGained}|${this.wave}|${this.shieldLeft}|${this.runGrains}|${this.runNipples}|${this.minesHit}|${this.shieldSaves}`
+    const key = `${this.score}|${this.lvl}|${this.quota}|${this.collected}|${this.carried.length}|${sec}|${this.paused}|${this.streak}|${this.goldenCount}|${this.pigeonsRun}|${fever}|${feverGained}|${this.wave}|${this.shieldLeft}|${this.runGrains}|${this.runNipples}|${this.minesHit}|${this.shieldSaves}|${this.hearts}|${this.maxHearts}`
     if (!force && key === this.lastStatsKey) return
     this.lastStatsKey = key
     this.cb.onStats({
@@ -1713,6 +1797,8 @@ export class PopcornEngine {
       runNipples: this.runNipples,
       minesHit: this.minesHit,
       shieldSaves: this.shieldSaves,
+      hearts: this.hearts,
+      maxHearts: this.maxHearts,
     })
   }
 

@@ -201,6 +201,20 @@ const T: Record<string, Row> = {
     'Schilde pro Lauf: {{n}}',
     'Escudos por ronda: {{n}}',
   ],
+  'tree.heartmax.name': ['Плюшевое сердце', 'Plush Heart', 'Plüschherz', 'Corazón de peluche'],
+  'tree.heartmax.effect': [
+    'Максимум сердец +{{n}}',
+    'Max hearts +{{n}}',
+    'Max. Herzen +{{n}}',
+    'Máx. corazones +{{n}}',
+  ],
+  'tree.healer.name': ['Лапка-целитель', 'Healing Paw', 'Heilpfote', 'Patita sanadora'],
+  'tree.healer.effect': [
+    'Сердец за уровень: +{{n}}',
+    'Hearts per level: +{{n}}',
+    'Herzen pro Level: +{{n}}',
+    'Corazones por nivel: +{{n}}',
+  ],
   'tree.needParent': [
     'Сначала открой «{{s}}»!',
     'Unlock “{{s}}” first!',
@@ -563,6 +577,34 @@ const T: Record<string, Row> = {
     'Estela de estrellas · oro +6% · más ágil',
   ],
 
+  'paw.heartpaw.name': ['Сердоликовая лапка', 'Carnelian Paw', 'Karnellenpfote', 'Patita cornalina'],
+  'paw.heartpaw.desc': [
+    'Тёплая лапка с сердоликовой подушечкой: любовь котика — лучшая броня. Дарит лишнее сердечко в каждом забеге!',
+    'A warm paw with a carnelian pad: a cat’s love is the best armor. Grants an extra heart every run!',
+    'Eine warme Pfote mit Karnell-Kissen: Katzenliebe ist die beste Rüstung. Schenkt jedem Lauf ein Extra-Herz!',
+    'Patita cálida con almohadilla cornalina: el amor gatuno es la mejor armadura. ¡Regala un corazón extra por partida!',
+  ],
+  'paw.heartpaw.bonus': [
+    'Сердечек +1 · оберег от мин 15%',
+    'Hearts +1 · 15% mine guard',
+    'Herzen +1 · 15% Minenschutz',
+    'Corazones +1 · 15% antaminas',
+  ],
+
+  'paw.candy.name': ['Мурчащая валентинка', 'Purring Valentine', 'Schnurrende Valentin', 'Sanvalentín ronroneante'],
+  'paw.candy.desc': [
+    'Розовая лапка с карамельными сердечками: мурчет так, что зёрна сами прыгают в ладошку!',
+    'A pink paw with caramel hearts: it purrs so sweetly that kernels hop in by themselves!',
+    'Eine rosa Pfote mit Karamell-Herzen: Sie schnurrt so süß, dass Körner von allein hüpfen!',
+    'Patita rosa con corazones de caramelo: ronronea tan bonito que los granos saltan solos!',
+  ],
+  'paw.candy.bonus': [
+    'Сладкий шлейф · проворнее на 5%',
+    'Sweet trail · 5% nimbler',
+    'Süßer Schleif · 5% flinker',
+    'Estela dulce · 5% más ágil',
+  ],
+
   'upg.capacity.name': ['Большой стаканчик', 'Big Cup', 'Großer Becher', 'Vaso Grande'],
   'upg.capacity.desc': [
     'Лапка носит на одно зерно больше в каждом забеге. Можно купить дважды!',
@@ -589,6 +631,25 @@ const T: Record<string, Row> = {
     'No second chance yet',
     'Noch keine zweite Chance',
     'Sin segunda oportunidad aún',
+  ],
+  'upg.hearts.name': ['Крепкое сердце', 'Strong Heart', 'Starkes Herz', 'Corazón fuerte'],
+  'upg.hearts.desc': [
+    'Плюс одно сердечко к максимуму в каждом забеге. Можно купить дважды!',
+    'Plus one heart to the maximum in every run. Can be bought twice!',
+    'Plus ein Herz zum Maximum in jedem Lauf. Zweimal kaufbar!',
+    'Un corazón más al máximo en cada partida. ¡Se compra dos veces!',
+  ],
+  'upg.hearts.effect': [
+    'Максимум сердец +{{n}}',
+    'Max hearts +{{n}}',
+    'Max. Herzen +{{n}}',
+    'Máx. corazones +{{n}}',
+  ],
+  'upg.hearts.effectNone': [
+    'Пока без бонуса',
+    'No bonus yet',
+    'Noch kein Bonus',
+    'Sin bonus aún',
   ],
   'upg.startperk.name': ['Счастливый сундучок', 'Lucky Chest', 'Glückstruhe', 'Cofre Afortunado'],
   'upg.startperk.desc': [
@@ -969,6 +1030,42 @@ const T: Record<string, Row> = {
     'Toma 10 bonus de cofres en total',
   ],
 
+  'ach.heart1.name': ['Первый шрам', 'First Scar', 'Erste Narbe', 'Primera cicatriz'],
+  'ach.heart1.desc': [
+    'Потерять первое сердечко ❤️ и продолжить бой',
+    'Lose your first heart and fight on',
+    'Verliere das erste Herz und kämpfe weiter',
+    'Pierde el primer corazón y sigue luchando',
+  ],
+  'ach.heartsFree5.name': ['Целая и невредимая', 'Unscathed', 'Unversehrt', 'Intacta'],
+  'ach.heartsFree5.desc': [
+    'Пройти 5 уровней подряд без потери сердец',
+    'Clear 5 levels in a row without losing a heart',
+    '5 Level in Folge ohne Herzverlust schaffen',
+    'Supera 5 niveles seguidos sin perder corazones',
+  ],
+  'ach.heartsLast.name': ['На честном слове', 'By a Whisker', 'Haarscharf', 'Por los pelos'],
+  'ach.heartsLast.desc': [
+    'Пройти уровень, оставшись с одним сердечком',
+    'Clear a level with just one heart left',
+    'Level mit nur einem Herz übrig schaffen',
+    'Supera un nivel con un solo corazón',
+  ],
+  'ach.pigeon50.name': ['Орнитолог', 'Ornithologist', 'Ornithologe', 'Ornitóloga'],
+  'ach.pigeon50.desc': [
+    'Повалить 50 голубей за всё время',
+    'Down 50 pigeons all time',
+    '50 Tauben insgesamt erledigt',
+    'Abate 50 palomas en total',
+  ],
+  'ach.sevenhearts.name': ['Семь жизней', 'Seven Lives', 'Sieben Leben', 'Siete vidas'],
+  'ach.sevenhearts.desc': [
+    'Собрать максимум из 7 сердечек (апгрейд + древо + лапка)',
+    'Reach a maximum of 7 hearts (upgrade + tree + paw)',
+    'Erreiche 7 Max-Herzen (Upgrade + Baum + Pfote)',
+    'Alcanza 7 corazones (mejora + árbol + patita)',
+  ],
+
   /* ---------- перки ---------- */
   'perk.tag.curse': ['☠ ПРОКЛЯТЬЕ', '☠ CURSE', '☠ FLUCH', '☠ MALDICIÓN'],
   'perk.tag.bonus': ['✨ БОНУС', '✨ BONUS', '✨ BONUS', '✨ PREMIO'],
@@ -1162,10 +1259,10 @@ const T: Record<string, Row> = {
     'Bonus de velocidad: +{{b}} · Puntos: {{s}}',
   ],
   'chest.choose': [
-    'Внутри каждого всё видно заранее — выбирай сундучок, он решит судьбу следующего уровня',
-    'Everything inside is visible up front — pick the chest that decides your next level',
-    'Der Inhalt ist vorab sichtbar — wähle die Truhe, die dein nächstes Level entscheidet',
-    'El contenido se ve de antemano: elige el cofre que decidirá tu próximo nivel',
+    'Никто не знает, что внутри — выбирай вслепую!',
+    'Nobody knows what is inside — pick blind!',
+    'Niemand weiß, was drin ist — wähle blind!',
+    'Nadie sabe qué hay dentro: ¡elige a ciegas!',
   ],
   'chest.pick': [
     '👇 Выбери сундучок!',
@@ -1246,6 +1343,7 @@ const T: Record<string, Row> = {
   'hud.bestPill': ['Рекорд', 'Best', 'Rekord', 'Récord'],
   'hud.fever': ['🔥 ЛИХОРАДКА +{{n}}', '🔥 FEVER +{{n}}', '🔥 FIEBER +{{n}}', '🔥 FIEBRE +{{n}}'],
   'hud.shields': ['Щиты от мин: {{n}}', 'Mine shields: {{n}}', 'Minenschilde: {{n}}', 'Escudos antaminas: {{n}}'],
+  'hud.hearts': ['Сердечки: {{n}} из {{m}}', 'Hearts: {{n}} of {{m}}', 'Herzen: {{n}} von {{m}}', 'Corazones: {{n}} de {{m}}'],
 
   /* ---------- конец игры ---------- */
   'over.title': ['КВОТА ПРОВАЛЕНА!', 'QUOTA FAILED!', 'QUOTE VERPASST!', '¡CUOTA FALLIDA!'],
@@ -1254,6 +1352,18 @@ const T: Record<string, Row> = {
     'Time ran out on level {{n}}',
     'Die Zeit lief in Level {{n}} ab',
     'Se acabó el tiempo en el nivel {{n}}',
+  ],
+  'over.hearts': [
+    'Сердечки кончились!',
+    'Out of hearts!',
+    'Keine Herzen mehr!',
+    '¡Sin corazones!',
+  ],
+  'over.ransacked': [
+    'Голуби разграбили корзину!',
+    'Pigeons ransacked the cup!',
+    'Tauben haben den Becher geplündert!',
+    '¡Las palomas saquearon el vaso!',
   ],
   'over.points': [
     'очков · дошёл до уровня {{n}}',
@@ -1405,10 +1515,10 @@ const T: Record<string, Row> = {
     'La patita crece: 3 granos, 4 tras el nivel 5, 5 tras el 10',
   ],
   'rules.r6': [
-    'Между уровнями открывай сундучок: что внутри — видно сразу. За злые проклятья (зеркало, чёрная комната) — компенсация опытом 🍿, а бонусный перк — сам по себе приз!',
-    'Between levels open a chest: what is inside is visible right away. Harsh curses (mirror, blackout) come with XP 🍿 compensation — a bonus perk is a prize on its own!',
-    'Zwischen den Leveln: Truhe öffnen — der Inhalt ist sofort sichtbar. Harte Flüche (Spiegel, Dunkelheit) bringen XP 🍿-Entschädigung — ein Bonus-Perk ist selbst der Preis!',
-    'Entre niveles abre un cofre: el contenido se ve al instante. Las maldiciones duras (espejo, oscuridad) traen compensación de exp 🍿; ¡el perk bueno es el premio en sí!',
+    'Между уровнями — сундучок вслепую: что внутри, узнаешь только после открытия. Покажем и то, что лежало в остальных!',
+    'Between levels — a blind chest: you learn what is inside only after opening. We will also show what the others held!',
+    'Zwischen den Leveln: blinde Truhe — was drin ist, erfährst du erst nach dem Öffnen. Auch was in den anderen lag!',
+    'Entre niveles: cofre a ciegas — sabrás qué hay dentro solo al abrirlo. ¡Y verás lo que había en los otros!',
   ],
   'rules.r7': [
     'Комбо: за каждую сдачу без мины растёт серия — множитель до ×5! Мина или голубь сбрасывают серию',
@@ -1622,6 +1732,7 @@ const T: Record<string, Row> = {
     '¡ATURDIDA! -{{n}}',
   ],
   'txt.stole': ['УКРАЛ!', 'STOLEN!', 'GEKLAUT!', '¡ROBADO!'],
+  'txt.heart': ['-1 ❤️', '-1 ❤️', '-1 ❤️', '-1 ❤️'],
   'txt.empty': ['ПУСТО!', 'EMPTY!', 'LEER!', '¡VACÍO!'],
   'txt.guard': ['ОБЕРЕГ!', 'SAVED!', 'GERETTET!', '¡SALVADO!'],
   'txt.shield': ['ЩИТ!', 'SHIELD!', 'SCHILD!', '¡ESCUDO!'],
