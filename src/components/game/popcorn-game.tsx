@@ -63,6 +63,7 @@ import {
   type ScreenTransform,
 } from '@/lib/game/perks'
 import { makeChestSprite, makePawSprite, makePopcornSprite } from '@/lib/game/sprites'
+import { PopcornSlicer } from '@/components/game/popcorn-slicer'
 import { DEFAULT_PAW, PAWS, PAW_MAP, type PawDef, type PawId } from '@/lib/game/paws'
 import {
   addCoins,
@@ -158,7 +159,7 @@ import {
   type Orientation,
 } from '@/lib/game/settings'
 
-type Phase = 'start' | 'playing' | 'paused' | 'chest' | 'ended'
+type Phase = 'start' | 'playing' | 'paused' | 'slicer' | 'chest' | 'ended'
 
 /* ---------- автор и донаты (см. LICENSE / AUTHORS.md в корне репо) ---------- */
 /** Ник автора-правообладателя */
@@ -3684,7 +3685,8 @@ export function PopcornGame() {
         setExtras(rollExtras(offs))
         setOpenedIdx(null)
         setRunLevel(r.level + 1)
-        setPhase('chest')
+        /* БОНУС-НАРЕЗКА: гигантский попкорн перед сундучком — режем лапкой */
+        setPhase('slicer')
       },
       onFeverEnd: (r) => {
         /* После лихорадки — обычный уровень: сбрасываем перк и трансформации */
@@ -3957,6 +3959,12 @@ export function PopcornGame() {
     audio.startMusic('game')
     engineRef.current?.setPaused(false)
     setPhase('playing')
+  }, [])
+
+  /** Нарезка закончена: бонусные очки уходят в счёт забега → сундучок с перком */
+  const handleSlicerDone = useCallback((total: number) => {
+    engineRef.current?.addBonus(total)
+    setPhase('chest')
   }, [])
 
   const pauseGame = useCallback(() => {
@@ -4760,6 +4768,16 @@ export function PopcornGame() {
                 </button>
               </motion.div>
             </motion.div>
+          )}
+
+          {/* БОНУС-НАРЕЗКА: гигантский попкорн — режь лапкой как можно чаще */}
+          {phase === 'slicer' && clearInfo && (
+            <PopcornSlicer
+              key="slicer"
+              t={t}
+              level={clearInfo.level}
+              onDone={handleSlicerDone}
+            />
           )}
 
           {phase === 'chest' && clearInfo && (

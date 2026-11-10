@@ -1310,6 +1310,32 @@ const T: Record<string, Row> = {
     'In den anderen Truhen lag:',
     'En los otros cofres había:',
   ],
+  /* ── Бонус-мини-игра «Нарезка»: большой попкорн в конце уровня ── */
+  'slicer.title': [
+    'БОЛЬШОЙ ПОПКОРН! РЕЖЬ!',
+    'GIANT POPCORN! SLICE IT!',
+    'RIESEN-POPCORN! SCHNEID!',
+    '¡PALOMITA GIGANTE! ¡CORTA!',
+  ],
+  'slicer.hint': [
+    'Води лапкой по кукурузине как можно чаще — комбо множит очки!',
+    'Swipe your paw over the corn as fast as you can — combos multiply points!',
+    'Wische mit der Pfote über die Maiskugel — Combos vervielfachen Punkte!',
+    '¡Mueve la patita sobre la mazorca cuanto puedas: los combos multiplican!',
+  ],
+  'slicer.combo': ['КОМБО ×{{n}}', 'COMBO ×{{n}}', 'COMBO ×{{n}}', 'COMBO ×{{n}}'],
+  'slicer.crit': ['КРИТ!', 'CRIT!', 'KRIT!', '¡CRÍT!'],
+  'slicer.burst': ['ВЗРЫВ! +{{n}}', 'BOOM! +{{n}}', 'BUMM! +{{n}}', '¡BOOM! +{{n}}'],
+  'slicer.resultTitle': ['БОНУС НАРЕЗАН!', 'SLICED!', 'ZERSCHNITTEN!', '¡CORTADA!'],
+  'slicer.swipes': ['взмахов: {{n}}', 'slices: {{n}}', 'Schnitte: {{n}}', 'cortes: {{n}}'],
+  'slicer.maxcombo': ['макс. комбо ×{{n}}', 'best combo ×{{n}}', 'bestes Combo ×{{n}}', 'mejor combo ×{{n}}'],
+  'slicer.take': ['ЗАБРАТЬ 🎁', 'TAKE IT 🎁', 'HOLEN 🎁', '¡RECOGER 🎁!'],
+  'slicer.aria': [
+    'Бонус-мини-игра: режь большой попкорн свайпами',
+    'Bonus mini-game: slice the giant popcorn with swipes',
+    'Bonus-Minispiel: schneide das Riesen-Popcorn mit Wischgesten',
+    'Minijuego de bono: corta la palomita gigante con deslizamientos',
+  ],
   'quit.button': [
     '⏹ КОНЕЦ ИГРЫ — выйти в меню (опыт сохранится)',
     '⏹ END GAME — back to menu (XP is kept)',

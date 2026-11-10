@@ -468,6 +468,14 @@ export class PopcornEngine {
     this.L = tFor(lang)
   }
 
+  /** Бонус «Нарезки» (мини-игра в конце уровня): добавить очки в счёт забега */
+  addBonus(n: number): void {
+    const add = Math.max(0, Math.floor(n))
+    if (add <= 0 || this.phase === 'ended') return
+    this.score += add
+    this.emitStats(true)
+  }
+
   /** Новый забег: счёт с нуля, уровень 1 (старт-апгрейд может дать бонусный перк) */
   startRun(opts: { fast?: boolean; perk?: PerkId | null } = {}): void {
     this.debugFast = !!opts.fast
