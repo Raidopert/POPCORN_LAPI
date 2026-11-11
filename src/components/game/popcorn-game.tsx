@@ -64,6 +64,11 @@ import {
 } from '@/lib/game/perks'
 import { makeChestSprite, makePawSprite, makePopcornSprite } from '@/lib/game/sprites'
 import { PopcornSlicer } from '@/components/game/popcorn-slicer'
+import {
+  POSTER_COUNT,
+  POSTER_EVERY,
+  PosterInterstitial,
+} from '@/components/game/poster-interstitial'
 import { DEFAULT_PAW, PAWS, PAW_MAP, type PawDef, type PawId } from '@/lib/game/paws'
 import {
   addCoins,
@@ -2894,10 +2899,11 @@ export function PopcornGame() {
   const mutedRef = useRef(false)
   const transformRef = useRef<ScreenTransform>('none')
   const layoutRef = useRef<() => void>(() => {})
-  const devRef = useRef<{ fast: boolean; forced: PerkId | null; fever: boolean }>({
+  const devRef = useRef<{ fast: boolean; forced: PerkId | null; fever: boolean; poster: boolean }>({
     fast: false,
     forced: null,
     fever: false,
+    poster: false,
   })
   /* Сердечки: сколько было на прошлом HUD-тике (потеря → ачивка «Первый шрам») */
   const prevHeartsRef = useRef<number>(5)
@@ -2914,6 +2920,10 @@ export function PopcornGame() {
   const [phase, setPhase] = useState<Phase>('start')
   /** Таймер «празднования» перед бонус-нарезкой: даём салюту програть */
   const slicerDelayRef = useRef<number | null>(null)
+  /** Таймер перебивки: ждём секунду празднования, потом показываем плакат */
+  const posterDelayRef = useRef<number | null>(null)
+  /** Сколько плакатов уже показано в забеге: для строгой ротации 1→2→…→6→1 */
+  const posterSeqRef = useRef(0)
   const [stats, setStats] = useState<EngineStats>({
     score: 0,
     timeLeft: 60,
@@ -2945,6 +2955,15 @@ export function PopcornGame() {
   const muted = mutedRaw === '1'
   const [result, setResult] = useState<ResultState | null>(null)
   const [clearInfo, setClearInfo] = useState<ClearState | null>(null)
+  /** ПЛАКАТНАЯ ПЕРЕБИВКА: каждые 5 уровней после победы показываем
+      трудовой плакат Наны. mode: 'normal' — дальше нарезка и сундучок,
+      'fever' — сразу Лихорадка (перебивка врезается до ветки Fever,
+      чтобы рубеж не потерялся при выпадении бонус-уровня) */
+  const [posterPending, setPosterPending] = useState<{
+    level: number
+    mode: 'normal' | 'fever'
+    posterIdx: number
+  } | null>(null)
   const [offers, setOffers] = useState<PerkDef[]>([])
   /** Подарки в сундуках: монетки/опыт (null — только перк) */
   const [extras, setExtras] = useState<Array<ChestExtra | null>>([null, null, null])
@@ -3055,13 +3074,15 @@ export function PopcornGame() {
   const t = useMemo(() => tFor(settings.lang), [settings.lang])
 
   /* Скрытые dev-параметры URL: ?fast=1 (короткая норма), ?perk=rot180 (гарантированный перк),
-     ?fever=1 (лихорадка после каждого уровня — для проверки) */
+     ?fever=1 (лихорадка после каждого уровня — для проверки),
+     ?poster=1 (плакатная перебивка после КАЖДОГО уровня — для проверки) */
   useEffect(() => {
     const sp = new URLSearchParams(window.location.search)
     devRef.current = {
       fast: sp.has('fast'),
       forced: (sp.get('perk') as PerkId | null) ?? null,
       fever: sp.has('fever'),
+      poster: sp.has('poster'),
     }
   }, [])
 
@@ -3669,8 +3690,36 @@ export function PopcornGame() {
         if (r.hearts === 1) announceAch(['heartsLast'])
         /* ЛИХОРАДКА: случайный бонусный уровень (шанс 25%, не раньше 2-го;
            ?fever=1 — всегда). Вместо сундучка — 3 секунды безумного сбора,
-           потом сразу следующий обычный уровень */
-        if ((devRef.current.fever || Math.random() < 0.25) && r.level >= 2) {
+           потом сразу следующий обычный уровень.
+           ПЛАКАТНАЯ ПЕРЕБИВКА: каждые 5 уровней (?poster=1 — после каждого)
+           после празднования показываем трудовой плакат Наны. Врезается
+           ДО ветки лихорадки — иначе перебивка на рубеже терялась бы,
+           потому что Лихорадка стартует уровень напрямую, без сундучка. */
+        const feverNow = (devRef.current.fever || Math.random() < 0.25) && r.level >= 2
+        const posterEvery = devRef.current.poster ? 1 : POSTER_EVERY
+        if (r.level % posterEvery === 0) {
+          if (!feverNow) {
+            /* Подготовка обычного продолжения: сундучок уже ждёт за плакатом */
+            setClearInfo({ level: r.level, bonus: r.bonus })
+            const offs = rollOffers(3, devRef.current.forced ?? undefined)
+            setOffers(offs)
+            setExtras(rollExtras(offs))
+            setOpenedIdx(null)
+            setRunLevel(r.level + 1)
+          }
+          /* Секунда празднования («УРОВЕНЬ ПРОЙДЕН» в канвасе), потом плакат.
+             Порядок плакатов — по счётчику рубежей забега, не по номеру
+             уровня: работает и с обычным шагом 5, и с dev-шагом 1 */
+          posterSeqRef.current += 1
+          const posterIdx = (posterSeqRef.current - 1) % POSTER_COUNT
+          if (posterDelayRef.current !== null) window.clearTimeout(posterDelayRef.current)
+          posterDelayRef.current = window.setTimeout(() => {
+            posterDelayRef.current = null
+            setPosterPending({ level: r.level, mode: feverNow ? 'fever' : 'normal', posterIdx })
+          }, 1150)
+          return
+        }
+        if (feverNow) {
           setPerk(null)
           transformRef.current = 'none'
           const cv = canvasRef.current
@@ -3772,6 +3821,8 @@ export function PopcornGame() {
           }).catch(() => {})
         }
         setResult({ score: r.score, level: r.level, record, rank: list.indexOf(entry), canRevive, reason: r.reason })
+        /* Забег кончился — перебивка больше не актуальна */
+        setPosterPending(null)
         setPhase('ended')
       },
     })
@@ -3796,10 +3847,15 @@ export function PopcornGame() {
       engine.destroy()
       engineRef.current = null
       delete (window as unknown as { __popcornEngine?: PopcornEngine }).__popcornEngine
-      /* Не оставляем «хвост»: таймер празднования не должен сработать после размонтирования */
+      /* Не оставляем «хвост»: таймеры празднования и перебивки не должны
+         сработать после размонтирования */
       if (slicerDelayRef.current !== null) {
         window.clearTimeout(slicerDelayRef.current)
         slicerDelayRef.current = null
+      }
+      if (posterDelayRef.current !== null) {
+        window.clearTimeout(posterDelayRef.current)
+        posterDelayRef.current = null
       }
     }
   }, [storeBest, addXpDelta, announceAch, checkLifeAch, rollExtras, rollOffers, growMarten, awardStage, grantMartenXp])
@@ -3982,6 +4038,29 @@ export function PopcornGame() {
     setPhase('chest')
   }, [])
 
+  /** Плакат закрыт: 'normal' → бонус-нарезка; 'fever' → сразу Лихорадка.
+      Оба пути снимают паузу сами (startLevel/startFever делают paused=false),
+      поэтому перебивка безопасна даже после паузы во время празднования */
+  const continueFromPoster = useCallback(() => {
+    const p = posterPending
+    if (!p) return
+    setPosterPending(null)
+    if (p.mode === 'fever') {
+      setPerk(null)
+      transformRef.current = 'none'
+      const cv = canvasRef.current
+      if (cv) {
+        cv.style.filter = ''
+        cv.classList.remove('popcorn-hue')
+      }
+      layoutRef.current()
+      engineRef.current?.startFever(p.level + 1)
+      setPhase('playing')
+      return
+    }
+    setPhase('slicer')
+  }, [posterPending])
+
   const pauseGame = useCallback(() => {
     audio.play('click')
     audio.stopMusic()
@@ -3996,6 +4075,11 @@ export function PopcornGame() {
     audio.startMusic('menu') // возвращаем заглавную тему (жест пользователя уже есть)
     setResult(null)
     setClearInfo(null)
+    setPosterPending(null)
+    if (posterDelayRef.current !== null) {
+      window.clearTimeout(posterDelayRef.current)
+      posterDelayRef.current = null
+    }
     setPerk(null)
     setOpenedIdx(null)
     transformRef.current = 'none'
@@ -5005,6 +5089,21 @@ export function PopcornGame() {
                 </div>
               </motion.div>
             </motion.div>
+          )}
+
+          {/* ПЛАКАТНАЯ ПЕРЕБИВКА: каждые 5 уровней — трудовой плакат Наны.
+              Поверх всего (z-50), поверх паузы тоже; плакаты идут по
+              порядку вместе с рубежами сложности: 1→2→3→4→5→6→1… */}
+          {posterPending && (
+            <PosterInterstitial
+              key={`poster-${posterPending.level}-${posterPending.posterIdx}`}
+              t={t}
+              level={posterPending.level}
+              score={stats.score}
+              best={best}
+              posterIdx={posterPending.posterIdx}
+              onContinue={continueFromPoster}
+            />
           )}
 
           {phase === 'ended' && result && (
