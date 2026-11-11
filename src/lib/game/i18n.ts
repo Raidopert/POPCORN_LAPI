@@ -28,17 +28,12 @@ type Row = [string, string, string, string]
 
 const T: Record<string, Row> = {
   /* ---------- меню ---------- */
+  /* Бренд игры — единый на всех языках, только английский (запрос игрока) */
   'app.title': [
-    'КОШАЧИЙ ПОПКОРННЫЙ БЕСПРЕДЕЛ',
-    'CAT POPCORN MAYHEM',
-    'KATZEN-POPKORN-CHAOS',
-    'CAOS GATUNO DE PALOMITAS',
-  ],
-  'app.tagline': [
-    '8-битный рогалик-аркада · бесконечные уровни',
-    '8-bit roguelike arcade · endless levels',
-    '8-Bit-Roguelike-Arcade · endlose Level',
-    'Arcade roguelike 8 bits · niveles infinitos',
+    'POPCORN PAWS',
+    'POPCORN PAWS',
+    'POPCORN PAWS',
+    'POPCORN PAWS',
   ],
   'menu.record': ['Рекорд: {{n}}', 'Best: {{n}}', 'Rekord: {{n}}', 'Récord: {{n}}'],
   'menu.xp': ['Опыт: {{n}}', 'XP: {{n}}', 'XP: {{n}}', 'Exp: {{n}}'],
@@ -299,10 +294,10 @@ const T: Record<string, Row> = {
     'Campo de juego: recoge las palomitas en el vaso con la patita de marta',
   ],
   'footer.text': [
-    '🌽 Кошачий попкорнный Беспредел · 8-битный рогалик · сделано с ❤️',
-    '🌽 Cat Popcorn Mayhem · 8-bit roguelike · made with ❤️',
-    '🌽 Katzen-Popkorn-Chaos · 8-Bit-Roguelike · mit ❤️ gemacht',
-    '🌽 Caos Gatuno de Palomitas · roguelike 8 bits · hecho con ❤️',
+    '🌽 POPCORN PAWS · 8-битный рогалик · сделано с ❤️',
+    '🌽 POPCORN PAWS · 8-bit roguelike · made with ❤️',
+    '🌽 POPCORN PAWS · 8-Bit-Roguelike · mit ❤️ gemacht',
+    '🌽 POPCORN PAWS · roguelike 8 bits · hecho con ❤️',
   ],
   'img.catMenu': [
     'Рыжий кот держит ведро с попкорном',

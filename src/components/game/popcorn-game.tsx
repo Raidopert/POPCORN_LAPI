@@ -2910,8 +2910,10 @@ async function shareResult(
     c.textAlign = 'center'
     c.fillStyle = '#B33A26'
     c.font = '700 44px "Handjet", system-ui, sans-serif'
-    c.fillText(t('app.title').split(' ').slice(0, 2).join(' '), 300, 282)
-    c.fillText(t('app.title').split(' ').slice(2).join(' ') || ' ', 300, 326)
+    c.fillText('P.O.P.', 300, 282)
+    c.fillStyle = '#8a5330'
+    c.font = '600 26px "Handjet", system-ui, sans-serif'
+    c.fillText(t('app.title'), 300, 326)
     c.fillStyle = '#5C3A1E'
     c.font = '700 150px "Handjet", system-ui, sans-serif'
     c.fillText(String(score), 300, 480)
@@ -4730,12 +4732,16 @@ export function PopcornGame() {
                     )}
                   </AnimatePresence>
                 </div>
-                <h1 className="text-shadow-pixel mt-2.5 font-pixel text-2xl font-bold leading-tight text-[#B33A26] sm:text-3xl">
-                  {t('app.title')}
+                {/* Логотип: акроним P.O.P. — первые 3 заглавные буквы с точками (точки-зёрна), полное имя ниже.
+                    Слоган «8-битный рогалик…» убран с экрана (запрос игрока); бренд только на английском на всех языках */}
+                <h1 aria-label={t('app.title')} className="mt-2.5 font-pixel leading-none">
+                  <span aria-hidden className="text-shadow-pixel block text-4xl font-bold tracking-wide text-[#B33A26] sm:text-5xl">
+                    P<span className="text-amber-500">.</span>O<span className="text-amber-500">.</span>P<span className="text-amber-500">.</span>
+                  </span>
+                  <span aria-hidden className="mt-1.5 block font-pixel text-[11px] font-bold uppercase tracking-[0.35em] text-[#8a5330] sm:text-sm">
+                    {t('app.title')}
+                  </span>
                 </h1>
-                <p className="mt-1 font-ui text-xs font-medium text-[#8a5330] sm:text-sm">
-                  {t('app.tagline')}
-                </p>
 
                 {/* Компактный статус: рекорд (+мировая стат.), опыт, уровень котика, ник */}
                 <div className="mt-2.5 flex flex-wrap items-center justify-center gap-1">
