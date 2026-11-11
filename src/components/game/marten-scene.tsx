@@ -605,6 +605,214 @@ export default function MartenScene({
       ctx.fillRect(0, fy - 2.5, w, 2.5)
     }
 
+    /* ────────────── Отрисовка: окно с закатным небом ────────────── */
+
+    /** Геометрия окна: тёплая рама, закатное небо, плывущие облака, солнце */
+    const windowGeom = (): { x: number; y: number; w: number; h: number } => {
+      const ww = clamp(w * 0.24, 54, 92)
+      const wh = clamp(floorY() * 0.42, 46, 64)
+      return { x: clamp(w * 0.12, 12, w - ww - 12), y: 42, w: ww, h: wh }
+    }
+
+    const drawWindow = (): void => {
+      const wg = windowGeom()
+      const fy = floorY()
+      /* Пятно закатного света на полу: косой параллелограмм от окна вправо */
+      ctx.save()
+      ctx.globalAlpha = 0.1 + 0.02 * Math.sin(time * 0.7)
+      ctx.fillStyle = '#FFD98A'
+      ctx.beginPath()
+      ctx.moveTo(wg.x + 4, fy)
+      ctx.lineTo(wg.x + wg.w - 4, fy)
+      ctx.lineTo(wg.x + wg.w + 26, h)
+      ctx.lineTo(wg.x + 34, h)
+      ctx.closePath()
+      ctx.fill()
+      ctx.restore()
+
+      /* Стекло: закатное небо от персикового к янтарному */
+      const sky = ctx.createLinearGradient(0, wg.y, 0, wg.y + wg.h)
+      sky.addColorStop(0, '#FFE9B8')
+      sky.addColorStop(0.6, '#FFDC9E')
+      sky.addColorStop(1, '#FFC98A')
+      ctx.fillStyle = sky
+      ctx.fillRect(wg.x, wg.y, wg.w, wg.h)
+
+      /* Солнце в верхнем стекле: тёплый диск с мягким ореолом */
+      const sx = wg.x + wg.w * 0.68
+      const sy = wg.y + wg.h * 0.3
+      const halo = ctx.createRadialGradient(sx, sy, 1, sx, sy, wg.w * 0.3)
+      halo.addColorStop(0, 'rgba(255, 214, 102, 0.55)')
+      halo.addColorStop(1, 'rgba(255, 214, 102, 0)')
+      ctx.fillStyle = halo
+      ctx.fillRect(wg.x, wg.y, wg.w, wg.h)
+      ctx.fillStyle = '#FFD166'
+      ctx.beginPath()
+      ctx.arc(sx, sy, wg.w * 0.1, 0, Math.PI * 2)
+      ctx.fill()
+
+      /* Два облака плывут через окно и заворачиваются по кругу */
+      const cloud = (cx: number, cy: number, sc: number): void => {
+        ctx.fillStyle = 'rgba(255, 250, 238, 0.92)'
+        ctx.beginPath()
+        ctx.arc(cx, cy, 6 * sc, 0, Math.PI * 2)
+        ctx.arc(cx + 7 * sc, cy - 3 * sc, 5 * sc, 0, Math.PI * 2)
+        ctx.arc(cx + 14 * sc, cy, 6.5 * sc, 0, Math.PI * 2)
+        ctx.fill()
+        ctx.fillRect(cx - 6 * sc, cy, 22 * sc, 5 * sc)
+      }
+      const span = wg.w + 70
+      const c1x = wg.x + ((time * 7 + 20) % span) - 30
+      const c2x = wg.x + ((time * 4.5 + span * 0.55) % span) - 30
+      ctx.save()
+      ctx.beginPath()
+      ctx.rect(wg.x, wg.y, wg.w, wg.h)
+      ctx.clip()
+      cloud(c1x, wg.y + wg.h * 0.62, 1)
+      cloud(c2x, wg.y + wg.h * 0.34, 0.7)
+      ctx.restore()
+
+      /* Рама: внешняя коробка + крестовина + подоконник */
+      ctx.strokeStyle = '#8A5330'
+      ctx.lineWidth = 5
+      ctx.strokeRect(wg.x + 0.5, wg.y + 0.5, wg.w - 1, wg.h - 1)
+      ctx.lineWidth = 3
+      ctx.beginPath()
+      ctx.moveTo(wg.x + wg.w / 2, wg.y + 2)
+      ctx.lineTo(wg.x + wg.w / 2, wg.y + wg.h - 2)
+      ctx.moveTo(wg.x + 2, wg.y + wg.h / 2)
+      ctx.lineTo(wg.x + wg.w - 2, wg.y + wg.h / 2)
+      ctx.stroke()
+      ctx.fillStyle = '#A9713F' // подоконник
+      ctx.fillRect(wg.x - 6, wg.y + wg.h + 2, wg.w + 12, 6)
+      ctx.fillStyle = '#7A5730' // тень под подоконником
+      ctx.fillRect(wg.x - 6, wg.y + wg.h + 8, wg.w + 12, 2.5)
+    }
+
+    /** Постер «Попкорн» на стене справа: рама, паспарту, стаканчик с паром */
+    const drawPoster = (): void => {
+      const pw = clamp(w * 0.15, 38, 52)
+      const ph = pw * 1.24
+      const px = clamp(w * 0.66, 12, w - pw - 12)
+      const py = 44
+      ctx.save()
+      ctx.translate(px + pw / 2, py)
+      ctx.rotate(Math.sin(time * 0.9) * 0.018) // лёгкое покачивание на гвозде
+      // рама
+      ctx.fillStyle = '#6B421F'
+      ctx.fillRect(-pw / 2 - 3, -3, pw + 6, ph + 6)
+      // паспарту
+      ctx.fillStyle = '#FFF6E6'
+      ctx.fillRect(-pw / 2, 0, pw, ph)
+      // мини-стаканчик: трапеция в красную полоску
+      const cupHh = ph * 0.34
+      const cupWt = pw * 0.46
+      const cupWb = pw * 0.3
+      const ccy = ph * 0.56
+      ctx.fillStyle = '#E24B3B'
+      ctx.beginPath()
+      ctx.moveTo(-cupWt / 2, ccy - cupHh / 2)
+      ctx.lineTo(cupWt / 2, ccy - cupHh / 2)
+      ctx.lineTo(cupWb / 2, ccy + cupHh / 2)
+      ctx.lineTo(-cupWb / 2, ccy + cupHh / 2)
+      ctx.closePath()
+      ctx.fill()
+      ctx.fillStyle = '#FFF6EC' // белые полосы
+      for (let i = 0; i < 2; i++) {
+        const yy = ccy - cupHh / 2 + ((i + 0.5) * cupHh) / 2.2
+        const ww2 = cupWt + ((cupWb - cupWt) * (yy - (ccy - cupHh / 2))) / cupHh
+        ctx.fillRect(-ww2 / 2, yy, ww2, cupHh * 0.12)
+      }
+      // попкорн-шапка над стаканчиком
+      ctx.fillStyle = '#FFFFFF'
+      ctx.beginPath()
+      ctx.arc(-4, ccy - cupHh / 2 - 3, 4.5, 0, Math.PI * 2)
+      ctx.arc(3, ccy - cupHh / 2 - 4.5, 5, 0, Math.PI * 2)
+      ctx.arc(4.5, ccy - cupHh / 2 - 2, 3.6, 0, Math.PI * 2)
+      ctx.fill()
+      // пар: три волнистые линии, дышат
+      ctx.strokeStyle = 'rgba(170, 120, 80, 0.5)'
+      ctx.lineWidth = 1.4
+      ctx.lineCap = 'round'
+      for (let i = 0; i < 3; i++) {
+        const ox = (i - 1) * 5
+        const sway = Math.sin(time * 2 + i * 1.7) * 1.6
+        ctx.beginPath()
+        ctx.moveTo(ox + sway, ccy - cupHh / 2 - 9)
+        ctx.quadraticCurveTo(ox + sway + 2.4, ccy - cupHh / 2 - 14, ox, ccy - cupHh / 2 - 19)
+        ctx.stroke()
+      }
+      ctx.restore()
+    }
+
+    /** Лампа под потолком: провод, абажур, тёплый ореол света */
+    const drawLamp = (): void => {
+      const lx = clamp(w * 0.86, 20, w - 14)
+      const ly = 24
+      const sway = Math.sin(time * 1.1) * 0.03
+      ctx.save()
+      ctx.translate(lx, 0)
+      ctx.rotate(sway)
+      ctx.strokeStyle = '#5C3A1E'
+      ctx.lineWidth = 2
+      ctx.beginPath()
+      ctx.moveTo(0, 0)
+      ctx.lineTo(0, ly - 6)
+      ctx.stroke()
+      // абажур-конус
+      ctx.fillStyle = '#E2B13C'
+      ctx.beginPath()
+      ctx.moveTo(-11, ly)
+      ctx.lineTo(11, ly)
+      ctx.lineTo(4.5, ly - 8)
+      ctx.lineTo(-4.5, ly - 8)
+      ctx.closePath()
+      ctx.fill()
+      ctx.fillStyle = '#C98F2F'
+      ctx.fillRect(-11, ly, 22, 3)
+      // лампочка
+      ctx.fillStyle = '#FFF0B8'
+      ctx.beginPath()
+      ctx.arc(0, ly + 5, 4.5, 0, Math.PI * 2)
+      ctx.fill()
+      ctx.restore()
+      // тёплый ореол на стену
+      const g = ctx.createRadialGradient(lx, ly + 6, 4, lx, ly + 6, 46)
+      g.addColorStop(0, 'rgba(255, 210, 120, 0.20)')
+      g.addColorStop(1, 'rgba(255, 210, 120, 0)')
+      ctx.fillStyle = g
+      ctx.fillRect(lx - 46, ly - 10, 92, 100)
+    }
+
+    /** Пылинки в луче лампы: лениво дрейфуют по комнате */
+    const dust: Array<{ x: number; y: number; ph: number; sp: number; r: number }> = []
+    const ensureDust = (): void => {
+      if (dust.length > 0 || w < 10) return
+      const n = Math.max(6, Math.min(10, Math.round(w / 40)))
+      for (let i = 0; i < n; i++) {
+        dust.push({
+          x: prand(i * 13.7 + 3) * w,
+          y: prand(i * 7.9 + 11) * floorY(),
+          ph: prand(i * 5.3 + 1) * Math.PI * 2,
+          sp: 4 + prand(i * 9.1 + 5) * 6,
+          r: 1 + prand(i * 3.3 + 7) * 1.2,
+        })
+      }
+    }
+    const drawDust = (): void => {
+      ensureDust()
+      ctx.fillStyle = '#FFF6E0'
+      for (const d of dust) {
+        const yy = (d.y - time * d.sp) % floorY()
+        const y2 = yy < 0 ? yy + floorY() : yy
+        ctx.globalAlpha = 0.14 + 0.08 * Math.sin(d.ph + time * 1.8)
+        ctx.beginPath()
+        ctx.arc(d.x + Math.sin(time * 0.8 + d.ph) * 5, y2, d.r, 0, Math.PI * 2)
+        ctx.fill()
+      }
+      ctx.globalAlpha = 1
+    }
+
     /** Провисающая нитка с флажками / лапками / золотом, лёгкое покачивание */
     const drawGarland = (x0: number, x1: number, baseY: number, sag: number, mode: GarlandMode): void => {
       const cx = (x0 + x1) / 2
@@ -1214,12 +1422,18 @@ export default function MartenScene({
       ctx.setTransform(dpr, 0, 0, dpr, 0, 0)
       drawRoom()
       const st = stageRef.current
+      /* Уют комнаты: окно с закатом, лампа; постер появляется со стадией 3 —
+         стена наполняется жизнью вместе с ростом NANA */
+      drawWindow()
+      drawLamp()
+      if (st >= 3) drawPoster()
       // гирлянды на стене по стадиям
       if (st >= 1) drawGarland(w * 0.06, w * 0.94, 16, 19 + Math.sin(time * 0.9) * 2, 'flags')
       if (st >= 4) drawGarland(w * 0.12, w * 0.88, 54, 12 + Math.sin(time * 1.05 + 1.3) * 1.6, 'paws')
       if (st >= 6) drawGarland(w * 0.04, w * 0.96, 8, 22 + Math.sin(time * 0.8) * 2.2, 'gold')
       drawFloorDecor()
       drawParticles('confetti') // фоновые конфетти-искры
+      drawDust() // пылинки в луче света
       if (!awayRef.current) {
         drawMartenShadow()
         drawMarten()

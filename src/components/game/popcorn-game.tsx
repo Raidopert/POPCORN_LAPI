@@ -2912,6 +2912,8 @@ export function PopcornGame() {
   const settingsRef = useRef(settings)
 
   const [phase, setPhase] = useState<Phase>('start')
+  /** Таймер «празднования» перед бонус-нарезкой: даём салюту програть */
+  const slicerDelayRef = useRef<number | null>(null)
   const [stats, setStats] = useState<EngineStats>({
     score: 0,
     timeLeft: 60,
@@ -3685,8 +3687,16 @@ export function PopcornGame() {
         setExtras(rollExtras(offs))
         setOpenedIdx(null)
         setRunLevel(r.level + 1)
-        /* БОНУС-НАРЕЗКА: гигантский попкорн перед сундучком — режем лапкой */
-        setPhase('slicer')
+        /* БОНУС-НАРЕЗКА: гигантский попкорн перед сундучком — режем лапкой.
+           СНАЧАЛА — секунда празднования: конфетти из стаканчика, золотая
+           волна и баннер «УРОВЕНЬ ПРОЙДЕН» должны быть увидены */
+        if (slicerDelayRef.current !== null) window.clearTimeout(slicerDelayRef.current)
+        slicerDelayRef.current = window.setTimeout(() => {
+          slicerDelayRef.current = null
+          /* Защита: если за секунду забег кончился/вышли в меню — не выбрасываем
+             на нарезку из чужого экрана */
+          setPhase((p) => (p === 'playing' ? 'slicer' : p))
+        }, 1150)
       },
       onFeverEnd: (r) => {
         /* После лихорадки — обычный уровень: сбрасываем перк и трансформации */
@@ -3786,6 +3796,11 @@ export function PopcornGame() {
       engine.destroy()
       engineRef.current = null
       delete (window as unknown as { __popcornEngine?: PopcornEngine }).__popcornEngine
+      /* Не оставляем «хвост»: таймер празднования не должен сработать после размонтирования */
+      if (slicerDelayRef.current !== null) {
+        window.clearTimeout(slicerDelayRef.current)
+        slicerDelayRef.current = null
+      }
     }
   }, [storeBest, addXpDelta, announceAch, checkLifeAch, rollExtras, rollOffers, growMarten, awardStage, grantMartenXp])
 
@@ -4601,7 +4616,14 @@ export function PopcornGame() {
                 </div>
 
                 <div className="mt-3 grid grid-cols-[1.5fr_1fr] gap-2">
-                  <GameButton onClick={startGame}>{t('menu.play')}</GameButton>
+                  {/* Пульс-подложка: волны призывают начать забег (чистый CSS) */}
+                  <div className="relative">
+                    <span
+                      aria-hidden
+                      className="play-pulse pointer-events-none absolute inset-0 rounded-xl"
+                    />
+                    <GameButton onClick={startGame}>{t('menu.play')}</GameButton>
+                  </div>
                   <button
                     type="button"
                     onClick={() => setOverlay('rules')}

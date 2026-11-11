@@ -709,15 +709,18 @@ export function PopcornSlicer({ t, level, onDone }: SlicerProps) {
         setResult({ total: g.total, swipes: g.ticks, maxMult: g.maxMult })
       }
 
-      /* ── Физика кусочков: гравитация, пол, отскок ── */
+      /* ── Физика кусочков: гравитация, пол, отскок ──
+         Слоу-мо: первый полсекунды взрыва растянуты (×0.35) — разлёт
+         половинок читается «кинематографично», потом время догоняет */
+      const pdt = g.stage === 'burst' && g.stageT < 0.5 ? dt * 0.35 : dt
       for (let i = g.chunks.length - 1; i >= 0; i--) {
         const c = g.chunks[i]
         if (!c) continue
-        c.t += dt
-        c.vy += 1500 * u * dt
-        c.x += c.vx * dt
-        c.y += c.vy * dt
-        c.rot += c.vr * dt
+        c.t += pdt
+        c.vy += 1500 * u * pdt
+        c.x += c.vx * pdt
+        c.y += c.vy * pdt
+        c.rot += c.vr * pdt
         const floor = g.H - 14 * u
         if (c.y > floor && c.vy > 0) {
           c.y = floor
@@ -729,10 +732,10 @@ export function PopcornSlicer({ t, level, onDone }: SlicerProps) {
       }
       /* ── Половинки: гравитация + вращение (улетают за экран) ── */
       for (const h of g.halves) {
-        h.vy += 1400 * u * dt
-        h.x += h.vx * dt
-        h.y += h.vy * dt
-        h.rot += h.vr * dt
+        h.vy += 1400 * u * pdt
+        h.x += h.vx * pdt
+        h.y += h.vy * pdt
+        h.rot += h.vr * pdt
       }
       /* ── Затухания ── */
       g.wobble *= Math.exp(-dt * 6.5)

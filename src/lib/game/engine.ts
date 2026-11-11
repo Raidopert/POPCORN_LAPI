@@ -144,8 +144,38 @@ interface FieldPiece {
   kind: PieceKind
   phase: number
   spawn: number
+  /** скорость вращения (рад/с): попкорн лениво крутится, мины стоят */
+  spin: number
   /** угол дрейфа для перка «Скользкий пол» */
   dA: number
+}
+
+/** Пылинка-мошка в луче света: медленно дрейфует, оживляет фон */
+interface Mote {
+  x: number
+  y: number
+  ph: number
+  sp: number
+  r: number
+  a: number
+}
+
+/** Ударная волна: расширяющееся кольцо при взрыве мины и победе */
+interface Ring {
+  x: number
+  y: number
+  t: number
+  ttl: number
+  color: string
+  r0: number
+  r1: number
+}
+
+/** След лапки: призрачные отпечатки при быстром движении */
+interface TrailDot {
+  x: number
+  y: number
+  t: number
 }
 
 interface Carried {
@@ -389,6 +419,11 @@ export class PopcornEngine {
   /** Тряска экрана (настройка «Тряска») */
   private shakeT = 0
   private shakeAmp = 0
+  /* --- визуальный сок: пылинки, кольца, след лапки, красная вспышка --- */
+  private motes: Mote[] = []
+  private rings: Ring[] = []
+  private trail: TrailDot[] = []
+  private hurtT = 0
 
   private sp: {
     popcorn: Sprite
@@ -633,6 +668,8 @@ export class PopcornEngine {
     this.lastSec = Math.ceil(this.timeLeft)
     audio.setIntensity(3)
     audio.play('fever')
+    /* Золотой салют: лихорадка начинается с взрыва настроения */
+    this.confettiBurst(this.cup.x, this.cup.y - this.cupH * 0.5, 26)
     this.spawnFeverField()
     this.emitStats(true)
   }
@@ -843,6 +880,8 @@ export class PopcornEngine {
       kind,
       phase: Math.random() * Math.PI * 2,
       spawn: SPAWN_DUR + index * 0.045,
+      // Мины стоят угрожающе неподвижно, зёрна лениво покачиваются-крутятся
+      spin: kind === 'corn' ? 0 : (Math.random() < 0.5 ? -1 : 1) * (0.25 + Math.random() * 0.5),
       dA: Math.random() * Math.PI * 2,
     })
   }
@@ -999,6 +1038,16 @@ export class PopcornEngine {
         // Кукуруза-мина: чем толще мина, тем шире радиус задевания
         if (d < 38 * u * (0.7 + 0.3 * this.cornScale)) {
           this.pieces.splice(i, 1)
+          /* Ударная волна взрыва: красное кольцо расходится от точки подрыва */
+          this.rings.push({
+            x: p.x,
+            y: p.y,
+            t: 0,
+            ttl: 0.45,
+            color: '255, 90, 78',
+            r0: 10 * u,
+            r1: 64 * u * (0.7 + 0.3 * this.cornScale),
+          })
           if (this.fever) {
             // Мина на лихорадке: весь накопленный там бонус сгорает!
             this.feverEnd(false)
@@ -1301,10 +1350,70 @@ export class PopcornEngine {
     this.cupGlow = Math.max(0, this.cupGlow - dt * 1.6)
     this.shakeT = Math.max(0, this.shakeT - dt)
     if (this.shakeT <= 0) this.shakeAmp = 0
+    this.updateCosmetics(dt)
+  }
+
+  /** Косметика кадра: баннер, таймеры декора, частицы, кольца, пылинки,
+      след лапки, всплывающие тексты. Живёт и в игре, и в паузе-праздновании
+      'clear' — иначе салют и «ПРОЙДЕН!» замрут на первом же кадре */
+  private updateCosmetics(dt: number): void {
+    const u = this.u
     this.banner.t += dt
-    for (const p of this.pieces) p.spawn = Math.max(0, p.spawn - dt)
+    for (const p of this.pieces) {
+      p.spawn = Math.max(0, p.spawn - dt)
+      p.rot += p.spin * dt
+    }
     for (const c of this.carried) c.grabT = Math.min(1, c.grabT + dt * 8)
     for (let i = 0; i < this.fillPop.length; i++) this.fillPop[i] += dt
+
+    /* Пылинки: ленивый дрейф вверх с покачиванием — фон «дышит».
+       Создаём лениво при первом кадре, когда известны размеры поля */
+    if (this.motes.length === 0 && this.W > 0 && this.perfTier < 2) {
+      const n = Math.max(8, Math.min(16, Math.round(this.W / 34)))
+      for (let i = 0; i < n; i++) {
+        this.motes.push({
+          x: Math.random() * this.W,
+          y: Math.random() * this.H,
+          ph: Math.random() * Math.PI * 2,
+          sp: (5 + Math.random() * 9) * u,
+          r: (1 + Math.random() * 1.6) * u,
+          a: 0.05 + Math.random() * 0.07,
+        })
+      }
+    }
+    for (const m of this.motes) {
+      m.y -= m.sp * dt
+      m.x += Math.sin(m.ph + m.y * 0.013) * 7 * u * dt
+      if (m.y < 40) {
+        m.y = this.H - 20
+        m.x = Math.random() * this.W
+      }
+    }
+    /* Кольца-волны: растут и гаснут */
+    for (let i = this.rings.length - 1; i >= 0; i--) {
+      const r = this.rings[i]
+      if (!r) continue
+      r.t += dt
+      if (r.t >= r.ttl) this.rings.splice(i, 1)
+    }
+    /* Красная вспышка при потере сердца */
+    if (this.hurtT > 0) this.hurtT = Math.max(0, this.hurtT - dt)
+    /* След лапки: точка добавляется при заметном сдвиге, живёт четверть секунды */
+    const lastTrail = this.trail[this.trail.length - 1]
+    if (
+      this.phase === 'playing' &&
+      this.perfTier < 2 &&
+      (!lastTrail || Math.hypot(this.paw.x - lastTrail.x, this.paw.y - lastTrail.y) > 26 * u)
+    ) {
+      this.trail.push({ x: this.paw.x, y: this.paw.y, t: 0 })
+      if (this.trail.length > 9) this.trail.shift()
+    }
+    for (let i = this.trail.length - 1; i >= 0; i--) {
+      const d = this.trail[i]
+      if (!d) continue
+      d.t += dt
+      if (d.t >= 0.26) this.trail.splice(i, 1)
+    }
     /* Частицы: обход с конца + swap-remove — без splice и без мусора */
     for (let i = this.particles.length - 1; i >= 0; i--) {
       const p = this.particles.items[i]
@@ -1326,6 +1435,9 @@ export class PopcornEngine {
 
   private levelComplete(): void {
     this.phase = 'clear'
+    /* Праздничный баннер: «УРОВЕНЬ N ПРОЙДЕН!» — игрок видит результат,
+       пока салют из стаканчика сыплет конфетти (пауза до нарезки 1.15с) */
+    this.banner = { text: this.L('banner.level', { n: this.lvl }) + ' ' + this.L('banner.clear'), t: 0 }
     /* Бонус за оставшееся время: секунды ×10 — цифры с нулями, как и зёрна */
     const bonus = Math.ceil(this.timeLeft) * 10
     this.score += bonus
@@ -1334,6 +1446,17 @@ export class PopcornEngine {
     audio.stopMusic()
     audio.play('levelwin')
     this.buzz([30, 40, 60])
+    /* Победный салют из стаканчика + золотая ударная волна */
+    this.confettiBurst(this.cup.x, this.cup.y - this.cupH * 0.5, 34)
+    this.rings.push({
+      x: this.cup.x,
+      y: this.cup.y,
+      t: 0,
+      ttl: 0.6,
+      color: '255, 214, 92',
+      r0: 20 * this.u,
+      r1: 120 * this.u,
+    })
     this.emitStats(true)
     this.cb.onLevelComplete?.({
       level: this.lvl,
@@ -1372,10 +1495,34 @@ export class PopcornEngine {
       size: 24 * u,
     })
     this.doShake(6)
+    this.hurtT = 0.55 // красная вспышка по краям экрана
     audio.play('penalty')
     this.buzz([40, 60])
     this.emitStats(true)
     if (this.hearts <= 0) this.end('hearts')
+  }
+
+  /** Разноцветное конфетти из точки (победа уровня, старт лихорадки):
+      те же квадратные частицы, но пёстрые, крупные и живут дольше —
+      гравитация в update() сама уронит их красиво дождём */
+  private confettiBurst(x: number, y: number, n: number): void {
+    const u = this.u
+    const tierMul = this.perfTier === 0 ? 1 : this.perfTier === 1 ? 0.55 : 0.3
+    const count = Math.max(4, Math.round((this.coarse ? 0.7 : 1) * tierMul * n))
+    const palette = ['#E24B3B', '#FFD166', '#7BC47F', '#F2A65A', '#FFE066', '#BFF3E6']
+    for (let i = 0; i < count; i++) {
+      const a = -Math.PI / 2 + (Math.random() - 0.5) * 2.4
+      const sp = (180 + Math.random() * 260) * u
+      const c = this.particles.obtain()
+      c.x = x
+      c.y = y
+      c.vx = Math.cos(a) * sp
+      c.vy = Math.sin(a) * sp
+      c.t = 0
+      c.ttl = 0.8 + Math.random() * 0.6
+      c.color = palette[Math.floor(Math.random() * palette.length)] ?? '#FFD166'
+      c.size = (2.5 + Math.random() * 3) * u
+    }
   }
 
   private crumbs(x: number, y: number, color: string, n: number): void {
@@ -1685,6 +1832,7 @@ export class PopcornEngine {
             kind: c.kind,
             phase: Math.random() * Math.PI * 2,
             spawn: 0.3, // короткая «пружинка» появления
+            spin: (Math.random() < 0.5 ? -1 : 1) * (0.25 + Math.random() * 0.5),
             dA: 0,
           })
           placed = true
@@ -1699,6 +1847,7 @@ export class PopcornEngine {
           kind: c.kind,
           phase: 0,
           spawn: 0.3,
+          spin: 0,
           dA: 0,
         })
       }
@@ -1717,6 +1866,14 @@ export class PopcornEngine {
       } catch (err) {
         // Сбой кадра не должен замораживать игру — логируем и продолжаем
         console.error('[popcorn] update error:', err)
+      }
+    } else if (this.phase === 'clear' && !this.paused) {
+      /* Празднование победы: геймплей стоит, но косметика живёт —
+         баннер «ПРОЙДЕН!» проявляется, конфетти падает, кольцо расходится */
+      try {
+        this.updateCosmetics(dt)
+      } catch (err) {
+        console.error('[popcorn] clear cosmetics error:', err)
       }
     }
     /* FPS-монитор: если долго ниже 45 — переходим на облегчённый режим,
@@ -1872,6 +2029,19 @@ export class PopcornEngine {
       ctx.fillRect(0, 0, this.W, this.H)
     }
 
+    /* Пылинки в «луче света»: медленно всплывают сквозь кадр и делают
+       статичную комнату живой. Рисуем до мира — они позади зёрен */
+    if (this.motes.length > 0) {
+      ctx.fillStyle = '#FFF3D0'
+      for (const m of this.motes) {
+        ctx.globalAlpha = m.a * (0.7 + 0.3 * Math.sin(m.ph + m.y * 0.02))
+        ctx.beginPath()
+        ctx.arc(m.x, m.y, m.r, 0, Math.PI * 2)
+        ctx.fill()
+      }
+      ctx.globalAlpha = 1
+    }
+
     ctx.save()
     /* Тряска экрана при минах/голубе (настройка «Тряска экрана») */
     if (this.opts.shake && this.shakeT > 0 && this.shakeAmp > 0) {
@@ -1884,6 +2054,19 @@ export class PopcornEngine {
     if (this.pigeon && this.phase === 'playing') this.drawPigeon(ts)
     this.drawFlying()
     this.drawParticles()
+    /* Ударные волны поверх частиц: кольца взрывов и победы */
+    if (this.rings.length > 0) {
+      for (const r of this.rings) {
+        const q = r.t / r.ttl
+        ctx.globalAlpha = (1 - q) * 0.75
+        ctx.strokeStyle = `rgb(${r.color})`
+        ctx.lineWidth = Math.max(2, (3.5 - q * 2.5) * this.u)
+        ctx.beginPath()
+        ctx.arc(r.x, r.y, r.r0 + (r.r1 - r.r0) * q, 0, Math.PI * 2)
+        ctx.stroke()
+      }
+      ctx.globalAlpha = 1
+    }
     this.drawPaw(ts)
     /* Лихорадка: тёплая золотая дымка на фоне */
     if (this.fever) this.drawFeverFx()
@@ -1898,6 +2081,24 @@ export class PopcornEngine {
       ctx.fillRect(0, 0, this.W, this.H)
     }
     ctx.restore()
+
+    /* Красная вспышка по краям при потере сердца — вне shake-трансформа,
+       чтобы весь экран ровно «заливало» без рывков */
+    if (this.hurtT > 0) {
+      const k = this.hurtT / 0.55
+      const g = ctx.createRadialGradient(
+        this.W / 2,
+        this.H / 2,
+        Math.min(this.W, this.H) * 0.28,
+        this.W / 2,
+        this.H / 2,
+        Math.max(this.W, this.H) * 0.72,
+      )
+      g.addColorStop(0, 'rgba(229, 52, 46, 0)')
+      g.addColorStop(1, `rgba(229, 52, 46, ${(0.42 * k).toFixed(3)})`)
+      ctx.fillStyle = g
+      ctx.fillRect(0, 0, this.W, this.H)
+    }
   }
 
   /** Голубь-воришка: пиксельный, с двумя кадрами взмаха, полоской жизни
@@ -2216,6 +2417,18 @@ export class PopcornEngine {
     const shockJy = this.stun > 0 ? Math.cos(ts * 0.037) * 2.4 * u : 0
     const px = this.paw.x + shake + jx + shockJx
     const py = this.paw.y + jy + shockJy
+
+    /* След быстрого движения: призрачные отпечатки лапки гаснут позади —
+       движение читается даже на мелком экране, и просто приятно глазу */
+    if (this.trail.length > 0 && this.perfTier < 2) {
+      const ghostS = (this.perk === 'bigpaw' ? 3.6 : this.perk === 'smallpaw' ? 2.17 : 2.85) * u
+      for (const d of this.trail) {
+        const k = 1 - d.t / 0.26
+        drawSprite(ctx, this.sp.paw, d.x, d.y, ghostS * (0.72 + 0.12 * k), {
+          alpha: 0.16 * k,
+        })
+      }
+    }
 
     // Светлое пятно под лапкой: курсор виден на ЛЮБОМ фоне — тёмный чердак,
     // ночной двор, старые Android-браузеры (была жалоба: «курсора не видно»)

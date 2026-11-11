@@ -2007,6 +2007,7 @@ const T: Record<string, Row> = {
 
   /* ---------- тексты движка ---------- */
   'banner.level': ['УРОВЕНЬ {{n}}', 'LEVEL {{n}}', 'LEVEL {{n}}', 'NIVEL {{n}}'],
+  'banner.clear': ['ПРОЙДЕН!', 'CLEARED!', 'GESCHAFFT!', '¡SUPERADO!'],
   'banner.wave': ['ВОЛНА {{n}}', 'WAVE {{n}}', 'WELLE {{n}}', 'OLEADA {{n}}'],
   'banner.fever': ['🔥 ЛИХОРАДКА! 🔥', '🔥 FEVER! 🔥', '🔥 FIEBER! 🔥', '🔥 ¡FIEBRE! 🔥'],
   'banner.revive': [
