@@ -3,7 +3,6 @@
 import { useCallback, useEffect, useMemo, useReducer, useRef, useState, useSyncExternalStore } from 'react'
 import { AnimatePresence, motion } from 'framer-motion'
 import {
-  Cat,
   CirclePlus,
   Compass,
   EllipsisVertical,
@@ -20,7 +19,6 @@ import {
   RotateCcw,
   Share,
   Share2,
-  Settings,
   ShoppingBag,
   Smartphone,
   SquarePlus,
@@ -526,24 +524,31 @@ function MineStrip({ active }: { active: number }) {
   )
 }
 
-/** Маленькая кнопка меню (лидеры / магазин / создатели) */
+/** Маленькая кнопка меню (лидеры / магазин / создатели / древо) */
 function MenuSmallBtn({
   onClick,
   icon,
   children,
   title,
+  accent,
 }: {
   onClick: () => void
   icon: React.ReactNode
   children: React.ReactNode
   title?: string
+  /** Зелёный акцент + пульс: у древа, когда есть нераспределённые очки */
+  accent?: boolean
 }) {
   return (
     <button
       type="button"
       onClick={onClick}
       title={title}
-      className="flex items-center justify-center gap-1 rounded-xl border-2 border-[#8a5330] bg-[#f3e2c8] px-1 py-2 font-pixel text-[11px] font-bold text-[#8a5330] transition hover:bg-[#eed7b4] active:scale-95"
+      className={`flex items-center justify-center gap-1 rounded-xl border-2 px-1 py-2 font-pixel text-[11px] font-bold transition active:scale-95 ${
+        accent
+          ? 'animate-pulse border-[#5C8A3A] bg-[#eaf3dd] text-[#3f6b28] hover:bg-[#e0efcc]'
+          : 'border-[#8a5330] bg-[#f3e2c8] text-[#8a5330] hover:bg-[#eed7b4]'
+      }`}
     >
       {icon}
       {children}
@@ -2479,11 +2484,17 @@ function AchievementsOverlay({
 function SettingsOverlay({
   settings,
   onChange,
+  nick,
+  onEditNick,
   t,
   onClose,
 }: {
   settings: GameSettings
   onChange: (s: GameSettings) => void
+  /** Текущий ник персонажа — показываем в настройках */
+  nick: string
+  /** Открыть диалог смены ника */
+  onEditNick: () => void
   t: TranslateFn
   onClose: () => void
 }) {
@@ -2532,6 +2543,26 @@ function SettingsOverlay({
                 </button>
               ))}
             </div>
+          </section>
+
+          {/* Ник персонажа: тап — диалог смены (раньше был в главном меню) */}
+          <section>
+            <div className="mb-1 font-pixel text-[12px] font-bold text-[#8a5330]">
+              🐱 {t('set.nick')}
+            </div>
+            <button
+              type="button"
+              onClick={onEditNick}
+              className="flex w-full items-center justify-between gap-2 rounded-xl border-2 border-[#e3cba4] bg-white px-3 py-2.5 transition hover:border-amber-400 active:scale-[0.99]"
+            >
+              <span className="min-w-0 truncate font-pixel text-base font-bold text-[#5C3A1E]">
+                {nick}
+              </span>
+              <span className="flex shrink-0 items-center gap-1 font-pixel text-[10px] font-bold text-[#8a5330]">
+                <Pencil className="h-3.5 w-3.5" aria-hidden />
+                {t('set.nick.edit')}
+              </span>
+            </button>
           </section>
 
           {/* Сложность */}
@@ -4748,20 +4779,7 @@ export function PopcornGame() {
                       />
                     </span>
                   </div>
-                  {/* Ник для мировой таблицы: тап — сменить */}
-                  <button
-                    type="button"
-                    onClick={() => {
-                      audio.play('click')
-                      setNickEdit(true)
-                    }}
-                    title={t('nick.editHint')}
-                    className="inline-flex items-center gap-1 rounded-full bg-amber-100 px-2.5 py-1 font-ui text-[11px] font-semibold text-[#8a5330] ring-2 ring-amber-200 transition hover:bg-amber-200 active:scale-95"
-                  >
-                    <Cat className="h-3.5 w-3.5 text-amber-500" aria-hidden />
-                    <span className="max-w-24 truncate">{nameRaw}</span>
-                    <Pencil className="h-3 w-3 opacity-60" aria-hidden />
-                  </button>
+                  {/* Ник теперь меняется в настройках (шестерёнка) */}
                 </div>
 
                 {/* ИГРАТЬ — на всю ширину, под ней маленькая кнопка правил */}
@@ -4782,13 +4800,8 @@ export function PopcornGame() {
                   </button>
                 </div>
 
-                <div className="mt-2 grid grid-cols-4 gap-1.5">
-                  <MenuSmallBtn
-                    onClick={() => setOverlay('leaders')}
-                    icon={<Trophy className="h-4 w-4" aria-hidden />}
-                  >
-                    {t('menu.leaders')}
-                  </MenuSmallBtn>
+                {/* Ряд: ЛАПКИ · АЧИВКИ · ДРЕВО (дерево уменьшено, бейдж очков сохранён) */}
+                <div className="mt-2 grid grid-cols-3 gap-1.5">
                   <MenuSmallBtn
                     onClick={() => setOverlay('shop')}
                     icon={<PawPrint className="h-4 w-4" aria-hidden />}
@@ -4803,6 +4816,32 @@ export function PopcornGame() {
                     {t('menu.ach')}
                   </MenuSmallBtn>
                   <MenuSmallBtn
+                    accent={treePts > 0}
+                    onClick={() => {
+                      audio.play('click')
+                      setOverlay('tree')
+                    }}
+                    icon={<Network className="h-4 w-4" aria-hidden />}
+                    title={t('menu.tree')}
+                  >
+                    {t('menu.treeShort')}
+                    {treePts > 0 && (
+                      <span className="flex h-4.5 min-w-4.5 items-center justify-center rounded-full bg-[#5C8A3A] px-1 font-ui text-[10px] font-bold text-white">
+                        {treePts}
+                      </span>
+                    )}
+                  </MenuSmallBtn>
+                </div>
+
+                {/* Ряд ниже: ЛИДЕРЫ · СОЗДАТЕЛИ */}
+                <div className="mt-1.5 grid grid-cols-2 gap-1.5">
+                  <MenuSmallBtn
+                    onClick={() => setOverlay('leaders')}
+                    icon={<Trophy className="h-4 w-4" aria-hidden />}
+                  >
+                    {t('menu.leaders')}
+                  </MenuSmallBtn>
+                  <MenuSmallBtn
                     onClick={() => setOverlay('creators')}
                     icon={<Heart className="h-4 w-4" aria-hidden />}
                   >
@@ -4810,62 +4849,17 @@ export function PopcornGame() {
                   </MenuSmallBtn>
                 </div>
 
-                {/* Древо улучшений: отдельная заметная кнопка с бейджем очков */}
+                {/* Настройки: языки и ник персонажа теперь живут внутри */}
                 <button
                   type="button"
                   onClick={() => {
                     audio.play('click')
-                    setOverlay('tree')
+                    setOverlay('settings')
                   }}
-                  className={`mt-2 flex w-full items-center justify-center gap-2 rounded-xl border-2 px-4 py-2.5 font-pixel text-sm font-bold transition active:scale-[0.98] ${
-                    treePts > 0
-                      ? 'border-[#5C8A3A] bg-[#eaf3dd] text-[#3f6b28] shadow-[0_4px_0_#b9d29b] hover:bg-[#e0efcc] animate-pulse'
-                      : 'border-[#8a5330] bg-[#f3e2c8] text-[#8a5330] shadow-[0_4px_0_#c9a97a] hover:bg-[#eed7b4]'
-                  }`}
+                  className="mx-auto mt-2 flex w-fit items-center gap-1 rounded-lg border-2 border-[#8a5330]/70 bg-[#f3e2c8] px-4 py-1.5 font-pixel text-xs font-bold text-[#8a5330] shadow-[0_3px_0_#c9a97a] transition-all hover:bg-[#eed7b4] active:translate-y-[2px] active:shadow-[0_1px_0_#c9a97a]"
                 >
-                  <Network className="h-4 w-4" aria-hidden />
-                  {t('menu.tree')}
-                  {treePts > 0 && (
-                    <span className="flex h-5 min-w-5 items-center justify-center rounded-full bg-[#5C8A3A] px-1 font-ui text-[11px] font-bold text-white">
-                      {treePts}
-                    </span>
-                  )}
+                  {t('menu.settings')}
                 </button>
-
-                {/* Языки + настройки */}
-                <div className="mt-2 flex items-center gap-1.5">
-                  <div className="grid flex-1 grid-cols-4 gap-1 rounded-xl bg-[#f3e2c8] p-1">
-                    {LANGS.map((l) => (
-                      <button
-                        key={l.id}
-                        type="button"
-                        onClick={() => {
-                          audio.play('click')
-                          setSettings({ ...settings, lang: l.id })
-                        }}
-                        aria-label={l.label}
-                        className={`rounded-lg px-1 py-1.5 font-pixel text-[11px] font-bold transition ${
-                          settings.lang === l.id
-                            ? 'bg-[#E24B3B] text-white shadow-[0_2px_0_#9c2f22]'
-                            : 'text-[#8a5330] hover:bg-[#eed7b4]'
-                        }`}
-                      >
-                        {l.flag} {l.id.toUpperCase()}
-                      </button>
-                    ))}
-                  </div>
-                  <button
-                    type="button"
-                    onClick={() => {
-                      audio.play('click')
-                      setOverlay('settings')
-                    }}
-                    aria-label={t('menu.settings')}
-                    className="flex h-9 w-11 shrink-0 items-center justify-center rounded-xl border-2 border-[#8a5330] bg-[#f3e2c8] text-[#8a5330] transition hover:bg-[#eed7b4] active:scale-95"
-                  >
-                    <Settings className="h-4.5 w-4.5" aria-hidden />
-                  </button>
-                </div>
 
                 {!isStandalone && (
                   <button
@@ -5406,6 +5400,12 @@ export function PopcornGame() {
           <SettingsOverlay
             settings={settings}
             onChange={(s) => setSettings(s)}
+            nick={nameRaw}
+            onEditNick={() => {
+              audio.play('click')
+              setOverlay(null)
+              setNickEdit(true)
+            }}
             t={t}
             onClose={() => setOverlay(null)}
           />

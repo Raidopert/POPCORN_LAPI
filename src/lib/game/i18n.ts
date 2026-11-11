@@ -124,6 +124,7 @@ const T: Record<string, Row> = {
   'install.close': ['ПОНЯТНО', 'GOT IT', 'VERSTANDEN', 'ENTENDIDO'],
   /* Древо улучшений (тестовая ветка) */
   'menu.tree': ['🌳 ДРЕВО УЛУЧШЕНИЙ', '🌳 UPGRADE TREE', '🌳 UPGRADE-BAUM', '🌳 ÁRBOL DE MEJORAS'],
+  'menu.treeShort': ['ДРЕВО', 'TREE', 'BAUM', 'ÁRBOL'],
   'tree.title': ['Древо улучшений', 'Upgrade Tree', 'Upgrade-Baum', 'Árbol de mejoras'],
   'tree.points': ['Очки: {{n}}', 'Points: {{n}}', 'Punkte: {{n}}', 'Puntos: {{n}}'],
   'tree.hint': [
@@ -1949,6 +1950,8 @@ const T: Record<string, Row> = {
   ],
   /* ---------- настройки ---------- */
   'set.title': ['НАСТРОЙКИ', 'SETTINGS', 'EINSTELLUNGEN', 'AJUSTES'],
+  'set.nick': ['Ник персонажа', 'Cat nickname', 'Katzen-Name', 'Apodo del gato'],
+  'set.nick.edit': ['Сменить', 'Change', 'Ändern', 'Cambiar'],
   'set.lang': ['Язык', 'Language', 'Sprache', 'Idioma'],
   'set.diff': ['Сложность', 'Difficulty', 'Schwierigkeit', 'Dificultad'],
   'set.diff.easy': ['Лёгкая', 'Easy', 'Leicht', 'Fácil'],
