@@ -531,15 +531,18 @@ function MenuSmallBtn({
   onClick,
   icon,
   children,
+  title,
 }: {
   onClick: () => void
   icon: React.ReactNode
   children: React.ReactNode
+  title?: string
 }) {
   return (
     <button
       type="button"
       onClick={onClick}
+      title={title}
       className="flex items-center justify-center gap-1 rounded-xl border-2 border-[#8a5330] bg-[#f3e2c8] px-1 py-2 font-pixel text-[11px] font-bold text-[#8a5330] transition hover:bg-[#eed7b4] active:scale-95"
     >
       {icon}
@@ -1844,24 +1847,16 @@ function LeadersOverlay({
   )
 }
 
-/** Экран «Правила»: подробный список механик (вынесен из главного меню) */
+/** Экран «Правила»: 7 коротких пунктов — только проверенные актуальные цифры */
 function RulesOverlay({ t, onClose }: { t: TranslateFn; onClose: () => void }) {
   const rows: Array<[string, string]> = [
     ['👆', 'rules.r1'],
     ['🍿', 'rules.r2'],
-    ['🌽', 'rules.r3'],
-    ['🎯', 'rules.r4'],
-    ['🐾', 'rules.r5'],
+    ['☠️', 'rules.r3'],
+    ['🐾', 'rules.r4'],
+    ['🐦', 'rules.r5'],
     ['🎁', 'rules.r6'],
-    ['🔥', 'rules.r7'],
-    ['🐦', 'rules.r8'],
-    ['♾️', 'rules.r9'],
-    ['🛒', 'rules.r10'],
-    ['🗺️', 'rules.r11'],
-    ['🧺', 'rules.grains'],
-    ['🏅', 'rules.r12'],
-    ['⏹', 'rules.r13'],
-    ['🏆', 'rules.r14'],
+    ['💾', 'rules.r7'],
   ]
   return (
     <motion.div
@@ -4711,27 +4706,39 @@ export function PopcornGame() {
                   {t('app.tagline')}
                 </p>
 
-                <div className="mt-2.5 flex flex-wrap items-center justify-center gap-1.5">
+                {/* Компактный статус: рекорд (+мировая стат.), опыт, уровень котика, ник */}
+                <div className="mt-2.5 flex flex-wrap items-center justify-center gap-1">
                   {best > 0 && (
-                    <div className="inline-flex items-center gap-1.5 rounded-full bg-amber-100 px-3 py-1 font-ui text-xs font-semibold text-[#8a5330] ring-2 ring-amber-200">
-                      <Trophy className="h-4 w-4 text-amber-500" aria-hidden />
+                    <div
+                      className="inline-flex items-center gap-1 rounded-full bg-amber-100 px-2.5 py-1 font-ui text-[11px] font-semibold text-[#8a5330] ring-2 ring-amber-200"
+                      title={
+                        worldStats
+                          ? t('lead.stats', {
+                              n: worldStats.launches,
+                              r: worldStats.runs,
+                              p: worldStats.players,
+                            })
+                          : undefined
+                      }
+                    >
+                      <Trophy className="h-3.5 w-3.5 text-amber-500" aria-hidden />
                       {t('menu.record', { n: best })}
                     </div>
                   )}
-                  <div className="inline-flex items-center gap-1.5 rounded-full bg-amber-100 px-3 py-1 font-ui text-xs font-semibold text-[#8a5330] ring-2 ring-amber-200">
-                    <Popcorn className="h-4 w-4 text-amber-500" aria-hidden />
+                  <div className="inline-flex items-center gap-1 rounded-full bg-amber-100 px-2.5 py-1 font-ui text-[11px] font-semibold text-[#8a5330] ring-2 ring-amber-200">
+                    <Popcorn className="h-3.5 w-3.5 text-amber-500" aria-hidden />
                     {t('menu.xp', { n: xp })}
                   </div>
                   {/* Стаж котика: мета-прогресс — уровень + тонкая полоска внутри уровня */}
                   <div
-                    className="inline-flex items-center gap-1.5 rounded-full bg-amber-100 px-3 py-1 font-ui text-xs font-semibold text-[#8a5330] ring-2 ring-amber-200"
+                    className="inline-flex items-center gap-1 rounded-full bg-amber-100 px-2.5 py-1 font-ui text-[11px] font-semibold text-[#8a5330] ring-2 ring-amber-200"
                     aria-label={t('menu.charLevel', { n: charInfo.level })}
                     title={t('menu.charLevelHint')}
                   >
                     {t('menu.charLevel', { n: charInfo.level })}
                     <span
                       aria-hidden
-                      className="h-1.5 w-14 max-w-32 min-w-6 overflow-hidden rounded-full bg-[#3a2210]"
+                      className="h-1.5 w-10 min-w-4 overflow-hidden rounded-full bg-[#3a2210]"
                     >
                       <span
                         className="block h-full rounded-full bg-amber-200 transition-all duration-700"
@@ -4741,22 +4748,6 @@ export function PopcornGame() {
                       />
                     </span>
                   </div>
-                  {worldStats && (
-                    <div
-                      className="inline-flex items-center gap-1.5 rounded-full bg-amber-100 px-3 py-1 font-ui text-xs font-semibold text-[#8a5330] ring-2 ring-amber-200"
-                      title={t('lead.stats', {
-                        n: worldStats.launches,
-                        r: worldStats.runs,
-                        p: worldStats.players,
-                      })}
-                    >
-                      {t('menu.worldLaunches', { n: worldStats.launches })}
-                    </div>
-                  )}
-                  <div className="inline-flex items-center gap-1.5 rounded-full bg-amber-100 px-3 py-1 font-ui text-xs font-semibold text-[#8a5330] ring-2 ring-amber-200">
-                    <PawPrint className="h-4 w-4 text-amber-500" aria-hidden />
-                    {t(`paw.${equippedPaw}.name`)}
-                  </div>
                   {/* Ник для мировой таблицы: тап — сменить */}
                   <button
                     type="button"
@@ -4765,16 +4756,16 @@ export function PopcornGame() {
                       setNickEdit(true)
                     }}
                     title={t('nick.editHint')}
-                    className="inline-flex items-center gap-1.5 rounded-full bg-amber-100 px-3 py-1 font-ui text-xs font-semibold text-[#8a5330] ring-2 ring-amber-200 transition hover:bg-amber-200 active:scale-95"
+                    className="inline-flex items-center gap-1 rounded-full bg-amber-100 px-2.5 py-1 font-ui text-[11px] font-semibold text-[#8a5330] ring-2 ring-amber-200 transition hover:bg-amber-200 active:scale-95"
                   >
-                    <Cat className="h-4 w-4 text-amber-500" aria-hidden />
-                    <span className="max-w-28 truncate">{nameRaw}</span>
+                    <Cat className="h-3.5 w-3.5 text-amber-500" aria-hidden />
+                    <span className="max-w-24 truncate">{nameRaw}</span>
                     <Pencil className="h-3 w-3 opacity-60" aria-hidden />
                   </button>
                 </div>
 
-                <div className="mt-3 grid grid-cols-[1.5fr_1fr] gap-2">
-                  {/* Пульс-подложка: волны призывают начать забег (чистый CSS) */}
+                {/* ИГРАТЬ — на всю ширину, под ней маленькая кнопка правил */}
+                <div className="mt-3">
                   <div className="relative">
                     <span
                       aria-hidden
@@ -4785,7 +4776,7 @@ export function PopcornGame() {
                   <button
                     type="button"
                     onClick={() => setOverlay('rules')}
-                    className="rounded-xl border-[3px] border-[#8a5330] bg-[#f3e2c8] px-2 py-3 font-pixel text-sm font-bold text-[#8a5330] shadow-[0_5px_0_#c9a97a] transition-all hover:bg-[#eed7b4] active:translate-y-[3px] active:shadow-[0_2px_0_#c9a97a] sm:text-base"
+                    className="mx-auto mt-2 flex w-fit items-center gap-1 rounded-lg border-2 border-[#8a5330]/70 bg-[#f3e2c8] px-4 py-1.5 font-pixel text-xs font-bold text-[#8a5330] shadow-[0_3px_0_#c9a97a] transition-all hover:bg-[#eed7b4] active:translate-y-[2px] active:shadow-[0_1px_0_#c9a97a]"
                   >
                     {t('menu.rules')}
                   </button>
@@ -4801,6 +4792,7 @@ export function PopcornGame() {
                   <MenuSmallBtn
                     onClick={() => setOverlay('shop')}
                     icon={<PawPrint className="h-4 w-4" aria-hidden />}
+                    title={t(`paw.${equippedPaw}.name`)}
                   >
                     {t('menu.paws')}
                   </MenuSmallBtn>
