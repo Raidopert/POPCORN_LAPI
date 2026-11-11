@@ -272,6 +272,26 @@ const UPG_KEY = 'popcorn-upgrades'
 const NAME_KEY = 'popcorn-name'
 /** Флаг «ник уже задан» — по нему показываем вход по никнейму только раз */
 const NICKSET_KEY = 'popcorn-nick-set'
+/** Анонимный id устройства для мирового лидерборда (ник — не идентификатор) */
+const DEVICE_KEY = 'popcorn-device'
+
+/** deviceId из localStorage: создаётся один раз, живёт на устройстве */
+function getDeviceId(): string {
+  try {
+    let d = window.localStorage.getItem(DEVICE_KEY)
+    if (!d) {
+      const rnd =
+        typeof crypto !== 'undefined' && 'randomUUID' in crypto
+          ? crypto.randomUUID()
+          : `d${Date.now()}-${Math.random().toString(36).slice(2)}${Math.random().toString(36).slice(2)}`
+      d = rnd.replace(/[^A-Za-z0-9_-]/g, '').slice(0, 48)
+      window.localStorage.setItem(DEVICE_KEY, d)
+    }
+    return d
+  } catch {
+    return 'anonymous-device'
+  }
+}
 
 interface LeaderEntry {
   score: number
@@ -3073,6 +3093,8 @@ export function PopcornGame() {
   const prevRunRef = useRef({ grains: 0, golden: 0, pigeons: 0, nipples: 0, mines: 0, saves: 0 })
   /** Когда начался текущий забег (ачивка-марафон) */
   const runStartRef = useRef(0)
+  /** Серверный забег мирового лидерборда: HMAC-токен для защищённого submit */
+  const runTokenRef = useRef<{ runId: string; token: string; startedAt: number } | null>(null)
 
   /* Мета-прогресс: опыт, магазин лапок, апгрейды, ачивки, лидеры, имя */
   const [xpRaw, storeXp] = useStoredValue(XP_KEY, '0')
@@ -3913,13 +3935,23 @@ export function PopcornGame() {
         /* «Девятая жизнь»: если апгрейд куплен и ещё не потрачен — предлагаем второй шанс */
         const ups = parseUpgrades(window.localStorage.getItem(UPG_KEY))
         const canRevive = ups.life > 0 && !(engineRef.current?.lifeSpent ?? true)
-        /* Мировая таблица: отправляем только финальный забег */
+        /* Мировая таблица: отправляем только финальный забег.
+           Защита: device + HMAC-токен забега (runId выдаётся сервером при старте) */
         if (!canRevive) {
           const name = (window.localStorage.getItem(NAME_KEY) || 'Котик').trim() || 'Котик'
+          const tok = runTokenRef.current
+          runTokenRef.current = null
           void fetch('/api/leaders', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ name, score: r.score, level: r.level }),
+            body: JSON.stringify({
+              device: getDeviceId(),
+              name,
+              score: r.score,
+              level: r.level,
+              runId: tok?.runId ?? '',
+              token: tok?.token ?? '',
+            }),
           }).catch(() => {})
         }
         setResult({ score: r.score, level: r.level, record, rank: list.indexOf(entry), canRevive, reason: r.reason })
@@ -4093,6 +4125,21 @@ export function PopcornGame() {
     addLife({ runs: 1 })
     prevRunRef.current = { grains: 0, golden: 0, pigeons: 0, nipples: 0, mines: 0, saves: 0 }
     runStartRef.current = Date.now()
+    /* Мировой лидерборд: открываем серверный забег (HMAC-токен против накрутки).
+       Офлайн/ошибка — забег просто локальный, ничего не ломается */
+    runTokenRef.current = null
+    void fetch('/api/leaders/start', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ device: getDeviceId() }),
+    })
+      .then((r) => (r.ok ? r.json() : null))
+      .then((d: { ok?: boolean; runId?: string; token?: string; startedAt?: number } | null) => {
+        if (d?.ok && typeof d.runId === 'string' && typeof d.token === 'string' && typeof d.startedAt === 'number') {
+          runTokenRef.current = { runId: d.runId, token: d.token, startedAt: d.startedAt }
+        }
+      })
+      .catch(() => {})
     if (new Date().getHours() < 6) announceAch(['nightowl'])
     checkLifeAch()
   }, [lockOrientation, announceAch, checkLifeAch])

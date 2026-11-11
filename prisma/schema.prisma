@@ -1,32 +1,91 @@
-// This is your Prisma schema file,
-// learn more about it in the docs: https://pris.ly/d/prisma-schema
-
-// Looking for ways to speed up your queries, or scale easily with your serverless or edge functions?
-// Try Prisma Accelerate: https://pris.ly/cli/accelerate-init
+// ============================================================
+// POPCORN PAWS — схема базы данных (Prisma)
+//
+// Две среды без изменения моделей (схема переносимая: никаких
+// enum / Json / @db.* native-типов — только то, что умеют и
+// SQLite, и PostgreSQL):
+//
+// 1) Локальная разработка (сандбокс): SQLite
+//      DATABASE_URL="file:./db/custom.db"  →  bun run db:push
+//
+// 2) Supabase (прод на Vercel) — бесплатный Postgres:
+//      a) создай проект на supabase.com
+//      b) Settings → Database → Connection string → «Transaction pooler» (порт 6543)
+//      c) в Vercel → Environment Variables:
+//           DATABASE_URL="postgresql://postgres.<ref>:<ПАРОЛЬ>@aws-0-<регион>.pooler.supabase.com:6543/postgres"
+//           LEADERBOARD_SECRET="<длинная случайная строка>"
+//      d) в этом файле: provider = "sqlite"  →  provider = "postgresql"
+//      e) npx prisma db push
+//      Подключение идёт напрямую из серверных роутов (Prisma),
+//      поэтому Row Level Security Supabase не требуется — доступ
+//      только через сервер с секретным ключом.
+//
+// Как устроен защищённый лидерборд (защита от накрутки):
+//   LeaderRun       — «заявка» на забег: сервер выдаёт HMAC-токен,
+//                     одноразовый, с проверкой времени жизни
+//   LeaderSubmission— финальный результат забега (один run = одна запись)
+//   LeaderPlayer    — агрегат по анонимному deviceId (рекорд, ранг)
+//   LeaderStat      — мировые счётчики (launches / runs)
+// ============================================================
 
 generator client {
   provider = "prisma-client-js"
 }
 
 datasource db {
-  provider = "sqlite"
+  provider = "sqlite" // для Supabase заменить на "postgresql"
   url      = env("DATABASE_URL")
 }
 
-model User {
+/** Игрок: анонимное устройство (deviceId из localStorage) + последний ник и рекорд */
+model LeaderPlayer {
   id        String   @id @default(cuid())
-  email     String   @unique
-  name      String?
+  device    String   @unique
+  nick      String   @default("Котик")
+  bestScore Int      @default(0)
+  bestLevel Int      @default(0)
+  runs      Int      @default(0)
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
+
+  @@index([bestScore])
 }
 
-model Post {
+/**
+ * Забег, открытый на сервере до игры (POST /api/leaders/start).
+ * status: open → submitted | expired. id одноразовый (nonce):
+ * второй submit того же runId отклоняется на уровне UPDATE-гварда.
+ */
+model LeaderRun {
+  id        String    @id @default(cuid())
+  device    String
+  ipHash    String?
+  status    String    @default("open")
+  score     Int?
+  level     Int?
+  startedAt DateTime  @default(now())
+  endedAt   DateTime?
+
+  @@index([ipHash, startedAt])
+  @@index([device, status])
+}
+
+/** Зачтённый результат забега — строки мирового топа */
+model LeaderSubmission {
   id        String   @id @default(cuid())
-  title     String
-  content   String?
-  published Boolean  @default(false)
-  authorId  String
+  runId     String   @unique
+  device    String
+  nick      String
+  score     Int
+  level     Int
   createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
+
+  @@index([score])
+  @@index([device])
+}
+
+/** Мировые счётчики: launches (открытия сайта), runs (завершённые забеги) */
+model LeaderStat {
+  key   String @id
+  value BigInt @default(0)
 }

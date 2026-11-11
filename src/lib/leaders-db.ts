@@ -1,59 +1,18 @@
 /**
- * Онлайн-лидерборд: общий топ игроков со всего мира.
- * Работает на Vercel + Neon Postgres (DATABASE_URL) — достаточно подключить
- * базу в настройках проекта. Без базы API честно отвечает { online: false }
- * и игра продолжает вести локальный список на устройстве.
+ * Онлайн-лидерборд POPCORN PAWS на Prisma.
+ *
+ * База: локально SQLite (file:./db/custom.db), в проде Supabase Postgres —
+ * схема в prisma/schema.prisma переносимая, отличается только provider
+ * и DATABASE_URL. Без доступной базы все функции возвращают null/false:
+ * API честно отвечает { online: false } и игра продолжает вести
+ * локальный список на устройстве.
+ *
+ * Защита от накрутки описана в src/lib/leaderboard-guard.ts
+ * (HMAC-токен забега + одноразовость + тайминги + rate-limit).
  */
 
-import postgres from 'postgres'
-
-type Sql = ReturnType<typeof postgres>
-
-let client: Sql | null = null
-let initPromise: Promise<Sql | null> | null = null
-
-function connectionString(): string | null {
-  return (
-    process.env.DATABASE_URL ||
-    process.env.POSTGRES_URL ||
-    process.env.POSTGRES_PRISMA_URL ||
-    null
-  )
-}
-
-/** Ленивое подключение: создаётся один раз на тёплый инстанс */
-function getSql(): Promise<Sql | null> {
-  if (!connectionString()) return Promise.resolve(null)
-  if (client) return Promise.resolve(client)
-  if (!initPromise) {
-    initPromise = (async () => {
-      try {
-        const sql = postgres(connectionString() as string, {
-          max: 3,
-          idle_timeout: 20,
-          connect_timeout: 8,
-          prepare: false,
-        })
-        // Таблица создаётся автоматически при первом обращении
-        await sql`
-          CREATE TABLE IF NOT EXISTS leaders (
-            id serial PRIMARY KEY,
-            name varchar(24) NOT NULL,
-            score int NOT NULL,
-            level int NOT NULL,
-            created timestamptz NOT NULL DEFAULT now()
-          )
-        `
-        client = sql
-        return sql
-      } catch (err) {
-        console.error('[leaders] db init failed:', err)
-        return null
-      }
-    })()
-  }
-  return initPromise
-}
+import { db } from '@/lib/db'
+import { MAX_RUN_MS, MIN_RUN_MS, verifyRunToken } from '@/lib/leaderboard-guard'
 
 export interface OnlineLeader {
   name: string
@@ -62,20 +21,29 @@ export interface OnlineLeader {
   date: number
 }
 
+export interface WorldStats {
+  /** Сколько раз игру запускали (открыли сайт) */
+  launches: number
+  /** Сколько забегов завершилось (записаны в таблицу) */
+  runs: number
+  /** Сколько уникальных устройств играло */
+  players: number
+}
+
+/* ---------- чтение топа и статистики ---------- */
+
 export async function fetchTopLeaders(limit = 20): Promise<OnlineLeader[] | null> {
-  const sql = await getSql()
-  if (!sql) return null
   try {
-    const rows = await sql<{ name: string; score: number; level: number; created: Date }[]>`
-      SELECT name, score, level, created FROM leaders
-      ORDER BY score DESC, created ASC
-      LIMIT ${limit}
-    `
+    const rows = await db.leaderSubmission.findMany({
+      orderBy: [{ score: 'desc' }, { createdAt: 'asc' }],
+      take: limit,
+      select: { nick: true, score: true, level: true, createdAt: true },
+    })
     return rows.map((r) => ({
-      name: r.name,
+      name: r.nick,
       score: r.score,
       level: r.level,
-      date: new Date(r.created).getTime(),
+      date: r.createdAt.getTime(),
     }))
   } catch (err) {
     console.error('[leaders] fetch failed:', err)
@@ -83,98 +51,179 @@ export async function fetchTopLeaders(limit = 20): Promise<OnlineLeader[] | null
   }
 }
 
-export interface SubmitScore {
-  name: string
-  score: number
-  level: number
-}
-
-/** Простая, но строгая валидация: без «диверсий» в таблице лидеров */
-export function sanitizeScore(body: unknown): SubmitScore | null {
-  if (!body || typeof body !== 'object') return null
-  const o = body as Record<string, unknown>
-  let name = typeof o.name === 'string' ? o.name : ''
-  name = name.replace(/[\u0000-\u001f\u007f]/g, '').trim().slice(0, 24)
-  if (!name) name = 'Котик'
-  const score = Math.floor(Number(o.score))
-  const level = Math.floor(Number(o.level))
-  if (!Number.isFinite(score) || score < 0 || score > 100000) return null
-  if (!Number.isFinite(level) || level < 1 || level > 999) return null
-  return { name, score, level }
-}
-
-export async function insertScore(s: SubmitScore): Promise<boolean> {
-  const sql = await getSql()
-  if (!sql) return false
+export async function fetchWorldStats(): Promise<WorldStats | null> {
   try {
-    await sql`
-      INSERT INTO leaders (name, score, level) VALUES (${s.name}, ${s.score}, ${s.level})
-    `
-    return true
+    const [counters, groups] = await Promise.all([
+      db.leaderStat.findMany({ where: { key: { in: ['launches', 'runs'] } } }),
+      db.leaderSubmission.groupBy({ by: ['device'] }),
+    ])
+    const get = (k: string) => Number(counters.find((c) => c.key === k)?.value ?? 0)
+    return { launches: get('launches'), runs: get('runs'), players: groups.length }
   } catch (err) {
-    console.error('[leaders] insert failed:', err)
-    return false
+    console.error('[leaders] fetchWorldStats failed:', err)
+    return null
   }
-}
-
-/* ---------- счётчики мировой статистики ---------- */
-
-export interface WorldStats {
-  /** Сколько раз игру запускали (открыли сайт) */
-  launches: number
-  /** Сколько забегов завершилось (записаны в таблицу) */
-  runs: number
-  /** Сколько уникальных котиков играло */
-  players: number
-}
-
-/** Таблица счётчиков создаётся автоматически, как и leaders */
-async function ensureStatsTable(sql: Sql): Promise<void> {
-  await sql`
-    CREATE TABLE IF NOT EXISTS stats (
-      key varchar(24) PRIMARY KEY,
-      value bigint NOT NULL DEFAULT 0
-    )
-  `
 }
 
 /** +1 к счётчику (запуск игры, завершённый забег); возвращает новое значение или null без базы */
 export async function bumpStat(key: string): Promise<number | null> {
-  const sql = await getSql()
-  if (!sql) return null
   try {
-    await ensureStatsTable(sql)
-    await sql`INSERT INTO stats (key, value) VALUES (${key}, 0) ON CONFLICT (key) DO NOTHING`
-    const rows = await sql<{ value: string }[]>`
-      UPDATE stats SET value = value + 1 WHERE key = ${key} RETURNING value
-    `
-    return Number(rows[0]?.value ?? 0)
+    const s = await db.leaderStat.upsert({
+      where: { key },
+      create: { key, value: 1 },
+      update: { value: { increment: 1 } },
+    })
+    return Number(s.value)
   } catch (err) {
     console.error('[leaders] bumpStat failed:', err)
     return null
   }
 }
 
-/** Прочитать мировую статистику (null — база недоступна) */
-export async function fetchWorldStats(): Promise<WorldStats | null> {
-  const sql = await getSql()
-  if (!sql) return null
+/* ---------- защищённый цикл забега ---------- */
+
+export interface OpenRun {
+  runId: string
+  startedAt: number
+}
+
+/** Открыть забег: строка LeaderRun (nonce) + HMAC-токен, одноразовый */
+export async function startLeaderRun(device: string, ipHash: string): Promise<OpenRun | null> {
   try {
-    await ensureStatsTable(sql)
-    const counters = await sql<{ key: string; value: string }[]>`
-      SELECT key, value FROM stats WHERE key IN ('launches', 'runs')
-    `
-    const distinct = await sql<{ n: string }[]>`
-      SELECT COUNT(DISTINCT name) AS n FROM leaders
-    `
-    const get = (k: string) => Number(counters.find((c) => c.key === k)?.value ?? 0)
-    return {
-      launches: get('launches'),
-      runs: get('runs'),
-      players: Number(distinct[0]?.n ?? 0),
-    }
+    const run = await db.leaderRun.create({ data: { device, ipHash } })
+    return { runId: run.id, startedAt: run.startedAt.getTime() }
   } catch (err) {
-    console.error('[leaders] fetchWorldStats failed:', err)
+    console.error('[leaders] start failed:', err)
+    return null
+  }
+}
+
+export interface SubmitArgs {
+  runId: string
+  /** HMAC-токен из /api/leaders/start (подпись runId + серверного времени старта) */
+  token: unknown
+  device: string
+  nick: string
+  score: number
+  level: number
+}
+
+export type SubmitReason = 'no-run' | 'replay' | 'too-fast' | 'expired' | 'db'
+
+export interface SubmitResult {
+  ok: boolean
+  reason?: SubmitReason
+  /** Место игрока по личному рекорду после зачёта (1 = лидер) */
+  rank?: number
+  best?: number
+}
+
+/**
+ * Зачесть забег с полной проверкой защиты:
+ *   1) токен: HMAC(runId + серверное время старта) — подделка или чужой runId
+ *      дают один и тот же ответ «no-run», чтобы не подсказывать взлому;
+ *   2) тайминги: слишком быстрый результат отклоняется, зависший (3 ч) истекает;
+ *   3) одноразовость: atomic UPDATE ... WHERE status='open' в транзакции —
+ *      двойной submit того же runId невозможен даже при гонке.
+ */
+export async function submitLeaderRun(a: SubmitArgs): Promise<SubmitResult> {
+  let run
+  try {
+    run = await db.leaderRun.findUnique({
+      where: { id: a.runId },
+      select: { id: true, device: true, status: true, startedAt: true },
+    })
+  } catch (err) {
+    console.error('[leaders] submit lookup failed:', err)
+    return { ok: false, reason: 'db' }
+  }
+  /* Не существует / чужой device / неверная подпись — неотличимо друг от друга */
+  if (!run || run.device !== a.device || !verifyRunToken(run.id, run.startedAt.getTime(), a.token)) {
+    return { ok: false, reason: 'no-run' }
+  }
+  if (run.status !== 'open') return { ok: false, reason: 'replay' }
+
+  const now = Date.now()
+  const elapsed = now - run.startedAt.getTime()
+  if (elapsed < MIN_RUN_MS) return { ok: false, reason: 'too-fast' }
+  if (elapsed > MAX_RUN_MS) {
+    await expireRun(run.id)
+    return { ok: false, reason: 'expired' }
+  }
+
+  try {
+    await db.$transaction(async (tx) => {
+      const claimed = await tx.leaderRun.updateMany({
+        where: { id: run.id, status: 'open' },
+        data: { status: 'submitted', score: a.score, level: a.level, endedAt: new Date(now) },
+      })
+      if (claimed.count === 0) throw new Error('REPLAY')
+
+      await tx.leaderSubmission.create({
+        data: { runId: run.id, device: a.device, nick: a.nick, score: a.score, level: a.level },
+      })
+
+      const p = await tx.leaderPlayer.findUnique({ where: { device: a.device } })
+      if (!p) {
+        await tx.leaderPlayer.create({
+          data: { device: a.device, nick: a.nick, bestScore: a.score, bestLevel: a.level, runs: 1 },
+        })
+      } else {
+        await tx.leaderPlayer.update({
+          where: { device: a.device },
+          data: {
+            nick: a.nick,
+            runs: { increment: 1 },
+            bestScore: Math.max(p.bestScore, a.score),
+            bestLevel: Math.max(p.bestLevel, a.level),
+          },
+        })
+      }
+    })
+  } catch (err) {
+    const msg = err instanceof Error ? err.message : ''
+    if (msg === 'REPLAY') return { ok: false, reason: 'replay' }
+    console.error('[leaders] submit failed:', err)
+    return { ok: false, reason: 'db' }
+  }
+
+  /* Счётчик завершённых забегов + место игрока (некритично, если упадёт) */
+  await bumpStat('runs')
+  const rank = await playerRank(a.device)
+  return { ok: true, rank: rank?.rank, best: rank?.best }
+}
+
+/** Истечь просроченный забег (записать, чтобы не висел open) */
+export async function expireRun(runId: string): Promise<void> {
+  try {
+    await db.leaderRun.updateMany({
+      where: { id: runId, status: 'open' },
+      data: { status: 'expired', endedAt: new Date() },
+    })
+  } catch (err) {
+    console.error('[leaders] expire failed:', err)
+  }
+}
+
+export interface PlayerRank {
+  rank: number
+  best: number
+}
+
+/** Место игрока по личному рекорду: 1 + сколько игроков строже */
+export async function playerRank(device: string): Promise<PlayerRank | null> {
+  try {
+    const p = await db.leaderPlayer.findUnique({
+      where: { device },
+      select: { bestScore: true },
+    })
+    if (!p || p.bestScore <= 0) return null
+    const better = await db.leaderPlayer.count({
+      where: { bestScore: { gt: p.bestScore } },
+    })
+    return { rank: better + 1, best: p.bestScore }
+  } catch (err) {
+    console.error('[leaders] rank failed:', err)
     return null
   }
 }
