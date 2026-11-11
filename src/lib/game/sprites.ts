@@ -9,6 +9,9 @@ export interface Sprite {
   canvas: HTMLCanvasElement | OffscreenCanvas
   w: number
   h: number
+  /** Гладкий векторный спрайт: канвас отрисован в высоком разрешении,
+      при выводе включаем сглаживание (у пиксельных — выключено) */
+  smooth?: boolean
 }
 
 /**
@@ -569,6 +572,490 @@ export function makePigeonSprite(flap = false): Sprite {
   return renderGrid(g)
 }
 
+/* ================= ГЛАДКАЯ ВЕКТОРНАЯ ОТРИСОВКА (supersampling) =================
+   Игрок просил убрать видимую пиксельность и угловатость у лапки, зёрен
+   и мин. Решение: те же силуэты и логические размеры (вся игровая
+   математика — хитбоксы, радиусы подбора — не меняется), но арт строится
+   векторно на канвасе 4×–6× логического размера и выводится вниз со
+   сглаживанием: кривые Безье, радиальные градиенты, мягкий объём. */
+
+/** Путь-силуэт из кругов (union — перекрытия не создают швов) */
+function circlesPath(list: Array<[number, number, number]>, k: number, inflate = 0): Path2D {
+  const p = new Path2D()
+  for (const [x, y, r] of list) {
+    const rr = (r + inflate) * k
+    p.moveTo(x * k + rr, y * k)
+    p.arc(x * k, y * k, rr, 0, Math.PI * 2)
+  }
+  return p
+}
+
+/** Радиальный градиент с мягким затуханием (для света/тени внутри клипа) */
+function softSpot(
+  c: CanvasRenderingContext2D,
+  x: number,
+  y: number,
+  r: number,
+  color: string,
+): void {
+  const g = c.createRadialGradient(x, y, 0, x, y, r)
+  g.addColorStop(0, color)
+  g.addColorStop(1, color.slice(0, 7) + '00')
+  c.fillStyle = g
+  c.beginPath()
+  c.arc(x, y, r, 0, Math.PI * 2)
+  c.fill()
+}
+
+/* ---------- Зерно попкорна: пухлое облачко с объёмом и бликами ---------- */
+
+export function makeSmoothPopcornSprite(variant: PopcornVariant = 'white'): Sprite {
+  const S = 56
+  const k = S / 14
+  const canvas = mkCanvas(S, S)
+  const c = canvas.getContext('2d') as CanvasRenderingContext2D | null
+  if (!c) return { canvas, w: 14, h: 14, smooth: true }
+  const pal = {
+    white: { body: '#FFFDF4', shade: '#F7D97B', shine: '#FFF0C9', edge: '#B8863B' },
+    golden: { body: '#FFDF6B', shade: '#EFB83C', shine: '#FFFBEB', edge: '#9A6A12' },
+    caramel: { body: '#FFC98A', shade: '#D97E2E', shine: '#FFE9CB', edge: '#9A5615' },
+    butter: { body: '#FFED9C', shade: '#F0C235', shine: '#FFFBDC', edge: '#A87B14' },
+  }[variant]
+  const blobs: Array<[number, number, number]> = [
+    [7, 6.4, 3.9],
+    [4.2, 8.6, 2.7],
+    [9.8, 8.6, 2.7],
+    [7, 3.8, 2.6],
+  ]
+
+  /* Обводка-силуэт: каждый круг чуть шире тёмным, поверх — основная заливка */
+  c.fillStyle = pal.edge
+  c.fill(circlesPath(blobs, k, 0.55))
+  c.fillStyle = pal.body
+  const body = circlesPath(blobs, k)
+  c.fill(body)
+
+  /* Объём: свет сверху-слева, тень снизу-справа — мягкие пятна в клипе */
+  c.save()
+  c.clip(body)
+  softSpot(c, 10.6, 10.6, 5.4 * k, pal.shade + 'B4')
+  softSpot(c, 4.9, 4.5, 3.4 * k, pal.shine + 'F0')
+  softSpot(c, 6.6, 7.8, 1.6 * k, pal.shine + 'C0')
+  if (variant === 'golden') softSpot(c, 8.6, 4.4, 1.8 * k, '#FFFBEB' + 'D0')
+  /* Складки-«пушинки»: пара дуг, чтобы облако не было стерильным */
+  c.strokeStyle = 'rgba(120, 70, 10, 0.10)'
+  c.lineWidth = 0.5 * k
+  c.lineCap = 'round'
+  c.beginPath()
+  c.arc(7 * k, 7.2 * k, 4.4 * k, Math.PI * 0.35, Math.PI * 0.75)
+  c.stroke()
+  c.beginPath()
+  c.arc(5.4 * k, 6 * k, 2.2 * k, Math.PI * 0.9, Math.PI * 1.5)
+  c.stroke()
+  /* Карамельная поливка: волнистая дуга через верх + капли */
+  if (variant === 'caramel') {
+    c.strokeStyle = '#C8741F'
+    c.lineWidth = 1.55 * k
+    c.lineCap = 'round'
+    c.beginPath()
+    c.moveTo(3.4 * k, 5.2 * k)
+    c.bezierCurveTo(5 * k, 1.6 * k, 9 * k, 1.6 * k, 10.6 * k, 5.2 * k)
+    c.stroke()
+    c.lineWidth = 1.1 * k
+    c.beginPath()
+    c.moveTo(5.6 * k, 4.6 * k)
+    c.lineTo(5.6 * k, 6.2 * k)
+    c.moveTo(8.6 * k, 4.6 * k)
+    c.lineTo(8.6 * k, 5.8 * k)
+    c.stroke()
+  }
+  /* Масляное: жирные белые капли */
+  if (variant === 'butter') {
+    c.fillStyle = '#FFFFFF'
+    c.beginPath()
+    c.ellipse(4.9 * k, 6.8 * k, 1.25 * k, 0.85 * k, -0.5, 0, Math.PI * 2)
+    c.fill()
+    c.beginPath()
+    c.ellipse(9.7 * k, 4.7 * k, 0.95 * k, 0.65 * k, 0.4, 0, Math.PI * 2)
+    c.fill()
+  }
+  c.restore()
+  return { canvas, w: 14, h: 14, smooth: true }
+}
+
+/* ---------- Соска: гладкий белый наконечник + розовое колечко ---------- */
+
+export function makeSmoothNippleSprite(): Sprite {
+  const S = 56
+  const k = S / 14
+  const canvas = mkCanvas(S, S)
+  const c = canvas.getContext('2d') as CanvasRenderingContext2D | null
+  if (!c) return { canvas, w: 14, h: 14, smooth: true }
+  const ring = '#FF8FB8'
+  const ringLight = '#FFC2D9'
+  const knob = '#FFFDF4'
+  const edge = '#8A4A5E'
+
+  /* Обводка колечка: толстый тёмный тор */
+  c.strokeStyle = edge
+  c.lineWidth = 2.9 * k
+  c.beginPath()
+  c.arc(7 * k, 9.4 * k, 3.25 * k, 0, Math.PI * 2)
+  c.stroke()
+  /* Наконечник: тёмный блин чуть шире, поверх — белый с объёмом */
+  c.fillStyle = edge
+  c.beginPath()
+  c.arc(7 * k, 4.6 * k, 3.75 * k, 0, Math.PI * 2)
+  c.fill()
+  c.fillStyle = knob
+  c.beginPath()
+  c.arc(7 * k, 4.6 * k, 3.3 * k, 0, Math.PI * 2)
+  c.fill()
+  softSpot(c, 8.7 * k, 6.2 * k, 2 * k, '#F0DFC8' + 'C8')
+  softSpot(c, 5.7 * k, 3.3 * k, 1.5 * k, '#FFFFFF')
+  /* Розовое кольцо поверх обводки + блик дугой */
+  c.strokeStyle = ring
+  c.lineWidth = 2.3 * k
+  c.beginPath()
+  c.arc(7 * k, 9.4 * k, 3.25 * k, 0, Math.PI * 2)
+  c.stroke()
+  c.strokeStyle = ringLight
+  c.lineWidth = 0.9 * k
+  c.lineCap = 'round'
+  c.beginPath()
+  c.arc(7 * k, 9.4 * k, 3.25 * k, Math.PI * 0.72, Math.PI * 1.25)
+  c.stroke()
+  return { canvas, w: 14, h: 14, smooth: true }
+}
+
+/* ---------- Лапка куницы: гладкая, с мехом-градиентами и коготками ---------- */
+
+export function makeSmoothPawSprite(pal: Partial<PawPalette> = {}): Sprite {
+  const p: PawPalette = { ...PAW_DEFAULT, ...pal }
+  const light = p.furLight ?? p.pad
+  const W = 96
+  const H = 120
+  const k = W / 24
+  const canvas = mkCanvas(W, H)
+  const c = canvas.getContext('2d') as CanvasRenderingContext2D | null
+  if (!c) return { canvas, w: 24, h: 30, smooth: true }
+  const x = (v: number): number => v * k
+  const y = (v: number): number => v * k
+
+  /* Силуэт: запястье + пясть + пальцы + перепонки + коготки */
+  const FUR: Array<[number, number, number]> = [
+    [12, 24.5, 5.6],
+    [12, 27.6, 5.0],
+    [8.4, 22.2, 3.0],
+    [15.6, 22.2, 3.0],
+    [6.6, 25.4, 1.8],
+    [17.4, 25.4, 1.8],
+    [12, 29.4, 3.7],
+    [12, 15.5, 6.0],
+    [6.4, 8.2, 3.0],
+    [12, 6.0, 3.2],
+    [17.6, 8.2, 3.0],
+    [8.8, 11.0, 2.3],
+    [15.2, 11.0, 2.3],
+  ]
+  const CLAWS: Array<[number, number, number]> = [
+    [6.4, 4.4, 1.15],
+    [12, 2.4, 1.2],
+    [17.6, 4.4, 1.15],
+  ]
+  const silhouette = circlesPath([...FUR, ...CLAWS], k)
+
+  /* Обводка-силуэт (чуть шире) */
+  c.fillStyle = p.edge
+  c.fill(circlesPath([...FUR, ...CLAWS], k, 0.5))
+  /* База: шерсть */
+  c.fillStyle = p.fur
+  c.fill(silhouette)
+
+  /* Объём меха: свет сверху-слева, тень справа-снизу — в клипе силуэта */
+  c.save()
+  c.clip(silhouette)
+  softSpot(c, x(8.6), y(13.6), 7 * k, light + 'B0')
+  softSpot(c, x(10.6), y(8.4), 3.2 * k, light + 'C8')
+  softSpot(c, x(15.8), y(18.6), 6.6 * k, p.furShade + 'A8')
+  softSpot(c, x(14.4), y(26.2), 5.6 * k, p.furShade + '90')
+  softSpot(c, x(19.6), y(10.8), 2.8 * k, p.furShade + 'B0')
+  softSpot(c, x(9), y(12.6), 1.4 * k, p.furShade + '80')
+  softSpot(c, x(15.2), y(12.6), 1.4 * k, p.furShade + '80')
+  /* Пятнистый окрас (леопард) */
+  if (p.spots) {
+    const dots: Array<[number, number, number]> = [
+      [8.0, 12.6, 1.25],
+      [15.8, 15.6, 1.3],
+      [9.6, 21.4, 1.1],
+      [14.6, 20.8, 1.1],
+      [12.0, 10.6, 0.9],
+      [16.4, 25.6, 1.1],
+      [7.6, 17.0, 1.0],
+    ]
+    c.fillStyle = p.spots
+    for (const [dx, dy, dr] of dots) {
+      c.beginPath()
+      c.arc(x(dx), y(dy), dr * k, 0, Math.PI * 2)
+      c.fill()
+    }
+  }
+  /* Радужные пальцы — поверх меха, «бобышки» вернутся ниже */
+  if (p.fingers) {
+    c.fillStyle = p.fingers[0]
+    c.beginPath()
+    c.arc(x(6.4), y(8.2), 3 * k, 0, Math.PI * 2)
+    c.fill()
+    c.fillStyle = p.fingers[1]
+    c.beginPath()
+    c.arc(x(12), y(6.0), 3.2 * k, 0, Math.PI * 2)
+    c.fill()
+    c.fillStyle = p.fingers[2]
+    c.beginPath()
+    c.arc(x(17.6), y(8.2), 3 * k, 0, Math.PI * 2)
+    c.fill()
+  }
+
+  /* Подушечка: объёмная, с бликом и тенью */
+  const padC = { cx: x(12), cy: y(16.4), r: 3.8 * k }
+  c.fillStyle = p.pad
+  c.beginPath()
+  c.arc(padC.cx, padC.cy, padC.r, 0, Math.PI * 2)
+  c.fill()
+  softSpot(c, x(13.6), y(18.2), 2.2 * k, p.furShade + 'A0')
+  softSpot(c, x(10.4), y(14.9), 1.6 * k, '#FFFFFF' + '78')
+
+  /* «Бобышки» на пальцах: светлая капля + тень + блик */
+  const beans: Array<[number, number, number]> = [
+    [6.6, 8.0, 1.5],
+    [12, 5.8, 1.6],
+    [17.4, 8.0, 1.5],
+  ]
+  for (const [bx, by, br] of beans) {
+    c.fillStyle = p.beans
+    c.beginPath()
+    c.arc(x(bx), y(by), br * k, 0, Math.PI * 2)
+    c.fill()
+    softSpot(c, x(bx + 0.35), y(by + 0.4), 0.9 * k, p.furShade + '8C')
+    softSpot(c, x(bx - 0.4), y(by - 0.45), 0.7 * k, '#FFFFFF' + 'B8')
+  }
+
+  /* Блики на коготках */
+  for (const [cx2, cy2] of [
+    [6.0, 4.0],
+    [11.6, 2.0],
+    [17.2, 4.0],
+  ]) {
+    softSpot(c, x(cx2), y(cy2), 0.7 * k, '#FFF6EC' + 'E0')
+  }
+  c.restore()
+
+  /* Волшебный колпак: гладкий конус с кантом и бликом */
+  if (p.hat) {
+    const hatMain = '#8AA0D8'
+    const hatDark = '#66739F'
+    c.save()
+    c.strokeStyle = '#4A5578'
+    c.lineWidth = 0.5 * k
+    c.lineJoin = 'round'
+    c.fillStyle = hatDark
+    c.beginPath()
+    c.ellipse(x(12), y(5.0), x(5.1), y(1.0), 0, 0, Math.PI * 2)
+    c.fill()
+    c.stroke()
+    const grad = c.createLinearGradient(x(8), 0, x(16), 0)
+    grad.addColorStop(0, hatMain)
+    grad.addColorStop(0.55, hatMain)
+    grad.addColorStop(1, hatDark)
+    c.fillStyle = grad
+    c.beginPath()
+    c.moveTo(x(12), y(0.4))
+    c.bezierCurveTo(x(10.8), y(1.4), x(9.4), y(2.4), x(7.6), y(4.1))
+    c.lineTo(x(16.4), y(4.1))
+    c.bezierCurveTo(x(14.6), y(2.4), x(13.2), y(1.4), x(12), y(0.4))
+    c.closePath()
+    c.fill()
+    c.stroke()
+    softSpot(c, x(11.2), y(1.6), 0.9 * k, '#F2F6FF' + 'D0')
+    c.restore()
+  }
+
+  return { canvas, w: 24, h: 30, smooth: true }
+}
+
+/* ---------- Зерно-мина: красно-белая ЗВЕЗДА с чёрным контуром.
+   4 варианта отрисовки (переключаются через ?mine=1..4):
+   0 «Вспышка» — 9-конечная, красный градиент + белое ядро,
+   1 «Уголёк» — 8-конечная, раскалённое белое сердце,
+   2 «Морская» — гладкая сфера с шипами (классика),
+   3 «Злюка» — 9-конечная с мордочкой (наследие старой мины).
+   Дальтоник: сине-белая палитра с тёмно-синим контуром. ---------- */
+
+export const MINE_VARIANTS = 4
+
+interface MinePal {
+  body1: string
+  body2: string
+  body3: string
+  core: string
+  edge: string
+}
+
+const MINE_NORMAL: MinePal = {
+  body1: '#FF6A5A',
+  body2: '#E5342E',
+  body3: '#9E1512',
+  core: '#FFF6EC',
+  edge: '#120303',
+}
+
+const MINE_CB: MinePal = {
+  body1: '#6FA0FF',
+  body2: '#3D7BFF',
+  body3: '#274F99',
+  core: '#FFFFFF',
+  edge: '#0A1540',
+}
+
+/** Звезда: points вершин, внешний/внутренний радиус, поворот (рад) */
+function starPath(
+  c: CanvasRenderingContext2D,
+  cx: number,
+  cy: number,
+  outer: number,
+  inner: number,
+  points: number,
+  rot: number,
+): void {
+  c.beginPath()
+  for (let i = 0; i < points * 2; i++) {
+    const r = i % 2 === 0 ? outer : inner
+    const a = rot + (i * Math.PI) / points
+    const px = cx + Math.cos(a) * r
+    const py = cy + Math.sin(a) * r
+    if (i === 0) c.moveTo(px, py)
+    else c.lineTo(px, py)
+  }
+  c.closePath()
+}
+
+export function makeMineSprite(kind: number, colorblind = false): Sprite {
+  const S = 96
+  const k = S / 14
+  const canvas = mkCanvas(S, S)
+  const c = canvas.getContext('2d') as CanvasRenderingContext2D | null
+  if (!c) return { canvas, w: 14, h: 14, smooth: true }
+  const pal = colorblind ? MINE_CB : MINE_NORMAL
+  const cx = 7 * k
+  const cy = 7 * k
+  const kindIdx = ((kind % MINE_VARIANTS) + MINE_VARIANTS) % MINE_VARIANTS
+
+  const bodyGrad = (r: number): CanvasGradient => {
+    const g = c.createRadialGradient(cx - r * 0.35, cy - r * 0.4, r * 0.15, cx, cy, r)
+    g.addColorStop(0, pal.body1)
+    g.addColorStop(0.55, pal.body2)
+    g.addColorStop(1, pal.body3)
+    return g
+  }
+  /* Мягкое светящееся гало за звездой — «маленькая, но яркая» */
+  softSpot(c, cx, cy, 6.9 * k, (colorblind ? '#7FB2FF' : '#FF5A4E') + '3C')
+
+  if (kindIdx === 2) {
+    /* Морская мина: 8 шипов-конусов + гладкая сфера */
+    c.fillStyle = pal.body3
+    for (let i = 0; i < 8; i++) {
+      const a = (i * Math.PI) / 4 + Math.PI / 8
+      const tx = cx + Math.cos(a) * 6.7 * k
+      const ty = cy + Math.sin(a) * 6.7 * k
+      const b1a = a - 0.26
+      const b1b = a + 0.26
+      c.beginPath()
+      c.moveTo(cx + Math.cos(b1a) * 3.7 * k, cy + Math.sin(b1a) * 3.7 * k)
+      c.lineTo(tx, ty)
+      c.lineTo(cx + Math.cos(b1b) * 3.7 * k, cy + Math.sin(b1b) * 3.7 * k)
+      c.closePath()
+      c.fill()
+      c.save()
+      c.strokeStyle = pal.edge
+      c.lineWidth = 0.5 * k
+      c.stroke()
+      c.restore()
+    }
+    c.fillStyle = pal.edge
+    c.beginPath()
+    c.arc(cx, cy, 4.95 * k, 0, Math.PI * 2)
+    c.fill()
+    c.fillStyle = bodyGrad(4.6 * k)
+    c.beginPath()
+    c.arc(cx, cy, 4.6 * k, 0, Math.PI * 2)
+    c.fill()
+    softSpot(c, cx - 1.7 * k, cy - 1.8 * k, 1.9 * k, '#FFFFFF' + 'E8')
+    softSpot(c, cx + 1.9 * k, cy + 2 * k, 1.7 * k, pal.body3 + 'B0')
+  } else {
+    const points = kindIdx === 1 ? 8 : 9
+    const inner = kindIdx === 1 ? 3.7 : 3.05
+    const outer = 6.55
+    const rot = -Math.PI / 2 + (kindIdx === 1 ? Math.PI / 8 : 0)
+    /* Тёмная подложка чуть шире — читаемый чёрный контур */
+    starPath(c, cx, cy, (outer + 0.62) * k, (inner + 0.5) * k, points, rot)
+    c.fillStyle = pal.edge
+    c.fill()
+    starPath(c, cx, cy, outer * k, inner * k, points, rot)
+    c.fillStyle = bodyGrad(outer * k)
+    c.fill()
+    /* Раскалённое ядро: белое сердце звезды */
+    const coreR = kindIdx === 1 ? 2.9 : 2.5
+    const cg = c.createRadialGradient(cx, cy, 0, cx, cy, coreR * k)
+    cg.addColorStop(0, '#FFFFFF')
+    cg.addColorStop(0.5, pal.core)
+    cg.addColorStop(1, pal.core + '00')
+    c.fillStyle = cg
+    c.beginPath()
+    c.arc(cx, cy, coreR * k, 0, Math.PI * 2)
+    c.fill()
+    if (kindIdx === 3) {
+      /* Злюка: мордочка на белом ядре — косые глаза, оскал */
+      const ink = '#1A0505'
+      c.fillStyle = ink
+      for (const ex of [-1.15, 1.15]) {
+        c.beginPath()
+        c.arc(cx + ex * k, cy + 0.1 * k, 0.62 * k, 0, Math.PI * 2)
+        c.fill()
+      }
+      c.fillStyle = pal.core
+      c.beginPath()
+      c.arc(cx - 1.28 * k, cy + 0.22 * k, 0.18 * k, 0, Math.PI * 2)
+      c.arc(cx + 1.02 * k, cy + 0.22 * k, 0.18 * k, 0, Math.PI * 2)
+      c.fill()
+      c.strokeStyle = ink
+      c.lineWidth = 0.42 * k
+      c.lineCap = 'round'
+      c.beginPath()
+      c.moveTo(cx - 1.8 * k, cy - 1.1 * k)
+      c.lineTo(cx - 0.5 * k, cy - 0.55 * k)
+      c.moveTo(cx + 1.8 * k, cy - 1.1 * k)
+      c.lineTo(cx + 0.5 * k, cy - 0.55 * k)
+      c.stroke()
+      c.beginPath()
+      c.arc(cx, cy + 0.7 * k, 1.25 * k, Math.PI * 0.15, Math.PI * 0.85)
+      c.stroke()
+    }
+  }
+
+  /* Яркие искорки: крохотные белые звёздочки-точки по краям */
+  c.fillStyle = '#FFFFFF'
+  for (const [gx, gy, gr] of [
+    [10.6, 3.6, 0.55],
+    [3.4, 9.6, 0.4],
+    [11.2, 9.8, 0.3],
+  ]) {
+    c.beginPath()
+    c.arc(gx * k, gy * k, gr * k, 0, Math.PI * 2)
+    c.fill()
+  }
+  return { canvas, w: 14, h: 14, smooth: true }
+}
+
 /* ================= Отрисовка ================= */
 
 export function drawSprite(
@@ -585,6 +1072,7 @@ export function drawSprite(
   ctx.translate(cx, cy)
   if (rot) ctx.rotate(rot)
   ctx.scale(sx, sy)
+  ctx.imageSmoothingEnabled = s.smooth === true
   ctx.drawImage(s.canvas, (-s.w * scale) / 2, (-s.h * scale) / 2, s.w * scale, s.h * scale)
   ctx.restore()
 }

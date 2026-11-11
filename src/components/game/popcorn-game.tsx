@@ -62,7 +62,13 @@ import {
   type PerkId,
   type ScreenTransform,
 } from '@/lib/game/perks'
-import { makeChestSprite, makePawSprite, makePopcornSprite } from '@/lib/game/sprites'
+import {
+  makeChestSprite,
+  makeSmoothPawSprite,
+  makeSmoothPopcornSprite,
+  makeMineSprite,
+  MINE_VARIANTS,
+} from '@/lib/game/sprites'
 import { PopcornSlicer } from '@/components/game/popcorn-slicer'
 import {
   POSTER_COUNT,
@@ -460,23 +466,64 @@ function ChestImg({ open }: { open: boolean }) {
   return <canvas ref={ref} aria-hidden className="pixelated h-auto w-16 sm:w-20 [@media(max-height:520px)]:w-11 sm:[@media(max-height:520px)]:w-11" />
 }
 
-/** Пиксельная лапка выбранного окраса (магазин скинов) */
+/** Гладкая лапка выбранного окраса (магазин скинов) */
 function PawImg({ skinId, className = 'w-9' }: { skinId: PawId; className?: string }) {
   const ref = useRef<HTMLCanvasElement | null>(null)
   useEffect(() => {
     const c = ref.current
     if (!c) return
-    const spr = makePawSprite(PAW_MAP[skinId].palette)
-    const px = 5
-    c.width = spr.w * px
-    c.height = spr.h * px
+    /* Hi-res спрайт 96×120 рисуется в канвас 1:1 — браузер сам плавно
+       ужмёт к 36px, без пиксельной угловатости */
+    const spr = makeSmoothPawSprite(PAW_MAP[skinId].palette)
+    c.width = spr.canvas.width
+    c.height = spr.canvas.height
     const ctx = c.getContext('2d')
     if (!ctx) return
-    ctx.imageSmoothingEnabled = false
     ctx.clearRect(0, 0, c.width, c.height)
-    ctx.drawImage(spr.canvas, 0, 0, c.width, c.height)
+    ctx.drawImage(spr.canvas, 0, 0)
   }, [skinId])
-  return <canvas ref={ref} aria-hidden className={`pixelated h-auto shrink-0 ${className}`} />
+  return <canvas ref={ref} aria-hidden className={`h-auto shrink-0 ${className}`} />
+}
+
+/** Dev-полоса сравнения вариантов мины: включается через ?mine=1..4 */
+function MineStrip({ active }: { active: number }) {
+  const refs = useRef<Array<HTMLCanvasElement | null>>([])
+  useEffect(() => {
+    for (let i = 0; i < MINE_VARIANTS; i++) {
+      const c = refs.current[i]
+      if (!c) continue
+      const spr = makeMineSprite(i, false)
+      c.width = spr.canvas.width
+      c.height = spr.canvas.height
+      const ctx = c.getContext('2d')
+      if (!ctx) continue
+      ctx.clearRect(0, 0, c.width, c.height)
+      ctx.drawImage(spr.canvas, 0, 0)
+    }
+  }, [])
+  return (
+    <div
+      aria-hidden
+      className="pointer-events-none fixed right-2 top-24 z-[60] flex flex-col gap-1 rounded-xl border-2 border-[#572014] bg-[#FFF6EC]/95 p-1.5 shadow-lg sm:top-2"
+    >
+      {Array.from({ length: MINE_VARIANTS }, (_, i) => (
+        <div
+          key={i}
+          className={`flex items-center gap-1 rounded-lg px-1 py-0.5 ${
+            i === active ? 'bg-[#FFE066] ring-2 ring-[#E24B3B]' : 'opacity-70'
+          }`}
+        >
+          <canvas
+            ref={(el) => {
+              refs.current[i] = el
+            }}
+            className="h-7 w-7"
+          />
+          <span className="w-4 font-ui text-[10px] font-bold text-[#572014]">{i + 1}</span>
+        </div>
+      ))}
+    </div>
+  )
 }
 
 /** Маленькая кнопка меню (лидеры / магазин / создатели) */
@@ -2831,8 +2878,8 @@ async function shareResult(
     c.fillRect(20, 20, 560, 560)
     c.fillStyle = '#FFF6E6'
     c.fillRect(38, 38, 524, 524)
-    c.imageSmoothingEnabled = false
-    const spr = makePopcornSprite('white')
+    c.imageSmoothingEnabled = true /* гладкое зерно на шерин-карточке */
+    const spr = makeSmoothPopcornSprite('white')
     c.drawImage(spr.canvas, 300 - 80, 66, 160, 160)
     c.textAlign = 'center'
     c.fillStyle = '#B33A26'
@@ -2899,11 +2946,25 @@ export function PopcornGame() {
   const mutedRef = useRef(false)
   const transformRef = useRef<ScreenTransform>('none')
   const layoutRef = useRef<() => void>(() => {})
-  const devRef = useRef<{ fast: boolean; forced: PerkId | null; fever: boolean; poster: boolean }>({
+  const devRef = useRef<{
+    fast: boolean
+    forced: PerkId | null
+    fever: boolean
+    poster: boolean
+    mine: number
+    mineShown: boolean
+  }>({
     fast: false,
     forced: null,
     fever: false,
     poster: false,
+    mine: 0,
+    mineShown: false,
+  })
+  /* Полоса сравнения вариантов мины: показывается только при ?mine=N */
+  const [mineStrip, setMineStrip] = useState<{ on: boolean; active: number }>({
+    on: false,
+    active: 0,
   })
   /* Сердечки: сколько было на прошлом HUD-тике (потеря → ачивка «Первый шрам») */
   const prevHeartsRef = useRef<number>(5)
@@ -3075,15 +3136,27 @@ export function PopcornGame() {
 
   /* Скрытые dev-параметры URL: ?fast=1 (короткая норма), ?perk=rot180 (гарантированный перк),
      ?fever=1 (лихорадка после каждого уровня — для проверки),
-     ?poster=1 (плакатная перебивка после КАЖДОГО уровня — для проверки) */
+     ?poster=1 (плакатная перебивка после КАЖДОГО уровня — для проверки),
+     ?mine=N (вариант звезды-мины 1..4 + полоса сравнения в углу) */
   useEffect(() => {
     const sp = new URLSearchParams(window.location.search)
+    const mineRaw = parseInt(sp.get('mine') ?? '', 10)
+    const mine =
+      Number.isFinite(mineRaw) && mineRaw >= 1 && mineRaw <= MINE_VARIANTS ? mineRaw - 1 : 0
     devRef.current = {
       fast: sp.has('fast'),
       forced: (sp.get('perk') as PerkId | null) ?? null,
       fever: sp.has('fever'),
       poster: sp.has('poster'),
+      mine,
+      mineShown: sp.has('mine'),
     }
+    /* Dev-полоса — чисто клиентский оверлей: откладываем на следующий кадр,
+       чтобы не словить hydration mismatch (SSR рисует страницу без неё) */
+    const raf = window.requestAnimationFrame(() => {
+      setMineStrip({ on: sp.has('mine'), active: mine })
+    })
+    return () => window.cancelAnimationFrame(raf)
   }, [])
 
   /* Настройки → ref + движок (язык, сложность, качество, отклик). Сам стор
@@ -3097,6 +3170,7 @@ export function PopcornGame() {
       vibration: settings.vibration,
       colorblind: settings.colorblind,
       pigeon: settings.pigeon,
+      mineVariant: devRef.current.mine,
     })
     engineRef.current?.setLang(settings.lang)
     /* Громкость музыки и звуков из настроек — живой эффект, без перезагрузки */
@@ -5105,6 +5179,9 @@ export function PopcornGame() {
               onContinue={continueFromPoster}
             />
           )}
+
+          {/* Dev-полоса сравнения вариантов мины (?mine=1..4): не блокирует касания */}
+          {mineStrip.on && <MineStrip active={mineStrip.active} />}
 
           {phase === 'ended' && result && (
             <motion.div

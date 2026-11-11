@@ -16,14 +16,14 @@ import {
 } from './perks'
 import { PAW_MAP, type PawBonus, type PawId } from './paws'
 import {
-  makePopcornSprite,
+  makeSmoothPopcornSprite,
   makeCupSprite,
-  makePawSprite,
+  makeSmoothPawSprite,
   makeSparkleSprite,
-  makeCornSprite,
+  makeMineSprite,
   makePigeonSprite,
   makeGlowSprite,
-  makeNippleSprite,
+  makeSmoothNippleSprite,
   drawSprite,
   easeOutBack,
   easeOutQuad,
@@ -271,6 +271,8 @@ export interface EngineOptions {
   colorblind: boolean
   /** Голубь-воришка включён */
   pigeon: boolean
+  /** Вариант отрисовки мины (0-3, ?mine=1..4 — для выбора арт-варианта) */
+  mineVariant: number
 }
 
 const DEFAULT_OPTIONS: EngineOptions = {
@@ -280,6 +282,7 @@ const DEFAULT_OPTIONS: EngineOptions = {
   vibration: true,
   colorblind: false,
   pigeon: true,
+  mineVariant: 0,
 }
 
 /** Точки наполнения ВНУТРИ стаканчика (в единицах спрайта от центра, спрайт 48×54).
@@ -431,8 +434,9 @@ export class PopcornEngine {
     butter: Sprite
     golden: Sprite
     goldenGlow: Sprite
-    corn: Sprite
-    cornCB: Sprite
+    /** 4 варианта гладкой звезды-мины (?mine=1..4 — выбор арт-варианта) */
+    mines: Sprite[]
+    minesCB: Sprite[]
     cup: Sprite
     paw: Sprite
     sparkle: Sprite
@@ -450,19 +454,19 @@ export class PopcornEngine {
       typeof window.matchMedia === 'function' &&
       window.matchMedia('(pointer: coarse)').matches
     this.sp = {
-      popcorn: makePopcornSprite('white'),
-      caramel: makePopcornSprite('caramel'),
-      butter: makePopcornSprite('butter'),
-      golden: makePopcornSprite('golden'),
+      popcorn: makeSmoothPopcornSprite('white'),
+      caramel: makeSmoothPopcornSprite('caramel'),
+      butter: makeSmoothPopcornSprite('butter'),
+      golden: makeSmoothPopcornSprite('golden'),
       goldenGlow: makeGlowSprite('#FFE066'),
-      corn: makeCornSprite(false),
-      cornCB: makeCornSprite(true),
+      mines: [0, 1, 2, 3].map((k) => makeMineSprite(k, false)),
+      minesCB: [0, 1, 2, 3].map((k) => makeMineSprite(k, true)),
       cup: makeCupSprite(),
-      paw: makePawSprite(),
+      paw: makeSmoothPawSprite(),
       sparkle: makeSparkleSprite(),
       pigeon0: makePigeonSprite(false),
       pigeon1: makePigeonSprite(true),
-      nipple: makeNippleSprite(),
+      nipple: makeSmoothNippleSprite(),
     }
     this.lastTs = performance.now()
     this.raf = requestAnimationFrame(this.loop)
@@ -479,7 +483,7 @@ export class PopcornEngine {
   setPawSkin(id: PawId): void {
     const def = PAW_MAP[id] ?? PAW_MAP.classic
     this.pawBonus = def.bonus
-    this.sp.paw = makePawSprite(def.palette)
+    this.sp.paw = makeSmoothPawSprite(def.palette)
   }
 
   /** Постоянные апгрейды магазина (действуют во всех забегах) */
@@ -1980,7 +1984,7 @@ export class PopcornEngine {
     tile.height = T
     const c = tile.getContext('2d')
     if (!c) return null
-    c.imageSmoothingEnabled = false
+    c.imageSmoothingEnabled = true /* спрайты теперь hi-res: плитка со сглаживанием */
     const kinds = [this.sp.popcorn, this.sp.caramel, this.sp.popcorn, this.sp.butter, this.sp.popcorn, this.sp.golden]
     let i = 0
     for (let y = 0; y < 4; y++) {
@@ -2316,9 +2320,8 @@ export class PopcornEngine {
       }
 
       const sprite = p.kind === 'corn'
-        ? this.opts.colorblind
-          ? this.sp.cornCB // дальтоник: сине-оранжевая мина
-          : this.sp.corn
+        ? (this.opts.colorblind ? this.sp.minesCB : this.sp.mines)[this.opts.mineVariant] ??
+          this.sp.mines[0]
         : p.kind === 'golden'
           ? this.sp.golden
           : p.kind === 'caramel'
