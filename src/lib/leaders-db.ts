@@ -26,8 +26,12 @@ export interface WorldStats {
   launches: number
   /** Сколько забегов завершилось (записаны в таблицу) */
   runs: number
-  /** Сколько уникальных устройств играло */
+  /** Сколько устройств сдавало забеги в мировой топ */
   players: number
+  /** Суммарные секунды в игре у всех игроков (по завершённым забегам) */
+  playSecs: number
+  /** Уникальных устройств заходило на сайт (новые пользователи) */
+  visitors: number
 }
 
 /* ---------- чтение топа и статистики ---------- */
@@ -53,30 +57,57 @@ export async function fetchTopLeaders(limit = 20): Promise<OnlineLeader[] | null
 
 export async function fetchWorldStats(): Promise<WorldStats | null> {
   try {
-    const [counters, groups] = await Promise.all([
-      db.leaderStat.findMany({ where: { key: { in: ['launches', 'runs'] } } }),
+    const [counters, groups, visits] = await Promise.all([
+      db.leaderStat.findMany({ where: { key: { in: ['launches', 'runs', 'playsecs'] } } }),
       db.leaderSubmission.groupBy({ by: ['device'] }),
+      db.leaderVisit.count(),
     ])
     const get = (k: string) => Number(counters.find((c) => c.key === k)?.value ?? 0)
-    return { launches: get('launches'), runs: get('runs'), players: groups.length }
+    return {
+      launches: get('launches'),
+      runs: get('runs'),
+      players: groups.length,
+      playSecs: get('playsecs'),
+      visitors: visits,
+    }
   } catch (err) {
     console.error('[leaders] fetchWorldStats failed:', err)
     return null
   }
 }
 
-/** +1 к счётчику (запуск игры, завершённый забег); возвращает новое значение или null без базы */
-export async function bumpStat(key: string): Promise<number | null> {
+/** Прибавить delta к счётчику (запуск игры, забег, секунды в игре); null без базы */
+export async function bumpStat(key: string, delta = 1): Promise<number | null> {
   try {
     const s = await db.leaderStat.upsert({
       where: { key },
-      create: { key, value: 1 },
-      update: { value: { increment: 1 } },
+      create: { key, value: Math.max(1, Math.floor(delta)) },
+      update: { value: { increment: Math.max(0, Math.floor(delta)) } },
     })
     return Number(s.value)
   } catch (err) {
     console.error('[leaders] bumpStat failed:', err)
     return null
+  }
+}
+
+/**
+ * Записать визит устройства (POST /api/sessions с deviceId).
+ * true — устройство новое (новый пользователь), false — уже заходило/ошибка.
+ */
+export async function recordVisit(device: string): Promise<boolean> {
+  try {
+    const existing = await db.leaderVisit.findUnique({ where: { device } })
+    if (existing) {
+      /* lastAt обновится сам (@updatedAt) */
+      await db.leaderVisit.update({ where: { device }, data: { lastAt: new Date() } })
+      return false
+    }
+    await db.leaderVisit.create({ data: { device } })
+    return true
+  } catch (err) {
+    console.error('[leaders] recordVisit failed:', err)
+    return false
   }
 }
 
@@ -106,6 +137,8 @@ export interface SubmitArgs {
   nick: string
   score: number
   level: number
+  /** Секунды чистой игры (клиентские, зажимаются серверным таймингом забега) */
+  secs?: number
 }
 
 export type SubmitReason = 'no-run' | 'replay' | 'too-fast' | 'expired' | 'db'
@@ -187,8 +220,11 @@ export async function submitLeaderRun(a: SubmitArgs): Promise<SubmitResult> {
     return { ok: false, reason: 'db' }
   }
 
-  /* Счётчик завершённых забегов + место игрока (некритично, если упадёт) */
+  /* Счётчики завершённых забегов и игрового времени + место игрока (некритично) */
   await bumpStat('runs')
+  /* Игровое время: клиентские секунды чистой игры, зажатые таймингом забега */
+  const playSecs = Math.max(0, Math.min(Math.floor(Number(a.secs) || 0), Math.floor(elapsed / 1000) + 5))
+  if (playSecs > 0) await bumpStat('playsecs', playSecs)
   const rank = await playerRank(a.device)
   return { ok: true, rank: rank?.rank, best: rank?.best }
 }

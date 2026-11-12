@@ -27,6 +27,10 @@ export interface LifeStats {
   bonus: number
   /** Сосок 🍼 поймано (перк «Соски-малышки») */
   nipples: number
+  /** Чистых секунд в игре (только геймплей, паузы не считаются) */
+  secs: number
+  /** Сколько раз открывали сайт на этом устройстве */
+  visits: number
 }
 
 export const LIFE_KEY = 'popcorn-lifestats'
@@ -41,6 +45,8 @@ const DEFAULT_LIFE: LifeStats = {
   curse: 0,
   bonus: 0,
   nipples: 0,
+  secs: 0,
+  visits: 0,
 }
 
 /** Живой объект в памяти — единый источник между кадрами */

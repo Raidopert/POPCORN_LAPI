@@ -310,6 +310,8 @@ interface LeaderEntry {
   score: number
   level: number
   date: number
+  /** Ник игрока (старые записи без ника — показываем текущий ник устройства) */
+  name?: string
 }
 
 const CONFETTI_COLORS = ['#E24B3B', '#FFE066', '#7BC47F', '#F2A65A', '#FFF6EC', '#E89A6B']
@@ -1836,7 +1838,6 @@ function LeadersOverlay({
   const [world, setWorld] = useState<{
     status: 'loading' | 'on' | 'off'
     rows: OnlineLeader[]
-    stats?: { launches: number; runs: number; players: number }
   }>({ status: 'loading', rows: [] })
   const [tab, setTab] = useState<'world' | 'local'>('world')
 
@@ -1848,11 +1849,10 @@ function LeadersOverlay({
         (d: {
           online?: boolean
           leaders?: OnlineLeader[]
-          stats?: { launches: number; runs: number; players: number }
         }) => {
           if (!alive) return
           if (d?.online && Array.isArray(d.leaders)) {
-            setWorld({ status: 'on', rows: d.leaders, stats: d.stats })
+            setWorld({ status: 'on', rows: d.leaders })
             setTab('world')
           } else {
             setWorld({ status: 'off', rows: [] })
@@ -1917,42 +1917,50 @@ function LeadersOverlay({
           </p>
         )}
 
-        {/* Мировая статистика: счётчик запусков, забегов и уникальных котиков */}
-        {world.status === 'on' && world.stats && (
-          <p className="mt-2 rounded-xl bg-[#fdf3e0] px-2.5 py-1.5 font-ui text-[10px] font-semibold leading-snug text-[#8a5330] ring-1 ring-[#e3cba4]">
-            {t('lead.stats', {
-              n: world.stats.launches,
-              r: world.stats.runs,
-              p: world.stats.players,
-            })}
-          </p>
-        )}
+        {/* Мировая статистика теперь живёт отдельно — в НАСТРОЙКАХ */}
 
         {tab === 'local' || world.status !== 'on' ? (
           leaders.length === 0 ? (
             <p className="mt-4 font-ui text-sm font-medium text-[#5C3A1E]">{t('lead.emptyLocal')}</p>
           ) : (
             <ol className={`mt-3 max-h-[42vh] space-y-1.5 overflow-y-auto pr-1 sm:max-h-72 ${OVERLAY_SCROLL}`}>
-              {leaders.map((e, i) => (
-                <li
-                  key={`${e.date}-${e.score}-${i}`}
-                  className={`flex items-center gap-2 rounded-xl border-2 px-2.5 py-1.5 ${
-                    i === 0 ? 'border-amber-400 bg-amber-50' : 'border-[#e3cba4] bg-[#fdf3e0]'
-                  }`}
-                >
-                  <span aria-hidden className="w-7 text-center font-pixel text-sm">
-                    {i < 3 ? ['🥇', '🥈', '🥉'][i] : i + 1}
-                  </span>
-                  <Popcorn className="h-4 w-4 shrink-0 text-amber-500" aria-hidden />
-                  <span className="font-pixel text-base font-bold tabular-nums text-[#5C3A1E]">
-                    {e.score}
-                  </span>
-                  <span className="ml-auto font-ui text-[11px] text-[#8a5330]">
-                    {t('lead.lvl', { n: e.level })} ·{' '}
-                    {new Date(e.date).toLocaleDateString(LOCALES[lang])}
-                  </span>
-                </li>
-              ))}
+              {leaders.map((e, i) => {
+                const mine =
+                  myName.trim().length > 1 && (e.name ?? '').toLowerCase() === myName.trim().toLowerCase()
+                return (
+                  <li
+                    key={`${e.date}-${e.score}-${i}`}
+                    className={`flex items-center gap-2 rounded-xl border-2 px-2.5 py-1.5 ${
+                      mine
+                        ? 'border-amber-500 bg-amber-100 ring-2 ring-amber-300'
+                        : i === 0
+                          ? 'border-amber-400 bg-amber-50'
+                          : 'border-[#e3cba4] bg-[#fdf3e0]'
+                    }`}
+                  >
+                    <span aria-hidden className="w-7 text-center font-pixel text-sm">
+                      {i < 3 ? ['🥇', '🥈', '🥉'][i] : i + 1}
+                    </span>
+                    {/* Ник игрока: старые записи без ника показываем под текущим ником устройства */}
+                    <span className="min-w-0 flex-1 text-left">
+                      <span className="block truncate font-pixel text-sm font-bold text-[#5C3A1E]">
+                        {e.name ?? myName}
+                        {mine && (
+                          <span className="ml-1 font-ui text-[10px] text-[#B33A26]">{t('lead.you')}</span>
+                        )}
+                      </span>
+                      <span className="block font-ui text-[10px] text-[#8a5330]">
+                        {t('lead.lvl', { n: e.level })} ·{' '}
+                        {new Date(e.date).toLocaleDateString(LOCALES[lang])}
+                      </span>
+                    </span>
+                    <Popcorn className="h-4 w-4 shrink-0 text-amber-500" aria-hidden />
+                    <span className="font-pixel text-base font-bold tabular-nums text-[#5C3A1E]">
+                      {e.score}
+                    </span>
+                  </li>
+                )
+              })}
             </ol>
           )
         ) : world.rows.length === 0 ? (
@@ -2643,6 +2651,30 @@ function AchievementsOverlay({
   )
 }
 
+/** 3700 → «1 ч 1 м», 590 → «< 1 мин» — короткий формат игрового времени */
+function fmtPlaytime(secs: number, t: TranslateFn): string {
+  const s = Math.max(0, Math.floor(secs))
+  if (s < 60) return t('stats.lt1m')
+  const h = Math.floor(s / 3600)
+  const m = Math.floor((s % 3600) / 60)
+  return h > 0 ? `${h} ${t('stats.h')} ${m} ${t('stats.m')}` : `${m} ${t('stats.m')}`
+}
+
+/** Строка статистики: иконка — подпись — значение */
+function StatsLine({ icon, label, value }: { icon: string; label: string; value: string }) {
+  return (
+    <div className="flex items-center justify-between gap-2 border-t border-[#f0e0c8] py-1 first:border-t-0 first:pt-0">
+      <span className="flex min-w-0 items-center gap-1.5 font-ui text-[11px] font-semibold text-[#5C3A1E]">
+        <span aria-hidden>{icon}</span>
+        <span className="truncate">{label}</span>
+      </span>
+      <span className="shrink-0 font-pixel text-[12px] font-bold tabular-nums text-[#8a5330]">
+        {value}
+      </span>
+    </div>
+  )
+}
+
 /** Экран «Настройки»: язык, сложность, качество, ориентация, перки, экран, вибрация */
 function SettingsOverlay({
   settings,
@@ -2662,6 +2694,31 @@ function SettingsOverlay({
   onClose: () => void
 }) {
   const set = (patch: Partial<GameSettings>) => onChange({ ...settings, ...patch })
+  /* Локальная статистика устройства: читаем один раз при открытии настроек */
+  const [local] = useState(() => getLife())
+  const [best] = useState(() => Number(window.localStorage.getItem(BEST_KEY) ?? 0))
+  /* Мировая статистика: свежие цифры при каждом открытии настроек */
+  const [world, setWorld] = useState<{
+    status: 'loading' | 'on' | 'off'
+    stats?: { launches: number; runs: number; players: number; playSecs?: number; visitors?: number }
+  }>({ status: 'loading' })
+  useEffect(() => {
+    let alive = true
+    fetch('/api/sessions')
+      .then((r) => r.json())
+      .then((d: { online?: boolean; stats?: { launches: number; runs: number; players: number; playSecs?: number; visitors?: number } }) => {
+        if (!alive) return
+        if (d?.online && d.stats) setWorld({ status: 'on', stats: d.stats })
+        else setWorld({ status: 'off' })
+      })
+      .catch(() => {
+        if (!alive) return
+        setWorld({ status: 'off' })
+      })
+    return () => {
+      alive = false
+    }
+  }, [])
   return (
     <motion.div
       className="absolute inset-0 z-[60] flex items-center justify-center overflow-y-auto bg-black/80 p-4 backdrop-blur-sm"
@@ -2924,6 +2981,48 @@ function SettingsOverlay({
                 aria-label={t('set.contrast')}
               />
             </label>
+          </section>
+
+          {/* Статистика: устройство и весь мир — отдельно от таблицы лидеров */}
+          <section className="space-y-2">
+            <div className="font-pixel text-[12px] font-bold text-[#8a5330]">
+              📊 {t('set.stats')}
+            </div>
+
+            {/* На этом устройстве */}
+            <div className="rounded-xl border-2 border-[#e3cba4] bg-white px-2.5 py-2">
+              <div className="mb-1 font-pixel text-[10px] font-bold text-[#B33A26]">
+                📱 {t('set.stats.here')}
+              </div>
+              <StatsLine icon="⏱" label={t('set.stats.time')} value={fmtPlaytime(local.secs, t)} />
+              <StatsLine icon="🏆" label={t('set.stats.record')} value={String(Math.max(0, best))} />
+              <StatsLine icon="🎬" label={t('set.stats.runs')} value={String(local.runs)} />
+              <StatsLine icon="🚀" label={t('set.stats.launches')} value={String(local.visits)} />
+            </div>
+
+            {/* Весь мир */}
+            <div className="rounded-xl border-2 border-[#e3cba4] bg-white px-2.5 py-2">
+              <div className="mb-1 font-pixel text-[10px] font-bold text-[#B33A26]">
+                🌍 {t('set.stats.world')}
+              </div>
+              {world.status === 'on' && world.stats ? (
+                <>
+                  <StatsLine
+                    icon="⏱"
+                    label={t('set.stats.time')}
+                    value={fmtPlaytime(world.stats.playSecs ?? 0, t)}
+                  />
+                  <StatsLine icon="🚀" label={t('set.stats.launches')} value={String(world.stats.launches)} />
+                  <StatsLine icon="🎬" label={t('set.stats.runs')} value={String(world.stats.runs)} />
+                  <StatsLine icon="🐱" label={t('set.stats.users')} value={String(world.stats.visitors ?? world.stats.players)} />
+                  <StatsLine icon="🎮" label={t('set.stats.players')} value={String(world.stats.players)} />
+                </>
+              ) : (
+                <p className="py-0.5 font-ui text-[11px] font-medium text-[#a97c50]">
+                  {world.status === 'loading' ? t('lead.checking') : t('set.stats.offline')}
+                </p>
+              )}
+            </div>
           </section>
         </div>
 
@@ -3277,11 +3376,13 @@ export function PopcornGame() {
   const [shareNote, setShareNote] = useState<string | null>(null)
   /* Мировой рекорд отклонён сервером (тост на экране результата) */
   const [leaderNote, setLeaderNote] = useState(false)
-  /* Мировая статистика: счётчик запусков/забегов/котиков (null — офлайн или ещё грузится) */
+  /* Мировая статистика: запуски/забеги/котики + время в игре и пользователи (null — офлайн) */
   const [worldStats, setWorldStats] = useState<{
     launches: number
     runs: number
     players: number
+    playSecs?: number
+    visitors?: number
   } | null>(null)
   const installRef = useRef<InstallPromptEvent | null>(null)
   const [canInstall, setCanInstall] = useState(false)
@@ -3385,12 +3486,24 @@ export function PopcornGame() {
   useEffect(() => {
     if (sessionCountedRef.current) return
     sessionCountedRef.current = true
-    fetch('/api/sessions', { method: 'POST' })
+    /* Локальные запуски сайта — для статистики в настройках */
+    addLife({ visits: 1 })
+    fetch('/api/sessions', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ device: getDeviceId() }),
+    })
       .then((r) => r.json())
       .then(
         (d: {
           ok?: boolean
-          stats?: { launches: number; runs: number; players: number }
+          stats?: {
+            launches: number
+            runs: number
+            players: number
+            playSecs?: number
+            visitors?: number
+          }
         }) => {
           if (d?.stats) setWorldStats(d.stats)
         },
@@ -3415,6 +3528,8 @@ export function PopcornGame() {
   }, [mess])
   /* Секунды забега копятся в ref и периодически сбрасываются в копилку роста */
   const playSecsRef = useRef(0)
+  /** Секунды текущего забега — в конце уходят в статистику (настройки + мир) */
+  const runSecsRef = useRef(0)
 
   /* Множители артефактов рынка — в ref для колбэков без перезапуска эффектов */
   const marketRef = useRef<MarketBonuses>(ZERO_MARKET_BONUS)
@@ -3612,6 +3727,7 @@ export function PopcornGame() {
     if (phase !== 'playing') return
     const iv = window.setInterval(() => {
       playSecsRef.current += 1
+      runSecsRef.current += 1
       if (playSecsRef.current >= 20) {
         growMarten(0, playSecsRef.current)
         playSecsRef.current = 0
@@ -3624,6 +3740,11 @@ export function PopcornGame() {
   useEffect(
     () => () => {
       if (playSecsRef.current > 0) addMartenProgress(0, playSecsRef.current)
+      /* Незачтённые секунды забега — в локальную статистику (закрыл страницу посреди забега) */
+      if (runSecsRef.current > 0) {
+        addLife({ secs: runSecsRef.current })
+        runSecsRef.current = 0
+      }
     },
     [],
   )
@@ -4077,6 +4198,10 @@ export function PopcornGame() {
         /* Куница NANA: фиксируем время забега (уровни уже учтены по ходу) */
         growMarten(0, playSecsRef.current)
         playSecsRef.current = 0
+        /* Время в игре: секунды чистого геймплея — в локальную статистику (настройки) */
+        const runSecs = Math.max(0, Math.floor(runSecsRef.current))
+        runSecsRef.current = 0
+        if (runSecs > 0) addLife({ secs: runSecs })
         /* Боевой опыт куницы: 1 🐾XP за каждые 10 очков забега */
         grantMartenXp(Math.round(r.score / 10))
         const prevBest = Number(window.localStorage.getItem(BEST_KEY) ?? 0)
@@ -4085,8 +4210,10 @@ export function PopcornGame() {
           storeBest(String(r.score))
           window.setTimeout(() => audio.play('record'), 700)
         }
+        /* Ник игрока — и в локальный список, и в мировую таблицу */
+        const nick = (window.localStorage.getItem(NAME_KEY) || 'Котик').trim() || 'Котик'
         /* Опыт уже зачислен по ходу забега (onStats) — здесь только список лидеров */
-        const entry: LeaderEntry = { score: r.score, level: r.level, date: Date.now() }
+        const entry: LeaderEntry = { score: r.score, level: r.level, date: Date.now(), name: nick }
         let list: LeaderEntry[] = []
         try {
           const parsed: unknown = JSON.parse(window.localStorage.getItem(LEADERS_KEY) ?? '[]')
@@ -4118,7 +4245,6 @@ export function PopcornGame() {
         /* Мировая таблица: отправляем только финальный забег.
            Защита: device + HMAC-токен забега (runId выдаётся сервером при старте) */
         if (!canRevive) {
-          const name = (window.localStorage.getItem(NAME_KEY) || 'Котик').trim() || 'Котик'
           const tok = runTokenRef.current
           runTokenRef.current = null
           void fetch('/api/leaders', {
@@ -4126,9 +4252,10 @@ export function PopcornGame() {
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({
               device: getDeviceId(),
-              name,
+              name: nick,
               score: r.score,
               level: r.level,
+              secs: runSecs,
               runId: tok?.runId ?? '',
               token: tok?.token ?? '',
             }),
@@ -4323,6 +4450,8 @@ export function PopcornGame() {
     addLife({ runs: 1 })
     prevRunRef.current = { grains: 0, golden: 0, pigeons: 0, nipples: 0, mines: 0, saves: 0 }
     runStartRef.current = Date.now()
+    /* Секунды чистого времени забега — с нуля (статистика времени в игре) */
+    runSecsRef.current = 0
     /* Мировой лидерборд: открываем серверный забег (HMAC-токен против накрутки).
        Офлайн/ошибка — забег просто локальный, ничего не ломается */
     runTokenRef.current = null

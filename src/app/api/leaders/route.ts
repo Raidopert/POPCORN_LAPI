@@ -97,6 +97,7 @@ export async function POST(req: Request) {
     nick: cleanNick(body.name),
     score: clean.score,
     level: clean.level,
+    secs: typeof body.secs === 'number' ? body.secs : undefined,
   })
 
   if (out.ok) {

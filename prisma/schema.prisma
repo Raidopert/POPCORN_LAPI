@@ -84,8 +84,18 @@ model LeaderSubmission {
   @@index([device])
 }
 
-/** Мировые счётчики: launches (открытия сайта), runs (завершённые забеги) */
+/** Мировые счётчики: launches (открытия сайта), runs (забеги), playsecs (секунды в игре) */
 model LeaderStat {
   key   String @id
   value BigInt @default(0)
+}
+
+/**
+ * Уникальные пользователи: устройство заходило на сайт хотя бы раз.
+ * device уникален — повторные визиты обновляют lastAt, строка одна.
+ */
+model LeaderVisit {
+  device    String   @id
+  createdAt DateTime @default(now())
+  lastAt    DateTime @updatedAt
 }

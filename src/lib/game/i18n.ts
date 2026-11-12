@@ -26,7 +26,7 @@ export type TranslateFn = (key: string, vars?: Record<string, string | number>) 
 
 type Row = [string, string, string, string]
 
-const T: Record<string, Row> = {
+export const T: Record<string, Row> = {
   /* ---------- меню ---------- */
   /* Бренд игры — единый на всех языках, только английский (запрос игрока) */
   'app.title': [
@@ -753,12 +753,12 @@ const T: Record<string, Row> = {
   'ach.level5.desc': ['Дойти до 5-го уровня', 'Reach level 5', 'Erreiche Level 5', 'Llega al nivel 5'],
   'ach.level10.name': ['Мастер попкорна', 'Popcorn Master', 'Popcorn-Meister', 'Maestro de Palomitas'],
   'ach.level10.desc': ['Дойти до 10-го уровня', 'Reach level 10', 'Erreiche Level 10', 'Llega al nivel 10'],
-  'ach.rich1k.name': ['Попкорн-богач', 'Popcorn Tycoon', 'Popcorn-Magnat', 'Magnate de Palomitas'],
-  'ach.rich1k.desc': [
-    'Накопить 1000 опыта в банке',
-    'Bank 1000 XP',
-    '1000 XP ansparen',
-    'Ahorrar 1000 de experiencia',
+  'ach.rich10k.name': ['Попкорн-богач', 'Popcorn Tycoon', 'Popcorn-Magnat', 'Magnate de Palomitas'],
+  'ach.rich10k.desc': [
+    'Накопить 10000 опыта в банке',
+    'Bank 10000 XP',
+    '10000 XP ansparen',
+    'Ahorrar 10000 de experiencia',
   ],
   'ach.shopper.name': ['Модная лапка', 'Stylish Paw', 'Modische Pfote', 'Patita a la Moda'],
   'ach.shopper.desc': [
@@ -2047,6 +2047,25 @@ const T: Record<string, Row> = {
   ],
   /* ---------- настройки ---------- */
   'set.title': ['НАСТРОЙКИ', 'SETTINGS', 'EINSTELLUNGEN', 'AJUSTES'],
+  /* ---------- статистика в настройках ---------- */
+  'set.stats': ['СТАТИСТИКА', 'STATS', 'STATISTIK', 'ESTADÍSTICAS'],
+  'set.stats.here': ['На этом устройстве', 'This device', 'Dieses Gerät', 'Este dispositivo'],
+  'set.stats.world': ['Весь мир', 'Whole world', 'Ganze Welt', 'Todo el mundo'],
+  'set.stats.time': ['Время в игре', 'Time in game', 'Spielzeit', 'Tiempo de juego'],
+  'set.stats.record': ['Рекорд', 'Best score', 'Rekord', 'Récord'],
+  'set.stats.runs': ['Забегов', 'Runs', 'Läufe', 'Partidas'],
+  'set.stats.launches': ['Запусков', 'Launches', 'Starts', 'Inicios'],
+  'set.stats.users': ['Пользователей', 'Players', 'Spieler', 'Jugadores'],
+  'set.stats.players': ['Играли', 'Played runs', 'Gespielt', 'Jugaron'],
+  'set.stats.offline': [
+    'Мир не отвечает — только локальные данные',
+    'World offline — local data only',
+    'Welt offline — nur lokale Daten',
+    'Mundo sin conexión: solo datos locales',
+  ],
+  'stats.h': ['ч', 'h', 'Std', 'h'],
+  'stats.m': ['м', 'm', 'Min', 'min'],
+  'stats.lt1m': ['< 1 мин', '< 1 min', '< 1 Min', '< 1 min'],
   'set.nick': ['Ник персонажа', 'Cat nickname', 'Katzen-Name', 'Apodo del gato'],
   'set.nick.edit': ['Сменить', 'Change', 'Ändern', 'Cambiar'],
   'set.lang': ['Язык', 'Language', 'Sprache', 'Idioma'],
