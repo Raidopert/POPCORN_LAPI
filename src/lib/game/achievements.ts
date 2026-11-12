@@ -121,7 +121,7 @@ export interface AchDef {
 
 export const ACHIEVEMENTS: AchDef[] = [
   /* ---------- классика (первые 10) ---------- */
-  { id: 'score100', name: 'Первая тысяча', desc: 'Набрать 1000 очков за один забег', icon: '💯' },
+  { id: 'score100', name: 'Первая сотня', desc: 'Набрать 100 очков за один забег', icon: '💯' },
   { id: 'combo10', name: 'Комбо-мастер', desc: 'Серия из 10 сдач подряд без мины', icon: '🔥' },
   { id: 'golden1', name: 'Золотая лапка', desc: 'Поймать золотое зерно (+50 очков)', icon: '✨' },
   { id: 'pigeon1', name: 'Птицебой', desc: 'Повалить голубя-воришку ударами лапки', icon: '🐦' },
@@ -258,6 +258,20 @@ export const ACH_EVENT = 'popcorn-ach-update'
     Миграция: старый id «rich1k» (условие было 10000) переименовывается в rich10k */
 export function readAch(): AchId[] {
   try {
+    /* v0.0.26: «Банк попкорна» (100000) раньше ошибочно открывался при 10000 —
+       отзываем у старых сохранений, у кого банка меньше 100000 (один раз) */
+    if (window.localStorage.getItem('popcorn-ach-mig') !== '1') {
+      const bank = Number(window.localStorage.getItem('popcorn-xp') ?? 0) || 0
+      const raw: unknown = JSON.parse(window.localStorage.getItem(ACH_KEY) ?? '[]')
+      if (Array.isArray(raw) && bank < 100000) {
+        const cleaned = raw.filter((x) => x !== 'xp100k')
+        if (cleaned.length !== raw.length) {
+          window.localStorage.setItem(ACH_KEY, JSON.stringify(cleaned))
+          window.dispatchEvent(new Event(ACH_EVENT))
+        }
+      }
+      window.localStorage.setItem('popcorn-ach-mig', '1')
+    }
     const v: unknown = JSON.parse(window.localStorage.getItem(ACH_KEY) ?? '[]')
     if (Array.isArray(v)) {
       const list = v

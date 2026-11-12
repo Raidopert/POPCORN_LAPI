@@ -3356,6 +3356,9 @@ export function PopcornGame() {
   const equippedRef = useRef<PawId>(DEFAULT_PAW)
   /** Счёт забега, уже зачисленный в банк опыта (очки = опыт) */
   const lastScoreRef = useRef(0)
+  /** Опыт 🍿, заработанный ТЕКУЩИМ забегом (курс 10:1 с округлением вниз по дельтам) */
+  const runXpGainRef = useRef(0)
+  const [runXpGain, setRunXpGain] = useState(0)
 
   /* Настройки: язык, сложность, качество, ориентация, перки, экран, вибрация */
   const [settings, setSettings] = useSettings()
@@ -3989,7 +3992,7 @@ export function PopcornGame() {
     if (coins >= 250000) cand.push('coins250k')
     try {
       const bank = Math.max(0, Number(window.localStorage.getItem(XP_KEY) ?? 0) || 0)
-      if (bank >= 10000) cand.push('xp100k')
+      if (bank >= 100000) cand.push('xp100k')
       if (bank >= 50000) cand.push('bank50k')
     } catch {
       /* нет localStorage — не беда */
@@ -4012,6 +4015,7 @@ export function PopcornGame() {
     if (!delta) return
     const gain = Math.floor(delta / XP_PER_SCORE)
     if (gain <= 0) return
+    runXpGainRef.current += gain
     const cur = Math.max(0, Number(window.localStorage.getItem(XP_KEY) ?? 0) || 0)
     const next = Math.max(0, Math.floor(cur + gain))
     window.localStorage.setItem(XP_KEY, String(next))
@@ -4368,7 +4372,7 @@ export function PopcornGame() {
         window.dispatchEvent(new Event(STORE_EVENT))
         /* Достижения конца забега: очки за забег (уровневые — по ходу в onStats) */
         const cand: AchId[] = []
-        if (r.score >= 1000) cand.push('score100')
+        if (r.score >= 100) cand.push('score100')
         if (r.score >= 10000) cand.push('score10k')
         if (r.score >= 50000) cand.push('score50k')
         if (r.score >= 100000) cand.push('score100k')
@@ -4413,6 +4417,7 @@ export function PopcornGame() {
             })
             .catch(() => {})
         }
+        setRunXpGain(runXpGainRef.current)
         setResult({ score: r.score, level: r.level, record, rank: list.indexOf(entry), canRevive, reason: r.reason })
         /* Забег кончился — перебивка больше не актуальна */
         setPosterPending(null)
@@ -4556,6 +4561,8 @@ export function PopcornGame() {
     setResult(null)
     setClearInfo(null)
     lastScoreRef.current = 0
+    runXpGainRef.current = 0
+    setRunXpGain(0)
     transformRef.current = 'none'
     const canvas = canvasRef.current
     if (canvas) {
@@ -5832,7 +5839,7 @@ export function PopcornGame() {
                     {t('over.points', { n: result.level })}
                   </p>
                   <p className="mt-1.5 font-ui text-xs font-bold text-[#5C3A1E]">
-                    {t('over.xp', { s: result.score, t: xp })}
+                    {t('over.xp', { s: runXpGain, t: xp })}
                   </p>
                   {result.rank >= 0 && result.rank < 10 && (
                     <p className="mt-1 font-ui text-xs font-bold text-[#B33A26]">

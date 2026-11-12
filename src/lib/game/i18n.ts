@@ -895,10 +895,10 @@ export const T: Record<string, Row> = {
   ],
   'ach.golden1.name': ['Золотая лапка', 'Golden Catch', 'Goldkorn', 'Grano Dorado'],
   'ach.golden1.desc': [
-    'Поймать золотое зерно (+5 очков)',
-    'Catch a golden kernel (+5 points)',
-    'Ein goldenes Korn fangen (+5 Punkte)',
-    'Atrapar un grano dorado (+5 puntos)',
+    'Поймать золотое зерно (+50 очков)',
+    'Catch a golden kernel (+50 points)',
+    'Ein goldenes Korn fangen (+50 Punkte)',
+    'Atrapar un grano dorado (+50 puntos)',
   ],
   'ach.pigeon1.name': ['Птицебой', 'Bird Knocker', 'Tauben-Boxer', 'Boxeador de Palomas'],
   'ach.pigeon1.desc': [
@@ -1100,10 +1100,10 @@ export const T: Record<string, Row> = {
   ],
   'ach.xp100k.name': ['Банк попкорна', 'Popcorn Bank', 'Popcorn-Bank', 'Banco de Palomitas'],
   'ach.xp100k.desc': [
-    'Накопить 10000 опыта в банке',
-    'Save up 10,000 XP in the bank',
-    '10.000 XP in der Bank',
-    'Ahorra 10.000 XP en el banco',
+    'Накопить 100000 опыта в банке',
+    'Save up 100,000 XP in the bank',
+    '100.000 XP in der Bank',
+    'Ahorra 100.000 XP en el banco',
   ],
   'ach.tree5.name': ['Садовник', 'Gardener', 'Gärtner', 'Jardinero'],
   'ach.tree5.desc': [
@@ -1669,10 +1669,10 @@ export const T: Record<string, Row> = {
   ],
   'perk.goldenvein.name': ['Золотая жила', 'Golden Vein', 'Goldader', 'Vena Dorada'],
   'perk.goldenvein.desc': [
-    'Золотых зёрен (+5 очков) стало в разы больше. Греби богатство!',
-    'Far more golden kernels (+5 points). Rake in the riches!',
-    'Viel mehr goldene Körner (+5). Ernte den Reichtum!',
-    'Muchos más granos dorados (+5). ¡Amasa la fortuna!',
+    'Золотых зёрен (+50 очков) стало в разы больше. Греби богатство!',
+    'Far more golden kernels (+50 points). Rake in the riches!',
+    'Viel mehr goldene Körner (+50). Ernte den Reichtum!',
+    'Muchos más granos dorados (+50). ¡Amasa la fortuna!',
   ],
   'perk.doublepoints.name': ['Двойной улов', 'Double Catch', 'Doppelfang', 'Doble Captura'],
   'perk.doublepoints.desc': [
