@@ -3133,19 +3133,22 @@ function SettingsOverlay({
 
 /* ---------- вход по никнейму ---------- */
 
-/** Диалог ника: первый вход в игру (mode='gate') и смена ника в меню (mode='edit') */
+/** Диалог ника: mode='gate' — первый вход (после забега или в меню-страховке),
+    mode='edit' — смена ника в меню. afterRun — текст «первый забег позади!» */
 function NickDialog({
   mode,
   current,
   t,
   onDone,
   onClose,
+  afterRun = false,
 }: {
   mode: 'gate' | 'edit'
   current: string
   t: TranslateFn
   onDone: (name: string) => void
   onClose: () => void
+  afterRun?: boolean
 }) {
   const [draft, setDraft] = useState(current)
   const clean = draft.trim().replace(/\s+/g, ' ')
@@ -3171,11 +3174,11 @@ function NickDialog({
           🐱
         </div>
         <h2 className="mt-1 font-pixel text-xl font-bold text-[#B33A26]">
-          {mode === 'gate' ? t('nick.gate.title') : t('nick.edit.title')}
+          {mode === 'gate' ? (afterRun ? t('nick.after.title') : t('nick.gate.title')) : t('nick.edit.title')}
         </h2>
         {mode === 'gate' ? (
           <p className="mt-1 font-ui text-xs font-medium leading-snug text-[#8a5330]">
-            {t('nick.gate.desc')}
+            {afterRun ? t('nick.after.desc') : t('nick.gate.desc')}
           </p>
         ) : (
           <p className="mt-1 font-ui text-xs font-medium text-[#8a5330]">{t('nick.edit.desc')}</p>
@@ -3450,6 +3453,9 @@ export function PopcornGame() {
   const [achRaw] = useStoredValue(ACH_KEY, '[]')
   const [nameRaw, storeName] = useStoredValue(NAME_KEY, 'Котик')
   const [nickSetRaw, storeNickSet] = useStoredValue(NICKSET_KEY, '0')
+  /* Ф0-1: новичок играет сразу, ник спрашиваем ПОСЛЕ первого забега.
+     playedOnce = у игрока уже есть хотя бы один забег (в этой сессии или за всё время) */
+  const [playedOnce, setPlayedOnce] = useState(() => getLife().runs > 0)
   const [nickEdit, setNickEdit] = useState(false)
   const [overlay, setOverlay] = useState<
     | 'leaders'
@@ -4597,6 +4603,7 @@ export function PopcornGame() {
     setPhase('playing')
     /* Ачивки забега: счётчик забегов, ночная игра; дельты — с нуля */
     addLife({ runs: 1 })
+    setPlayedOnce(true)
     prevRunRef.current = { grains: 0, golden: 0, pigeons: 0, nipples: 0, mines: 0, saves: 0 }
     runStartRef.current = Date.now()
     /* Секунды чистого времени забега — с нуля (статистика времени в игре) */
@@ -6011,10 +6018,19 @@ export function PopcornGame() {
           )}
         </AnimatePresence>
 
-        {/* Вход по никнейму (первый визит) и смена ника из меню */}
+        {/* Ник-гейт Ф0-1: спрашиваем имя после первого забега (поверх экрана
+            результата). Страховка: игрок, который уже играл, но закрыл вкладку
+            до конца забега, увидит вопрос в меню. Совсем новички — не видят. */}
         <AnimatePresence>
-          {phase === 'start' && nickSetRaw !== '1' && (
-            <NickDialog mode="gate" current="" t={t} onDone={handleNickDone} onClose={() => {}} />
+          {nickSetRaw !== '1' && (phase === 'ended' || (phase === 'start' && playedOnce)) && (
+            <NickDialog
+              mode="gate"
+              current=""
+              t={t}
+              onDone={handleNickDone}
+              onClose={() => {}}
+              afterRun={phase === 'ended'}
+            />
           )}
           {nickEdit && (
             <NickDialog

@@ -384,6 +384,18 @@ export const T: Record<string, Row> = {
     'Gib den Namen deiner Fangkatze ein — so kennt dich die Weltbestenliste! 🌍',
     'Escribe el nombre de tu gato cazador: ¡entrarás en la tabla mundial! 🌍',
   ],
+  'nick.after.title': [
+    'КАК ЗАПИСАТЬ ТЕБЯ В ИСТОРИЮ?',
+    'HOW SHOULD WE WRITE YOU DOWN?',
+    'WIE SOLLLEN WIR DICH EINTRAGEN?',
+    '¿CÓMO TE ANOTAMOS?',
+  ],
+  'nick.after.desc': [
+    'Первый забег позади! Оставь имя — под ним твой рекорд попадёт в мировую таблицу. 🌍',
+    'First run done! Leave a name — your record will join the world table under it. 🌍',
+    'Erster Lauf geschafft! Hinterlasse einen Namen — dein Rekord kommt damit in die Welttabelle. 🌍',
+    '¡Primera partida lista! Deja un nombre: tu récord entrará en la tabla mundial con él. 🌍',
+  ],
   'nick.edit.desc': [
     'Новое имя появится в мировом рейтинге после следующего забега',
     'The new name appears in the world ranking after your next run',
