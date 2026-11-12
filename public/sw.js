@@ -5,7 +5,7 @@
  *  - API /api/leaders не кэшируем — лидерборд всегда живой.
  */
 
-const VERSION = 'popcorn-v17'
+const VERSION = 'popcorn-v18'
 const CORE = [
   '/',
   '/manifest.json',
@@ -25,6 +25,14 @@ const CORE = [
   '/rooms/park.webp',
   '/rooms/attic.webp',
   '/rooms/basement.webp',
+  /* Плакаты перебивки: без них перебивка после 5-го уровня в PWA/офлайне
+     открывается пустой рамкой (запрос раньше шёл только в момент показа) */
+  '/posters/game/poster-1.webp',
+  '/posters/game/poster-2.webp',
+  '/posters/game/poster-3.webp',
+  '/posters/game/poster-4.webp',
+  '/posters/game/poster-5.webp',
+  '/posters/game/poster-6.webp',
 ]
 
 self.addEventListener('install', (event) => {
