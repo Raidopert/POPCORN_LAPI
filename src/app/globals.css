@@ -220,8 +220,105 @@ body {
   animation: play-pulse 2.2s ease-out infinite;
 }
 
+/* ===== Меню: «сочность» ===== */
+
+/* Блик, пробегающий по логотипу P.O.P. и кнопке «ИГРАТЬ» */
+@keyframes logo-shine {
+  0%,
+  58% {
+    transform: translateX(-170%) skewX(-14deg);
+  }
+  100% {
+    transform: translateX(370%) skewX(-14deg);
+  }
+}
+
+.logo-shine {
+  animation: logo-shine 3.8s ease-in-out infinite;
+  will-change: transform;
+}
+
+/* Точки-зёрна в логотипе мерцают по очереди */
+@keyframes pop-dot {
+  0%,
+  100% {
+    transform: scale(1);
+    filter: drop-shadow(0 0 0 rgba(245, 158, 11, 0));
+  }
+  50% {
+    transform: scale(1.5);
+    filter: drop-shadow(0 0 6px rgba(245, 158, 11, 0.9));
+  }
+}
+
+.pop-dot {
+  display: inline-block;
+  animation: pop-dot 1.7s ease-in-out infinite;
+}
+
+/* Мягкое дыхание тёплого светового пятна за логотипом */
+@keyframes logo-glow {
+  0%,
+  100% {
+    opacity: 0.5;
+    transform: scale(0.92);
+  }
+  50% {
+    opacity: 1;
+    transform: scale(1.08);
+  }
+}
+
+.logo-glow {
+  animation: logo-glow 3.4s ease-in-out infinite;
+}
+
+/* Зёрна попкорна падают в фоне меню (чистый CSS — композитор рисует) */
+@keyframes popcorn-fall {
+  0% {
+    transform: translate3d(0, -10vh, 0) rotate(0deg);
+    opacity: 0;
+  }
+  10% {
+    opacity: var(--pop-op, 0.5);
+  }
+  85% {
+    opacity: var(--pop-op, 0.5);
+  }
+  100% {
+    transform: translate3d(var(--pop-drift, 24px), 110vh, 0) rotate(300deg);
+    opacity: 0;
+  }
+}
+
+.popcorn-fall {
+  animation: popcorn-fall var(--pop-dur, 8s) linear infinite;
+  animation-delay: var(--pop-delay, 0s);
+  will-change: transform;
+}
+
+/* Медленно дрейфующие световые пятна за карточкой меню */
+@keyframes glow-drift {
+  0%,
+  100% {
+    transform: translate(0, 0) scale(1);
+  }
+  50% {
+    transform: translate(26px, -32px) scale(1.14);
+  }
+}
+
+.glow-drift {
+  animation: glow-drift 9s ease-in-out infinite;
+}
+
 @media (prefers-reduced-motion: reduce) {
-  .play-pulse {
+  .play-pulse,
+  .logo-shine,
+  .pop-dot,
+  .logo-glow,
+  .popcorn-fall,
+  .glow-drift {
     animation: none;
   }
 }

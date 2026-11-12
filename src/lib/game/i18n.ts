@@ -56,12 +56,12 @@ const T: Record<string, Row> = {
     '🎖 ¡El gatito llegó al nivel {{n}}! +1 punto del árbol',
   ],
   'menu.play': ['▶ ИГРАТЬ', '▶ PLAY', '▶ SPIELEN', '▶ JUGAR'],
-  'menu.rules': ['📖 ПРАВИЛА', '📖 RULES', '📖 REGELN', '📖 REGLAS'],
+  'menu.rules': ['ПРАВИЛА', 'RULES', 'REGELN', 'REGLAS'],
   'menu.leaders': ['ЛИДЕРЫ', 'RANKING', 'BESTEN', 'RÉCORDS'],
   'menu.paws': ['ЛАПКИ', 'PAWS', 'PFOTEN', 'PATITAS'],
   'menu.ach': ['АЧИВКИ', 'AWARDS', 'ERFOLGE', 'LOGROS'],
   'menu.creators': ['СОЗДАТЕЛИ', 'CREDITS', 'AUTOREN', 'CREDITOS'],
-  'menu.settings': ['⚙️ НАСТРОЙКИ', '⚙️ SETTINGS', '⚙️ EINSTELLUNGEN', '⚙️ AJUSTES'],
+  'menu.settings': ['НАСТРОЙКИ', 'SETTINGS', 'EINSTELLUNGEN', 'AJUSTES'],
   'menu.install': ['УСТАНОВИТЬ ИГРУ', 'INSTALL GAME', 'SPIEL INSTALLIEREN', 'INSTALAR JUEGO'],
   /* Экран установки: нативный диалог Chrome/Android/ПК или ручная инструкция iOS */
   'install.title': [

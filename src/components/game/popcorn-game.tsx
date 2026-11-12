@@ -3,6 +3,7 @@
 import { useCallback, useEffect, useMemo, useReducer, useRef, useState, useSyncExternalStore } from 'react'
 import { AnimatePresence, motion } from 'framer-motion'
 import {
+  BookOpen,
   CirclePlus,
   Compass,
   EllipsisVertical,
@@ -17,6 +18,7 @@ import {
   PawPrint,
   Popcorn,
   RotateCcw,
+  Settings,
   Share,
   Share2,
   ShoppingBag,
@@ -418,21 +420,87 @@ function GameButton({
   children,
   disabled,
   className,
+  /** Пробегающий блик — для главной кнопки «ИГРАТЬ» */
+  shine = false,
 }: {
   onClick: () => void
   children: React.ReactNode
   disabled?: boolean
   className?: string
+  shine?: boolean
 }) {
   return (
     <button
       type="button"
       onClick={onClick}
       disabled={disabled}
-      className={`w-full rounded-xl bg-[#E24B3B] px-6 py-3.5 font-pixel text-base text-white shadow-[0_5px_0_#9c2f22] transition-all hover:bg-[#ef5a4a] active:translate-y-[3px] active:shadow-[0_2px_0_#9c2f22] disabled:cursor-not-allowed disabled:opacity-60 sm:text-lg ${className ?? ''}`}
+      className={`w-full rounded-xl bg-[#E24B3B] px-6 py-3.5 font-pixel text-base text-white shadow-[0_5px_0_#9c2f22] transition-all hover:bg-[#ef5a4a] active:translate-y-[3px] active:shadow-[0_2px_0_#9c2f22] disabled:cursor-not-allowed disabled:opacity-60 sm:text-lg ${className ?? ''} ${shine ? 'relative overflow-hidden' : ''}`}
     >
+      {shine && (
+        <span
+          aria-hidden
+          className="logo-shine pointer-events-none absolute inset-y-0 left-0 w-1/3 bg-gradient-to-r from-transparent via-white/40 to-transparent"
+        />
+      )}
       {children}
     </button>
+  )
+}
+
+/** Пружинное появление блоков меню с каскадной задержкой (каскад-стаггер) */
+const menuPop = (i: number) => ({
+  initial: { opacity: 0, y: 14, scale: 0.96 },
+  animate: { opacity: 1, y: 0, scale: 1 },
+  transition: { delay: 0.04 + i * 0.06, type: 'spring' as const, stiffness: 340, damping: 24 },
+})
+
+/** Фон меню: падающие зёрна попкорна + дрейфующие тёплые световые пятна */
+function MenuBackdrop() {
+  const kernels = useMemo(
+    () =>
+      Array.from({ length: 11 }, (_, i) => ({
+        left: (i * 67 + 11) % 94,
+        delay: (i * 1.31) % 5.5,
+        dur: 6.5 + (i % 4) * 1.6,
+        size: 8 + ((i * 5) % 3) * 4,
+        drift: ((i % 5) - 2) * 22,
+        op: 0.28 + (i % 3) * 0.12,
+        isPop: i % 3 === 0,
+      })),
+    [],
+  )
+  return (
+    <div aria-hidden className="pointer-events-none absolute inset-0 overflow-hidden">
+      <div className="glow-drift absolute -left-10 top-1/4 h-56 w-56 rounded-full bg-amber-500/15 blur-3xl" />
+      <div
+        className="glow-drift absolute -right-8 bottom-1/4 h-64 w-64 rounded-full bg-[#E24B3B]/10 blur-3xl"
+        style={{ animationDelay: '2.8s' }}
+      />
+      {kernels.map((k, i) => (
+        <span
+          key={i}
+          className="popcorn-fall absolute -top-6"
+          style={
+            {
+              left: `${k.left}%`,
+              '--pop-delay': `${k.delay}s`,
+              '--pop-dur': `${k.dur}s`,
+              '--pop-drift': `${k.drift}px`,
+              '--pop-op': k.op,
+            } as React.CSSProperties
+          }
+        >
+          {k.isPop ? (
+            <span className="block text-base leading-none opacity-90">🍿</span>
+          ) : (
+            <span
+              className="block bg-gradient-to-br from-amber-200 to-amber-400 shadow-[inset_-1px_-2px_0_rgba(120,60,10,0.35)]"
+              style={{ width: k.size, height: k.size, borderRadius: '40%' }}
+            />
+          )}
+        </span>
+      ))}
+    </div>
   )
 }
 
@@ -574,7 +642,7 @@ function MenuSmallBtn({
       type="button"
       onClick={onClick}
       title={title}
-      className={`flex items-center justify-center gap-1 rounded-xl border-2 px-1 py-2 font-pixel text-[11px] font-bold transition active:scale-95 ${
+      className={`flex items-center justify-center gap-1 rounded-xl border-2 px-1 py-2 font-pixel text-[11px] font-bold shadow-[0_3px_0_#c9a97a] transition-all hover:-translate-y-0.5 active:translate-y-[2px] active:shadow-[0_1px_0_#c9a97a] ${
         accent
           ? 'animate-pulse border-[#5C8A3A] bg-[#eaf3dd] text-[#3f6b28] hover:bg-[#e0efcc]'
           : 'border-[#8a5330] bg-[#f3e2c8] text-[#8a5330] hover:bg-[#eed7b4]'
@@ -4657,6 +4725,8 @@ export function PopcornGame() {
               animate={{ opacity: 1 }}
               exit={{ opacity: 0, pointerEvents: 'none' }}
             >
+              {/* Сочность: падающие зёрна и тёплые пятна света за карточкой */}
+              <MenuBackdrop />
               <motion.div
                 className="relative my-auto w-full max-w-sm rounded-2xl border-4 border-[#8a5330] bg-[#FFF6E6] p-4 text-center shadow-[0_18px_50px_rgba(0,0,0,0.55)] [@media(max-height:700px)]:p-3 sm:p-6"
                 initial={{ scale: 0.92, y: 14 }}
@@ -4665,7 +4735,7 @@ export function PopcornGame() {
                 transition={{ type: 'spring', stiffness: 260, damping: 22 }}
               >
                 {/* Живая куница NANA + панель управления справа (путешествия, маркет) */}
-                <div className="relative mx-auto w-full max-w-[21rem]">
+                <motion.div {...menuPop(0)} className="relative mx-auto w-full max-w-[21rem]">
                   <div className="flex items-stretch gap-1.5">
                     {/* Сцена: куница играет с зерном (в походе — комната пустая) */}
                     <div className="relative min-w-0 flex-1">
@@ -4888,20 +4958,34 @@ export function PopcornGame() {
                       </motion.div>
                     )}
                   </AnimatePresence>
-                </div>
+                </motion.div>
                 {/* Логотип: акроним P.O.P. — первые 3 заглавные буквы с точками (точки-зёрна), полное имя ниже.
                     Слоган «8-битный рогалик…» убран с экрана (запрос игрока); бренд только на английском на всех языках */}
-                <h1 aria-label={t('app.title')} className="mt-2.5 font-pixel leading-none">
-                  <span aria-hidden className="text-shadow-pixel block text-4xl font-bold tracking-wide text-[#B33A26] sm:text-5xl">
-                    P<span className="text-amber-500">.</span>O<span className="text-amber-500">.</span>P<span className="text-amber-500">.</span>
+                <motion.h1 aria-label={t('app.title')} className="relative mt-2.5 font-pixel leading-none" {...menuPop(1)}>
+                  {/* Тёплое дыхание света за логотипом */}
+                  <span
+                    aria-hidden
+                    className="logo-glow pointer-events-none absolute -ml-20 left-1/2 top-0 h-14 w-40 rounded-full bg-amber-400/25 blur-2xl"
+                  />
+                  <span aria-hidden className="text-shadow-pixel relative block text-4xl font-bold tracking-wide text-[#B33A26] sm:text-5xl">
+                    <span className="-mx-1 relative inline-block overflow-hidden px-1 align-top">
+                      P<span className="pop-dot text-amber-500" style={{ animationDelay: '0s' }}>.</span>
+                      O<span className="pop-dot text-amber-500" style={{ animationDelay: '0.45s' }}>.</span>
+                      P<span className="pop-dot text-amber-500" style={{ animationDelay: '0.9s' }}>.</span>
+                      {/* Блик, пробегающий по буквам */}
+                      <span
+                        aria-hidden
+                        className="logo-shine pointer-events-none absolute inset-y-0 left-0 w-1/3 bg-gradient-to-r from-transparent via-white/40 to-transparent"
+                      />
+                    </span>
                   </span>
                   <span aria-hidden className="mt-1.5 block font-pixel text-[11px] font-bold uppercase tracking-[0.35em] text-[#8a5330] sm:text-sm">
                     {t('app.title')}
                   </span>
-                </h1>
+                </motion.h1>
 
                 {/* Компактный статус: рекорд (+мировая стат.), опыт, уровень котика, ник */}
-                <div className="mt-2.5 flex flex-wrap items-center justify-center gap-1">
+                <motion.div className="mt-2.5 flex flex-wrap items-center justify-center gap-1" {...menuPop(2)}>
                   {best > 0 && (
                     <div
                       className="inline-flex items-center gap-1 rounded-full bg-amber-100 px-2.5 py-1 font-ui text-[11px] font-semibold text-[#8a5330] ring-2 ring-amber-200"
@@ -4943,37 +5027,38 @@ export function PopcornGame() {
                     </span>
                   </div>
                   {/* Ник теперь меняется в настройках (шестерёнка) */}
-                </div>
+                </motion.div>
 
-                {/* ИГРАТЬ — на всю ширину, под ней маленькая кнопка правил */}
-                <div className="mt-3">
+                {/* ИГРАТЬ — на всю ширину; правила уехали вниз к настройкам */}
+                <motion.div className="mt-3" {...menuPop(3)}>
                   <div className="relative">
                     <span
                       aria-hidden
                       className="play-pulse pointer-events-none absolute inset-0 rounded-xl"
                     />
-                    <GameButton onClick={startGame}>{t('menu.play')}</GameButton>
+                    <GameButton onClick={startGame} shine>
+                      {t('menu.play')}
+                    </GameButton>
                   </div>
-                  <button
-                    type="button"
-                    onClick={() => setOverlay('rules')}
-                    className="mx-auto mt-2 flex w-fit items-center gap-1 rounded-lg border-2 border-[#8a5330]/70 bg-[#f3e2c8] px-4 py-1.5 font-pixel text-xs font-bold text-[#8a5330] shadow-[0_3px_0_#c9a97a] transition-all hover:bg-[#eed7b4] active:translate-y-[2px] active:shadow-[0_1px_0_#c9a97a]"
-                  >
-                    {t('menu.rules')}
-                  </button>
-                </div>
+                </motion.div>
 
-                {/* Ряд: ЛАПКИ · АЧИВКИ · ДРЕВО (дерево уменьшено, бейдж очков сохранён) */}
-                <div className="mt-2 grid grid-cols-3 gap-1.5">
+                {/* Ряд: ЛАПКИ · АЧИВКИ · ДРЕВО — сразу под ИГРАТЬ (дерево уменьшено, бейдж очков сохранён) */}
+                <motion.div className="mt-2.5 grid grid-cols-3 gap-2" {...menuPop(4)}>
                   <MenuSmallBtn
-                    onClick={() => setOverlay('shop')}
+                    onClick={() => {
+                      audio.play('click')
+                      setOverlay('shop')
+                    }}
                     icon={<PawPrint className="h-4 w-4" aria-hidden />}
                     title={t(`paw.${equippedPaw}.name`)}
                   >
                     {t('menu.paws')}
                   </MenuSmallBtn>
                   <MenuSmallBtn
-                    onClick={() => setOverlay('ach')}
+                    onClick={() => {
+                      audio.play('click')
+                      setOverlay('ach')
+                    }}
                     icon={<span aria-hidden className="text-sm">🏅</span>}
                   >
                     {t('menu.ach')}
@@ -4994,52 +5079,71 @@ export function PopcornGame() {
                       </span>
                     )}
                   </MenuSmallBtn>
-                </div>
+                </motion.div>
 
                 {/* Ряд ниже: ЛИДЕРЫ · СОЗДАТЕЛИ */}
-                <div className="mt-1.5 grid grid-cols-2 gap-1.5">
+                <motion.div className="mt-2 grid grid-cols-2 gap-2" {...menuPop(5)}>
                   <MenuSmallBtn
-                    onClick={() => setOverlay('leaders')}
+                    onClick={() => {
+                      audio.play('click')
+                      setOverlay('leaders')
+                    }}
                     icon={<Trophy className="h-4 w-4" aria-hidden />}
                   >
                     {t('menu.leaders')}
                   </MenuSmallBtn>
                   <MenuSmallBtn
-                    onClick={() => setOverlay('creators')}
+                    onClick={() => {
+                      audio.play('click')
+                      setOverlay('creators')
+                    }}
                     icon={<Heart className="h-4 w-4" aria-hidden />}
                   >
                     {t('menu.creators')}
                   </MenuSmallBtn>
-                </div>
+                </motion.div>
 
-                {/* Настройки: языки и ник персонажа теперь живут внутри */}
-                <button
-                  type="button"
-                  onClick={() => {
-                    audio.play('click')
-                    setOverlay('settings')
-                  }}
-                  className="mx-auto mt-2 flex w-fit items-center gap-1 rounded-lg border-2 border-[#8a5330]/70 bg-[#f3e2c8] px-4 py-1.5 font-pixel text-xs font-bold text-[#8a5330] shadow-[0_3px_0_#c9a97a] transition-all hover:bg-[#eed7b4] active:translate-y-[2px] active:shadow-[0_1px_0_#c9a97a]"
-                >
-                  {t('menu.settings')}
-                </button>
-
-                {!isStandalone && (
-                  <button
-                    type="button"
+                {/* Низ: ПРАВИЛА · НАСТРОЙКИ — вспомогательный ряд, выровнен с остальными */}
+                <motion.div className="mt-2 grid grid-cols-2 gap-2" {...menuPop(6)}>
+                  <MenuSmallBtn
                     onClick={() => {
                       audio.play('click')
-                      if (canInstall) {
-                        void handleInstall()
-                      } else {
-                        setOverlay('install')
-                      }
+                      setOverlay('rules')
                     }}
-                    className="mt-2 flex w-full items-center justify-center gap-2 rounded-xl border-2 border-[#8a5330] bg-[#f3e2c8] px-4 py-2 font-pixel text-sm font-bold text-[#8a5330] transition hover:bg-[#eed7b4] active:scale-[0.98]"
+                    icon={<BookOpen className="h-4 w-4" aria-hidden />}
                   >
-                    <Smartphone className="h-4 w-4" aria-hidden /> {t('menu.install')}
-                  </button>
-                )}
+                    {t('menu.rules')}
+                  </MenuSmallBtn>
+                  <MenuSmallBtn
+                    onClick={() => {
+                      audio.play('click')
+                      setOverlay('settings')
+                    }}
+                    icon={<Settings className="h-4 w-4" aria-hidden />}
+                  >
+                    {t('menu.settings')}
+                  </MenuSmallBtn>
+                </motion.div>
+
+                {/* Установка PWA — когда приложение ещё не стоит */}
+                <motion.div className="mt-2" {...menuPop(7)}>
+                  {!isStandalone && (
+                    <button
+                      type="button"
+                      onClick={() => {
+                        audio.play('click')
+                        if (canInstall) {
+                          void handleInstall()
+                        } else {
+                          setOverlay('install')
+                        }
+                      }}
+                      className="flex w-full items-center justify-center gap-2 rounded-xl border-2 border-[#8a5330] bg-[#f3e2c8] px-4 py-2 font-pixel text-sm font-bold text-[#8a5330] transition hover:bg-[#eed7b4] active:scale-[0.98]"
+                    >
+                      <Smartphone className="h-4 w-4" aria-hidden /> {t('menu.install')}
+                    </button>
+                  )}
+                </motion.div>
 
                 {/* Версия сборки: правый нижний угол меню — сразу видно, что на проде */}
                 <span
