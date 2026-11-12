@@ -63,13 +63,6 @@ export const T: Record<string, Row> = {
   'menu.creators': ['СОЗДАТЕЛИ', 'CREDITS', 'AUTOREN', 'CREDITOS'],
   'menu.settings': ['НАСТРОЙКИ', 'SETTINGS', 'EINSTELLUNGEN', 'AJUSTES'],
   'menu.install': ['УСТАНОВИТЬ ИГРУ', 'INSTALL GAME', 'SPIEL INSTALLIEREN', 'INSTALAR JUEGO'],
-  /* Аркадное «вставь монетку» под кнопкой ИГРАТЬ (декор) */
-  'menu.insertCoin': [
-    'ВСТАВЬ МОНЕТКУ',
-    'INSERT COIN',
-    'MÜNZE EINWERFEN',
-    'INSERTA MONEDA',
-  ],
   /* Экран установки: нативный диалог Chrome/Android/ПК или ручная инструкция iOS */
   'install.title': [
     '📲 Установить игру',
@@ -136,6 +129,22 @@ export const T: Record<string, Row> = {
     '+1 punto por nivel de gato. ¡Las mejoras son permanentes!',
   ],
   'tree.locked': ['ур. {{n}}', 'lvl {{n}}', 'Lvl {{n}}', 'niv. {{n}}'],
+  /* карточка выбранного узла древа */
+  'tree.card.level': [
+    'Уровень {{a}} из {{b}}',
+    'Level {{a}} of {{b}}',
+    'Stufe {{a}} von {{b}}',
+    'Nivel {{a}} de {{b}}',
+  ],
+  'tree.card.gives': ['Даст:', 'Will give:', 'Wird geben:', 'Dará:'],
+  'tree.card.now': ['Сейчас:', 'Now:', 'Jetzt:', 'Ahora:'],
+  'tree.card.next': ['Станет:', 'Next:', 'Wird:', 'Siguiente:'],
+  'tree.buy': [
+    'КУПИТЬ ЗА 1 ОЧКО',
+    'BUY FOR 1 POINT',
+    'FÜR 1 PUNKT KAUFEN',
+    'COMPRAR POR 1 PUNTO',
+  ],
   'tree.maxed': ['МАКС', 'MAX', 'MAX', 'MÁX'],
   'tree.needRoot': [
     'Сначала открой «Урожай»!',

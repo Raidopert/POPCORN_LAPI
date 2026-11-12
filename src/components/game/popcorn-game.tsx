@@ -2183,34 +2183,35 @@ function InstallOverlay({
 }
 
 /** Позиции узлов древа на SVG-сетке (в процентах контейнера):
-    корень → 3 ветки → 6 детей → 6 вершин → сердца → верхушка (6 ярусов, 24 узла) */
+    корень → 3 ветки → 6 детей → 6 вершин → сердца → верхушка (6 ярусов, 24 узла).
+    Ярусы уплотнены: нижний ряд с именами не вылезает за контейнер */
 const TREE_POS: Record<TreeId, { x: number; y: number }> = {
-  harvest: { x: 50, y: 5 },
-  swift: { x: 20, y: 22 },
-  cap: { x: 50, y: 22 },
-  seeds: { x: 80, y: 22 },
-  magnet: { x: 8.5, y: 42 },
-  guard: { x: 25, y: 42 },
-  goldluck: { x: 41.5, y: 42 },
-  coins: { x: 58, y: 42 },
-  feverluck: { x: 74.5, y: 42 },
-  fevertime: { x: 91.5, y: 42 },
-  miner: { x: 8.5, y: 64 },
-  stun: { x: 25, y: 64 },
-  combo: { x: 41.5, y: 64 },
-  xpboost: { x: 58, y: 64 },
-  shield: { x: 74.5, y: 64 },
-  double: { x: 91.5, y: 64 },
+  harvest: { x: 50, y: 4 },
+  swift: { x: 20, y: 16 },
+  cap: { x: 50, y: 16 },
+  seeds: { x: 80, y: 16 },
+  magnet: { x: 8.5, y: 34 },
+  guard: { x: 25, y: 34 },
+  goldluck: { x: 41.5, y: 34 },
+  coins: { x: 58, y: 34 },
+  feverluck: { x: 74.5, y: 34 },
+  fevertime: { x: 91.5, y: 34 },
+  miner: { x: 8.5, y: 54 },
+  stun: { x: 25, y: 54 },
+  combo: { x: 41.5, y: 54 },
+  xpboost: { x: 58, y: 54 },
+  shield: { x: 74.5, y: 54 },
+  double: { x: 91.5, y: 54 },
   /* ярус 5 — сердечная ветка */
-  heartmax: { x: 66.5, y: 82 },
-  healer: { x: 83, y: 82 },
+  heartmax: { x: 66.5, y: 72 },
+  healer: { x: 83, y: 72 },
   /* ярус 6 — верхушка для ветеранов */
-  magnet2: { x: 8.5, y: 96 },
-  biggrain: { x: 25, y: 96 },
-  goldrain: { x: 41.5, y: 96 },
-  coins2: { x: 58, y: 96 },
-  seeds2: { x: 74.5, y: 96 },
-  fevertime2: { x: 91.5, y: 96 },
+  magnet2: { x: 8.5, y: 88 },
+  biggrain: { x: 25, y: 88 },
+  goldrain: { x: 41.5, y: 88 },
+  coins2: { x: 58, y: 88 },
+  seeds2: { x: 74.5, y: 88 },
+  fevertime2: { x: 91.5, y: 88 },
 }
 
 /** Ветви дерева строятся из родителей: каждый узел ведёт от своего предка */
@@ -2273,6 +2274,8 @@ function TreeOverlay({
 }) {
   const [err, setErr] = useState<string | null>(null)
   const errTimer = useRef<number | null>(null)
+  /** Выбранный узел: его полный эффект показывается в карточке под деревом */
+  const [sel, setSel] = useState<TreeId>('harvest')
 
   const showErr = useCallback((msg: string) => {
     audio.play('penalty')
@@ -2288,7 +2291,8 @@ function TreeOverlay({
     [],
   )
 
-  const onNode = useCallback(
+  /** Покупка из карточки: та же проверка, что раньше была на тапе узла */
+  const tryBuy = useCallback(
     (id: TreeId) => {
       const check = canBuy(id, tree, totalXp)
       if (check !== 'ok') {
@@ -2332,7 +2336,7 @@ function TreeOverlay({
       exit={{ opacity: 0, pointerEvents: 'none' }}
     >
       <motion.div
-        className="my-auto max-h-[94dvh] w-full max-w-sm overflow-y-auto rounded-2xl border-4 border-[#8a5330] bg-[#FFF6E6] p-4 text-center shadow-[0_18px_50px_rgba(0,0,0,0.55)] sm:p-5"
+        className="my-auto max-h-[94dvh] w-full max-w-md overflow-y-auto rounded-2xl border-4 border-[#8a5330] bg-[#FFF6E6] p-4 text-center shadow-[0_18px_50px_rgba(0,0,0,0.55)] sm:p-5"
         initial={{ scale: 0.92, y: 14 }}
         animate={{ scale: 1, y: 0 }}
         exit={{ scale: 0.95, opacity: 0, pointerEvents: 'none' }}
@@ -2355,7 +2359,7 @@ function TreeOverlay({
         </div>
 
         {/* Сетка-дерево: SVG-ветки под узлами (6 ярусов, 24 узла) */}
-        <div className="relative mx-auto h-[620px] w-full max-w-[430px]">
+        <div className="relative mx-auto h-[640px] w-full max-w-[430px]">
           <svg
             aria-hidden
             className="absolute inset-0 h-full w-full"
@@ -2385,17 +2389,23 @@ function TreeOverlay({
             const p = TREE_POS[node.id]
             const st = nodeState(node.id)
             const lvl = tree[node.id] ?? 0
+            const selected = sel === node.id
             return (
               <button
                 key={node.id}
                 type="button"
-                onClick={() => onNode(node.id)}
+                onClick={() => setSel(node.id)}
                 style={{ left: `${p.x}%`, top: `${p.y}%` }}
+                aria-pressed={selected}
                 className="absolute flex -translate-x-1/2 -translate-y-1/2 flex-col items-center rounded-lg focus:outline-none focus-visible:ring-2 focus-visible:ring-[#E24B3B]"
                 aria-label={`${t(`tree.${node.id}.name`)} — ${t(`tree.${node.id}.effect`, { n: treeEffectN(node.id, lvl) })}`}
               >
                 <span
-                  className={`relative flex h-11 w-11 items-center justify-center rounded-full border-4 text-xl transition active:scale-90 sm:h-12 sm:w-12 ${styles[st]}`}
+                  className={`relative flex h-11 w-11 items-center justify-center rounded-full border-4 text-xl transition active:scale-90 sm:h-12 sm:w-12 ${styles[st]} ${
+                    selected
+                      ? 'ring-2 ring-[#B33A26] ring-offset-2 ring-offset-[#FFF6E6]'
+                      : ''
+                  }`}
                 >
                   <span aria-hidden>{node.icon}</span>
                   {lvl > 0 && (
@@ -2409,16 +2419,96 @@ function TreeOverlay({
                     </span>
                   )}
                 </span>
-                <span className="mt-1 w-[15.5%] min-w-14 max-w-[70px] text-center font-pixel text-[8px] font-bold leading-[1.1] text-[#5C3A1E] sm:w-20 sm:text-[9px]">
+                {/* Короткое имя под узлом; полный эффект — в карточке выбора.
+                    Ширина ≤ зазора колонок (59–71px), чтобы имена не слипались */}
+                <span className="mt-1 w-14 text-center font-pixel text-[9px] font-bold leading-[1.15] text-[#5C3A1E] sm:w-16 sm:text-[10px]">
                   {t(`tree.${node.id}.name`)}
-                </span>
-                <span className="w-[15.5%] min-w-14 max-w-[70px] text-center font-ui text-[8px] leading-tight text-[#a97c50] sm:w-20 sm:text-[9px]">
-                  {t(`tree.${node.id}.effect`, { n: treeEffectN(node.id, lvl) })}
                 </span>
               </button>
             )
           })}
         </div>
+
+        {/* Карточка выбранного узла: весь текст эффекта — крупно и читаемо */}
+        {(() => {
+          const def = TREE_MAP[sel]
+          const lvl = tree[sel] ?? 0
+          const check = canBuy(sel, tree, totalXp)
+          const ready = check === 'ok'
+          return (
+            <div
+              className="mt-1 rounded-xl border-2 border-[#e3cba4] bg-white p-2.5 text-left"
+              aria-live="polite"
+            >
+              <div className="flex items-center gap-2">
+                <span
+                  aria-hidden
+                  className={`flex h-9 w-9 shrink-0 items-center justify-center rounded-full border-4 text-lg ${styles[nodeState(sel)]}`}
+                >
+                  {def.icon}
+                </span>
+                <div className="min-w-0 flex-1">
+                  <div className="truncate font-pixel text-[13px] font-bold text-[#5C3A1E]">
+                    {t(`tree.${sel}.name`)}
+                  </div>
+                  <div className="font-ui text-[10px] font-semibold text-[#8a5330]">
+                    {t('tree.card.level', { a: lvl, b: def.maxLevel })}
+                    {def.reqLevel > 1 && ` · ${t('tree.locked', { n: def.reqLevel })}`}
+                  </div>
+                </div>
+              </div>
+
+              <p className="mt-1.5 font-ui text-[11px] leading-snug text-[#5C3A1E]">
+                {lvl > 0 ? (
+                  <>
+                    {t('tree.card.now')}{' '}
+                    <b>{t(`tree.${sel}.effect`, { n: treeEffectN(sel, lvl) })}</b>
+                    {check !== 'max' && (
+                      <>
+                        {' · '}
+                        {t('tree.card.next')}{' '}
+                        <b>{t(`tree.${sel}.effect`, { n: treeEffectN(sel, lvl + 1) })}</b>
+                      </>
+                    )}
+                  </>
+                ) : (
+                  <>
+                    {t('tree.card.gives')}{' '}
+                    <b>{t(`tree.${sel}.effect`, { n: treeEffectN(sel, 1) })}</b>
+                  </>
+                )}
+              </p>
+
+              {ready ? (
+                <button
+                  type="button"
+                  onClick={() => tryBuy(sel)}
+                  className="mt-2 w-full rounded-xl bg-[#E24B3B] px-4 py-2 font-pixel text-[12px] font-bold text-white shadow-[0_3px_0_#9c2f22] transition hover:brightness-105 active:translate-y-[2px] active:shadow-[0_1px_0_#9c2f22]"
+                >
+                  {t('tree.buy')}
+                </button>
+              ) : (
+                <p
+                  className={`mt-2 rounded-xl px-3 py-1.5 text-center font-pixel text-[10px] font-bold ${
+                    check === 'max'
+                      ? 'bg-[#eaf3dd] text-[#3f6b28]'
+                      : 'bg-[#f3e2c8] text-[#8a5330]'
+                  }`}
+                >
+                  {check === 'max'
+                    ? t('tree.maxed')
+                    : check === 'root'
+                      ? t('tree.needParent', {
+                          s: def.parent ? t(`tree.${def.parent}.name`) : t('tree.harvest.name'),
+                        })
+                      : check === 'level'
+                        ? t('tree.needLevel', { n: def.reqLevel })
+                        : t('tree.needPoints')}
+                </p>
+              )}
+            </div>
+          )
+        })()}
 
         <div className="mt-2">
           <GameButton onClick={onClose}>{t('install.close')}</GameButton>
@@ -5222,13 +5312,6 @@ export function PopcornGame() {
                       {t('menu.play')}
                     </GameButton>
                   </div>
-                  {/* И3: аркадное «ВСТАВЬ МОНЕТКУ» — ступенчато мигает под кнопкой */}
-                  <p
-                    aria-hidden
-                    className="menu-coin mt-1.5 text-center font-pixel text-[10px] font-bold uppercase tracking-[0.35em] text-[#a97c50]"
-                  >
-                    {t('menu.insertCoin')}
-                  </p>
                 </motion.div>
 
                 {/* Ряд: ЛАПКИ · АЧИВКИ · ДРЕВО — сразу под ИГРАТЬ (дерево уменьшено, бейдж очков сохранён) */}
