@@ -31,6 +31,10 @@ export interface LifeStats {
   secs: number
   /** Сколько раз открывали сайт на этом устройстве */
   visits: number
+  /** Уровней пройдено «без мин и без краж» за всё время */
+  perfects: number
+  /** Суммарный счёт за все забеги (только положительные дельты) */
+  score: number
 }
 
 export const LIFE_KEY = 'popcorn-lifestats'
@@ -47,6 +51,8 @@ const DEFAULT_LIFE: LifeStats = {
   nipples: 0,
   secs: 0,
   visits: 0,
+  perfects: 0,
+  score: 0,
 }
 
 /** Живой объект в памяти — единый источник между кадрами */

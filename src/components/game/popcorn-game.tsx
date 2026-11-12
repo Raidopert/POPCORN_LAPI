@@ -36,10 +36,12 @@ import {
   TREE_NODES,
   TREE_KEY,
   TREE_MAP,
+  TREE_TOTAL_POINTS,
   ZERO_BONUS,
   buyNode,
   canBuy,
   capGain,
+  mergeBonuses,
   parseTreeRaw,
   treeBonuses,
   treeNodesOpened,
@@ -91,6 +93,10 @@ import {
   UPGRADES,
   UPGRADE_MAP,
   parseUpgrades,
+  upgradeBonuses,
+  upgradesAllMaxed,
+  upgradesBought,
+  type UpgradeDef,
   type UpgradeId,
   type UpgradeState,
 } from '@/lib/game/upgrades'
@@ -1626,18 +1632,12 @@ function ShopOverlay({
   onClose: () => void
 }) {
   const [tab, setTab] = useState<'paws' | 'upgrades'>('paws')
-  const effectText = (id: UpgradeId, level: number): string => {
-    if (id === 'capacity') {
-      return level > 0 ? t('upg.capacity.effect', { n: level }) : t('upg.none')
-    }
-    if (id === 'life') {
-      return level > 0 ? t('upg.life.effect') : t('upg.life.effectNone')
-    }
-    if (id === 'hearts') {
-      return level > 0 ? t('upg.hearts.effect', { n: level }) : t('upg.hearts.effectNone')
-    }
-    return level > 0 ? t('upg.startperk.effect') : t('upg.startperk.effectNone')
-  }
+  /* Эффект любого апгрейда описан в i18n: upg.<id>.effect (+{{n}}) и upg.<id>.effectNone.
+     {{n}} — шаг эффекта × купленные ступени (у «Крепкого носа» шаг 0.3 сек) */
+  const effectText = (def: UpgradeDef, level: number): string =>
+    level > 0
+      ? t(`upg.${def.id}.effect`, { n: level * def.step })
+      : t(`upg.${def.id}.effectNone`)
   return (
     <motion.div
       className="absolute inset-0 z-40 flex items-center justify-center overflow-y-auto bg-black/70 p-4 backdrop-blur-sm"
@@ -1772,7 +1772,7 @@ function ShopOverlay({
                         {t(`upg.${def.id}.name`)}
                       </div>
                       <div className="font-ui text-[11px] leading-tight text-[#8a5330]">
-                        {effectText(def.id, level)}
+                        {effectText(def, level)}
                       </div>
                     </div>
                     {/* Ступени */}
@@ -3948,32 +3948,57 @@ export function PopcornGame() {
   )
 
   /** Проверить пожизненные условия ачивок: счётчики стажа, монеты, банк,
-      уровень котика. Дёшево — можно звать после любого события. */
+      уровень котика, время в игре. Дёшево — можно звать после любого события. */
   const checkLifeAch = useCallback(() => {
     const L = getLife()
     const cand: AchId[] = []
     if (L.grains >= 5000) cand.push('grainsLife5k')
     if (L.grains >= 25000) cand.push('grainsLife25k')
+    if (L.grains >= 50000) cand.push('grainsLife50k')
+    if (L.grains >= 100000) cand.push('grainsLife100k')
     if (L.golden >= 100) cand.push('golden100')
+    if (L.golden >= 250) cand.push('goldenLife250')
     if (L.pigeons >= 25) cand.push('pigeon25')
     if (L.pigeons >= 50) cand.push('pigeon50')
+    if (L.pigeons >= 100) cand.push('pigeon100')
     if (L.nipples >= 50) cand.push('nipple50')
+    if (L.nipples >= 200) cand.push('nipple200')
     if (L.mines >= 1) cand.push('mine1')
     if (L.fevers >= 10) cand.push('fever10')
+    if (L.fevers >= 25) cand.push('fever25')
+    if (L.fevers >= 50) cand.push('fever50')
     if (L.curse >= 5) cand.push('curse5')
+    if (L.curse >= 25) cand.push('curse25')
     if (L.bonus >= 10) cand.push('bonus10')
+    if (L.bonus >= 25) cand.push('bonus25')
+    if (L.perfects >= 10) cand.push('perfect10')
     if (L.runs >= 10) cand.push('runs10')
-    if (getCoins() >= 10000) cand.push('coins10k')
-    if (getCoins() >= 50000) cand.push('coins50k')
+    if (L.runs >= 25) cand.push('runs25')
+    if (L.runs >= 50) cand.push('runs50')
+    if (L.runs >= 100) cand.push('runs100')
+    if (L.score >= 100000) cand.push('scoreLife100k')
+    if (L.score >= 1000000) cand.push('scoreLife1m')
+    if (L.secs >= 3600) cand.push('secs3600')
+    if (L.secs >= 18000) cand.push('secs18000')
+    if (L.visits >= 10) cand.push('visits10')
+    if (L.visits >= 50) cand.push('visits50')
+    const coins = getCoins()
+    if (coins >= 10000) cand.push('coins10k')
+    if (coins >= 50000) cand.push('coins50k')
+    if (coins >= 100000) cand.push('coins100k')
+    if (coins >= 250000) cand.push('coins250k')
     try {
       const bank = Math.max(0, Number(window.localStorage.getItem(XP_KEY) ?? 0) || 0)
       if (bank >= 10000) cand.push('xp100k')
+      if (bank >= 50000) cand.push('bank50k')
     } catch {
       /* нет localStorage — не беда */
     }
     const cl = charLevel(getTotalXp())
     if (cl >= 10) cand.push('catlvl10')
     if (cl >= 20) cand.push('catlvl20')
+    if (cl >= 30) cand.push('catlvl30')
+    if (cl >= 50) cand.push('catlvl50')
     announceAch(cand)
   }, [announceAch])
 
@@ -4055,20 +4080,25 @@ export function PopcornGame() {
     [],
   )
 
-  /* Древо улучшений: при покупке узла сразу перекидываем бонусы в движок;
-     застройка дерева — тоже ачивки («Садовник», «Лесовод») */
+  /* Древо улучшений и постоянные апгрейды: при покупке чего-нибудь сразу
+     пересобираем общий пакет бонусов (древо + магазин) и перекидываем в движок;
+     застройка дерева — тоже ачивки («Садовник», «Лесовод», «Роща», «Дубрава», «Древо жизни») */
   useEffect(() => {
-    const bonuses = treeBonuses(tree)
+    const bonuses = mergeBonuses(treeBonuses(tree), upgradeBonuses(upgrades))
     treeRef.current = bonuses
     engineRef.current?.setTree(bonuses)
     const cand: AchId[] = []
     if (treeNodesOpened(tree) >= 5) cand.push('tree5')
-    if (treeSpent(tree) >= 15) cand.push('tree15')
+    const spent = treeSpent(tree)
+    if (spent >= 15) cand.push('tree15')
+    if (spent >= 30) cand.push('tree30')
+    if (spent >= 60) cand.push('tree60')
+    if (spent >= TREE_TOTAL_POINTS) cand.push('treeFull')
     if (cand.length > 0) {
       /* Отложенный тост: не дёргаем setState синхронно внутри эффекта */
       window.setTimeout(() => announceAch(cand), 0)
     }
-  }, [tree, announceAch])
+  }, [tree, upgrades, announceAch])
 
   /* PWA: ловим событие установки и регистрируем service worker (только прод) */
   useEffect(() => {
@@ -4126,7 +4156,11 @@ export function PopcornGame() {
            опыт — стаж, он не сгорает */
         const delta = s.score - lastScoreRef.current
         lastScoreRef.current = s.score
-        if (delta > 0) addXpDelta(delta)
+        if (delta > 0) {
+          addXpDelta(delta)
+          /* Суммарный счёт за всё время — стаж для ачивок-миллионщиков */
+          addLife({ score: delta })
+        }
         /* HTML-индикатор «ВОЛНА N»: поверх тумана и любых тёмных комнат.
            Таймер держим в ref: новая волна перезапускает тост, а старый
            таймаут не гасит его раньше времени */
@@ -4140,15 +4174,27 @@ export function PopcornGame() {
         const cand: AchId[] = []
         if (s.goldenCount > 0) cand.push('golden1')
         if (s.goldenCount >= 10) cand.push('golden10')
+        if (s.goldenCount >= 25) cand.push('golden25')
         if (s.streak >= 10) cand.push('combo10')
         if (s.streak >= 20) cand.push('combo20')
+        if (s.streak >= 30) cand.push('combo30')
+        if (s.streak >= 50) cand.push('combo50')
         if (s.pigeonShooed > 0) cand.push('pigeon1')
         if (s.pigeonShooed >= 5) cand.push('pigeon5')
+        if (s.pigeonShooed >= 10) cand.push('pigeon10')
         if (s.wave >= 5) cand.push('wave5')
         if (s.wave >= 10) cand.push('wave10')
+        if (s.wave >= 15) cand.push('wave15')
+        if (s.wave >= 20) cand.push('wave20')
         if (s.level >= 5) cand.push('level5')
         if (s.level >= 10) cand.push('level10')
         if (s.level >= 20) cand.push('level20')
+        if (s.level >= 30) cand.push('level30')
+        if (s.level >= 40) cand.push('level40')
+        if (s.level >= 50) cand.push('level50')
+        if (s.runGrains >= 100) cand.push('grains100')
+        if (s.runGrains >= 300) cand.push('grains300')
+        if (s.runGrains >= 500) cand.push('grains500')
         if (s.shields >= 3) cand.push('shield3')
         if (s.minesHit > 0) cand.push('mine1')
         if (s.shieldSaves > 0) cand.push('shieldUse')
@@ -4191,8 +4237,11 @@ export function PopcornGame() {
         playSecsRef.current = 0
         /* Награда за этап: опыт стажа котика + горсть монеток (мета-прогресс) */
         awardStage(r.level)
-        /* «Чистая работа»: уровень без мин и краж */
-        if (r.clean) announceAch(['perfect'])
+        /* «Чистая работа»: уровень без мин и краж — медаль + пожизненный счётчик */
+        if (r.clean) {
+          announceAch(['perfect'])
+          addLife({ perfects: 1 })
+        }
         /* Сердечные ачивки: 5 уровней без потерь; уровень на одном сердечке */
         if (r.lostHearts === 0) {
           heartFreeStreakRef.current++
@@ -4278,10 +4327,11 @@ export function PopcornGame() {
           setFeverCoins(coins)
           window.setTimeout(() => setFeverCoins(null), 3200)
         }
-        /* Ачивки лихорадки: «Горячка», «Жар-птица», «Пять сотен в огне» */
+        /* Ачивки лихорадки: «Горячка», «Жар-птица», «Пять сотен в огне», «Тысяча в огне» */
         addLife({ fevers: 1 })
         announceAch(['fever1'])
         if (r.success && r.gained >= 500) announceAch(['fever500'])
+        if (r.success && r.gained >= 1000) announceAch(['fever1000'])
         checkLifeAch()
       },
       onEnd: (r) => {
@@ -4321,6 +4371,8 @@ export function PopcornGame() {
         if (r.score >= 1000) cand.push('score100')
         if (r.score >= 10000) cand.push('score10k')
         if (r.score >= 50000) cand.push('score50k')
+        if (r.score >= 100000) cand.push('score100k')
+        if (r.score >= 200000) cand.push('score200k')
         announceAch(cand)
         /* «Марафон попкорна»: 10 минут в одном забеге */
         if (runStartRef.current > 0 && Date.now() - runStartRef.current >= 10 * 60 * 1000) {
@@ -4768,6 +4820,8 @@ export function PopcornGame() {
       engineRef.current?.setPawSkin(def.id)
       announceAch(['shopper'])
       if (nextOwned.length >= 5) announceAch(['collector'])
+      if (nextOwned.length >= 10) announceAch(['paws10'])
+      if (nextOwned.length >= PAWS.length) announceAch(['pawsAll'])
     },
     [ownedPaws, storeXp, storeOwned, storePaw, equipPaw, announceAch],
   )
@@ -4787,9 +4841,14 @@ export function PopcornGame() {
       }
       audio.play('perk')
       storeXp(String(bank - cost))
-      storeUpgrades(JSON.stringify({ ...state, [id]: level + 1 }))
+      const next: UpgradeState = { ...state, [id]: level + 1 }
+      storeUpgrades(JSON.stringify(next))
       /* Вместимость подействует с нового забега; жизнь и старт-перк — сразу */
       announceAch(['upgrade1'])
+      const bought = upgradesBought(next)
+      if (bought >= 5) announceAch(['upg5'])
+      if (bought >= 10) announceAch(['upg10'])
+      if (upgradesAllMaxed(next)) announceAch(['upgAll'])
     },
     [storeXp, storeUpgrades, announceAch],
   )

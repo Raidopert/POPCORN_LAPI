@@ -110,6 +110,9 @@ export const TREE_MAP = Object.fromEntries(TREE_NODES.map((n) => [n.id, n])) as 
   TreeNodeDef
 >
 
+/** Всего очков в полном древе — сумма maxLevel всех узлов (89) */
+export const TREE_TOTAL_POINTS: number = TREE_NODES.reduce((s, n) => s + n.maxLevel, 0)
+
 export type TreeState = Partial<Record<TreeId, number>>
 
 export const TREE_KEY = 'popcorn-tree'
@@ -223,6 +226,10 @@ export interface TreeBonus {
   heartsMax: number
   /** «Лапка-целитель»: +1 сердце за пройденный уровень сверх обычного */
   healPlus: number
+  /** Постоянные апгрейды «Длинный сеанс»: +3 сек к каждому уровню за ступень */
+  timePlus: number
+  /** Постоянные апгрейды «Кроткий голубь»: голубь прилетает позже на N сек */
+  pigeonLate: number
 }
 
 const ZERO_BONUS: TreeBonus = {
@@ -244,6 +251,8 @@ const ZERO_BONUS: TreeBonus = {
   giftAdd: 0,
   heartsMax: 0,
   healPlus: 0,
+  timePlus: 0,
+  pigeonLate: 0,
 }
 
 export function treeBonuses(state: TreeState): TreeBonus {
@@ -272,6 +281,36 @@ export function treeBonuses(state: TreeState): TreeBonus {
     giftAdd: 0.25 * (state.double ?? 0),
     heartsMax: state.heartmax ?? 0,
     healPlus: state.healer ?? 0,
+    /* Само древо эти бонусы не даёт — их приносят постоянные апгрейды
+       («Длинный сеанс» и «Кроткий голубь») через mergeBonuses */
+    timePlus: 0,
+    pigeonLate: 0,
+  }
+}
+
+/** Слить бонусы древа и постоянных апгрейдов в один пакет для движка */
+export function mergeBonuses(tree: TreeBonus, extra: Partial<TreeBonus>): TreeBonus {
+  return {
+    grainMult01: tree.grainMult01 + (extra.grainMult01 ?? 0),
+    speedAdd: tree.speedAdd + (extra.speedAdd ?? 0),
+    carry: tree.carry,
+    grains: tree.grains + (extra.grains ?? 0),
+    feverLuck: tree.feverLuck + (extra.feverLuck ?? 0),
+    shields: tree.shields + (extra.shields ?? 0),
+    goldAdd: tree.goldAdd + (extra.goldAdd ?? 0),
+    grabR01: tree.grabR01 + (extra.grabR01 ?? 0),
+    guardAdd: tree.guardAdd,
+    cornCut: tree.cornCut + (extra.cornCut ?? 0),
+    stunCut: tree.stunCut + (extra.stunCut ?? 0),
+    feverPlus: tree.feverPlus + (extra.feverPlus ?? 0),
+    comboFast: tree.comboFast || extra.comboFast === true,
+    coinsAdd: tree.coinsAdd + (extra.coinsAdd ?? 0),
+    xpAdd: tree.xpAdd + (extra.xpAdd ?? 0),
+    giftAdd: tree.giftAdd + (extra.giftAdd ?? 0),
+    heartsMax: tree.heartsMax,
+    healPlus: tree.healPlus,
+    timePlus: tree.timePlus + (extra.timePlus ?? 0),
+    pigeonLate: tree.pigeonLate + (extra.pigeonLate ?? 0),
   }
 }
 

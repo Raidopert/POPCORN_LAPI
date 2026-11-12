@@ -557,6 +557,7 @@ export class PopcornEngine {
         40,
         (perk === 'timeplus' ? LEVEL_SECONDS_PERK : LEVEL_SECONDS) +
           (this.pawBonus.timePlus ?? 0) +
+          this.tree.timePlus +
           diffTime,
       )
     this.quota = this.debugFast ? 3 : quotaFor(level, perk === 'doublepoints')
@@ -628,7 +629,8 @@ export class PopcornEngine {
       this.opts.pigeon && level >= 3
         ? perk === 'pigeonfeast'
           ? 3.5 + Math.random() * 1.5
-          : Math.max(4, PIGEON_FIRST_AT - (level - 3)) + Math.random() * 3
+          : /* Апгрейд «Кроткий голубь»: первый прилёт позже */
+            Math.max(4, PIGEON_FIRST_AT - (level - 3) + this.tree.pigeonLate) + Math.random() * 3
         : -1
     /* Ачивка «Чистая работа»: считаем шоки и кражи за уровень; и потери сердец */
     this.levelStolen = 0
