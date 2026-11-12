@@ -29,6 +29,12 @@
  * (игроку кажется, что он «задел» кукурузину даже при лёгком промахе);
  * HUD (таймер, очки, полоска HP, комбо) рисуется на канвасе — без
  * перерисовок React в рантайме.
+ *
+ * БАЛАНС v0.0.23 (запрос игрока: «всегда 380–400, нужно сложнее»):
+ * HP-пул 56 тиков — нарезка длится все 7 секунд; цель СЖИМАЕТСЯ с уроном
+ * (радиус до 52%) и МЕДЛЕННО ПЛАВАЕТ по эллипсу — очки решает скилл:
+ * обычный прогон ~300–400, сильный 600–800, потолок ≈1000–1100 только
+ * при очень больших усилиях. Звёзды: 300 / 600 / 900.
  */
 
 import { motion } from 'framer-motion'
@@ -40,8 +46,21 @@ import type { TranslateFn } from '@/lib/game/i18n'
 
 /** Сколько секунд идёт нарезка */
 const SLICE_SECONDS = 7
-/** Пул HP бонусной цели: столько тиков урона она выдерживает */
-const POPCORN_HP = 26
+/** Пул HP бонусной цели: столько тиков урона она выдерживает.
+    Пул большой (56 тиков ≈ 6+ секунд усердной работы): нарезка больше
+    не кончается через пару свайпов — режь ВСЕ 7 секунд.
+    Реальный диапазон: обычный игрок ~300–400, потолок ≈ 1000+ —
+    выше только при очень больших усилиях (точное ведение по бегущей,
+    сжимающейся цели) */
+const POPCORN_HP = 56
+/** Цель «сдувается» по мере урона: к последнему тику радиус — 52%
+    от исходного. Меньше цель → труднее цеплять свайпами: скилл решает,
+    очки перестают быть одинаковыми у всех (было: 380–400 у каждого) */
+const SHRINK_MIN = 0.52
+/** Цель медленно ПЛАВАЕТ вокруг точки покоя (доля радиуса, эллипс):
+    свайп по неподвижной мишени — это фарм, по бегущей — мастерство */
+const DRIFT_AMP = 0.08
+const DRIFT_SPEED = 0.85
 /** Хитбокс на 15% больше спрайта — «задел» даже при лёгком промахе */
 const HITBOX_MUL = 1.15
 /** Серия живёт, пока между тиками меньше этого (сброс комбо по ТЗ) */
@@ -53,10 +72,11 @@ const BASE_POINTS = 4
 /** Крит: случайный шанс (не зависит от точности) */
 const CRIT_CHANCE = 0.12
 const CRIT_BONUS = 10
-/** Финальный бонус за ВЗРЫВ (уложился до конца таймера) */
-const BURST_BONUS = 30
+/** Финальный бонус за ВЗРЫВ (уложился до конца таймера) — весомая
+    награда за то, что успел «сдуть» цель до конца времени */
+const BURST_BONUS = 80
 /** Каждые столько тиков серии множитель растёт на +1 */
-const MULT_STEP = 4
+const MULT_STEP = 5
 /** Потолок множителя комбо */
 const MAX_MULT = 4
 const INTRO_SECONDS = 1.15
@@ -74,8 +94,9 @@ const GOLDEN_COINS = 10
 const GOLDEN_R = 0.17
 /** Моменты спавна золотых (секунды от начала нарезки) */
 const GOLDEN_SPAWN_AT = [1.4, 4.2]
-/** Пороги звёзд результата: очки нарезки (типичный слабый прогон ~90-150) */
-const STAR_CUTS = [120, 220, 330]
+/** Пороги звёзд результата: 300 — уверенный обычный прогон, 600 — сильный,
+    900 — почти идеальные 7 секунд (потолок нарезки ≈ 1000–1100) */
+const STAR_CUTS = [300, 600, 900]
 /** Конверсия очков нарезки в монетки (1🪙 за каждые 12 очков, мин. 5) */
 const COINS_PER_POINT = 1 / 12
 const MIN_SLICER_COINS = 5
@@ -227,6 +248,9 @@ export function PopcornSlicer({ t, level, onDone }: SlicerProps) {
     pid: number
     px: number
     py: number
+    /** Плавание цели: смещение центра от точки покоя (px) */
+    ox: number
+    oy: number
     trail: TrailPt[]
     chunks: Chunk[]
     halves: Half[]
@@ -276,6 +300,8 @@ export function PopcornSlicer({ t, level, onDone }: SlicerProps) {
       pid: -1,
       px: 0,
       py: 0,
+      ox: 0,
+      oy: 0,
       trail: [],
       chunks: [],
       halves: [],
@@ -371,6 +397,12 @@ export function PopcornSlicer({ t, level, onDone }: SlicerProps) {
     const ro = new ResizeObserver(resize)
     ro.observe(wrap)
 
+    /** Текущий радиус цели: сжимается по мере урона (1 → SHRINK_MIN).
+        Главный скилл-гейт нарезки: сдуваешь HP — цель мельчает, и
+        цеплять её свайпами всё труднее */
+    const curR = (): number =>
+      g.R * (1 - (1 - SHRINK_MIN) * Math.min(1, g.ticks / POPCORN_HP))
+
     /* ── Спавн кусочков при тике урона ── */
     const spawnChunks = (x: number, y: number, n: number, kernel: boolean): void => {
       for (let i = 0; i < n; i++) {
@@ -451,6 +483,8 @@ export function PopcornSlicer({ t, level, onDone }: SlicerProps) {
     /* ── ВЗРЫВ: половинки разлетаются с импульсом, зёрна скачут ── */
     const doBurst = (now: number, exploded: boolean): void => {
       if (g.stage !== 'slice') return
+      const bx = g.cx + g.ox
+      const by = g.cy + g.oy
       g.stage = 'burst'
       g.stageT = 0
       g.exploded = exploded
@@ -459,8 +493,8 @@ export function PopcornSlicer({ t, level, onDone }: SlicerProps) {
         g.total += BURST_BONUS
         const S = tRef.current
         g.floats.push({
-          x: g.cx,
-          y: g.cy - g.R * 0.4,
+          x: bx,
+          y: by - curR() * 0.4,
           vy: -60 * g.u,
           text: S('slicer.burst', { n: BURST_BONUS }),
           crit: true,
@@ -469,14 +503,14 @@ export function PopcornSlicer({ t, level, onDone }: SlicerProps) {
         audio.play('fever')
       }
       audio.play('plopGold')
-      spawnChunks(g.cx, g.cy, 16, true)
-      spawnChunks(g.cx, g.cy, 10, false)
+      spawnChunks(bx, by, 16, true)
+      spawnChunks(bx, by, 10, false)
       /* Импульс разреза: половинки гарантированно разлетаются в стороны */
       const ix = (150 + Math.random() * 100) * g.u
       const iy = -(180 + Math.random() * 140) * g.u
       g.halves.push({
-        x: g.cx,
-        y: g.cy,
+        x: bx,
+        y: by,
         vx: ix,
         vy: iy,
         rot: 0,
@@ -484,8 +518,8 @@ export function PopcornSlicer({ t, level, onDone }: SlicerProps) {
         side: -1,
       })
       g.halves.push({
-        x: g.cx,
-        y: g.cy,
+        x: bx,
+        y: by,
         vx: -ix,
         vy: iy,
         rot: 0,
@@ -547,7 +581,7 @@ export function PopcornSlicer({ t, level, onDone }: SlicerProps) {
         g.stage === 'slice' &&
         enough &&
         cooled &&
-        segCircleNear(ax, ay, p.x, p.y, g.cx, g.cy, g.R * HITBOX_MUL)
+        segCircleNear(ax, ay, p.x, p.y, g.cx + g.ox, g.cy + g.oy, curR() * HITBOX_MUL)
       ) {
         const mx = (ax + p.x) / 2
         const my = (ay + p.y) / 2
@@ -764,6 +798,10 @@ export function PopcornSlicer({ t, level, onDone }: SlicerProps) {
         setStage('slice')
       } else if (g.stage === 'slice') {
         g.timeLeft -= dt
+        /* Плавание цели: центр медленно гуляет по эллипсу вокруг точки покоя —
+            свайп по неподвижной мишени фармил бы очки, по бегущей — требует внимания */
+        g.ox = Math.sin(now * DRIFT_SPEED) * DRIFT_AMP * g.R
+        g.oy = Math.cos(now * DRIFT_SPEED * 0.8) * DRIFT_AMP * g.R * 0.7
         /* Сброс комбо: больше COMBO_GAP без нарезки — серия сгорела */
         if (g.mult > 1 && now - g.lastTickAt > COMBO_GAP) {
           g.combo = 0
@@ -861,12 +899,12 @@ export function PopcornSlicer({ t, level, onDone }: SlicerProps) {
       /* ════ Отрисовка ════ */
       ctx.clearRect(0, 0, g.W, g.H)
 
-      /* Попкорн или половинки */
+      /* Попкорн или половинки: центр с плаванием, радиус сжат по урону */
       if (g.stage === 'burst' || g.stage === 'results') {
         for (const h of g.halves) drawHalf(h, now)
       } else {
         const bob = Math.sin(now * 1.6) * 4 * u
-        drawPopcorn(g.cx, g.cy + bob, g.R, now, g.ticks / POPCORN_HP)
+        drawPopcorn(g.cx + g.ox, g.cy + g.oy + bob, curR(), now, g.ticks / POPCORN_HP)
       }
       for (const c of g.chunks) drawChunk(c)
 
@@ -1027,14 +1065,14 @@ export function PopcornSlicer({ t, level, onDone }: SlicerProps) {
         outlineText(`+${g.total}`, g.W - 14 * u, 26 * u, 26 * u, '#FFC93C', 'right')
         /* Уровень: левый верхний угол */
         outlineText(`🍿${level}`, 14 * u, 26 * u, 20 * u, '#FFF4D8', 'left')
-        /* Комбо: пружинная плашка над кукурузиной */
+        /* Комбо: пружинная плашка над кукурузиной (центр с плаванием, радиус сжат) */
         if (g.stage === 'slice' && g.mult >= 2) {
           const pop = Math.max(0, 1 - (now - g.comboPopT) / 0.3)
           const size = (20 + pop * 10) * u
           outlineText(
             S('slicer.combo', { n: g.mult }),
-            g.cx,
-            g.cy - g.R * 1.28,
+            g.cx + g.ox,
+            g.cy + g.oy - curR() * 1.28,
             size,
             pop > 0.5 ? '#FFDF7E' : '#FFC93C',
           )
@@ -1043,8 +1081,8 @@ export function PopcornSlicer({ t, level, onDone }: SlicerProps) {
         if (g.stage === 'slice') {
           const bw = 150 * u
           const bh = 8 * u
-          const bx = g.cx - bw / 2
-          const by = g.cy + g.R * 1.22
+          const bx = g.cx + g.ox - bw / 2
+          const by = g.cy + g.oy + curR() * 1.22
           ctx.fillStyle = 'rgba(24, 10, 4, 0.9)'
           roundRect(bx - 2 * u, by - 2 * u, bw + 4 * u, bh + 4 * u, 5 * u)
           ctx.fill()

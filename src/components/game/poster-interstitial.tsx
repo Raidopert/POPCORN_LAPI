@@ -35,6 +35,23 @@ const POSTERS = [
 export const POSTER_EVERY = 5
 export const POSTER_COUNT = POSTERS.length
 
+/* ── Предзагрузка постеров ──
+   Плакаты весят ~150 КБ каждый и НЕ лежат в pre-cache SW: если начать
+   грузить их только в момент показа перебивки, на мобильной сети оверлей
+   открывается с пустой рамкой — игрок видит «постер не прогрузился».
+   preloadPosters() стартует загрузку заранее (вызывается при старте
+   забега и при показе плаката), к пятому уровню всё уже в кэше. */
+let postersPreloaded = false
+
+export function preloadPosters(): void {
+  if (postersPreloaded || typeof window === 'undefined') return
+  postersPreloaded = true
+  for (const p of POSTERS) {
+    const img = new Image()
+    img.src = p.src
+  }
+}
+
 interface PosterInterstitialProps {
   t: TranslateFn
   /** Пройденный этап (кратен POSTER_EVERY) */
@@ -57,8 +74,10 @@ export function PosterInterstitial({
   const idx = ((posterIdx % POSTER_COUNT) + POSTER_COUNT) % POSTER_COUNT
   const poster = POSTERS[idx]
 
-  /* Победная фанфара: плакат — награда за рубеж сложности */
+  /* Победная фанфара: плакат — награда за рубеж сложности.
+     Заодно догружаем остальные постеры: следующий рубеж покажет мгновенно */
   useEffect(() => {
+    preloadPosters()
     const tm = window.setTimeout(() => audio.play('record'), 320)
     return () => window.clearTimeout(tm)
   }, [])

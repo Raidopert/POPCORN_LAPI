@@ -72,6 +72,7 @@ import {
   POSTER_COUNT,
   POSTER_EVERY,
   PosterInterstitial,
+  preloadPosters,
 } from '@/components/game/poster-interstitial'
 import { DEFAULT_PAW, PAWS, PAW_MAP, type PawDef, type PawId } from '@/lib/game/paws'
 import {
@@ -4195,6 +4196,9 @@ export function PopcornGame() {
     }
     engineRef.current?.setPawSkin(equippedRef.current)
     engineRef.current?.startRun({ fast: devRef.current.fast, perk: startPerk })
+    /* Плакаты перебивки грузим ЗАРАНЕЕ — к 5-му уровню они уже в кэше
+        (иначе оверлей открывается с пустой рамкой на мобильной сети) */
+    preloadPosters()
     /* DEV: ?lvl=N — QA-старт забега с уровня N (кривые 20/30/100 без долгих прогонов).
        startLevel сбрасывает волну/норму под уровень, счёт забега сохраняется */
     if (devRef.current.lvl > 1) engineRef.current?.startLevel(devRef.current.lvl, startPerk)
