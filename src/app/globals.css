@@ -312,13 +312,30 @@ body {
   animation: glow-drift 9s ease-in-out infinite;
 }
 
+/* Аркадное «ВСТАВЬ МОНЕТКУ» под кнопкой ИГРАТЬ: жёсткое ступенчатое мигание */
+@keyframes coin-blink {
+  0%,
+  55% {
+    opacity: 1;
+  }
+  56%,
+  100% {
+    opacity: 0.22;
+  }
+}
+
+.menu-coin {
+  animation: coin-blink 1.3s steps(1, end) infinite;
+}
+
 @media (prefers-reduced-motion: reduce) {
   .play-pulse,
   .logo-shine,
   .pop-dot,
   .logo-glow,
   .popcorn-fall,
-  .glow-drift {
+  .glow-drift,
+  .menu-coin {
     animation: none;
   }
 }

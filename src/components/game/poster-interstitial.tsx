@@ -35,6 +35,10 @@ const POSTERS = [
 export const POSTER_EVERY = 5
 export const POSTER_COUNT = POSTERS.length
 
+/** Победный плакат №7: куница отдаёт честь со стаканом попкорна на фоне знамени.
+    Показывается на экране результата, когда игрок сам завершает забег (ПОБЕДА). */
+export const VICTORY_POSTER_SRC = '/posters/game/poster-7.webp'
+
 /* ── Предзагрузка постеров ──
    Плакаты весят ~150 КБ каждый и НЕ лежат в pre-cache SW: если начать
    грузить их только в момент показа перебивки, на мобильной сети оверлей
@@ -50,6 +54,9 @@ export function preloadPosters(): void {
     const img = new Image()
     img.src = p.src
   }
+  /* Победный плакат №7 — заранее, чтобы экран ПОБЕДЫ не открылся с пустой рамкой */
+  const victory = new Image()
+  victory.src = VICTORY_POSTER_SRC
 }
 
 interface PosterInterstitialProps {

@@ -63,6 +63,13 @@ const T: Record<string, Row> = {
   'menu.creators': ['СОЗДАТЕЛИ', 'CREDITS', 'AUTOREN', 'CREDITOS'],
   'menu.settings': ['НАСТРОЙКИ', 'SETTINGS', 'EINSTELLUNGEN', 'AJUSTES'],
   'menu.install': ['УСТАНОВИТЬ ИГРУ', 'INSTALL GAME', 'SPIEL INSTALLIEREN', 'INSTALAR JUEGO'],
+  /* Аркадное «вставь монетку» под кнопкой ИГРАТЬ (декор) */
+  'menu.insertCoin': [
+    'ВСТАВЬ МОНЕТКУ',
+    'INSERT COIN',
+    'MÜNZE EINWERFEN',
+    'INSERTA MONEDA',
+  ],
   /* Экран установки: нативный диалог Chrome/Android/ПК или ручная инструкция iOS */
   'install.title': [
     '📲 Установить игру',
@@ -1440,17 +1447,17 @@ const T: Record<string, Row> = {
     'descanso merecido y de vuelta a la lucha',
   ],
   'quit.button': [
-    '⏹ КОНЕЦ ИГРЫ — выйти в меню (опыт сохранится)',
-    '⏹ END GAME — back to menu (XP is kept)',
-    '⏹ SPIEL BEENDEN — zurück ins Menü (XP bleibt)',
-    '⏹ FIN DEL JUEGO — al menú (la exp se guarda)',
+    '⏹ КОНЕЦ ИГРЫ — победа (опыт сохранится)',
+    '⏹ END GAME — win (XP is kept)',
+    '⏹ SPIEL BEENDEN — Sieg (XP bleibt)',
+    '⏹ FIN DEL JUEGO — victoria (la exp se guarda)',
   ],
   'quit.short': ['⏹ КОНЕЦ ИГРЫ', '⏹ END GAME', '⏹ SPIELENDE', '⏹ FIN DEL JUEGO'],
   'quit.pauseMenu': [
-    '⏹ КОНЕЦ ИГРЫ — В МЕНЮ',
-    '⏹ END GAME — MENU',
-    '⏹ ENDE — MENÜ',
-    '⏹ FIN — MENÚ',
+    '⏹ КОНЕЦ ИГРЫ — ПОБЕДА',
+    '⏹ END GAME — WIN',
+    '⏹ ENDE — SIEG',
+    '⏹ FIN — VICTORIA',
   ],
 
   /* ---------- пауза ---------- */
@@ -1493,6 +1500,20 @@ const T: Record<string, Row> = {
     'Pigeons ransacked the cup!',
     'Tauben haben den Becher geplündert!',
     '¡Las palomas saquearon el vaso!',
+  ],
+  /* Победный финал: игрок сам завершил забег через «КОНЕЦ ИГРЫ» */
+  'over.victoryTitle': ['ПОБЕДА!', 'YOU WIN!', 'SIEG!', '¡VICTORIA!'],
+  'over.victoryNote': [
+    'Забег завершён по твоей воле — план выполнен!',
+    'You ended the run yourself — mission complete!',
+    'Du hast den Lauf selbst beendet — Plan erfüllt!',
+    '¡Terminaste la carrera tú mismo: plan cumplido!',
+  ],
+  'over.posterAlt': [
+    'Пиксельный плакат: куница Нана отдаёт честь со стаканом попкорна на фоне знамени со звездой',
+    'Pixel poster: marten Nana salutes with a popcorn bucket in front of a starred banner',
+    'Pixel-Plakat: Marder Nana salutiert mit Popcorn-Becher vor einem Sternenbanner',
+    'Póster pixelado: la marta Nana saluda con balde de palomitas ante una bandera estrellada',
   ],
   'over.points': [
     'очков · дошёл до уровня {{n}}',

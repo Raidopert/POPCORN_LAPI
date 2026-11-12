@@ -92,8 +92,8 @@ export interface LevelResult {
 export interface EndResult {
   score: number
   level: number
-  /** Почему забег кончился: время вышло / сердечки кончились / голуби разграбили корзину */
-  reason: 'time' | 'hearts' | 'ransacked'
+  /** Почему забег кончился: время вышло / сердечки кончились / голуби разграбили корзину / игрок сам завершил забег (победа) */
+  reason: 'time' | 'hearts' | 'ransacked' | 'voluntary'
 }
 
 /** Итог «Лихорадки»: gained — заработанные очки (0, если схватил мину) */
@@ -770,6 +770,17 @@ export class PopcornEngine {
     audio.stopMusic()
     audio.setIntensity(0)
     this.emitStats(true)
+  }
+
+  /** «КОНЕЦ ИГРЫ» по воле игрока: честный ПОБЕДНЫЙ финал забега.
+      Очки идут в рекорд и мировую таблицу как обычно, экран результата
+      показывает победный плакат №7. Работает в бою (playing) и между
+      уровнями (clear/сундук); на паузе — тоже (paused — отдельный флаг). */
+  finish(): boolean {
+    if (this.phase !== 'playing' && this.phase !== 'clear') return false
+    this.paused = false
+    this.end('voluntary')
+    return true
   }
 
   /** «Девятая жизнь»: один раз за забег продолжить проваленный уровень (+15 секунд).
@@ -1495,8 +1506,13 @@ export class PopcornEngine {
     this.endReason = reason
     this.phase = 'ended'
     audio.stopMusic()
-    audio.play('gameover')
-    this.buzz([60, 40, 60, 40, 120])
+    if (reason === 'voluntary') {
+      /* Победный финал по воле игрока: радостный джингл вместо траурного гудка */
+      audio.play('levelwin')
+    } else {
+      audio.play('gameover')
+      this.buzz([60, 40, 60, 40, 120])
+    }
     this.emitStats(true)
     this.cb.onEnd?.({ score: Math.floor(this.score), level: this.lvl, reason })
   }

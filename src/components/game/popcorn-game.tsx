@@ -74,6 +74,7 @@ import {
   POSTER_COUNT,
   POSTER_EVERY,
   PosterInterstitial,
+  VICTORY_POSTER_SRC,
   preloadPosters,
 } from '@/components/game/poster-interstitial'
 import { DEFAULT_PAW, PAWS, PAW_MAP, type PawDef, type PawId } from '@/lib/game/paws'
@@ -224,8 +225,8 @@ interface ResultState {
   rank: number
   /** Куплен апгрейд «Девятая жизнь» и он ещё не использован в этом забеге */
   canRevive: boolean
-  /** Почему забег кончился: время / сердечки / разграбленная корзина */
-  reason: 'time' | 'hearts' | 'ransacked'
+  /** Почему забег кончился: время / сердечки / разграбленная корзина / сам завершил (победа) */
+  reason: 'time' | 'hearts' | 'ransacked' | 'voluntary'
 }
 
 interface ClearState {
@@ -458,14 +459,14 @@ const menuPop = (i: number) => ({
 function MenuBackdrop() {
   const kernels = useMemo(
     () =>
-      Array.from({ length: 11 }, (_, i) => ({
+      Array.from({ length: 18 }, (_, i) => ({
         left: (i * 67 + 11) % 94,
         delay: (i * 1.31) % 5.5,
         dur: 6.5 + (i % 4) * 1.6,
         size: 8 + ((i * 5) % 3) * 4,
         drift: ((i % 5) - 2) * 22,
         op: 0.28 + (i % 3) * 0.12,
-        isPop: i % 3 === 0,
+        isPop: i % 2 === 0,
       })),
     [],
   )
@@ -500,6 +501,46 @@ function MenuBackdrop() {
           )}
         </span>
       ))}
+    </div>
+  )
+}
+
+/** Сердечки и Zzz над сценой куницы: NANA отдыхает в меню — эмоции всплывают сами.
+    В походе (away) комната пустая — эмоции не спавнятся. */
+function MartenIdleEmotes({ away }: { away: boolean }) {
+  const [emotes, setEmotes] = useState<{ id: number; emoji: string; left: number; big: boolean }[]>([])
+  const seqRef = useRef(0)
+  useEffect(() => {
+    if (away) return // в походе комната пустая — эмоции не спавним
+    const spawn = window.setInterval(() => {
+      seqRef.current += 1
+      const id = seqRef.current
+      const emoji = ['💤', '❤️', '💤', '🐾', '💤'][Math.floor(Math.random() * 5)]
+      setEmotes((cur) => [
+        ...cur.slice(-2),
+        { id, emoji, left: 16 + Math.random() * 60, big: Math.random() < 0.35 },
+      ])
+      window.setTimeout(() => {
+        setEmotes((cur) => cur.filter((e) => e.id !== id))
+      }, 2600)
+    }, 3600)
+    return () => window.clearInterval(spawn)
+  }, [away])
+  return (
+    <div aria-hidden className="pointer-events-none absolute inset-0 z-[5] overflow-hidden">
+      {!away &&
+        emotes.map((e) => (
+          <motion.span
+            key={e.id}
+            className={`absolute bottom-12 ${e.big ? 'text-2xl' : 'text-lg'}`}
+            style={{ left: `${e.left}%` }}
+            initial={{ opacity: 0, y: 14, scale: 0.5, rotate: -8 }}
+            animate={{ opacity: [0, 1, 1, 0], y: [-4, -22, -40, -56], scale: 1, rotate: 8 }}
+            transition={{ duration: 2.5, times: [0, 0.18, 0.72, 1], ease: 'easeOut' }}
+          >
+            {e.emoji}
+          </motion.span>
+        ))}
     </div>
   )
 }
@@ -4069,9 +4110,11 @@ export function PopcornGame() {
           announceAch(['marathon'])
         }
         flushLife()
-        /* «Девятая жизнь»: если апгрейд куплен и ещё не потрачен — предлагаем второй шанс */
+        /* «Девятая жизнь»: если апгрейд куплен и ещё не потрачен — предлагаем второй шанс.
+           Победному финалу по воле игрока второй шанс не нужен — это не провал */
         const ups = parseUpgrades(window.localStorage.getItem(UPG_KEY))
-        const canRevive = ups.life > 0 && !(engineRef.current?.lifeSpent ?? true)
+        const canRevive =
+          r.reason !== 'voluntary' && ups.life > 0 && !(engineRef.current?.lifeSpent ?? true)
         /* Мировая таблица: отправляем только финальный забег.
            Защита: device + HMAC-токен забега (runId выдаётся сервером при старте) */
         if (!canRevive) {
@@ -4400,6 +4443,14 @@ export function PopcornGame() {
     setPhase('start')
   }, [unlockOrientation])
 
+  /** «КОНЕЦ ИГРЫ» по воле игрока: завершаем забег как ПОБЕДУ — с победным
+      экраном результата и плакатом №7. Очки идут в рекорд и мировую таблицу. */
+  const finishRun = useCallback(() => {
+    audio.play('click')
+    const finished = engineRef.current?.finish() ?? false
+    if (!finished) quitToMenu() // страховка: активного забега нет — просто в меню
+  }, [quitToMenu])
+
   const toggleMute = useCallback(() => {
     storeMuted(muted ? '0' : '1')
   }, [muted, storeMuted])
@@ -4641,7 +4692,7 @@ export function PopcornGame() {
             {phase === 'playing' && (
               <button
                 type="button"
-                onClick={quitToMenu}
+                onClick={finishRun}
                 className="rounded-lg border-2 border-red-300/50 bg-black/60 px-2 py-1.5 font-pixel text-[10px] font-bold text-red-200 transition hover:bg-black/80 active:scale-95"
               >
                 {t('quit.short')}
@@ -4783,6 +4834,8 @@ export function PopcornGame() {
                         ariaLabel={t('marten.aria')}
                         className="h-44 w-full rounded-2xl border-4 border-[#E24B3B] bg-[#FFF0D8] shadow-lg sm:h-52"
                       />
+                      {/* Н2: сердечки и Zzz — NANA отдыхает в меню */}
+                      <MartenIdleEmotes away={tripActive} />
                       {/* Бейдж похода: таймер или «забрать награду» */}
                       <AnimatePresence>
                         {marten.trip && (
@@ -5040,6 +5093,13 @@ export function PopcornGame() {
                       {t('menu.play')}
                     </GameButton>
                   </div>
+                  {/* И3: аркадное «ВСТАВЬ МОНЕТКУ» — ступенчато мигает под кнопкой */}
+                  <p
+                    aria-hidden
+                    className="menu-coin mt-1.5 text-center font-pixel text-[10px] font-bold uppercase tracking-[0.35em] text-[#a97c50]"
+                  >
+                    {t('menu.insertCoin')}
+                  </p>
                 </motion.div>
 
                 {/* Ряд: ЛАПКИ · АЧИВКИ · ДРЕВО — сразу под ИГРАТЬ (дерево уменьшено, бейдж очков сохранён) */}
@@ -5194,7 +5254,7 @@ export function PopcornGame() {
                 </button>
                 <button
                   type="button"
-                  onClick={quitToMenu}
+                  onClick={finishRun}
                   className="mt-2 w-full rounded-xl px-4 py-1.5 font-ui text-[11px] font-semibold text-[#a97c50] transition hover:text-[#8a5330] hover:underline"
                 >
                   {t('quit.pauseMenu')}
@@ -5396,7 +5456,7 @@ export function PopcornGame() {
                         </button>
                         <button
                           type="button"
-                          onClick={quitToMenu}
+                          onClick={finishRun}
                           className="min-h-9 rounded-xl px-2 py-1.5 font-ui text-[10px] font-semibold text-[#a97c50] transition hover:text-[#8a5330] hover:underline"
                         >
                           {t('quit.short')}
@@ -5414,7 +5474,7 @@ export function PopcornGame() {
                       </GameButton>
                       <button
                         type="button"
-                        onClick={quitToMenu}
+                        onClick={finishRun}
                         className="w-full rounded-xl px-4 py-1 font-ui text-[11px] font-semibold text-[#a97c50] transition hover:text-[#8a5330] hover:underline"
                       >
                         {t('quit.button')}
@@ -5459,19 +5519,38 @@ export function PopcornGame() {
                 exit={{ scale: 0.95, opacity: 0, pointerEvents: 'none' }}
                 transition={{ type: 'spring', stiffness: 260, damping: 22 }}
               >
-                {result.record && <Confetti />}
+                {(result.record || result.reason === 'voluntary') && <Confetti />}
                 {/* Прокручиваемая сводка */}
                 <div className="min-h-0 flex-1 overflow-y-auto p-4 text-center sm:p-6">
-                  <h2 className="font-pixel text-xl font-bold text-[#B33A26] sm:text-2xl">
-                    {t('over.title')}
+                  <h2
+                    className={`font-pixel text-xl font-bold sm:text-2xl ${
+                      result.reason === 'voluntary' ? 'text-[#3f6b28]' : 'text-[#B33A26]'
+                    }`}
+                  >
+                    {result.reason === 'voluntary' ? t('over.victoryTitle') : t('over.title')}
                   </h2>
                   <p className="mt-1 font-ui text-xs font-medium text-[#8a5330]">
-                    {result.reason === 'hearts'
-                      ? t('over.hearts')
-                      : result.reason === 'ransacked'
-                        ? t('over.ransacked')
-                        : t('over.timeup', { n: result.level })}
+                    {result.reason === 'voluntary'
+                      ? t('over.victoryNote')
+                      : result.reason === 'hearts'
+                        ? t('over.hearts')
+                        : result.reason === 'ransacked'
+                          ? t('over.ransacked')
+                          : t('over.timeup', { n: result.level })}
                   </p>
+                  {/* ПОБЕДА: плакат №7 — куница отдаёт честь со стаканом попкорна */}
+                  {result.reason === 'voluntary' && (
+                    <motion.img
+                      src={VICTORY_POSTER_SRC}
+                      alt={t('over.posterAlt')}
+                      draggable={false}
+                      loading="eager"
+                      className="pixelated mx-auto mt-2.5 max-h-44 w-auto rounded-md border-4 border-[#f6e7c9] bg-[#f6e7c9] object-contain shadow-[0_10px_28px_rgba(0,0,0,0.35)]"
+                      initial={{ scale: 0.85, rotate: -3, opacity: 0 }}
+                      animate={{ scale: 1, rotate: -1.5, opacity: 1 }}
+                      transition={{ delay: 0.12, type: 'spring', stiffness: 220, damping: 20 }}
+                    />
+                  )}
                   <div className="mt-2 flex items-center justify-center gap-2">
                     <Popcorn className="h-8 w-8 text-amber-500" aria-hidden />
                     <span className="font-pixel text-5xl font-bold tabular-nums text-[#5C3A1E]">
