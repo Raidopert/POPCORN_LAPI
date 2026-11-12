@@ -14,6 +14,8 @@
 
 const COINS_KEY = 'popcorn-coins'
 const TOTAL_KEY = 'popcorn-totalxp'
+/** Банк опыта 🍿 (тратится в магазине лапок) — общий ключ с popcorn-game */
+export const XP_BANK_KEY = 'popcorn-xp'
 
 /** Тот же ивент, что у магазина: один стор на всё меню */
 const STORE_EVENT = 'popcorn-store-update'
@@ -50,7 +52,31 @@ export function addCoins(delta: number): void {
 
 /* ================= уровень котика 🎖 ================= */
 
+/* --- разовая миграция v0.0.21 ---
+   Опыт теперь начисляется по курсу «10 очков = 1 🍿» (см. popcorn-game),
+   поэтому старые запасы (банк + стаж) делим на 10 — курс совпадает
+   с новыми ценами лапок, и ничего не обесценивается. */
+const XP_MIG_KEY = 'popcorn-xp-mig10'
+let xpMigrated = false
+
+export function migrateXpBank(): void {
+  if (xpMigrated || typeof window === 'undefined') return
+  xpMigrated = true
+  try {
+    if (window.localStorage.getItem(XP_MIG_KEY) === '1') return
+    window.localStorage.setItem(XP_MIG_KEY, '1')
+    for (const key of [TOTAL_KEY, XP_BANK_KEY]) {
+      const v = Math.max(0, Math.floor(Number(window.localStorage.getItem(key)) || 0))
+      window.localStorage.setItem(key, String(Math.floor(v / 10)))
+    }
+    window.dispatchEvent(new Event(STORE_EVENT))
+  } catch {
+    /* приватный режим — не беда */
+  }
+}
+
 export function getTotalXp(): number {
+  migrateXpBank()
   return readNum(TOTAL_KEY)
 }
 
@@ -60,11 +86,13 @@ export function addTotalXp(delta: number): void {
   writeNum(TOTAL_KEY, readNum(TOTAL_KEY) + delta)
 }
 
-/** Опыт, нужный для перехода с уровня на следующий: 800, 1200, 1600, 2000…
-    Все цифры в игре с нулями (очки зёрен ×10) — и пороги тоже */
+/** Опыт, нужный для перехода с уровня на следующий: 800, 860, 970, 1280…
+    Прогрессирующая кривая 800 + 60×(l−1)^1.5: ранние уровни быстрые,
+    глубокие — медленные. Полное древо (~90 уровней) — путь на недели,
+    а не один удачный забег: рекорд 200 000 очков ≈ 14 уровней. */
 export function needForLevel(level: number): number {
   const l = Math.max(1, Math.floor(level))
-  return 800 + 400 * (l - 1)
+  return 800 + Math.round(60 * Math.pow(l - 1, 1.5))
 }
 
 /** Уровень котика по суммарному опыту (без потолка) */

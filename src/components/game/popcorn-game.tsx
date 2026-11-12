@@ -81,6 +81,7 @@ import {
   charLevelProgress,
   getCoins,
   getTotalXp,
+  migrateXpBank,
 } from '@/lib/game/meta'
 import {
   UPGRADES,
@@ -117,6 +118,7 @@ import {
   fmtTripMs,
   getMartenSnapshot,
   martenLevelOf,
+  martenMess,
   nanaClickCoins,
   nanaLevelBonus,
   progressToNext,
@@ -265,6 +267,13 @@ const STORE_EVENT = 'popcorn-store-update'
 const XP_KEY = 'popcorn-xp'
 /** Суммарный опыт за всё время — растит уровень котика (не тратится) */
 const TOTAL_KEY = 'popcorn-totalxp'
+/** Курс опыта: 10 очков попкорна = 1 🍿 (v0.0.22 — древо больше не заполняется
+    за один забег: рекорд 200 000 очков — это ~2 000 🍿 и ~12 уровней котика) */
+const XP_PER_SCORE = 10
+
+/* Разовая миграция: старые запасы опыта делятся на 10 под новый курс
+   (банк лапок и стаж котика), чтобы экономика совпала с новыми ценами */
+if (typeof window !== 'undefined') migrateXpBank()
 const PAW_KEY = 'popcorn-paw'
 const OWNED_KEY = 'popcorn-owned'
 const LEADERS_KEY = 'popcorn-leaders'
@@ -1881,7 +1890,7 @@ function LeadersOverlay({
   )
 }
 
-/** Экран «Правила»: 7 коротких пунктов — только проверенные актуальные цифры */
+/** Экран «Правила»: 8 коротких пунктов — только проверенные актуальные цифры */
 function RulesOverlay({ t, onClose }: { t: TranslateFn; onClose: () => void }) {
   const rows: Array<[string, string]> = [
     ['👆', 'rules.r1'],
@@ -1891,6 +1900,7 @@ function RulesOverlay({ t, onClose }: { t: TranslateFn; onClose: () => void }) {
     ['🐦', 'rules.r5'],
     ['🎁', 'rules.r6'],
     ['💾', 'rules.r7'],
+    ['🌽', 'rules.r8'],
   ]
   return (
     <motion.div
@@ -2055,27 +2065,34 @@ function InstallOverlay({
 }
 
 /** Позиции узлов древа на SVG-сетке (в процентах контейнера):
-    корень → 3 ветки → 6 детей → 6 вершин (БОЛЬШОЕ ДЕРЕВО, 16 узлов) */
+    корень → 3 ветки → 6 детей → 6 вершин → сердца → верхушка (6 ярусов, 24 узла) */
 const TREE_POS: Record<TreeId, { x: number; y: number }> = {
-  harvest: { x: 50, y: 7 },
-  swift: { x: 20, y: 31 },
-  cap: { x: 50, y: 31 },
-  seeds: { x: 80, y: 31 },
-  magnet: { x: 8.5, y: 58 },
-  guard: { x: 25, y: 58 },
-  goldluck: { x: 41.5, y: 58 },
-  coins: { x: 58, y: 58 },
-  feverluck: { x: 74.5, y: 58 },
-  fevertime: { x: 91.5, y: 58 },
-  miner: { x: 8.5, y: 86 },
-  stun: { x: 25, y: 86 },
-  combo: { x: 41.5, y: 86 },
-  xpboost: { x: 58, y: 86 },
-  shield: { x: 74.5, y: 86 },
-  double: { x: 91.5, y: 86 },
+  harvest: { x: 50, y: 5 },
+  swift: { x: 20, y: 22 },
+  cap: { x: 50, y: 22 },
+  seeds: { x: 80, y: 22 },
+  magnet: { x: 8.5, y: 42 },
+  guard: { x: 25, y: 42 },
+  goldluck: { x: 41.5, y: 42 },
+  coins: { x: 58, y: 42 },
+  feverluck: { x: 74.5, y: 42 },
+  fevertime: { x: 91.5, y: 42 },
+  miner: { x: 8.5, y: 64 },
+  stun: { x: 25, y: 64 },
+  combo: { x: 41.5, y: 64 },
+  xpboost: { x: 58, y: 64 },
+  shield: { x: 74.5, y: 64 },
+  double: { x: 91.5, y: 64 },
   /* ярус 5 — сердечная ветка */
-  heartmax: { x: 66.5, y: 97 },
-  healer: { x: 83, y: 97 },
+  heartmax: { x: 66.5, y: 82 },
+  healer: { x: 83, y: 82 },
+  /* ярус 6 — верхушка для ветеранов */
+  magnet2: { x: 8.5, y: 96 },
+  biggrain: { x: 25, y: 96 },
+  goldrain: { x: 41.5, y: 96 },
+  coins2: { x: 58, y: 96 },
+  seeds2: { x: 74.5, y: 96 },
+  fevertime2: { x: 91.5, y: 96 },
 }
 
 /** Ветви дерева строятся из родителей: каждый узел ведёт от своего предка */
@@ -2110,6 +2127,13 @@ function treeEffectN(id: TreeId, lvl: number): number {
   if (id === 'double') return 25 * L
   if (id === 'heartmax') return L
   if (id === 'healer') return L
+  /* ярус 6 — верхушка для ветеранов */
+  if (id === 'biggrain') return 4 * L
+  if (id === 'seeds2') return 3 * L
+  if (id === 'magnet2') return 10 * L
+  if (id === 'goldrain') return 8 * L
+  if (id === 'coins2') return 15 * L
+  if (id === 'fevertime2') return 2 * L
   return 1 // комбо
 }
 
@@ -2212,8 +2236,8 @@ function TreeOverlay({
           )}
         </div>
 
-        {/* Сетка-дерево: SVG-ветки под узлами (5 ярусов, 18 узлов) */}
-        <div className="relative mx-auto h-[500px] w-full max-w-[430px]">
+        {/* Сетка-дерево: SVG-ветки под узлами (6 ярусов, 24 узла) */}
+        <div className="relative mx-auto h-[620px] w-full max-w-[430px]">
           <svg
             aria-hidden
             className="absolute inset-0 h-full w-full"
@@ -3273,6 +3297,12 @@ export function PopcornGame() {
   /* Боевой уровень куницы (xp от очков и путешествий) + тост левелапа */
   const martenLvl = useMemo(() => martenLevelOf(marten), [marten])
   const [martenLvlToast, setMartenLvlToast] = useState<number | null>(null)
+  /* «Беспорядок NANA»: куница рассыпала попкорн — уровень куницы растит
+     норму/волны/мины забегов. Держим готовые значения для UI и движка */
+  const mess = useMemo(() => martenMess(martenLvl.level), [martenLvl.level])
+  useEffect(() => {
+    engineRef.current?.setMartenMess(mess)
+  }, [mess])
   /* Секунды забега копятся в ref и периодически сбрасываются в копилку роста */
   const playSecsRef = useRef(0)
 
@@ -3616,7 +3646,7 @@ export function PopcornGame() {
     if (getCoins() >= 50000) cand.push('coins50k')
     try {
       const bank = Math.max(0, Number(window.localStorage.getItem(XP_KEY) ?? 0) || 0)
-      if (bank >= 100000) cand.push('xp100k')
+      if (bank >= 10000) cand.push('xp100k')
     } catch {
       /* нет localStorage — не беда */
     }
@@ -3626,17 +3656,21 @@ export function PopcornGame() {
     announceAch(cand)
   }, [announceAch])
 
-  /** Начислить дельту очков в банк опыта сразу — очки попкорна = опыт.
-      Та же дельта (без минуса) капает в суммарный стаж котика. */
+  /** Начислить дельту очков в банк опыта сразу — 10 очков попкорна = 1 🍿 опыта.
+      Та же дельта (с курсом) капает в суммарный стаж котика. Курс ×0.1 держит
+      древо и магазин в долгой прогрессии: рекордный забег — это плюс
+      несколько уровней, а не полдерева. Отрицательные дельты (мины,
+      сгоревшая Лихорадка) бьют по СЧЁТУ, но не по валюте — опыт — стаж,
+      он не сгорает */
   const addXpDelta = useCallback((delta: number) => {
     if (!delta) return
+    const gain = Math.floor(delta / XP_PER_SCORE)
+    if (gain <= 0) return
     const cur = Math.max(0, Number(window.localStorage.getItem(XP_KEY) ?? 0) || 0)
-    const next = Math.max(0, Math.floor(cur + delta))
+    const next = Math.max(0, Math.floor(cur + gain))
     window.localStorage.setItem(XP_KEY, String(next))
-    if (delta > 0) {
-      const tot = Math.max(0, Number(window.localStorage.getItem(TOTAL_KEY) ?? 0) || 0)
-      window.localStorage.setItem(TOTAL_KEY, String(Math.floor(tot + delta)))
-    }
+    const tot = Math.max(0, Number(window.localStorage.getItem(TOTAL_KEY) ?? 0) || 0)
+    window.localStorage.setItem(TOTAL_KEY, String(Math.floor(tot + gain)))
     window.dispatchEvent(new Event(STORE_EVENT))
   }, [])
 
@@ -3644,15 +3678,16 @@ export function PopcornGame() {
       Если уровень персонажа вырос — праздничный тост.
       Древо («Стаж», «Монетный дождь») умножает обе награды.
       Монетки растут с уровнем (+30/уровень) — иначе геймплей
-      стагнирует против кликера и путешествий. */
+      стагнирует против кликера и путешествий.
+      Опыт — по курсу 10 очков = 1 🍿: 10 + уровень за этап */
   const awardStage = useCallback(
     (lvl: number) => {
       const before = charLevel(getTotalXp())
-      /* Награда за этап — с нулями: опыт ×10, монетки ×10 (и цены в магазине тоже)
+      /* Награда за этап — с нулями: монетки ×10, опыт по курсу 1/10 очков
          Артефакт «Котоакадемия» добавляет +25% к опыту-стажу,
          «Копилка-хрюшка» — +25% к монеткам этапа (бережёт каждую монетку) */
       const tr = treeRef.current
-      addTotalXp(Math.round((100 + lvl * 10) * (1 + (tr.xpAdd ?? 0)) * marketRef.current.xpGift))
+      addTotalXp(Math.round((10 + lvl) * (1 + (tr.xpAdd ?? 0)) * marketRef.current.xpGift))
       addCoins(
         Math.round((120 + (lvl - 1) * 30) * (1 + (tr.coinsAdd ?? 0)) * marketRef.current.coinGift),
       )
@@ -3677,17 +3712,19 @@ export function PopcornGame() {
     (offers: PerkDef[], lvl: number): Array<ChestExtra | null> => {
       const gift = 1 + (treeRef.current.giftAdd ?? 0)
       const lvlScale = 1 + Math.max(0, lvl - 1) * 0.05
+      /* Монетки — с нулями (×10), опыт — по курсу 1/10 очков (округление до 5) */
       const round10 = (n: number) => Math.max(10, Math.round((n * gift * lvlScale) / 10) * 10)
+      const round5 = (n: number) => Math.max(5, Math.round((n * gift * lvlScale) / 5) * 5)
       return offers.map((p) => {
         /* Тяжёлое проклятье — заметная компенсация опытом */
         if (isHarshCurse(p.id)) {
-          return { kind: 'xp' as const, n: round10([600, 1000, 1800][Math.floor(Math.random() * 3)] ?? 600) }
+          return { kind: 'xp' as const, n: round5([60, 100, 180][Math.floor(Math.random() * 3)] ?? 60) }
         }
         if (p.curse) {
           /* Лёгкое проклятье — иногда маленький подарок */
           const r = Math.random()
           if (r < 0.4) return { kind: 'coins' as const, n: round10([80, 120, 200][Math.floor(Math.random() * 3)] ?? 80) }
-          if (r < 0.6) return { kind: 'xp' as const, n: round10([150, 250, 400][Math.floor(Math.random() * 3)] ?? 150) }
+          if (r < 0.6) return { kind: 'xp' as const, n: round5([15, 25, 40][Math.floor(Math.random() * 3)] ?? 15) }
           return null
         }
         /* Бонусный перк — ноль: сам перк и есть приз */
@@ -4016,6 +4053,8 @@ export function PopcornGame() {
     engine.setLang(s.lang)
     /* Древо улучшений: применяем купленные узлы к движку */
     engine.setTree(treeRef.current)
+    /* «Беспорядок NANA»: уровень куницы — жирнее забеги (квота/волны/мины) */
+    engine.setMartenMess(martenMess(martenLevelOf(getMartenSnapshot()).level))
     layoutRef.current()
 
     return () => {
@@ -4626,10 +4665,10 @@ export function PopcornGame() {
                   <div className="flex items-stretch gap-1.5">
                     {/* Сцена: куница играет с зерном (в походе — комната пустая) */}
                     <div className="relative min-w-0 flex-1">
-                      {/* Бейдж боевого уровня NANA: цифра + полоска опыта + бонус уровня */}
+                      {/* Бейдж боевого уровня NANA: цифра + полоска опыта + бонус уровня + разгром */}
                       <div
                         className="pointer-events-none absolute left-1.5 top-1.5 z-10 rounded-lg border-2 border-amber-300/80 bg-[#2b1a0e]/85 px-1.5 py-0.5 shadow-md"
-                        title={t('marten.xpHint')}
+                        title={`${t('marten.xpHint')} ${t('marten.messHint')}`}
                       >
                         <div className="flex items-center gap-1">
                           <PawPrint className="h-3 w-3 text-amber-200" aria-hidden />
@@ -4651,6 +4690,13 @@ export function PopcornGame() {
                         <div className="mt-0.5 font-ui text-[8px] font-bold leading-none text-amber-100/90">
                           {t('marten.lvlBonusHint', {
                             n: Math.round((nanaLevelBonus(martenLvl.level) - 1) * 100),
+                          })}
+                        </div>
+                        {/* Разгром: связь кликера с забегом — жирнее попкорн, больше мин */}
+                        <div className="mt-0.5 font-ui text-[8px] font-bold leading-none text-orange-300/90">
+                          {t('marten.messLine', {
+                            q: mess.quota.toFixed(1).replace('.', ','),
+                            m: mess.mines,
                           })}
                         </div>
                       </div>
@@ -4709,7 +4755,7 @@ export function PopcornGame() {
                       {/* Уровень куницы + прогресс опыта */}
                       <div
                         className="flex items-center justify-center gap-1 rounded-xl border-2 border-[#E24B3B] bg-[#ffe9e2] px-1 py-1.5"
-                        title={t('marten.xpHint')}
+                        title={`${t('marten.xpHint')} ${t('marten.messHint')}`}
                         aria-label={t('marten.lvlFull', { n: martenLvl.level })}
                       >
                         <PawPrint className="h-3.5 w-3.5 shrink-0 text-[#B33A26]" aria-hidden />

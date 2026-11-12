@@ -22,11 +22,13 @@ export type Currency = 'gems' | 'coins' | 'xp' | 'grains'
 
 export const CURRENCIES: Currency[] = ['gems', 'coins', 'xp', 'grains']
 
-/** Стоимость единицы валюты в монетках (основа курсов) */
+/** Стоимость единицы валюты в монетках (основа курсов).
+    Опыт 🍿 с v0.0.21 идёт по курсу «10 очков = 1 🍿», поэтому единица опыта
+    в 10 раз дороже прежней (0.2 → 2): обменник остаётся честным */
 const VAL: Record<Currency, number> = {
   gems: 12,
   coins: 1,
-  xp: 0.2,
+  xp: 2,
   grains: 0.1,
 }
 

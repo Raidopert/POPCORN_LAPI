@@ -280,6 +280,49 @@ const T: Record<string, Row> = {
     '+{{n}}% Truhengeschenke',
     '+{{n}}% regalos de cofres',
   ],
+  /* ярус 6 — верхушка для ветеранов */
+  'tree.biggrain.name': ['Мега-урожай', 'Mega Harvest', 'Mega-Ernte', 'Mega-cosecha'],
+  'tree.biggrain.effect': [
+    '+{{n}}% к очкам за зёрна',
+    '+{{n}}% grain points',
+    '+{{n}}% Punkte pro Korn',
+    '+{{n}}% puntos por grano',
+  ],
+  'tree.seeds2.name': ['Поле чудес', 'Wonder Field', 'Wunderfeld', 'Campo de maravillas'],
+  'tree.seeds2.effect': [
+    '+{{n}} зёрен в каждой волне',
+    '+{{n}} grains each wave',
+    '+{{n}} Körner pro Welle',
+    '+{{n}} granos por oleada',
+  ],
+  'tree.magnet2.name': ['Сверхмагнит', 'Super Magnet', 'Supermagnet', 'Súper imán'],
+  'tree.magnet2.effect': [
+    '+{{n}}% к радиусу подбора',
+    '+{{n}}% grab radius',
+    '+{{n}}% Greifradius',
+    '+{{n}}% radio de agarre',
+  ],
+  'tree.goldrain.name': ['Золотопад', 'Gold Rain', 'Goldregen', 'Lluvia de oro'],
+  'tree.goldrain.effect': [
+    '+{{n}}% шанс золотого зерна',
+    '+{{n}}% golden grain chance',
+    '+{{n}}% Chance auf Goldkorn',
+    '+{{n}}% probabilidad de grano dorado',
+  ],
+  'tree.coins2.name': ['Монетный ливень', 'Coin Storm', 'Münzensturm', 'Tormenta de monedas'],
+  'tree.coins2.effect': [
+    '+{{n}}% монеток с этапов',
+    '+{{n}}% coins from stages',
+    '+{{n}}% Münzen pro Etappe',
+    '+{{n}}% monedas por nivel',
+  ],
+  'tree.fevertime2.name': ['Огненный вихрь', 'Fire Whirl', 'Feuerwirbel', 'Remolino de fuego'],
+  'tree.fevertime2.effect': [
+    '+{{n}} сек к ЛИХОРАДКЕ',
+    '+{{n}}s of FEVER',
+    '+{{n}}s FIEBER',
+    '+{{n}}s de FIEBRE',
+  ],
   'set.crt': ['CRT-развёртка', 'CRT scanlines', 'CRT-Raster', 'Líneas CRT'],
   'set.crtHint': [
     'Ретро-эффект старого телевизора. Почти не влияет на FPS',
@@ -892,10 +935,10 @@ const T: Record<string, Row> = {
   ],
   'ach.xp100k.name': ['Банк попкорна', 'Popcorn Bank', 'Popcorn-Bank', 'Banco de Palomitas'],
   'ach.xp100k.desc': [
-    'Накопить 100000 опыта в банке',
-    'Save up 100,000 XP in the bank',
-    '100.000 XP in der Bank',
-    'Ahorra 100.000 XP en el banco',
+    'Накопить 10000 опыта в банке',
+    'Save up 10,000 XP in the bank',
+    '10.000 XP in der Bank',
+    'Ahorra 10.000 XP en el banco',
   ],
   'ach.tree5.name': ['Садовник', 'Gardener', 'Gärtner', 'Jardinero'],
   'ach.tree5.desc': [
@@ -1614,10 +1657,16 @@ const T: Record<string, Row> = {
     'Entre niveles — corte de bonificación y cofre con perks (25% — ¡Fiebre!). Cada 5 niveles — un póster de Nana y nueva dificultad',
   ],
   'rules.r7': [
-    'Очки = опыт: копятся сразу и остаются даже после «Конца игры». Трать их в магазине, древе и на Нану. Рекорды — в мировой таблице',
-    'Points = XP: banked instantly and kept even after END GAME. Spend them in the shop, tree and on Nana. Best runs enter the world board',
-    'Punkte = XP: sofort gutgeschrieben und bleiben auch nach ENDE. Ausgeben im Laden, im Baum und für Nana. Rekorde in der Weltliste',
-    'Puntos = exp: se guardan al instante y quedan tras el FIN. Gástalos en la tienda, el árbol y Nana. Récords en la tabla mundial',
+    'Очки = опыт (10 очков = 1 🍿): копятся сразу и остаются после «Конца игры». Трать их в магазине, древе и на Нану. Рекорды — в мировой таблице',
+    'Points = XP (10 points = 1 🍿): banked instantly and kept even after END GAME. Spend them in the shop, tree and on Nana. Best runs enter the world board',
+    'Punkte = XP (10 Punkte = 1 🍿): sofort gutgeschrieben und bleiben auch nach ENDE. Ausgeben im Laden, im Baum und für Nana. Rekorde in der Weltliste',
+    'Puntos = exp (10 puntos = 1 🍿): se guardan al instante y quedan tras el FIN. Gástalos en la tienda, el árbol y Nana. Récords en la tabla mundial',
+  ],
+  'rules.r8': [
+    'Куница NANA рассыпала попкорн: чем она взрослее, тем больше норма и зёрен в волне — но и мин больше. Кликай по ней и растите вместе!',
+    'NANA the marten scattered popcorn: the older she gets, the bigger the quota and the waves — and more mines. Tap her and grow together!',
+    'NANA hat Popcorn verstreut: Je älter sie wird, desto größer sind Quote und Wellen — und mehr Minen. Tipp sie an und wächst zusammen!',
+    'NANA derramó palomitas: cuanto mayor es, mayor la cuota y las oleadas — y más minas. ¡Tócala y crezcan juntos!',
   ],
 
   /* ---------- создатели ---------- */
@@ -1688,6 +1737,18 @@ const T: Record<string, Row> = {
     'trips +{{n}}%',
     'Reisen +{{n}}%',
     'viajes +{{n}}%',
+  ],
+  'marten.messLine': [
+    'разгром: ×{{q}} 🍿 · +{{m}} 🌽',
+    'mess: ×{{q}} 🍿 · +{{m}} 🌽',
+    'Chaos: ×{{q}} 🍿 · +{{m}} 🌽',
+    'desorden: ×{{q}} 🍿 · +{{m}} 🌽',
+  ],
+  'marten.messHint': [
+    'Разгром NANA: она рассыпала попкорн — чем она взрослее, тем больше норма и зёрен в волне (до ×2), но и мин больше (до +3). Растёт от кликера, путешествий и забегов!',
+    'NANA’s mess: she scattered the popcorn — the older she gets, the bigger the quota and waves (up to ×2), but also more mines (up to +3). She grows from the clicker, trips and runs!',
+    'NANAs Chaos: sie hat Popcorn verstreut — je älter sie wird, desto größer sind Quote und Wellen (bis ×2), aber auch mehr Minen (bis +3). Sie wächst durch Klicker, Reisen und Läufe!',
+    'Desorden de NANA: derramó palomitas — cuanto mayor es, mayor la cuota y las oleadas (hasta ×2), pero también más minas (hasta +3). ¡Crece con el clicador, los viajes y las partidas!',
   ],
   'marten.xpHint': [
     'Опыт NANA: очки в забегах, путешествия и кликер — тапай по кунице в меню! Каждый уровень: награды путешествий +2% и монетка за клик чаще (+1🪙 за 10 уровней, до 3🪙); дальние маршруты открываются на 5/8/12 уровнях.',

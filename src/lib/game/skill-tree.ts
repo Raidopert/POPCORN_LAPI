@@ -1,11 +1,11 @@
 /**
  * Древо улучшений «POPCORN PAWS» — БОЛЬШОЕ ДЕРЕВО.
  *
- *  🌳 Постоянные улучшения в виде дерева-сетки (5 ярусов, 18 узлов):
+ *  🌳 Постоянные улучшения в виде дерева-сетки (6 ярусов, 24 узла):
  *
- *     Ярус 1 — корень «Урожай» (+5% к очкам за зёрна, качается до 10 раз);
+ *     Ярус 1 — корень «Урожай» (+5% к очкам за зёрна, качается до 14 раз);
  *     Ярус 2 — три ветки: «Проворство» (скорость лапки), «Вместимость»
- *              (+1..+4 зерна в лапке) и «Засев» (больше зёрен в волне);
+ *              (+1..+10 зерна в лапке) и «Засев» (больше зёрен в волне);
  *     Ярус 3 — по двое детей у каждой ветки:
  *              Ловкость → «Магнит» (радиус подбора) и «Коготки-обереги» (шианс
  *                          игнорировать мину);
@@ -15,13 +15,17 @@
  *                          «Долгая лихорадка» (+1 сек);
  *     Ярус 4 — вершины: «Шахтёр» (−1 мина в волне), «Крепкий нос» (шок от
  *              мины короче), «Комбо-тренер» (комбо растёт быстрее), «Стаж»
- *              (+10% опыта котика), «Щит» (1–3 щита от мин) и «Щедрость»
- *              (+25% ценность подарков из сундучков).
+ *              (+10% опыта котика), «Щит» (1–4 щита от мин) и «Щедрость»
+ *              (+25% ценность подарков из сундучков);
  *     Ярус 5 — сердечная ветка: «Плюшевое сердце» (+1 максимум сердец) и
- *              «Лапка-целитель» (+1 сердце за пройденный уровень сверх обычного).
+ *              «Лапка-целитель» (+1 сердце за пройденный уровень сверх обычного);
+ *     Ярус 6 — верхушка для ветеранов: «Мега-урожай», «Поле чудес»,
+ *              «Сверхмагнит», «Золотопад», «Монетный ливень» и
+ *              «Огненный вихрь» — мощные продолжения основных веток.
  *
  *  🎖 Очки древа: по 1 очку за каждый уровень котика (опыт за всё время).
- *     Узел открывается, только если куплен его родитель.
+ *    Узел открывается, только если куплен его родитель. Всего в дереве 89 очков
+ *    — при новом курсе опыта (10 очков = 1 🍿) полное древо — путь на недели.
  *
  * Хранится в localStorage ('popcorn-tree' → {id: куплено раз}),
  * бродкастит то же событие магазина, что и остальное меню.
@@ -48,11 +52,17 @@ export type TreeId =
   | 'double'
   | 'heartmax'
   | 'healer'
+  | 'biggrain'
+  | 'seeds2'
+  | 'magnet2'
+  | 'goldrain'
+  | 'coins2'
+  | 'fevertime2'
 
 export interface TreeNodeDef {
   id: TreeId
-  /** Ярус дерева: 1 — корень, 2 — ветки, 3 — дети веток, 4 — вершины, 5 — сердечная ветка */
-  tier: 1 | 2 | 3 | 4 | 5
+  /** Ярус дерева: 1 — корень, 2 — ветки, 3 — дети, 4 — вершины, 5 — сердца, 6 — верхушка */
+  tier: 1 | 2 | 3 | 4 | 5 | 6
   /** Уровень котика, с которого узел доступен */
   reqLevel: number
   /** Сколько раз можно купить узел */
@@ -64,28 +74,35 @@ export interface TreeNodeDef {
 
 export const TREE_NODES: TreeNodeDef[] = [
   /* ярус 1 — корень */
-  { id: 'harvest', tier: 1, reqLevel: 1, maxLevel: 10, icon: '🍿' },
+  { id: 'harvest', tier: 1, reqLevel: 1, maxLevel: 14, icon: '🍿' },
   /* ярус 2 — три ветки */
   { id: 'swift', tier: 2, reqLevel: 2, maxLevel: 4, parent: 'harvest', icon: '💨' },
   { id: 'cap', tier: 2, reqLevel: 2, maxLevel: 4, parent: 'harvest', icon: '🎒' },
-  { id: 'seeds', tier: 2, reqLevel: 2, maxLevel: 3, parent: 'harvest', icon: '🧺' },
+  { id: 'seeds', tier: 2, reqLevel: 2, maxLevel: 5, parent: 'harvest', icon: '🧺' },
   /* ярус 3 — дети веток */
   { id: 'magnet', tier: 3, reqLevel: 4, maxLevel: 3, parent: 'swift', icon: '🧲' },
   { id: 'guard', tier: 3, reqLevel: 5, maxLevel: 2, parent: 'swift', icon: '🐾' },
-  { id: 'goldluck', tier: 3, reqLevel: 4, maxLevel: 3, parent: 'cap', icon: '✨' },
-  { id: 'coins', tier: 3, reqLevel: 5, maxLevel: 3, parent: 'cap', icon: '🪙' },
-  { id: 'feverluck', tier: 3, reqLevel: 4, maxLevel: 2, parent: 'seeds', icon: '🔥' },
-  { id: 'fevertime', tier: 3, reqLevel: 5, maxLevel: 2, parent: 'seeds', icon: '⏱️' },
+  { id: 'goldluck', tier: 3, reqLevel: 4, maxLevel: 4, parent: 'cap', icon: '✨' },
+  { id: 'coins', tier: 3, reqLevel: 5, maxLevel: 5, parent: 'cap', icon: '🪙' },
+  { id: 'feverluck', tier: 3, reqLevel: 4, maxLevel: 3, parent: 'seeds', icon: '🔥' },
+  { id: 'fevertime', tier: 3, reqLevel: 5, maxLevel: 3, parent: 'seeds', icon: '⏱️' },
   /* ярус 4 — вершины */
-  { id: 'miner', tier: 4, reqLevel: 7, maxLevel: 2, parent: 'magnet', icon: '⛏️' },
-  { id: 'stun', tier: 4, reqLevel: 8, maxLevel: 2, parent: 'guard', icon: '💪' },
+  { id: 'miner', tier: 4, reqLevel: 7, maxLevel: 3, parent: 'magnet', icon: '⛏️' },
+  { id: 'stun', tier: 4, reqLevel: 8, maxLevel: 3, parent: 'guard', icon: '💪' },
   { id: 'combo', tier: 4, reqLevel: 7, maxLevel: 1, parent: 'goldluck', icon: '🎯' },
-  { id: 'xpboost', tier: 4, reqLevel: 8, maxLevel: 3, parent: 'coins', icon: '🎖' },
-  { id: 'shield', tier: 4, reqLevel: 7, maxLevel: 3, parent: 'feverluck', icon: '🛡️' },
-  { id: 'double', tier: 4, reqLevel: 8, maxLevel: 2, parent: 'fevertime', icon: '🍀' },
+  { id: 'xpboost', tier: 4, reqLevel: 8, maxLevel: 5, parent: 'coins', icon: '🎖' },
+  { id: 'shield', tier: 4, reqLevel: 7, maxLevel: 4, parent: 'feverluck', icon: '🛡️' },
+  { id: 'double', tier: 4, reqLevel: 8, maxLevel: 3, parent: 'fevertime', icon: '🍀' },
   /* ярус 5 — сердечная ветка */
-  { id: 'heartmax', tier: 5, reqLevel: 10, maxLevel: 2, parent: 'shield', icon: '🧸' },
-  { id: 'healer', tier: 5, reqLevel: 12, maxLevel: 1, parent: 'double', icon: '💞' },
+  { id: 'heartmax', tier: 5, reqLevel: 10, maxLevel: 3, parent: 'shield', icon: '🧸' },
+  { id: 'healer', tier: 5, reqLevel: 12, maxLevel: 2, parent: 'double', icon: '💞' },
+  /* ярус 6 — верхушка для ветеранов */
+  { id: 'biggrain', tier: 6, reqLevel: 14, maxLevel: 4, parent: 'harvest', icon: '🌰' },
+  { id: 'seeds2', tier: 6, reqLevel: 14, maxLevel: 3, parent: 'seeds', icon: '🌱' },
+  { id: 'magnet2', tier: 6, reqLevel: 15, maxLevel: 3, parent: 'magnet', icon: '🌀' },
+  { id: 'goldrain', tier: 6, reqLevel: 16, maxLevel: 3, parent: 'goldluck', icon: '🌟' },
+  { id: 'coins2', tier: 6, reqLevel: 17, maxLevel: 3, parent: 'coins', icon: '💰' },
+  { id: 'fevertime2', tier: 6, reqLevel: 18, maxLevel: 2, parent: 'fevertime', icon: '🌋' },
 ]
 
 export const TREE_MAP = Object.fromEntries(TREE_NODES.map((n) => [n.id, n])) as Record<
@@ -231,20 +248,26 @@ const ZERO_BONUS: TreeBonus = {
 
 export function treeBonuses(state: TreeState): TreeBonus {
   return {
-    grainMult01: 0.05 * (state.harvest ?? 0),
+    /* «Урожай» + «Мега-урожай» (ярус 6): до 14×5% + 4×4% = 86% очков сверху */
+    grainMult01: 0.05 * (state.harvest ?? 0) + 0.04 * (state.biggrain ?? 0),
     speedAdd: 0.05 * (state.swift ?? 0),
     carry: capGain(state.cap ?? 0),
-    grains: 2 * (state.seeds ?? 0),
+    /* «Засев» + «Поле чудес» (ярус 6): до 10 + 9 = +19 зёрен в волне */
+    grains: 2 * (state.seeds ?? 0) + 3 * (state.seeds2 ?? 0),
     feverLuck: 0.05 * (state.feverluck ?? 0),
     shields: state.shield ?? 0,
-    goldAdd: 0.1 * (state.goldluck ?? 0),
-    grabR01: 0.08 * (state.magnet ?? 0),
+    /* «Золотая жила» + «Золотопад» (ярус 6) */
+    goldAdd: 0.1 * (state.goldluck ?? 0) + 0.08 * (state.goldrain ?? 0),
+    /* «Магнит» + «Сверхмагнит» (ярус 6): до 24% + 30% радиуса */
+    grabR01: 0.08 * (state.magnet ?? 0) + 0.1 * (state.magnet2 ?? 0),
     guardAdd: 0.15 * (state.guard ?? 0),
     cornCut: state.miner ?? 0,
     stunCut: 0.3 * (state.stun ?? 0),
-    feverPlus: state.fevertime ?? 0,
+    /* «Долгая лихорадка» + «Огненный вихрь» (ярус 6): до 3 + 4 = +7 сек */
+    feverPlus: (state.fevertime ?? 0) + 2 * (state.fevertime2 ?? 0),
     comboFast: (state.combo ?? 0) > 0,
-    coinsAdd: 0.1 * (state.coins ?? 0),
+    /* «Монетный дождь» + «Монетный ливень» (ярус 6): до 50% + 45% */
+    coinsAdd: 0.1 * (state.coins ?? 0) + 0.15 * (state.coins2 ?? 0),
     xpAdd: 0.1 * (state.xpboost ?? 0),
     giftAdd: 0.25 * (state.double ?? 0),
     heartsMax: state.heartmax ?? 0,

@@ -35,6 +35,7 @@ import { tFor, type Lang, type TranslateFn } from './i18n'
 import type { Difficulty, Quality } from './settings'
 import type { TreeBonus } from './skill-tree'
 import { ZERO_BONUS } from './skill-tree'
+import type { MartenMess } from './marten'
 
 export interface EngineStats {
   score: number
@@ -401,6 +402,8 @@ export class PopcornEngine {
   private stun = 0
   /* --- древо улучшений: постоянные бонусы (тестовая ветка) --- */
   private tree: TreeBonus = ZERO_BONUS
+  /* --- «беспорядок NANA»: чем взрослее куница, тем жирнее забег (см. marten.ts) --- */
+  private mess: MartenMess = { quota: 1, pop: 1, mines: 0 }
   /** Рулетка внезапной ЛИХОРАДКИ: победила в кадре сбора — применяем в конце кадра */
   private pendingFever = false
 
@@ -497,6 +500,11 @@ export class PopcornEngine {
     this.tree = b
   }
 
+  /** Связь кликера с забегом: уровень куницы растит норму, волны и мины */
+  setMartenMess(m: MartenMess): void {
+    this.mess = m
+  }
+
   /** Настройки из меню: сложность, качество, тряска, вибрация, дальтоник, голубь */
   setOptions(o: Partial<EngineOptions>): void {
     this.opts = { ...this.opts, ...o }
@@ -558,12 +566,20 @@ export class PopcornEngine {
     }
     /* «Соски-малышки»: каждая соска жирнее (+40), потому и норма +20% */
     if (perk === 'milky') this.quota = Math.max(3, Math.round(this.quota * 1.2))
+    /* «Беспорядок NANA»: куница рассыпала попкорн — чем она взрослее, тем
+       больше нужно собрать (×1…×2). Забег жирнее — и очков больше */
+    this.quota = Math.max(3, Math.round(this.quota * this.mess.quota))
     this.collected = 0
     this.wave = 1
     /* Ступень сложности каждые 5 уровней: пропорционально больше попкорна
        и мин на волне — за отведённое время нужно собирать всё больше, но без безумия */
     const step = Math.floor((level - 1) / 5)
-    this.popPerWave = Math.min(26, 10 + step * 3) + (this.tree.grains ?? 0)
+    /* Зёрен в волне — тоже больше вместе с NANA (×1…×1.6), потолок 44:
+       поле должно прокормить выросшую норму, но не захламляться */
+    this.popPerWave = Math.min(
+      44,
+      Math.round((Math.min(26, 10 + step * 3) + (this.tree.grains ?? 0)) * this.mess.pop),
+    )
     this.cornPerWave = Math.min(11, 3 + step)
     if (perk === 'cornrain') this.cornPerWave = Math.min(14, this.cornPerWave * 2)
     /* Лапка-оберег от мин: меньше кукурузы в каждой волне */
@@ -573,6 +589,8 @@ export class PopcornEngine {
     /* Сложность: лёгкая — на мину меньше, сложная — на мину больше */
     if (this.opts.difficulty === 'easy') this.cornPerWave = Math.max(0, this.cornPerWave - 1)
     if (this.opts.difficulty === 'hard') this.cornPerWave = Math.min(15, this.cornPerWave + 1)
+    /* Разгром NANA: мины прибавляются (+1 за 10 уровней куницы, до +3) */
+    this.cornPerWave = Math.min(15, this.cornPerWave + this.mess.mines)
     this.goldenChance =
       perk === 'goldenvein'
         ? 0.26
