@@ -693,6 +693,8 @@ function TravelOverlay({
   martenLvl,
   gemMult,
   xpMult,
+  coinMult,
+  grainMult,
   t,
   onSend,
   onClaim,
@@ -702,6 +704,10 @@ function TravelOverlay({
   martenLvl: number
   gemMult: number
   xpMult: number
+  /** «Копилка-хрюшка» × уровень NANA — множит монетки дальних маршрутов */
+  coinMult: number
+  /** «Золотое ситечко» × уровень NANA — множит зёрна дальних маршрутов */
+  grainMult: number
   t: TranslateFn
   onSend: (id: TripId) => void
   onClaim: () => void
@@ -825,6 +831,8 @@ function TravelOverlay({
               { boots: marten.boots, hat: marten.hat, bag: marten.bag },
               gemMult,
               xpMult,
+              coinMult,
+              grainMult,
             )
             const loot = tripLootText(rw.coins, rw.grains)
             return (
@@ -1164,6 +1172,7 @@ const ARTIFACT_ICON: Record<ArtifactId, string> = {
   sieve: '🧺',
   travelmap: '🧭',
   bell: '🔔',
+  rattle: '🪇',
 }
 
 function MarketOverlay({
@@ -3001,6 +3010,8 @@ export function PopcornGame() {
     poster: boolean
     mine: number
     mineShown: boolean
+    /** DEV QA: старт забега с уровня N (?lvl=20/30/100 — проверка кривых) */
+    lvl: number
   }>({
     fast: false,
     forced: null,
@@ -3008,6 +3019,7 @@ export function PopcornGame() {
     poster: false,
     mine: 0,
     mineShown: false,
+    lvl: 0,
   })
   /* Полоса сравнения вариантов мины: показывается только при ?mine=N */
   const [mineStrip, setMineStrip] = useState<{ on: boolean; active: number }>({
@@ -3129,6 +3141,8 @@ export function PopcornGame() {
   >(null)
   const [achToast, setAchToast] = useState<{ icon: string; name: string } | null>(null)
   const [shareNote, setShareNote] = useState<string | null>(null)
+  /* Мировой рекорд отклонён сервером (тост на экране результата) */
+  const [leaderNote, setLeaderNote] = useState(false)
   /* Мировая статистика: счётчик запусков/забегов/котиков (null — офлайн или ещё грузится) */
   const [worldStats, setWorldStats] = useState<{
     launches: number
@@ -3187,12 +3201,15 @@ export function PopcornGame() {
   /* Скрытые dev-параметры URL: ?fast=1 (короткая норма), ?perk=rot180 (гарантированный перк),
      ?fever=1 (лихорадка после каждого уровня — для проверки),
      ?poster=1 (плакатная перебивка после КАЖДОГО уровня — для проверки),
-     ?mine=N (вариант звезды-мины 1..4 + полоса сравнения в углу) */
+     ?mine=N (вариант звезды-мины 1..4 + полоса сравнения в углу),
+     ?lvl=N (старт забега с уровня N — QA кривых 20/30/100) */
   useEffect(() => {
     const sp = new URLSearchParams(window.location.search)
     const mineRaw = parseInt(sp.get('mine') ?? '', 10)
     const mine =
       Number.isFinite(mineRaw) && mineRaw >= 1 && mineRaw <= MINE_VARIANTS ? mineRaw - 1 : 0
+    const lvlRaw = parseInt(sp.get('lvl') ?? '', 10)
+    const lvl = Number.isFinite(lvlRaw) && lvlRaw >= 1 && lvlRaw <= 999 ? lvlRaw : 0
     devRef.current = {
       fast: sp.has('fast'),
       forced: (sp.get('perk') as PerkId | null) ?? null,
@@ -3200,6 +3217,7 @@ export function PopcornGame() {
       poster: sp.has('poster'),
       mine,
       mineShown: sp.has('mine'),
+      lvl,
     }
     /* Dev-полоса — чисто клиентский оверлей: откладываем на следующий кадр,
        чтобы не словить hydration mismatch (SSR рисует страницу без неё) */
@@ -3294,13 +3312,15 @@ export function PopcornGame() {
   }, [])
 
   /* ===== КЛИКЕР: тап по кунице/комнате = опыт NANA + монетки =====
-     Опыт: 1 базово + шляпка (+1…+9🐾). Монетки растут с уровнем NANA
-     (+1🪙 за каждые 5 уровней) и удваиваются артефактом «Кликер-колокольчик».
+     Опыт: 1 базово + шляпка (+1…+9🐾). Монетки: база по уровню NANA
+     (+1🪙 за 10 уровней, потолок 3) + «Погремушка» (+2), затем
+     «Кликер-колокольчик» ×1.5 (округление вверх) — так кликер остаётся
+     карманным доходом, а не обгоняет награду за целый уровень.
      Частицы «+N» рисует сцена — передаём ей честные значения. */
-  const tapCoins = useMemo(
-    () => nanaClickCoins(martenLvl.level) * Math.max(1, Math.round(marketBonus.clickCoin)),
-    [martenLvl.level, marketBonus.clickCoin],
-  )
+  const tapCoins = useMemo(() => {
+    const base = nanaClickCoins(martenLvl.level) + Math.max(0, Math.round(marketBonus.clickAdd))
+    return Math.max(1, Math.ceil(base * Math.max(1, marketBonus.clickCoin)))
+  }, [martenLvl.level, marketBonus.clickAdd, marketBonus.clickCoin])
   const tapXp = useMemo(() => 1 + (HATS_MAP[marten.hat] ?? HATS_MAP.none).clickXp, [marten.hat])
   const handleMartenTap = useCallback(() => {
     addCoins(tapCoins)
@@ -3336,10 +3356,12 @@ export function PopcornGame() {
 
   const handleSendTrip = useCallback((id: TripId) => {
     audio.play('click')
-    /* Множители «Карты странствий» и уровня NANA применяются в момент отправки */
+    /* Множители артефактов и уровня NANA фиксируются в момент отправки:
+       Карта странствий (💎/🐾), уровень NANA, Хрюшка (🪙) и Ситечко (🌾)
+       — чтобы показанное в списке совпадало с реально выплаченным */
     const b = marketRef.current
     const lvlBonus = nanaLevelBonus(martenLevelOf(getMartenSnapshot()).level)
-    startMartenTrip(id, b.gemTrip * lvlBonus, b.xpTrip * lvlBonus)
+    startMartenTrip(id, b.gemTrip * lvlBonus, b.xpTrip * lvlBonus, b.coinGift, b.grain)
   }, [])
 
   const handleClaimTrip = useCallback(() => {
@@ -3620,7 +3642,9 @@ export function PopcornGame() {
 
   /** Награда за пройденный этап: опыт стажа котика + горсть монеток.
       Если уровень персонажа вырос — праздничный тост.
-      Древо («Стаж», «Монетный дождь») умножает обе награды. */
+      Древо («Стаж», «Монетный дождь») умножает обе награды.
+      Монетки растут с уровнем (+30/уровень) — иначе геймплей
+      стагнирует против кликера и путешествий. */
   const awardStage = useCallback(
     (lvl: number) => {
       const before = charLevel(getTotalXp())
@@ -3629,7 +3653,9 @@ export function PopcornGame() {
          «Копилка-хрюшка» — +25% к монеткам этапа (бережёт каждую монетку) */
       const tr = treeRef.current
       addTotalXp(Math.round((100 + lvl * 10) * (1 + (tr.xpAdd ?? 0)) * marketRef.current.xpGift))
-      addCoins(Math.round(120 * (1 + (tr.coinsAdd ?? 0)) * marketRef.current.coinGift))
+      addCoins(
+        Math.round((120 + (lvl - 1) * 30) * (1 + (tr.coinsAdd ?? 0)) * marketRef.current.coinGift),
+      )
       const after = charLevel(getTotalXp())
       if (after > before) {
         setCharToast(after)
@@ -3645,26 +3671,31 @@ export function PopcornGame() {
       тяжёлое проклятье (зеркало, чёрная комната…) → обязательная компенсация
       опытом 🍿; лёгкое проклятье → изредка мелочь монетками 🪙 или опытом;
       бонусный перк сам по себе приз → сундучок пуст (0).
-      Древо «Щедрость» по-прежнему усиливает ценность подарков. */
-  const rollExtras = useCallback((offers: PerkDef[]): Array<ChestExtra | null> => {
-    const gift = 1 + (treeRef.current.giftAdd ?? 0)
-    const round10 = (n: number) => Math.max(10, Math.round((n * gift) / 10) * 10)
-    return offers.map((p) => {
-      /* Тяжёлое проклятье — заметная компенсация опытом */
-      if (isHarshCurse(p.id)) {
-        return { kind: 'xp' as const, n: round10([600, 1000, 1800][Math.floor(Math.random() * 3)] ?? 600) }
-      }
-      if (p.curse) {
-        /* Лёгкое проклятье — иногда маленький подарок */
-        const r = Math.random()
-        if (r < 0.4) return { kind: 'coins' as const, n: round10([80, 120, 200][Math.floor(Math.random() * 3)] ?? 80) }
-        if (r < 0.6) return { kind: 'xp' as const, n: round10([150, 250, 400][Math.floor(Math.random() * 3)] ?? 150) }
+      Древо «Щедрость» усиливает ценность подарков, а сами награды
+      подрастают с уровнем (+5%/уровень) — поздние сундуки не обесцениваются. */
+  const rollExtras = useCallback(
+    (offers: PerkDef[], lvl: number): Array<ChestExtra | null> => {
+      const gift = 1 + (treeRef.current.giftAdd ?? 0)
+      const lvlScale = 1 + Math.max(0, lvl - 1) * 0.05
+      const round10 = (n: number) => Math.max(10, Math.round((n * gift * lvlScale) / 10) * 10)
+      return offers.map((p) => {
+        /* Тяжёлое проклятье — заметная компенсация опытом */
+        if (isHarshCurse(p.id)) {
+          return { kind: 'xp' as const, n: round10([600, 1000, 1800][Math.floor(Math.random() * 3)] ?? 600) }
+        }
+        if (p.curse) {
+          /* Лёгкое проклятье — иногда маленький подарок */
+          const r = Math.random()
+          if (r < 0.4) return { kind: 'coins' as const, n: round10([80, 120, 200][Math.floor(Math.random() * 3)] ?? 80) }
+          if (r < 0.6) return { kind: 'xp' as const, n: round10([150, 250, 400][Math.floor(Math.random() * 3)] ?? 150) }
+          return null
+        }
+        /* Бонусный перк — ноль: сам перк и есть приз */
         return null
-      }
-      /* Бонусный перк — ноль: сам перк и есть приз */
-      return null
-    })
-  }, [])
+      })
+    },
+    [],
+  )
 
   /* Древо улучшений: при покупке узла сразу перекидываем бонусы в движок;
      застройка дерева — тоже ачивки («Садовник», «Лесовод») */
@@ -3792,7 +3823,7 @@ export function PopcornGame() {
           addLife({ mines: s.minesHit - pv.mines })
           pv.mines = s.minesHit
         }
-        if ((Number(window.localStorage.getItem(XP_KEY) ?? 0) || 0) >= 10000) cand.push('rich1k')
+        if ((Number(window.localStorage.getItem(XP_KEY) ?? 0) || 0) >= 10000) cand.push('rich10k')
         announceAch(cand)
         checkLifeAch()
       },
@@ -3827,7 +3858,7 @@ export function PopcornGame() {
             setClearInfo({ level: r.level, bonus: r.bonus })
             const offs = rollOffers(3, devRef.current.forced ?? undefined)
             setOffers(offs)
-            setExtras(rollExtras(offs))
+            setExtras(rollExtras(offs, r.level))
             setOpenedIdx(null)
             setRunLevel(r.level + 1)
           }
@@ -3857,7 +3888,7 @@ export function PopcornGame() {
         const offs = rollOffers(3, devRef.current.forced ?? undefined)
         setOffers(offs)
         /* Подарки зависят от того, какой перк лежит в каждом сундучке */
-        setExtras(rollExtras(offs))
+        setExtras(rollExtras(offs, r.level))
         setOpenedIdx(null)
         setRunLevel(r.level + 1)
         /* БОНУС-НАРЕЗКА: гигантский попкорн перед сундучком — режем лапкой.
@@ -3952,7 +3983,17 @@ export function PopcornGame() {
               runId: tok?.runId ?? '',
               token: tok?.token ?? '',
             }),
-          }).catch(() => {})
+          })
+            .then((res) => {
+              /* Отказ сервера (битый токен, rate-limit, потолок очков)
+                 больше не глотается молча — игрок видит, что мировой
+                 рекорд не засчитан, и понимает почему нет его в таблице */
+              if (!res.ok) {
+                setLeaderNote(true)
+                window.setTimeout(() => setLeaderNote(false), 3600)
+              }
+            })
+            .catch(() => {})
         }
         setResult({ score: r.score, level: r.level, record, rank: list.indexOf(entry), canRevive, reason: r.reason })
         /* Забег кончился — перебивка больше не актуальна */
@@ -4115,6 +4156,9 @@ export function PopcornGame() {
     }
     engineRef.current?.setPawSkin(equippedRef.current)
     engineRef.current?.startRun({ fast: devRef.current.fast, perk: startPerk })
+    /* DEV: ?lvl=N — QA-старт забега с уровня N (кривые 20/30/100 без долгих прогонов).
+       startLevel сбрасывает волну/норму под уровень, счёт забега сохраняется */
+    if (devRef.current.lvl > 1) engineRef.current?.startLevel(devRef.current.lvl, startPerk)
     /* Сердечные счётчики нового забега */
     prevHeartsRef.current = -1 // первый же HUD-тик проставит актуальное
     heartFreeStreakRef.current = 0
@@ -4181,8 +4225,10 @@ export function PopcornGame() {
     setPhase('playing')
   }, [])
 
-  /** Нарезка закончена: бонусные очки уходят в счёт забега → сундучок с перком */
-  const handleSlicerDone = useCallback((total: number) => {
+  /** Нарезка закончена: бонусные очки уходят в счёт забега, монетки —
+      в кошелёк (награды в стиле Fruit Ninja) → сундучок с перком */
+  const handleSlicerDone = useCallback((total: number, rewards?: { coins?: number }) => {
+    if (rewards?.coins && rewards.coins > 0) addCoins(rewards.coins)
     engineRef.current?.addBonus(total)
     setPhase('chest')
   }, [])
@@ -4290,10 +4336,13 @@ export function PopcornGame() {
       if (ex) {
         if (ex.kind === 'coins') addCoins(Math.round(ex.n * marketRef.current.coinGift))
         else addTotalXp(Math.round(ex.n * marketRef.current.xpGift))
+        /* Пожизненные ачивки богатства (кошелёк/банк) проверяем сразу —
+           иначе медаль открывалась бы только на следующем событии статистики */
+        checkLifeAch()
       }
       window.setTimeout(() => audio.play('perk'), 380)
     },
-    [extras],
+    [extras, checkLifeAch],
   )
 
   /** Надеть купленную лапку (действует и в текущем забеге) */
@@ -4764,6 +4813,17 @@ export function PopcornGame() {
                       />
                     </span>
                   </div>
+                  {/* Кликер-статистика: сколько кликов сделано и монеток за клик —
+                      цена клика видна ДО тапа (апгрейды видны сразу) */}
+                  <div
+                    className="mt-1 flex items-center gap-2 rounded-full bg-amber-50 px-3 py-1 ring-2 ring-amber-100"
+                    title={t('marten.xpHint')}
+                  >
+                    <span aria-hidden className="text-xs">👆</span>
+                    <span className="truncate font-ui text-[10px] font-bold tabular-nums text-[#a97c50]">
+                      {t('marten.clickStats', { n: market.clicks, c: tapCoins })}
+                    </span>
+                  </div>
                   <AnimatePresence>
                     {martenCheer && (
                       <motion.div
@@ -5083,7 +5143,14 @@ export function PopcornGame() {
                                     {p.curse ? t('perk.tag.curse') : t('perk.tag.bonus')}
                                   </span>
                                   {ex && (
-                                    <span className="mt-0.5 font-ui text-[9px] font-bold text-[#8a5a16]">
+                                    <span
+                                      className="mt-0.5 font-ui text-[9px] font-bold text-[#8a5a16]"
+                                      title={
+                                        ex.kind === 'coins'
+                                          ? t('chest.bonusCoins', { n: ex.n })
+                                          : t('chest.bonusXp', { n: ex.n })
+                                      }
+                                    >
                                       {ex.kind === 'coins' ? `+${ex.n} 🪙` : `+${ex.n} 🍿`}
                                     </span>
                                   )}
@@ -5140,6 +5207,7 @@ export function PopcornGame() {
                                 ),
                                 s:
                                   (chosen.id === 'timeplus' ? 75 : 60) +
+                                  (PAW_MAP[equippedPaw].bonus.timePlus ?? 0) +
                                   (settings.difficulty === 'easy'
                                     ? 10
                                     : settings.difficulty === 'hard'
@@ -5397,6 +5465,8 @@ export function PopcornGame() {
               martenLvl={martenLvl.level}
               gemMult={marketBonus.gemTrip * nanaLevelBonus(martenLvl.level)}
               xpMult={marketBonus.xpTrip * nanaLevelBonus(martenLvl.level)}
+              coinMult={marketBonus.coinGift}
+              grainMult={marketBonus.grain}
               t={t}
               onSend={handleSendTrip}
               onClaim={handleClaimTrip}
@@ -5482,6 +5552,25 @@ export function PopcornGame() {
               </span>
               <div className="font-pixel text-sm font-bold leading-tight text-amber-200">
                 +{feverCoins} {t('fever.coins')}
+              </div>
+            </div>
+          </motion.div>
+        )}
+      </AnimatePresence>
+
+      {/* Тост «мировой рекорд не принят»: сервер отклонил submit — не молчим */}
+      <AnimatePresence>
+        {leaderNote && (
+          <motion.div
+            className="absolute bottom-44 left-1/2 z-50 -translate-x-1/2"
+            initial={{ opacity: 0, y: 24, scale: 0.9 }}
+            animate={{ opacity: 1, y: 0, scale: 1 }}
+            exit={{ opacity: 0, y: 12, scale: 0.95 }}
+            transition={{ type: 'spring', stiffness: 320, damping: 24 }}
+          >
+            <div className="max-w-[86vw] rounded-full border-2 border-red-300 bg-[#2b1a0e]/95 px-4 py-2 text-center shadow-[0_8px_24px_rgba(0,0,0,0.6)]">
+              <div className="font-pixel text-xs font-bold leading-tight text-red-200">
+                {t('lead.reject')}
               </div>
             </div>
           </motion.div>

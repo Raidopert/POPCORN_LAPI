@@ -61,6 +61,24 @@ const MULT_STEP = 4
 const MAX_MULT = 4
 const INTRO_SECONDS = 1.15
 const BURST_SECONDS = 1.5
+/* ── Награды в стиле Fruit Ninja ──
+   Золотые зёрна-бонусы пролетают через экран дважды за нарезку: срез
+   даёт жирные очки и МОНЕТКИ (обычные тики монеток не дают). Итог
+   нарезки конвертируется в карманные монетки + оценка звёздами. */
+/** Сколько золотых зёрен за одну нарезку */
+const GOLDEN_COUNT = 2
+/** Очки и монетки за срез одного золотого */
+const GOLDEN_POINTS = 50
+const GOLDEN_COINS = 10
+/** Радиус золотого в долях радиуса попкорна */
+const GOLDEN_R = 0.17
+/** Моменты спавна золотых (секунды от начала нарезки) */
+const GOLDEN_SPAWN_AT = [1.4, 4.2]
+/** Пороги звёзд результата: очки нарезки (типичный слабый прогон ~90-150) */
+const STAR_CUTS = [120, 220, 330]
+/** Конверсия очков нарезки в монетки (1🪙 за каждые 12 очков, мин. 5) */
+const COINS_PER_POINT = 1 / 12
+const MIN_SLICER_COINS = 5
 
 /* ══════════════ Типы и вспомогательная математика ══════════════ */
 
@@ -95,6 +113,15 @@ interface Half {
   rot: number
   vr: number
   side: -1 | 1
+}
+
+/** Золотое зерно-бонус (Fruit Ninja): плывёт через экран по синусоиде */
+interface Golden {
+  x: number
+  y0: number
+  vx: number
+  t: number
+  r: number
 }
 
 interface FloatTxt {
@@ -146,17 +173,21 @@ interface SlicerProps {
   t: TranslateFn
   /** Номер пройденного уровня (для плашки «УРОВЕНЬ N») */
   level: number
-  /** Итог: бонусные очки нарезки уходят в счёт забега */
-  onDone: (total: number) => void
+  /** Итог: бонусные очки уходят в счёт забега, монетки — в кошелёк */
+  onDone: (total: number, rewards?: { coins?: number }) => void
 }
 
 export function PopcornSlicer({ t, level, onDone }: SlicerProps) {
   const canvasRef = useRef<HTMLCanvasElement>(null)
   const wrapRef = useRef<HTMLDivElement>(null)
   const [stage, setStage] = useState<Stage>('intro')
-  const [result, setResult] = useState<{ total: number; swipes: number; maxMult: number } | null>(
-    null,
-  )
+  const [result, setResult] = useState<{
+    total: number
+    swipes: number
+    maxMult: number
+    coins: number
+    stars: number
+  } | null>(null)
 
   /* Строки и колбэк — через ref, чтобы игровой цикл не перезапускался */
   const tRef = useRef(t)
@@ -199,6 +230,9 @@ export function PopcornSlicer({ t, level, onDone }: SlicerProps) {
     trail: TrailPt[]
     chunks: Chunk[]
     halves: Half[]
+    goldens: Golden[]
+    goldSpawned: number
+    goldCoins: number
     floats: FloatTxt[]
     sparks: Spark[]
     lobes: Array<{ ox: number; oy: number; r: number }>
@@ -245,6 +279,9 @@ export function PopcornSlicer({ t, level, onDone }: SlicerProps) {
       trail: [],
       chunks: [],
       halves: [],
+      goldens: [],
+      goldSpawned: 0,
+      goldCoins: 0,
       floats: [],
       sparks: [],
       lobes: [],
@@ -391,6 +428,26 @@ export function PopcornSlicer({ t, level, onDone }: SlicerProps) {
       if (g.hp <= 0) doBurst(now, true)
     }
 
+    /** Золотое зерно срезано (Fruit Ninja): жирные очки + монетки в кошелёк */
+    const hitGolden = (hx: number, hy: number, idx: number): void => {
+      const gr = g.goldens[idx]
+      if (!gr) return
+      g.goldens.splice(idx, 1)
+      g.total += GOLDEN_POINTS
+      g.goldCoins += GOLDEN_COINS
+      g.floats.push({
+        x: hx,
+        y: hy - 14 * g.u,
+        vy: -70 * g.u,
+        text: `✨ +${GOLDEN_POINTS}`,
+        crit: true,
+        t: 0,
+      })
+      g.sparks.push({ x: hx, y: hy, t: 0 })
+      spawnChunks(hx, hy, 8, true)
+      audio.play('plopGold')
+    }
+
     /* ── ВЗРЫВ: половинки разлетаются с импульсом, зёрна скачут ── */
     const doBurst = (now: number, exploded: boolean): void => {
       if (g.stage !== 'slice') return
@@ -472,10 +529,24 @@ export function PopcornSlicer({ t, level, onDone }: SlicerProps) {
           Сегменты короче MIN_MOVE не считаем — зажатие на месте не фармит */
       const mdx = p.x - ax
       const mdy = p.y - ay
+      const enough = mdx * mdx + mdy * mdy >= MIN_MOVE * MIN_MOVE
+      const cooled = now - g.lastTickAt >= TICK_COOLDOWN
+      /* Золотые зёрна проверяем ПЕРВЫМИ: их срез не тратит тик попкорна */
+      if (g.stage === 'slice' && enough && cooled) {
+        for (let i = g.goldens.length - 1; i >= 0; i--) {
+          const gr = g.goldens[i]
+          if (!gr) continue
+          const gy = gr.y0 + Math.sin(gr.t * 3.2) * 30 * g.u
+          if (segCircleNear(ax, ay, p.x, p.y, gr.x, gy, gr.r * 1.3)) {
+            hitGolden((ax + p.x) / 2, (ay + p.y) / 2, i)
+            break
+          }
+        }
+      }
       if (
         g.stage === 'slice' &&
-        mdx * mdx + mdy * mdy >= MIN_MOVE * MIN_MOVE &&
-        now - g.lastTickAt >= TICK_COOLDOWN &&
+        enough &&
+        cooled &&
         segCircleNear(ax, ay, p.x, p.y, g.cx, g.cy, g.R * HITBOX_MUL)
       ) {
         const mx = (ax + p.x) / 2
@@ -698,6 +769,28 @@ export function PopcornSlicer({ t, level, onDone }: SlicerProps) {
           g.combo = 0
           g.mult = 1
         }
+        /* ЗОЛОТЫЕ ЗЁРНА (Fruit Ninja): спавн по графику нарезки, плывут через экран */
+        while (
+          g.goldSpawned < GOLDEN_COUNT &&
+          SLICE_SECONDS - g.timeLeft >= (GOLDEN_SPAWN_AT[g.goldSpawned] ?? 99)
+        ) {
+          const dir = g.goldSpawned % 2 === 0 ? 1 : -1
+          g.goldens.push({
+            x: dir > 0 ? -24 * u : g.W + 24 * u,
+            y0: g.H * (0.2 + Math.random() * 0.16),
+            vx: dir * (70 + Math.random() * 40) * u,
+            t: 0,
+            r: g.R * GOLDEN_R,
+          })
+          g.goldSpawned++
+        }
+        for (let i = g.goldens.length - 1; i >= 0; i--) {
+          const gr = g.goldens[i]
+          if (!gr) continue
+          gr.t += dt
+          gr.x += gr.vx * dt
+          if (gr.t > 4.5 || gr.x < -50 * u || gr.x > g.W + 50 * u) g.goldens.splice(i, 1)
+        }
         if (g.timeLeft <= 0) {
           g.timeLeft = 0
           doBurst(now, false)
@@ -706,7 +799,16 @@ export function PopcornSlicer({ t, level, onDone }: SlicerProps) {
         g.stage = 'results'
         g.stageT = 0
         setStage('results')
-        setResult({ total: g.total, swipes: g.ticks, maxMult: g.maxMult })
+        setResult({
+          total: g.total,
+          swipes: g.ticks,
+          maxMult: g.maxMult,
+          /* Награды Fruit Ninja: конверсия очков в монетки (мин. 5) + золото по 10 */
+          coins:
+            g.goldCoins + Math.max(MIN_SLICER_COINS, Math.round(g.total * COINS_PER_POINT)),
+          stars:
+            g.total >= STAR_CUTS[2] ? 3 : g.total >= STAR_CUTS[1] ? 2 : g.total >= STAR_CUTS[0] ? 1 : 0,
+        })
       }
 
       /* ── Физика кусочков: гравитация, пол, отскок ──
@@ -767,6 +869,42 @@ export function PopcornSlicer({ t, level, onDone }: SlicerProps) {
         drawPopcorn(g.cx, g.cy + bob, g.R, now, g.ticks / POPCORN_HP)
       }
       for (const c of g.chunks) drawChunk(c)
+
+      /* Золотые зёрна-бонусы (Fruit Ninja): сияющий комочек плывёт по синусоиде */
+      for (const gr of g.goldens) {
+        const gy = gr.y0 + Math.sin(gr.t * 3.2) * 30 * u
+        const pulse = 1 + Math.sin(gr.t * 9) * 0.08
+        ctx.save()
+        ctx.translate(gr.x, gy)
+        const halo = ctx.createRadialGradient(0, 0, gr.r * 0.2, 0, 0, gr.r * 2.2)
+        halo.addColorStop(0, 'rgba(255, 214, 92, 0.55)')
+        halo.addColorStop(1, 'rgba(255, 214, 92, 0)')
+        ctx.fillStyle = halo
+        ctx.beginPath()
+        ctx.arc(0, 0, gr.r * 2.2 * pulse, 0, Math.PI * 2)
+        ctx.fill()
+        const core = ctx.createRadialGradient(-gr.r * 0.3, -gr.r * 0.35, gr.r * 0.1, 0, 0, gr.r)
+        core.addColorStop(0, '#FFF6D0')
+        core.addColorStop(0.55, '#FFC93C')
+        core.addColorStop(1, '#E5A31F')
+        ctx.fillStyle = core
+        ctx.beginPath()
+        ctx.arc(0, 0, gr.r * pulse, 0, Math.PI * 2)
+        ctx.fill()
+        ctx.strokeStyle = '#D98E1B'
+        ctx.lineWidth = Math.max(1.4, 2 * u)
+        ctx.stroke()
+        ctx.strokeStyle = 'rgba(255, 246, 208, 0.9)'
+        ctx.lineWidth = Math.max(1, 1.6 * u)
+        for (let i = 0; i < 4; i++) {
+          const a = (i / 4) * Math.PI * 2 + gr.t * 2.4
+          ctx.beginPath()
+          ctx.moveTo(Math.cos(a) * gr.r * 1.25, Math.sin(a) * gr.r * 1.25)
+          ctx.lineTo(Math.cos(a) * gr.r * 1.8, Math.sin(a) * gr.r * 1.8)
+          ctx.stroke()
+        }
+        ctx.restore()
+      }
 
       /* Искры от попаданий: 4 коротких луча */
       ctx.strokeStyle = 'rgba(255, 255, 255, 0.9)'
@@ -1002,16 +1140,24 @@ export function PopcornSlicer({ t, level, onDone }: SlicerProps) {
             <p className="mt-1 font-pixel text-2xl font-bold text-[#3f6b28] tabular-nums">
               +{result.total}
             </p>
+            {/* Звёзды результата (Fruit Ninja): 1–3 по очкам нарезки */}
+            <div aria-hidden className="mt-0.5 text-xl leading-none tracking-[0.2em]">
+              <span className="text-amber-500">{'★'.repeat(result.stars)}</span>
+              <span className="text-[#d9c6a8]">{'★'.repeat(3 - result.stars)}</span>
+            </div>
             <p className="mt-1 font-ui text-[11px] font-medium text-[#8a5330]">
               {t('slicer.swipes', { n: result.swipes })} ·{' '}
               {t('slicer.maxcombo', { n: result.maxMult })}
+            </p>
+            <p className="mt-1 font-pixel text-sm font-bold text-[#8a5a16]">
+              {t('slicer.reward', { n: result.coins })}
             </p>
             <button
               type="button"
               aria-label={t('slicer.take')}
               onClick={() => {
                 audio.play('chest')
-                onDoneRef.current(result.total)
+                onDoneRef.current(result.total, { coins: result.coins })
               }}
               className="mt-3 min-h-11 w-full rounded-xl border-2 border-[#8a5330] bg-[#f3e2c8] px-4 py-2.5 font-pixel text-sm font-bold text-[#8a5330] transition hover:bg-[#eed7b4] active:scale-[0.98]"
             >

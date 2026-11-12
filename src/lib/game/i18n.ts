@@ -1,5 +1,5 @@
 /**
- * Переводы «Кошачьего попкорнного Беспредела» на 4 языка:
+ * Переводы «POPCORN PAWS» на 4 языка:
  * русский · английский · немецкий · испанский.
  *
  * Каждая строка — кортеж [ru, en, de, es]. Плейсхолдеры вида {{n}}
@@ -164,10 +164,10 @@ const T: Record<string, Row> = {
   ],
   'tree.seeds.name': ['Засев', 'Sowing', 'Saat', 'Siembra'],
   'tree.seeds.effect': [
-    '+2 зерна в каждой волне',
-    '+2 grains each wave',
-    '+2 Körner pro Welle',
-    '+2 granos por oleada',
+    '+{{n}} зёрен в каждой волне',
+    '+{{n}} grains each wave',
+    '+{{n}} Körner pro Welle',
+    '+{{n}} granos por oleada',
   ],
   'tree.feverluck.name': ['Фарт лихорадки', 'Fever luck', 'Fieberglück', 'Suerte de fiebre'],
   'tree.feverluck.effect': [
@@ -1300,12 +1300,6 @@ const T: Record<string, Row> = {
     'Die Truhe schenkte: +{{n}} 🍿 XP!',
     '¡El cofre regaló: +{{n}} 🍿 de exp!',
   ],
-  'chest.others': [
-    'В других сундуках лежало:',
-    'The other chests held:',
-    'In den anderen Truhen lag:',
-    'En los otros cofres había:',
-  ],
   /* ── Бонус-мини-игра «Нарезка»: большой попкорн в конце уровня ── */
   'slicer.title': [
     'БОЛЬШОЙ ПОПКОРН! РЕЖЬ!',
@@ -1326,6 +1320,12 @@ const T: Record<string, Row> = {
   'slicer.swipes': ['взмахов: {{n}}', 'slices: {{n}}', 'Schnitte: {{n}}', 'cortes: {{n}}'],
   'slicer.maxcombo': ['макс. комбо ×{{n}}', 'best combo ×{{n}}', 'bestes Combo ×{{n}}', 'mejor combo ×{{n}}'],
   'slicer.take': ['ЗАБРАТЬ 🎁', 'TAKE IT 🎁', 'HOLEN 🎁', '¡RECOGER 🎁!'],
+  'slicer.reward': [
+    'Награда: +{{n}} 🪙',
+    'Reward: +{{n}} 🪙',
+    'Belohnung: +{{n}} 🪙',
+    'Premio: +{{n}} 🪙',
+  ],
   'slicer.aria': [
     'Бонус-мини-игра: режь большой попкорн свайпами',
     'Bonus mini-game: slice the giant popcorn with swipes',
@@ -1492,10 +1492,10 @@ const T: Record<string, Row> = {
   'over.share': ['ПОДЕЛИТЬСЯ РЕКОРДОМ', 'SHARE RECORD', 'REKORD TEILEN', 'COMPARTIR RÉCORD'],
   'over.menu': ['В МЕНЮ', 'MENU', 'MENÜ', 'MENÚ'],
   'share.text': [
-    'Я набрал {{s}} очков (уровень {{l}}) в «Кошачьем попкорнном Беспределе»! 🐱🍿',
-    'I scored {{s}} points (level {{l}}) in Cat Popcorn Mayhem! 🐱🍿',
-    'Ich habe {{s}} Punkte (Level {{l}}) im Katzen-Popkorn-Chaos geholt! 🐱🍿',
-    '¡Conseguí {{s}} puntos (nivel {{l}}) en Caos Gatuno de Palomitas! 🐱🍿',
+    'Я набрал {{s}} очков (уровень {{l}}) в POPCORN PAWS! 🐱🍿',
+    'I scored {{s}} points (level {{l}}) in POPCORN PAWS! 🐱🍿',
+    'Ich habe {{s}} Punkte (Level {{l}}) in POPCORN PAWS geholt! 🐱🍿',
+    '¡Conseguí {{s}} puntos (nivel {{l}}) en POPCORN PAWS! 🐱🍿',
   ],
   'share.cardLevel': [
     'уровень {{l}} · рекорд {{b}}',
@@ -1554,6 +1554,12 @@ const T: Record<string, Row> = {
   ],
   'lead.lvl': ['ур. {{n}}', 'lv {{n}}', 'Lvl {{n}}', 'nv {{n}}'],
   'lead.you': ['← ты!', '← you!', '← du!', '← ¡tú!'],
+  'lead.reject': [
+    '🌐 Мировой рекорд не принят сервером',
+    '🌐 World record not accepted by server',
+    '🌐 Weltrekord vom Server abgelehnt',
+    '🌐 Récord mundial rechazado por el servidor',
+  ],
 
   /* ---------- правила ---------- */
   'rules.title': ['ПРАВИЛА', 'RULES', 'REGELN', 'REGLAS'],
@@ -1684,10 +1690,16 @@ const T: Record<string, Row> = {
     'viajes +{{n}}%',
   ],
   'marten.xpHint': [
-    'Опыт NANA: очки в забегах, путешествия и кликер — тапай по кунице в меню! Каждый уровень: награды путешествий +2% и монетка за клик чаще; дальние маршруты открываются на 5/8/12 уровнях.',
-    'NANA XP: run scores, travels and the clicker — tap NANA in the menu! Every level: trip rewards +2% and click coins more often; far destinations unlock at levels 5/8/12.',
-    'NANA-XP: Laufpunkte, Reisen und Klicker — tipp NANA im Menü an! Jedes Level: Reisebelohnungen +2% und öfter Klick-Münzen; ferne Ziele ab Stufe 5/8/12.',
-    'XP de NANA: puntos de partidas, viajes y clicador: ¡toca a NANA en el menú! Cada nivel: premios de viaje +2% y monedas de toque más seguido; destinos lejanos en niveles 5/8/12.',
+    'Опыт NANA: очки в забегах, путешествия и кликер — тапай по кунице в меню! Каждый уровень: награды путешествий +2% и монетка за клик чаще (+1🪙 за 10 уровней, до 3🪙); дальние маршруты открываются на 5/8/12 уровнях.',
+    'NANA XP: run scores, travels and the clicker — tap NANA in the menu! Every level: trip rewards +2% and click coins grow (+1🪙 per 10 levels, up to 3🪙); far destinations unlock at levels 5/8/12.',
+    'NANA-XP: Laufpunkte, Reisen und Klicker — tipp NANA im Menü an! Jedes Level: Reisebelohnungen +2% und mehr Klick-Münzen (+1🪙 pro 10 Stufen, bis 3🪙); ferne Ziele ab Stufe 5/8/12.',
+    'XP de NANA: puntos de partidas, viajes y clicador: ¡toca a NANA en el menú! Cada nivel: premios de viaje +2% y más monedas por toque (+1🪙 cada 10 niveles, hasta 3🪙); destinos lejanos en niveles 5/8/12.',
+  ],
+  'marten.clickStats': [
+    '🐾 {{n}} кликов · {{c}}🪙 за клик — тапай по комнате, чтобы NANA росла!',
+    '🐾 {{n}} taps · {{c}}🪙 per tap — tap the room to help NANA grow!',
+    '🐾 {{n}} Tipps · {{c}}🪙 pro Tipp — tipp in das Zimmer, damit NANA wächst!',
+    '🐾 {{n}} toques · {{c}}🪙 por toque: ¡toca la habitación para que NANA crezca!',
   ],
   'marten.diamondsHint': [
     'Алмазы: NANA приносит их из путешествий. Трать в лавке и на рынке!',
@@ -1859,10 +1871,10 @@ const T: Record<string, Row> = {
   /* ---------- РЫНОК: обмен валют и артефакты ---------- */
   'market.title': ['РЫНОК', 'THE MARKET', 'DER MARKT', 'EL MERCADO'],
   'market.subtitle': [
-    'Меняй монетки, опыт и зёрна между собой. Алмазы вкладывай в артефакты!',
-    'Swap coins, XP and grains. Invest diamonds in artifacts!',
-    'Tausche Münzen, XP und Körner. Investiere Diamanten in Artefakte!',
-    'Cambia monedas, XP y granos. ¡Invierte diamantes en artefactos!',
+    'Меняй алмазы, монетки, опыт и зёрна между собой. Вкладывай алмазы и в артефакты!',
+    'Swap gems, coins, XP and grains. Invest diamonds in artifacts!',
+    'Tausche Diamanten, Münzen, XP und Körner. Investiere Diamanten in Artefakte!',
+    'Cambia diamantes, monedas, XP y granos. ¡Invierte diamantes en artefactos!',
   ],
   'market.tabSwap': ['ОБМЕН', 'SWAP', 'TAUSCH', 'CAMBIO'],
   'market.tabArtifacts': ['АРТЕФАКТЫ', 'ARTIFACTS', 'ARTEFAKTE', 'ARTEFACTOS'],
@@ -1936,12 +1948,20 @@ const T: Record<string, Row> = {
     'Todos los senderos secretos marcados: NANA vuelve un quince por ciento más rica.',
   ],
   'artifact.bell.name': ['Кликер-колокольчик', 'Clicker bell', 'Klicker-Glöckchen', 'Cencerro clicador'],
-  'artifact.bell.effect': ['👆 каждый клик по NANA — ×2 монетки', '👆 every tap on NANA gives ×2 coins', '👆 jeder Tipp auf NANA gibt ×2 Münzen', '👆 cada toque en NANA da ×2 monedas'],
+  'artifact.bell.effect': ['👆 каждый клик по NANA — монетки ×1.5', '👆 every tap on NANA gives ×1.5 coins', '👆 jeder Tipp auf NANA gibt ×1,5 Münzen', '👆 cada toque en NANA da monedas ×1.5'],
   'artifact.bell.desc': [
-    'Дзынь-дзынь! Куница растроганно урчит, и каждый тап по комнате приносит двойную монетку.',
-    'Ding-ding! The marten purrs with emotion and every tap on the room brings a double coin.',
-    'Kling-kling! Die Mardin schnurrt gerührt, jeder Tipp bringt die doppelte Münze.',
-    '¡Tin-tin! La marta ronronea conmovida y cada toque trae moneda doble.',
+    'Дзынь-дзынь! Куница растроганно урчит, и каждый тап по комнате приносит полторы монетки (округление вверх).',
+    'Ding-ding! The marten purrs with emotion and every tap brings one and a half coins (rounded up).',
+    'Kling-kling! Die Mardin schnurrt gerührt, jeder Tipp bringt anderthalb Münzen (aufgerundet).',
+    '¡Tin-tin! La marta ronronea conmovida y cada toque trae moneda y media (redondeo arriba).',
+  ],
+  'artifact.rattle.name': ['Погремушка', 'Rattle toy', 'Rassel', 'Sonajero'],
+  'artifact.rattle.effect': ['👆 +2🪙 к каждому клику по NANA', '👆 +2🪙 added to every NANA tap', '👆 +2🪙 zu jedem NANA-Tipp', '👆 +2🪙 a cada toque en NANA'],
+  'artifact.rattle.desc': [
+    'Дзык-дзык! Любимая игрушка куницы: пока она трясёт погремушку, каждый тап приносит две лишние монетки.',
+    'Shake-shake! NANA’s favorite toy: while she rattles it, every tap brings two extra coins.',
+    'Rassel-rassel! NANAS Lieblingsspielzeug: während sie schüttelt, bringt jeder Tipp zwei Extra-Münzen.',
+    '¡Son-Son! El juguete favorito de NANA: mientras lo sacude, cada toque trae dos monedas extra.',
   ],
   /* ---------- настройки ---------- */
   'set.title': ['НАСТРОЙКИ', 'SETTINGS', 'EINSTELLUNGEN', 'AJUSTES'],

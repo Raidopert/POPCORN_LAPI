@@ -1,5 +1,5 @@
 /**
- * Достижения «Кошачьего попкорнного Беспредела» — 55 медалей.
+ * Достижения «POPCORN PAWS» — 55 медалей.
  * Разблокировки хранятся локально в браузере (localStorage),
  * в меню открывается «АЧИВКИ» со всеми медалями.
  *
@@ -17,7 +17,7 @@ export type AchId =
   | 'pigeon1'
   | 'level5'
   | 'level10'
-  | 'rich1k'
+  | 'rich10k'
   | 'shopper'
   | 'collector'
   | 'upgrade1'
@@ -82,7 +82,7 @@ export const ACHIEVEMENTS: AchDef[] = [
   { id: 'pigeon1', name: 'Птицебой', desc: 'Повалить голубя-воришку ударами лапки', icon: '🐦' },
   { id: 'level5', name: 'Киношка', desc: 'Дойти до 5-го уровня', icon: '🎬' },
   { id: 'level10', name: 'Мастер попкорна', desc: 'Дойти до 10-го уровня', icon: '🏆' },
-  { id: 'rich1k', name: 'Попкорн-богач', desc: 'Накопить 10000 опыта в банке', icon: '💰' },
+  { id: 'rich10k', name: 'Попкорн-богач', desc: 'Накопить 10000 опыта в банке', icon: '💰' },
   { id: 'shopper', name: 'Модная лапка', desc: 'Купить любую лапку в магазине', icon: '🐾' },
   { id: 'collector', name: 'Коллекционер', desc: 'Владеть пятью лапками сразу', icon: '🎨' },
   { id: 'upgrade1', name: 'Обустроился', desc: 'Купить постоянный апгрейд', icon: '🛠️' },
@@ -149,11 +149,17 @@ export const ACH_MAP: Record<AchId, AchDef> = Object.fromEntries(
 export const ACH_KEY = 'popcorn-ach'
 export const ACH_EVENT = 'popcorn-ach-update'
 
-/** Список уже открытых достижений (localStorage → массив id) */
+/** Список уже открытых достижений (localStorage → массив id).
+    Миграция: старый id «rich1k» (условие было 10000) переименовывается в rich10k */
 export function readAch(): AchId[] {
   try {
     const v: unknown = JSON.parse(window.localStorage.getItem(ACH_KEY) ?? '[]')
-    if (Array.isArray(v)) return v.filter((x): x is AchId => typeof x === 'string' && x in ACH_MAP)
+    if (Array.isArray(v)) {
+      const list = v
+        .filter((x): x is string => typeof x === 'string')
+        .map((x) => (x === 'rich1k' ? 'rich10k' : x))
+      return list.filter((x): x is AchId => x in ACH_MAP)
+    }
   } catch {
     /* пусто */
   }

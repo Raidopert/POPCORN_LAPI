@@ -238,14 +238,18 @@ export interface MartenGear {
 
 /**
  * Итоговые награды/длительность путешествия с учётом ботинок, шляпки,
- * сумочки и множителя артефактов (gemMult/xpMult — от рынка).
- * Награды — вверх, время — вниз. Плоский лут сумочки не множится ботинками.
+ * сумочки и множителей артефактов: gemMult/xpMult — «Карта странствий» и
+ * уровень NANA, coinMult — «Копилка-хрюшка», grainMult — «Золотое ситечко»
+ * (множатся особый лут дальних маршрутов — монетки и зёрна).
+ * Плоский лут сумочки не множится ничем — он и так фиксированный бонус.
  */
 export function tripReward(
   trip: TripId,
   gear: MartenGear,
   gemMult = 1,
   xpMult = 1,
+  coinMult = 1,
+  grainMult = 1,
 ): { diamonds: number; xp: number; coins: number; grains: number; ms: number } {
   const def = TRIP_MAP[trip]
   const b = BOOTS_MAP[gear.boots] ?? BOOTS_MAP.none
@@ -255,8 +259,10 @@ export function tripReward(
   return {
     diamonds: Math.max(1, Math.round(def.diamonds * b.gemMul * h.gemMul * gemMult)) + bagGem,
     xp: Math.max(1, Math.round(def.xp * b.xpMul * h.xpMul * xpMult)),
-    coins: bag.coins,
-    grains: bag.grains,
+    /* Особый лут дальних маршрутов (t180/t360/t720) + плоский лут сумочки;
+       маршрутный лут множится артефактами «Хрюшка»/«Ситечко» — как в текстах */
+    coins: bag.coins + Math.round(def.coins * coinMult),
+    grains: bag.grains + Math.round(def.grains * grainMult),
     ms: Math.max(15_000, Math.round(def.ms * b.timeMul * h.timeMul)),
   }
 }
@@ -282,11 +288,13 @@ export function nanaLevelBonus(level: number): number {
 }
 
 /**
- * Монетки за клик по кунице (кликер): +1 монетка за каждые 5 уровней NANA
- * (ур. 1–4 → 1🪙, ур. 5–9 → 2🪙, ур. 100 → 21🪙). До умножения на артефакты.
+ * Монетки за клик по кунице (кликер): +1 монетка за каждые 10 уровней NANA,
+ * потолок 3 (ур. 1–10 → 1🪙, ур. 11–20 → 2🪙, ур. 21+ → 3🪙). До артефактов
+ * (колокольчик ×1.5, погремушка +2). Пусть кликер остаётся карманными,
+ * а не обгоняет награду за целый уровень игры.
  */
 export function nanaClickCoins(level: number): number {
-  return 1 + Math.floor((Math.max(1, level) - 1) / 5)
+  return Math.min(3, 1 + Math.floor((Math.max(1, level) - 1) / 10))
 }
 
 export interface MartenLevelInfo {
@@ -472,14 +480,28 @@ export function spendMartenDiamonds(n: number): boolean {
 }
 
 /** Отправить куницу в путешествие (награда фиксируется на момент отправки;
-    множители артефактов gemMult/xpMult передаёт вызывающий — рынок) */
-export function startMartenTrip(id: TripId, gemMult = 1, xpMult = 1): MartenState {
+    множители артефактов передаёт вызывающий — рынок: gemMult/xpMult — карта
+    странствий × уровень NANA, coinMult — хрюшка, grainMult — ситечко) */
+export function startMartenTrip(
+  id: TripId,
+  gemMult = 1,
+  xpMult = 1,
+  coinMult = 1,
+  grainMult = 1,
+): MartenState {
   const cur = getMartenSnapshot()
   if (cur.trip) return cur // уже в пути
   const lvl = martenLevelOf(cur).level
   const def = TRIP_MAP[id]
   if (lvl < def.lock) return cur // маршрут ещё закрыт
-  const rw = tripReward(id, { boots: cur.boots, hat: cur.hat, bag: cur.bag }, gemMult, xpMult)
+  const rw = tripReward(
+    id,
+    { boots: cur.boots, hat: cur.hat, bag: cur.bag },
+    gemMult,
+    xpMult,
+    coinMult,
+    grainMult,
+  )
   const now = Date.now()
   const next: MartenState = {
     ...cur,

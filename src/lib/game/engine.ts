@@ -1765,8 +1765,8 @@ export class PopcornEngine {
     if (!this.pigeon) return
     if (this.collected > 0) {
       const g = this.pigeon
-      /* Воришка становится наглее с уровнем: с 5-го тащит по 2 зерна,
-         с 10-го — по 3, с 15-го — по 4 за клюв */
+      /* Воришка становится наглее с уровнем: с 6-го тащит по 2 зерна,
+         с 11-го — по 3, с 16-го — по 4 за клюв (1 + floor((lvl-1)/5)) */
       const steal = Math.min(this.collected, 1 + Math.floor((this.lvl - 1) / 5))
       this.collected -= steal
       g.stolen += steal

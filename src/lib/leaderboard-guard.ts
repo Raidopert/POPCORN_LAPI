@@ -7,9 +7,12 @@
  *    строки LeaderRun (atomic UPDATE ... WHERE status='open').
  * 2. Тайминги: результат не может прийти раньше MIN_RUN_MS после старта
  *    (реальный забег физически дольше) и позже MAX_RUN_MS.
- * 3. Разумность счёта: потолок scoreCap(level) — зерно максимум
- *    +50 × комбо ×5, норма уровня quotaFor ≤ 75, поэтому честный
- *    счёт не растёт быстрее ~4000 очков/уровень.
+ * 3. Разумность счёта: потолок scoreCap(level). Реальные максимумы честной
+ *    игры: золотое зерно +50 × комбо ×5 × перк «Двойной улов» ×2 ×
+ *    древо «Урожай» ×1.5 × перки-квота ×1.56 — до ~1000 очков с зерна
+ *    и ~10–40k за уровень на высоких уровнях, поэтому потолок щедрый:
+ *    15000 + 10000×L (абсолютный — 1 млн). Накрутка всё равно упирается
+ *    в HMAC-токен и тайминги.
  * 4. Rate-limit в памяти инстанса (скользящее окно) на IP-хэш и
  *    deviceId: спам start/submit режется до обращения к базе.
  *
@@ -33,7 +36,7 @@ export const SUBMITS_PER_HOUR = 30
 /** Минимальная пауза между submit'ами одного устройства */
 export const DEVICE_SUBMIT_GAP_MS = 10_000
 /** Мировой потолок очков (страховка поверх level-потолка) */
-export const ABSOLUTE_SCORE_CAP = 100_000
+export const ABSOLUTE_SCORE_CAP = 1_000_000
 
 function secret(): string {
   return process.env.LEADERBOARD_SECRET || 'popcorn-paws-dev-secret'
@@ -113,9 +116,11 @@ export function cleanNick(raw: unknown): string {
   return name || 'Котик'
 }
 
-/** Потолок очков для уровня: честная игра не выбьет его (зерно ≤ 50 × комбо ×5, норма ≤ 75) */
+/** Потолок очков для уровня: честная игра не выбьет его даже с максимальными
+    множителями (золото ×5 комбо ×2 перк ×1.5 древо ×1.56 квота → ~1000/зерно,
+    ~10–40k за уровень на высоких) */
 export function scoreCap(level: number): number {
-  return Math.min(ABSOLUTE_SCORE_CAP, 5000 + level * 4000)
+  return Math.min(ABSOLUTE_SCORE_CAP, 15_000 + level * 10_000)
 }
 
 /** Проверка score/level; возвращает числа или null */

@@ -1,5 +1,5 @@
 /**
- * Рынок «Кошачьего попкорнного Беспредела» — обменник валют и лавка
+ * Рынок «POPCORN PAWS» — обменник валют и лавка
  * постоянных артефактов.
  *
  * Четыре валюты ходят по рынку:
@@ -30,14 +30,9 @@ const VAL: Record<Currency, number> = {
   grains: 0.1,
 }
 
-/** Комиссия рынка: 15% с каждого обмена */
-export const MARKET_FEE = 0.15
-
-/** Курс «за 1 единицу from дают сколько to» (без комиссии, для подсказки) */
-export function marketRate(from: Currency, to: Currency): number {
-  if (from === to) return 1
-  return VAL[from] / VAL[to]
-}
+/** Комиссия рынка: 20% с каждого обмена (курсы ощутимо асимметричны —
+ *    гонять валюту по кругу и «фармить» обменом невыгодно) */
+export const MARKET_FEE = 0.2
 
 /** Сколько валюты to получат за n валюты from (с комиссией, округление вниз) */
 export function exchangeQuote(from: Currency, to: Currency, n: number): number {
@@ -48,7 +43,7 @@ export function exchangeQuote(from: Currency, to: Currency, n: number): number {
 
 /* ════════════════ Артефакты (постоянные усиления за алмазы) ════════════════ */
 
-export type ArtifactId = 'piggy' | 'academy' | 'sieve' | 'travelmap' | 'bell'
+export type ArtifactId = 'piggy' | 'academy' | 'sieve' | 'travelmap' | 'bell' | 'rattle'
 
 export const ARTIFACTS: ReadonlyArray<{ id: ArtifactId; price: number }> = [
   { id: 'piggy', price: 280 },
@@ -56,6 +51,7 @@ export const ARTIFACTS: ReadonlyArray<{ id: ArtifactId; price: number }> = [
   { id: 'sieve', price: 240 },
   { id: 'travelmap', price: 450 },
   { id: 'bell', price: 650 },
+  { id: 'rattle', price: 500 },
 ]
 
 export const ARTIFACT_MAP: Record<ArtifactId, (typeof ARTIFACTS)[number]> = ARTIFACTS.reduce(
@@ -67,7 +63,7 @@ export const ARTIFACT_MAP: Record<ArtifactId, (typeof ARTIFACTS)[number]> = ARTI
 )
 
 export const isArtifactId = (v: unknown): v is ArtifactId =>
-  v === 'piggy' || v === 'academy' || v === 'sieve' || v === 'travelmap' || v === 'bell'
+  v === 'piggy' || v === 'academy' || v === 'sieve' || v === 'travelmap' || v === 'bell' || v === 'rattle'
 
 export interface MarketState {
   /** Купленные артефакты */
@@ -177,11 +173,12 @@ export function hasArtifact(id: ArtifactId): boolean {
 
 /**
  * Экономические множители артефактов — применяются в точках выдачи наград:
- *  - coinGift: монетки из Лихорадки и сундучков (Копилка-хрюшка);
+ *  - coinGift: монетки из Лихорадки, сундучков и дальних путешествий (Копилка-хрюшка);
  *  - xpGift: опыт-стаж за этапы и из сундучков (Котоакадемия);
- *  - grain: зёрна в сейф (Золотое ситечко);
+ *  - grain: зёрна в сейф, включая путешествия (Золотое ситечко);
  *  - gemTrip / xpTrip: награды путешествий (Карта странствий);
- *  - clickCoin: монетки кликера (Кликер-колокольчик).
+ *  - clickCoin / clickAdd: монетки кликера (Кликер-колокольчик ×1.5,
+ *    Погремушка — плоские +2🪙 к каждому клику).
  */
 export interface MarketBonuses {
   coinGift: number
@@ -190,6 +187,7 @@ export interface MarketBonuses {
   gemTrip: number
   xpTrip: number
   clickCoin: number
+  clickAdd: number
 }
 
 export const ZERO_MARKET_BONUS: MarketBonuses = {
@@ -199,6 +197,7 @@ export const ZERO_MARKET_BONUS: MarketBonuses = {
   gemTrip: 1,
   xpTrip: 1,
   clickCoin: 1,
+  clickAdd: 0,
 }
 
 export function marketBonuses(state: MarketState = getMarketSnapshot()): MarketBonuses {
@@ -209,7 +208,10 @@ export function marketBonuses(state: MarketState = getMarketSnapshot()): MarketB
     grain: has('sieve') ? 1.25 : 1,
     gemTrip: has('travelmap') ? 1.15 : 1,
     xpTrip: has('travelmap') ? 1.15 : 1,
-    clickCoin: has('bell') ? 2 : 1,
+    /* Колокольчик ×1.5 (округление вверх в точке начисления): инфляция кликера
+       держится под контролем, но артефакт остаётся ощутимым */
+    clickCoin: has('bell') ? 1.5 : 1,
+    clickAdd: has('rattle') ? 2 : 0,
   }
 }
 
