@@ -75,6 +75,10 @@ export interface EngineStats {
   hearts: number
   /** Максимум сердечек в этом забеге */
   maxHearts: number
+  /** Ф0-2 туториал: мина-кукуруза сейчас на поле */
+  mineOn: boolean
+  /** Ф0-2 туториал: золотое зерно сейчас на поле */
+  goldenOn: boolean
 }
 
 export interface LevelResult {
@@ -2004,6 +2008,8 @@ export class PopcornEngine {
       shieldSaves: this.shieldSaves,
       hearts: this.hearts,
       maxHearts: this.maxHearts,
+      mineOn: this.pieces.some((p) => p.kind === 'corn'),
+      goldenOn: this.pieces.some((p) => p.kind === 'golden'),
     })
   }
 

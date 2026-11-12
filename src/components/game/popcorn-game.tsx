@@ -291,6 +291,10 @@ const UPG_KEY = 'popcorn-upgrades'
 const NAME_KEY = 'popcorn-name'
 /** Флаг «ник уже задан» — по нему показываем вход по никнейму только раз */
 const NICKSET_KEY = 'popcorn-nick-set'
+/** Ф0-2: флаг «туториал первого забега показан» — не повторяем опыт */
+const TUT_DONE_KEY = 'popcorn-tut-done'
+/** Ф0-2: ключи подсказок туториала по шагам 1..5 */
+const TUT_KEYS = ['tut.1', 'tut.2', 'tut.3', 'tut.4', 'tut.5'] as const
 /** Анонимный id устройства для мирового лидерборда (ник — не идентификатор) */
 const DEVICE_KEY = 'popcorn-device'
 
@@ -2786,6 +2790,34 @@ function SettingsOverlay({
   const set = (patch: Partial<GameSettings>) => onChange({ ...settings, ...patch })
   /* Локальная статистика устройства: читаем один раз при открытии настроек */
   const [local] = useState(() => getLife())
+  /* Ф0-4: код-бэкап — экспорт/импорт сохранения одной строкой */
+  const [saveCode, setSaveCode] = useState('')
+  const [importDraft, setImportDraft] = useState('')
+  const [saveNote, setSaveNote] = useState<{ ok: boolean; msg: string } | null>(null)
+
+  const doExport = () => {
+    try {
+      const code = exportSaveCode()
+      setSaveCode(code)
+      if (navigator.clipboard?.writeText) void navigator.clipboard.writeText(code)
+      setSaveNote({ ok: true, msg: t('set.save.exported') })
+    } catch {
+      setSaveNote({ ok: false, msg: t('set.save.badcode') })
+    }
+  }
+  const copySaveCode = () => {
+    if (navigator.clipboard?.writeText) void navigator.clipboard.writeText(saveCode)
+    setSaveNote({ ok: true, msg: t('set.save.exported') })
+  }
+  const doImport = () => {
+    try {
+      if (importSaveCode(importDraft) < 0) throw new Error('bad')
+      setSaveNote({ ok: true, msg: t('set.save.imported') })
+      window.setTimeout(() => window.location.reload(), 1300)
+    } catch {
+      setSaveNote({ ok: false, msg: t('set.save.badcode') })
+    }
+  }
   const [best] = useState(() => Number(window.localStorage.getItem(BEST_KEY) ?? 0))
   /* Мировая статистика: свежие цифры при каждом открытии настроек */
   const [world, setWorld] = useState<{
@@ -3114,6 +3146,71 @@ function SettingsOverlay({
               )}
             </div>
           </section>
+
+          {/* Ф0-4: код-бэкап — весь прогресс одной строкой на любое устройство */}
+          <section className="space-y-2">
+            <div className="font-pixel text-[12px] font-bold text-[#8a5330]">💾 {t('set.save')}</div>
+            <p className="font-ui text-[11px] font-medium leading-snug text-[#a97c50]">
+              {t('set.save.hint')}
+            </p>
+            <div className="grid grid-cols-2 gap-2">
+              <button
+                type="button"
+                onClick={doExport}
+                className="rounded-xl border-2 border-[#e3cba4] bg-[#fdf3e0] px-3 py-2.5 font-pixel text-[11px] font-bold text-[#5C3A1E] transition hover:border-[#E24B3B] active:scale-[0.98]"
+              >
+                ⬇ {t('set.save.export')}
+              </button>
+              <button
+                type="button"
+                onClick={doImport}
+                disabled={importDraft.trim().length < 20}
+                className="rounded-xl border-2 border-[#e3cba4] bg-[#fdf3e0] px-3 py-2.5 font-pixel text-[11px] font-bold text-[#5C3A1E] transition enabled:hover:border-[#E24B3B] enabled:active:scale-[0.98] disabled:opacity-50"
+              >
+                ⬆ {t('set.save.import')}
+              </button>
+            </div>
+            <textarea
+              value={importDraft}
+              onChange={(e) => setImportDraft(e.target.value)}
+              rows={3}
+              placeholder={t('set.save.placeholder')}
+              aria-label={t('set.save.placeholder')}
+              className="w-full resize-none rounded-xl border-2 border-[#e3cba4] bg-white px-3 py-2 font-mono text-[10px] leading-snug text-[#5C3A1E] outline-none transition placeholder:text-[#c9a97a] focus:border-amber-400"
+            />
+            {saveCode !== '' && (
+              <div className="rounded-xl border-2 border-[#e3cba4] bg-white px-3 py-2">
+                <div className="flex items-center justify-between">
+                  <span className="font-pixel text-[10px] font-bold text-[#B33A26]">
+                    {t('set.save.codeAria')}
+                  </span>
+                  <button
+                    type="button"
+                    onClick={copySaveCode}
+                    className="font-ui text-[11px] font-semibold text-[#a97c50] transition hover:text-[#8a5330] hover:underline"
+                  >
+                    ⎘ {t('set.save.copy')}
+                  </button>
+                </div>
+                <textarea
+                  readOnly
+                  value={saveCode}
+                  rows={3}
+                  onFocus={(e) => e.currentTarget.select()}
+                  aria-label={t('set.save.codeAria')}
+                  className="mt-1 w-full resize-none bg-transparent font-mono text-[10px] leading-snug text-[#5C3A1E] outline-none"
+                />
+              </div>
+            )}
+            {saveNote && (
+              <p
+                role="status"
+                className={`font-ui text-[11px] font-semibold ${saveNote.ok ? 'text-[#3e7a44]' : 'text-[#B33A26]'}`}
+              >
+                {saveNote.msg}
+              </p>
+            )}
+          </section>
         </div>
 
         <div className="mt-3 space-y-2">
@@ -3237,6 +3334,41 @@ function NickDialog({
 }
 
 /* ---------- шаринг рекорда: картинка-карточка + Web Share API ---------- */
+
+/* ---------- Ф0-4: код-бэкап сохранения ---------- */
+
+/** Собрать все popcorn-* ключи localStorage в base64-код.
+    device id не включаем: у каждого устройства свой след в мировом лидерборде */
+function exportSaveCode(): string {
+  flushLife() // дольём ленивую статистику, чтобы код был свежим
+  const bag: Record<string, string> = {}
+  for (let i = 0; i < window.localStorage.length; i++) {
+    const k = window.localStorage.key(i)
+    if (k && k.startsWith('popcorn-') && k !== DEVICE_KEY) {
+      bag[k] = window.localStorage.getItem(k) ?? ''
+    }
+  }
+  const json = JSON.stringify(bag)
+  const bytes = new TextEncoder().encode(json)
+  let bin = ''
+  for (let i = 0; i < bytes.length; i++) bin += String.fromCharCode(bytes[i])
+  return window.btoa(bin)
+}
+
+/** Вставить код сохранения: возвращает число восстановленных ключей,
+    -1 — код битый/чужой. device id не трогаем даже если он в коде */
+function importSaveCode(raw: string): number {
+  const bin = window.atob(raw.trim())
+  const bytes = Uint8Array.from(bin, (ch) => ch.charCodeAt(0))
+  const obj = JSON.parse(new TextDecoder().decode(bytes)) as Record<string, unknown>
+  if (!obj || typeof obj !== 'object') return -1
+  const entries = Object.entries(obj).filter(
+    ([k, v]) => k.startsWith('popcorn-') && k !== DEVICE_KEY && typeof v === 'string',
+  ) as Array<[string, string]>
+  if (entries.length < 3) return -1
+  for (const [k, v] of entries) window.localStorage.setItem(k, v)
+  return entries.length
+}
 
 async function shareResult(
   score: number,
@@ -3398,6 +3530,8 @@ export function PopcornGame() {
     shieldSaves: 0,
     hearts: 5,
     maxHearts: 5,
+    mineOn: false,
+    goldenOn: false,
   })
   const [bestRaw, storeBest] = useStoredValue(BEST_KEY, '0')
   const [mutedRaw, storeMuted] = useStoredValue(MUTE_KEY, '0')
@@ -3424,6 +3558,21 @@ export function PopcornGame() {
   const [charToast, setCharToast] = useState<number | null>(null)
   /** HTML-индикатор волны: виден поверх попкорнового тумана (туман — в канвасе) */
   const [waveToast, setWaveToast] = useState<number | null>(null)
+  /* ---------- Ф0-2: туториал первого забега ----------
+     Логика живёт в ref (onStats создаётся один раз и видит актуальные данные),
+     tutStep — только для рендера облачка. Шаги: 1 палец · 2 зёрна ·
+     3 мины · 4 золото · 5 комбо; 0 — неактивен */
+  const [tutStep, setTutStep] = useState(0)
+  const tutRef = useRef({
+    active: false,
+    step: 0,
+    pawMoved: false,
+    seenMine: false,
+    seenGolden: false,
+    seenCombo: false,
+    holdUntil: 0,
+    stepAt: 0,
+  })
   /** Номер волны, для которой тост уже показан — не перезапускаем анимацию */
   const waveShownRef = useRef(0)
   /** Таймер скрытия тоста волны: гасим при новой волне, чтобы не мигало */
@@ -3454,8 +3603,13 @@ export function PopcornGame() {
   const [nameRaw, storeName] = useStoredValue(NAME_KEY, 'Котик')
   const [nickSetRaw, storeNickSet] = useStoredValue(NICKSET_KEY, '0')
   /* Ф0-1: новичок играет сразу, ник спрашиваем ПОСЛЕ первого забега.
-     playedOnce = у игрока уже есть хотя бы один забег (в этой сессии или за всё время) */
-  const [playedOnce, setPlayedOnce] = useState(() => getLife().runs > 0)
+     playedOnce = у игрока уже есть хотя бы один забег за всё время.
+     useSyncExternalStore гидратационно-безопасен: SSR — false, клиент — по факту */
+  const playedOnce = useSyncExternalStore(
+    subscribeStore,
+    () => getLife().runs > 0,
+    () => false,
+  )
   const [nickEdit, setNickEdit] = useState(false)
   const [overlay, setOverlay] = useState<
     | 'leaders'
@@ -4160,6 +4314,56 @@ export function PopcornGame() {
     const engine = new PopcornEngine(canvas, {
       onStats: (s) => {
         setStats(s)
+        /* Ф0-2: машина туториала — дешёвая, только на тиках статистики */
+        if (tutRef.current.active && !s.paused) {
+          const T = tutRef.current
+          const now = Date.now()
+          if (s.mineOn) T.seenMine = true
+          if (s.goldenOn) T.seenGolden = true
+          if (s.streak >= 5) T.seenCombo = true
+          let next = T.step
+          switch (T.step) {
+            case 1: /* ждём первого движения лапки */
+              if (T.pawMoved) next = 2
+              break
+            case 2: /* ждём первой сдачи зерна в стаканчик */
+              if (s.collected > 0 || now - T.stepAt > 26000) next = 3
+              break
+            case 3: /* мина: держим, пока на поле (+3.5с), иначе ждём до 12с */
+              if (s.mineOn || (T.holdUntil === 0 && T.seenMine))
+                T.holdUntil = Math.max(T.holdUntil, now + 3500)
+              if ((T.holdUntil > 0 && now >= T.holdUntil) || (T.holdUntil === 0 && now - T.stepAt > 12000))
+                next = 4
+              break
+            case 4: /* золотое зерно — аналогично */
+              if (s.goldenOn || (T.holdUntil === 0 && T.seenGolden))
+                T.holdUntil = Math.max(T.holdUntil, now + 3500)
+              if ((T.holdUntil > 0 && now >= T.holdUntil) || (T.holdUntil === 0 && now - T.stepAt > 12000))
+                next = 5
+              break
+            case 5: /* комбо — фиксированные 5с после триггера */
+              if (T.holdUntil === 0 && (T.seenCombo || now - T.stepAt > 15000)) T.holdUntil = now + 5000
+              if (T.holdUntil > 0 && now >= T.holdUntil) next = 6
+              break
+          }
+          if (next !== T.step) {
+            T.step = next
+            T.stepAt = now
+            T.holdUntil = 0
+            if (next >= 3 && next <= 4) {
+              /* триггер проскакивал на прошлых шагах — короткая напоминалка */
+              const seen = next === 3 ? T.seenMine : T.seenGolden
+              if (seen) T.holdUntil = now + 4200
+            }
+            if (next >= 6) {
+              T.active = false
+              window.localStorage.setItem(TUT_DONE_KEY, '1')
+              setTutStep(0)
+            } else {
+              setTutStep(next)
+            }
+          }
+        }
         /* Очки = опыт: зачисляем каждую положительную дельту счёта в банк сразу,
            чтобы магазин лапок работал уже между уровнями. Отрицательные дельты
            (мины, сгоревшая Лихорадка) бьют по СЧЁТУ, но не по валюте —
@@ -4427,6 +4631,12 @@ export function PopcornGame() {
         setResult({ score: r.score, level: r.level, record, rank: list.indexOf(entry), canRevive, reason: r.reason })
         /* Забег кончился — перебивка больше не актуальна */
         setPosterPending(null)
+        /* Ф0-2: забег кончился — закрываем туториал и запоминаем, что он был */
+        if (tutRef.current.active) {
+          tutRef.current.active = false
+          window.localStorage.setItem(TUT_DONE_KEY, '1')
+          setTutStep(0)
+        }
         setPhase('ended')
       },
     })
@@ -4603,7 +4813,25 @@ export function PopcornGame() {
     setPhase('playing')
     /* Ачивки забега: счётчик забегов, ночная игра; дельты — с нуля */
     addLife({ runs: 1 })
-    setPlayedOnce(true)
+    /* Ф0-2: туториал — только самому первому забегу новичка */
+    if ((window.localStorage.getItem(TUT_DONE_KEY) ?? '0') !== '1' && getLife().runs <= 1) {
+      tutRef.current = {
+        active: true,
+        step: 1,
+        pawMoved: false,
+        seenMine: false,
+        seenGolden: false,
+        seenCombo: false,
+        holdUntil: 0,
+        stepAt: Date.now(),
+      }
+      setTutStep(1)
+      /* Шаг 1 завершится первым движением лапки (once — слушатель снимется сам) */
+      const onFirstMove = (): void => {
+        tutRef.current.pawMoved = true
+      }
+      window.addEventListener('pointermove', onFirstMove, { passive: true, once: true })
+    }
     prevRunRef.current = { grains: 0, golden: 0, pigeons: 0, nipples: 0, mines: 0, saves: 0 }
     runStartRef.current = Date.now()
     /* Секунды чистого времени забега — с нуля (статистика времени в игре) */
@@ -4725,6 +4953,12 @@ export function PopcornGame() {
     flushLife() // дольём пожизненные счётчики перед выходом
     unlockOrientation()
     layoutRef.current()
+    /* Ф0-2: игрок вышел в меню посреди туториала — закрываем и запоминаем */
+    if (tutRef.current.active) {
+      tutRef.current.active = false
+      window.localStorage.setItem(TUT_DONE_KEY, '1')
+      setTutStep(0)
+    }
     setPhase('start')
   }, [unlockOrientation])
 
@@ -5043,6 +5277,28 @@ export function PopcornGame() {
             >
               <span className="text-shadow-pixel rounded-full border-2 border-amber-300/70 bg-[#2b1a0e]/85 px-4 py-1.5 font-pixel text-lg font-bold text-amber-200 shadow-[0_6px_20px_rgba(0,0,0,0.5)]">
                 🌊 {t('banner.wave', { n: waveToast })}
+              </span>
+            </motion.div>
+          )}
+        </AnimatePresence>
+
+        {/* Ф0-2: подсказки туториала первого забега — тёмное облачко в стиле
+            волны-тоста, чуть ниже, чтобы не сталкиваться с «ВОЛНА N» */}
+        <AnimatePresence>
+          {tutStep > 0 && phase === 'playing' && (
+            <motion.div
+              key={`tut-${tutStep}`}
+              className="pointer-events-none absolute inset-x-0 top-[104px] z-20 flex justify-center px-3"
+              initial={{ opacity: 0, y: -16, scale: 0.9 }}
+              animate={{ opacity: 1, y: 0, scale: 1 }}
+              exit={{ opacity: 0, y: -10, scale: 0.95 }}
+              transition={{ type: 'spring', stiffness: 320, damping: 22 }}
+            >
+              <span
+                aria-live="polite"
+                className="text-shadow-pixel max-w-[92%] rounded-2xl border-2 border-amber-300/70 bg-[#2b1a0e]/85 px-4 py-2 text-center font-pixel text-xs font-bold leading-snug text-amber-200 shadow-[0_6px_20px_rgba(0,0,0,0.5)] sm:text-sm"
+              >
+                {t(TUT_KEYS[tutStep - 1])}
               </span>
             </motion.div>
           )}

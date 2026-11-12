@@ -428,6 +428,38 @@ export const T: Record<string, Row> = {
     'Cambiar apodo de la tabla mundial',
   ],
 
+  /* ---------- туториал первого забега (Ф0-2) ---------- */
+  'tut.1': [
+    'Води пальцем — лапка летит следом',
+    'Move your finger — the paw follows',
+    'Beweg den Finger — die Pfote folgt',
+    'Mueve el dedo: la patita te seguirá',
+  ],
+  'tut.2': [
+    'Собирай зёрна в стаканчик',
+    'Collect grains into the cup',
+    'Sammle Körner im Becher',
+    'Recoge granos en el vaso',
+  ],
+  'tut.3': [
+    'Осторожно: мины-кукуруза! Не трогай!',
+    'Careful: corn mines! Do not touch!',
+    'Vorsicht: Mais-Minen! Nicht anfassen!',
+    'Cuidado: minas de maíz. ¡No las toques!',
+  ],
+  'tut.4': [
+    'Золотое зерно = +50 очков! Хватай!',
+    'Golden grain = +50 points! Grab it!',
+    'Goldkorn = +50 Punkte! Schnapp es!',
+    'Grano dorado = +50 puntos. ¡Atrápalo!',
+  ],
+  'tut.5': [
+    'Комбо: сдавай подряд без мин — множитель растёт',
+    'Combo: deliver in a row — the multiplier grows',
+    'Combo: Ketten ohne Minen — der Multiplikator wächst',
+    'Combo: entrega seguido sin minas y el multiplicador crece',
+  ],
+
   /* ---------- магазин ---------- */
   'shop.title': ['МАГАЗИН', 'SHOP', 'LADEN', 'TIENDA'],
   'shop.wallet': [
@@ -2549,6 +2581,42 @@ export const T: Record<string, Row> = {
     'World offline — local data only',
     'Welt offline — nur lokale Daten',
     'Mundo sin conexión: solo datos locales',
+  ],
+  /* ---------- Ф0-4: код-бэкап сохранения ---------- */
+  'set.save': ['Сохранение', 'Save slot', 'Spielstand', 'Guardado'],
+  'set.save.hint': [
+    'Код хранит весь прогресс: монетки, лапки, ачивки, NANA. Экспортируй и храни в заметках — вставишь на любом устройстве и продолжишь с того же места.',
+    'The code holds all progress: coins, paws, medals, NANA. Export it, keep it in your notes — paste on any device to continue right where you left.',
+    'Der Code enthält den ganzen Fortschritt: Münzen, Pfoten, Medaillen, NANA. Exportieren, in Notizen aufbewahren — auf jedem Gerät einfügen und weitermachen.',
+    'El código guarda todo el progreso: monedas, patitas, logros, NANA. Expórtalo, guárdalo en tus notas: pégalo en cualquier dispositivo y continúa.',
+  ],
+  'set.save.export': ['ЭКСПОРТ КОДА', 'EXPORT CODE', 'CODE EXPORTIEREN', 'EXPORTAR CÓDIGO'],
+  'set.save.import': ['ВОССТАНОВИТЬ', 'RESTORE', 'WIEDERHERSTELLEN', 'RESTAURAR'],
+  'set.save.copy': ['Скопировать заново', 'Copy again', 'Erneut kopieren', 'Copiar de nuevo'],
+  'set.save.codeAria': ['Код сохранения', 'Save code', 'Spielstand-Code', 'Código de guardado'],
+  'set.save.placeholder': [
+    'Вставь сюда код сохранения и нажми «Восстановить»',
+    'Paste a save code here, then tap Restore',
+    'Spielstand-Code hier einfügen, dann „Wiederherstellen“',
+    'Pega aquí el código y pulsa «Restaurar»',
+  ],
+  'set.save.exported': [
+    'Код скопирован! Храни его в заметках',
+    'Code copied! Keep it in your notes',
+    'Code kopiert! Bewahre ihn in Notizen auf',
+    '¡Código copiado! Guárdalo en tus notas',
+  ],
+  'set.save.imported': [
+    'Сохранение восстановлено! Обновляю…',
+    'Save restored! Reloading…',
+    'Spielstand wiederhergestellt! Lade neu…',
+    '¡Guardado restaurado! Actualizando…',
+  ],
+  'set.save.badcode': [
+    'Код не похож на сохранение — вставь его целиком',
+    'That does not look like a save code — paste the whole thing',
+    'Das sieht nicht nach einem Spielstand aus — füge ihn komplett ein',
+    'Eso no parece un código de guardado: pégalo completo',
   ],
   'stats.h': ['ч', 'h', 'Std', 'h'],
   'stats.m': ['м', 'm', 'Min', 'min'],
