@@ -91,6 +91,7 @@ import {
 } from '@/lib/game/meta'
 import {
   UPGRADES,
+  UPGRADE_CATS,
   UPGRADE_MAP,
   parseUpgrades,
   upgradeBonuses,
@@ -1766,67 +1767,86 @@ function ShopOverlay({
             })}
           </ul>
         ) : (
-          <ul
-            className={`mt-3 max-h-[42vh] space-y-2 overflow-y-auto pr-1 text-left sm:max-h-72 ${OVERLAY_SCROLL}`}
+          <div
+            className={`mt-3 max-h-[46vh] overflow-y-auto pr-1 text-left sm:max-h-80 ${OVERLAY_SCROLL}`}
           >
-            {UPGRADES.map((def) => {
-              const level = upgrades[def.id]
-              const maxed = level >= def.prices.length
-              const cost = maxed ? 0 : def.prices[level]
-              const canBuy = !maxed && xp >= cost
+            {/* v0.0.32: вкладка разбита на разделы — 33 апгрейда в 8 темах */}
+            {UPGRADE_CATS.map((cat) => {
+              const items = UPGRADES.filter((d) => d.cat === cat.id)
+              if (items.length === 0) return null
               return (
-                <li
-                  key={def.id}
-                  className="rounded-xl border-2 border-[#e3cba4] bg-[#fdf3e0] p-2"
-                >
-                  <div className="flex items-center gap-2">
-                    <span aria-hidden className="text-2xl">
-                      {def.icon}
+                <section key={cat.id} aria-label={t(cat.key)}>
+                  <div className="sticky top-0 z-10 mb-1.5 flex items-center gap-1.5 rounded-lg bg-[#f3e2c8]/95 px-2 py-1 backdrop-blur-sm">
+                    <span aria-hidden className="text-sm leading-none">
+                      {cat.icon}
                     </span>
-                    <div className="min-w-0 flex-1">
-                      <div className="font-pixel text-sm font-bold text-[#5C3A1E]">
-                        {t(`upg.${def.id}.name`)}
-                      </div>
-                      <div className="font-ui text-[11px] leading-tight text-[#8a5330]">
-                        {effectText(def, level)}
-                      </div>
-                    </div>
-                    {/* Ступени */}
-                    <span aria-hidden className="shrink-0 tracking-widest">
-                      {def.prices.map((_, i) => (
-                        <span key={i} className={i < level ? 'opacity-100' : 'opacity-30'}>
-                          ●
-                        </span>
-                      ))}
+                    <span className="font-pixel text-[10px] font-bold uppercase tracking-wider text-[#a97c50]">
+                      {t(cat.key)}
                     </span>
                   </div>
-                  <p className="mt-1 font-ui text-[10px] leading-tight text-[#a97c50]">
-                    {t(`upg.${def.id}.desc`)}
-                  </p>
-                  <div className="mt-1.5 text-right">
-                    {maxed ? (
-                      <span className="inline-block rounded-full bg-amber-400 px-2.5 py-1.5 font-ui text-[10px] font-bold text-[#5C3A1E]">
-                        {t('shop.max')}
-                      </span>
-                    ) : (
-                      <button
-                        type="button"
-                        disabled={!canBuy}
-                        onClick={() => onBuyUpgrade(def.id)}
-                        className={`rounded-lg px-2.5 py-1.5 font-ui text-[11px] font-bold transition active:scale-95 ${
-                          canBuy
-                            ? 'bg-[#E24B3B] text-white shadow-[0_3px_0_#9c2f22] hover:bg-[#ef5a4a]'
-                            : 'cursor-not-allowed bg-[#d9c6a8] text-[#8a755c]'
-                        }`}
-                      >
-                        🍿 {cost}
-                      </button>
-                    )}
-                  </div>
-                </li>
+                  <ul className="space-y-2">
+                    {items.map((def) => {
+                      const level = upgrades[def.id]
+                      const maxed = level >= def.prices.length
+                      const cost = maxed ? 0 : def.prices[level]
+                      const canBuy = !maxed && xp >= cost
+                      return (
+                        <li
+                          key={def.id}
+                          className="rounded-xl border-2 border-[#e3cba4] bg-[#fdf3e0] p-2"
+                        >
+                          <div className="flex items-center gap-2">
+                            <span aria-hidden className="text-2xl">
+                              {def.icon}
+                            </span>
+                            <div className="min-w-0 flex-1">
+                              <div className="font-pixel text-sm font-bold text-[#5C3A1E]">
+                                {t(`upg.${def.id}.name`)}
+                              </div>
+                              <div className="font-ui text-[11px] leading-tight text-[#8a5330]">
+                                {effectText(def, level)}
+                              </div>
+                            </div>
+                            {/* Ступени */}
+                            <span aria-hidden className="shrink-0 tracking-widest">
+                              {def.prices.map((_, i) => (
+                                <span key={i} className={i < level ? 'opacity-100' : 'opacity-30'}>
+                                  ●
+                                </span>
+                              ))}
+                            </span>
+                          </div>
+                          <p className="mt-1 font-ui text-[10px] leading-tight text-[#a97c50]">
+                            {t(`upg.${def.id}.desc`)}
+                          </p>
+                          <div className="mt-1.5 text-right">
+                            {maxed ? (
+                              <span className="inline-block rounded-full bg-amber-400 px-2.5 py-1.5 font-ui text-[10px] font-bold text-[#5C3A1E]">
+                                {t('shop.max')}
+                              </span>
+                            ) : (
+                              <button
+                                type="button"
+                                disabled={!canBuy}
+                                onClick={() => onBuyUpgrade(def.id)}
+                                className={`rounded-lg px-2.5 py-1.5 font-ui text-[11px] font-bold transition active:scale-95 ${
+                                  canBuy
+                                    ? 'bg-[#E24B3B] text-white shadow-[0_3px_0_#9c2f22] hover:bg-[#ef5a4a]'
+                                    : 'cursor-not-allowed bg-[#d9c6a8] text-[#8a755c]'
+                                }`}
+                              >
+                                🍿 {cost}
+                              </button>
+                            )}
+                          </div>
+                        </li>
+                      )
+                    })}
+                  </ul>
+                </section>
               )
             })}
-          </ul>
+          </div>
         )}
         <p className="mt-2 font-ui text-[10px] leading-snug text-[#a97c50]">{t('shop.note')}</p>
         <div className="mt-2.5">
@@ -3581,6 +3601,7 @@ export function PopcornGame() {
     bossHp: 0,
     bossMaxHp: 0,
     bossCoins: 0,
+    goldCoins: 0,
   })
   const [bestRaw, storeBest] = useStoredValue(BEST_KEY, '0')
   const [mutedRaw, storeMuted] = useStoredValue(MUTE_KEY, '0')
@@ -3641,6 +3662,8 @@ export function PopcornGame() {
   const bigCoinsPaidRef = useRef(0)
   /** Монетки за победы над боссами, уже выданные в этом забеге */
   const bossCoinsPaidRef = useRef(0)
+  /** «Золотая сдача»: монетки за золотые зёрна, уже выданные в этом забеге */
+  const goldCoinsPaidRef = useRef(0)
   /** Когда начался текущий забег (ачивка-марафон) */
   const runStartRef = useRef(0)
   /** Серверный забег мирового лидерборда: HMAC-токен для защищённого submit */
@@ -4465,6 +4488,17 @@ export function PopcornGame() {
         } else if (s.bossCoins < bossCoinsPaidRef.current) {
           bossCoinsPaidRef.current = s.bossCoins
         }
+        /* «Золотая сдача»: монетки за сданные золотые зёрна капают сразу —
+           с теми же множителями монет, что у наград этапов */
+        if (s.goldCoins > goldCoinsPaidRef.current) {
+          const diff = s.goldCoins - goldCoinsPaidRef.current
+          goldCoinsPaidRef.current = s.goldCoins
+          addCoins(
+            Math.round(diff * (1 + (treeRef.current.coinsAdd ?? 0)) * marketRef.current.coinGift),
+          )
+        } else if (s.goldCoins < goldCoinsPaidRef.current) {
+          goldCoinsPaidRef.current = s.goldCoins
+        }
         /* HTML-индикатор «ВОЛНА N»: поверх тумана и любых тёмных комнат.
            Таймер держим в ref: новая волна перезапускает тост, а старый
            таймаут не гасит его раньше времени */
@@ -4672,6 +4706,15 @@ export function PopcornGame() {
         if (runSecs > 0) addLife({ secs: runSecs })
         /* Боевой опыт куницы: 1 🐾XP за каждые 10 очков забега */
         grantMartenXp(Math.round(r.score / 10))
+        /* «Кассовый куш»: кэшбэк — доля очков забега возвращается монетками
+           🪙 («Копилка-хрюшка» умножает). Сыграл жирно — забрал кассу */
+        const cashback = Math.round(
+          r.score * (treeRef.current.scoreCoins01 ?? 0) * marketRef.current.coinGift,
+        )
+        if (cashback > 0) {
+          addCoins(cashback)
+          audio.play('coin')
+        }
         const prevBest = Number(window.localStorage.getItem(BEST_KEY) ?? 0)
         const record = r.score > prevBest
         if (record) {
@@ -4893,6 +4936,7 @@ export function PopcornGame() {
     lastScoreRef.current = 0
     bigCoinsPaidRef.current = 0
     bossCoinsPaidRef.current = 0
+    goldCoinsPaidRef.current = 0
     runXpGainRef.current = 0
     setRunXpGain(0)
     transformRef.current = 'none'

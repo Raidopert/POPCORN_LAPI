@@ -101,6 +101,8 @@ export interface EngineStats {
   bossClean: boolean
   /** Монетки, накопленные за победы над боссами за забег (выдаёт компонент) */
   bossCoins: number
+  /** Монетки за сданные ЗОЛОТЫЕ зёрна за забег («Золотая сдача», выдаёт компонент) */
+  goldCoins: number
 }
 
 export interface LevelResult {
@@ -507,6 +509,8 @@ export class PopcornEngine {
   private bigAt = 8
   /** Своя большая попкорнина на этом уровне уже вышла (поймана или укатилась) */
   private bigDone = false
+  /** Сколько секунд живёт попкорнина в этом забеге («Живучая попкорнина» +1 сек/ступень) */
+  private bigLife = BIG_LIFE
   /** Поймано за забег (для статистики) */
   private bigCaught = 0
   /** Монетки за большие попкорнины за забег (выдаёт компонент) */
@@ -534,6 +538,10 @@ export class PopcornEngine {
   private upgCarry = 0
   /* --- постоянный апгрейд «Крепкое сердце» (+максимум сердец) --- */
   private upgHearts = 0
+  /* --- «Комбо-броня»: сколько спасений серии осталось в этом забеге --- */
+  private comboArmorLeft = 0
+  /* --- «Золотая сдача»: монетки за сданные золотые зёрна за забег (выдаёт компонент) --- */
+  private goldCoinsRun = 0
   /* ---------- механика сердец ---------- */
   /** Сердечки-жизни: мина и повторный клюв голубя отнимают сердце,
       ноль сердец — поражение. За пройденный уровень +1 сердце */
@@ -690,7 +698,11 @@ export class PopcornEngine {
   startRun(opts: { fast?: boolean; perk?: PerkId | null } = {}): void {
     this.debugFast = !!opts.fast
     this.score = 0
-    this.streak = 0
+    /* «Быстрый старт»: серия сдач начинается с запасом (+5 за ступень) */
+    this.streak = Math.max(0, Math.floor(this.tree.comboStart ?? 0))
+    /* «Комбо-броня»: по одному спасению серии за ступень на весь забег */
+    this.comboArmorLeft = Math.max(0, Math.floor(this.tree.comboArmor ?? 0))
+    this.goldCoinsRun = 0
     this.goldenCount = 0
     this.pigeonsRun = 0
     this.runGrains = 0
@@ -725,13 +737,16 @@ export class PopcornEngine {
     this.perk = perk
     /* Сложность из настроек: лёгкая (+10 сек), сложная (−10 сек) */
     const diffTime = this.opts.difficulty === 'easy' ? 10 : this.opts.difficulty === 'hard' ? -10 : 0
+    /* «Долгий бой»: на боссовых уровнях (+3 сек за ступень) */
+    const bossTime = level % BOSS_EVERY === 0 ? (this.tree.bossTime ?? 0) : 0
     this.duration =
       Math.max(
         40,
         (perk === 'timeplus' ? LEVEL_SECONDS_PERK : LEVEL_SECONDS) +
           (this.pawBonus.timePlus ?? 0) +
           this.tree.timePlus +
-          diffTime,
+          diffTime +
+          bossTime,
       )
     /* Нормы больше не упирается в потолок: чем глубже забег, тем труднее
        успеть. Босс-уровень переопределит её ниже — там победа другая */
@@ -808,10 +823,17 @@ export class PopcornEngine {
             Math.max(4, PIGEON_FIRST_AT - (level - 3) + this.tree.pigeonLate) + Math.random() * 3
         : -1
     /* Большая попкорнина: уходит вместе с уровнем, следующая появится
-       в случайный момент между 6-й и 16-й секундой нового уровня */
+       в случайный момент уровня. «Ранняя попкорнина» сдвигает выход
+       ближе к началу, «Живучая» удлиняет её жизнь */
     this.big = null
     this.bigDone = false
-    this.bigAt = BIG_AT_MIN + Math.random() * (BIG_AT_MAX - BIG_AT_MIN)
+    this.bigLife = BIG_LIFE + (this.tree.bigLife ?? 0)
+    {
+      const early = Math.min(9, this.tree.bigEarly ?? 0)
+      const lo = Math.max(2, BIG_AT_MIN - early)
+      const hi = Math.max(lo + 1, BIG_AT_MAX - early)
+      this.bigAt = lo + Math.random() * (hi - lo)
+    }
     /* Босс и скорость лапки с прошлого уровня не выживают */
     this.boss = null
     this.pawVX = 0
@@ -1152,6 +1174,27 @@ export class PopcornEngine {
     return 1 + Math.floor(this.streak / (this.tree.comboFast ? 5 : 6))
   }
 
+  /** Мина или воришка сбивают серию. «Комбо-броня» гасит первые удары за
+      забег: серия сохраняется, вместо неё — надпись «БРОНЯ!» */
+  private breakStreak(x: number, y: number): void {
+    const u = this.u
+    if (this.comboArmorLeft > 0) {
+      this.comboArmorLeft--
+      this.texts.push({
+        x,
+        y,
+        text: this.L('txt.comboarmor'),
+        color: '#BFF3E6',
+        t: 0,
+        dur: 0.9,
+        size: 20 * u,
+      })
+      audio.play('click')
+      return
+    }
+    this.streak = 0
+  }
+
   /** Радиус подбора лапки: перки + скин + древо («Магнит» +8% за уровень) */
   private get grabR(): number {
     return (
@@ -1257,7 +1300,7 @@ export class PopcornEngine {
         b.dir = -b.dir
       }
       /* Время вышло — укатилась: награда потеряна безвозвратно */
-      if (b.t >= BIG_LIFE) {
+      if (b.t >= this.bigLife) {
         this.crumbs(b.x, b.y, '#C9B38A', 9)
         this.texts.push({
           x: b.x,
@@ -1344,7 +1387,10 @@ export class PopcornEngine {
     else if (this.bigKind === 'cherry') this.bigCherryRun++
     else this.bigGrapeRun++
     const v = BIG_VARIANTS[this.bigKind]
-    const pts = v.combo ? Math.round(v.base * this.comboMult) : v.base
+    /* «Сладкая глазурь»: очки попкорнин +10% за ступень */
+    const pts = Math.round(
+      (v.combo ? v.base * this.comboMult : v.base) * (1 + (this.tree.bigMult01 ?? 0)),
+    )
     this.bigCoinsRun += v.coins
     this.score += pts
     this.paw.pulse = 1
@@ -1468,7 +1514,8 @@ export class PopcornEngine {
       if (
         this.boss &&
         p.kind !== 'corn' &&
-        Math.hypot(this.pawVX, this.pawVY) > FLING_MIN_SPEED * u &&
+        /* «Меткий пинок»: порог пинка ниже (−6% за ступень) */
+        Math.hypot(this.pawVX, this.pawVY) > FLING_MIN_SPEED * u * (1 - Math.min(0.24, this.tree.flingEase01 ?? 0)) &&
         d < grabR + 12 * u
       ) {
         p.vx = this.pawVX * 0.94
@@ -1531,7 +1578,7 @@ export class PopcornEngine {
           } else {
             // Лапка ударилась о мину: ШОК! Очки горят, всё, что несла,
             // высыпается на пол, а сама лапка секунду стоит столбом
-            this.streak = 0 // мина сбрасывает комбо
+            this.breakStreak(this.paw.x, this.paw.y - 44 * u) // мина сбрасывает комбо (или гасится бронёй)
             this.shockDrop()
             this.minesHit++
             this.levelShock++
@@ -1598,9 +1645,11 @@ export class PopcornEngine {
       if (dc < dropR) {
         let base = 0
         let hasGold = false
+        let goldN = 0
         for (const c of this.carried) {
           base += KIND_POINTS[c.kind]
           hasGold = hasGold || c.kind === 'golden'
+          if (c.kind === 'golden') goldN++
         }
         this.streak++
         const cm = this.comboMult
@@ -1618,6 +1667,9 @@ export class PopcornEngine {
         })
         this.carried = []
         this.score += sum
+        /* «Золотая сдача»: +N монеток за каждое золотое зерно (компонент выплатит с множителями) */
+        const gc = goldN * Math.max(0, Math.floor(this.tree.goldCoinPer ?? 0))
+        if (gc > 0) this.goldCoinsRun += gc
         this.cup.squash = 1
         if (hasGold) this.cupGlow = 1 // искра над стаканчиком
         this.texts.push({
@@ -1654,7 +1706,8 @@ export class PopcornEngine {
           })
         }
         if (this.fever) {
-          this.fever.gained += sum
+          /* «Жаркий урожай»: очки в ЛИХОРАДКЕ +10% за ступень */
+          this.fever.gained += Math.round(sum * (1 + (this.tree.feverMult01 ?? 0)))
           audio.play('coin')
         } else {
           audio.play('deposit')
@@ -2233,13 +2286,17 @@ export class PopcornEngine {
     if (this.collected > 0) {
       const g = this.pigeon
       /* Воришка становится наглее с уровнем: с 6-го тащит по 2 зерна,
-         с 11-го — по 3, с 16-го — по 4 за клюв (1 + floor((lvl-1)/5)) */
-      const steal = Math.min(this.collected, 1 + Math.floor((this.lvl - 1) / 5))
+         с 11-го — по 3, с 16-го — по 4 за клюв (1 + floor((lvl-1)/5)).
+         «Мир с голубем»: тащит на 1 зерно меньше за ступень, но не меньше 1 */
+      const steal = Math.min(
+        this.collected,
+        Math.max(1, 1 + Math.floor((this.lvl - 1) / 5) - (this.tree.pigeonStealCut ?? 0)),
+      )
       this.collected -= steal
       g.stolen += steal
       g.pecks++ // со второго клюва — минус сердечко
       this.levelStolen++ // ачивка «Чистая работа» сгорела
-      this.streak = 0 // воришка сбивает серию
+      this.breakStreak(this.cup.x, this.cup.y - this.cupH * 0.9) // воришка сбивает серию (или гасится бронёй)
       this.pendingClear = -1 // украденное зерно отменяет близкое «уровень пройден»
       this.cup.squash = 1
       this.doShake(5)
@@ -2496,7 +2553,24 @@ export class PopcornEngine {
           b.state = 'hurt'
           b.stateT = 0
         }
-        this.loseHeart('boss')
+        /* «Мягкие рукавички»: шанс 12% за ступень, что касание обойдётся
+           без потери сердца — малыш отшатывается, но сердце остаётся */
+        const guard = this.tree.bossGuard01 ?? 0
+        if (guard > 0 && Math.random() < guard) {
+          this.texts.push({
+            x: this.paw.x,
+            y: this.paw.y - 40 * u,
+            text: this.L('txt.guard'),
+            color: '#BFF3E6',
+            t: 0,
+            dur: 0.9,
+            size: 22 * u,
+          })
+          this.crumbs(b.x, b.y, '#BFF3E6', 6)
+          audio.play('click')
+        } else {
+          this.loseHeart('boss')
+        }
       }
     }
   }
@@ -2510,7 +2584,7 @@ export class PopcornEngine {
       const steal = Math.min(this.collected, BOSS_STEAL + tier - 1)
       this.collected -= steal
       this.levelStolen++
-      this.streak = 0
+      this.breakStreak(this.cup.x, this.cup.y - this.cupH * 0.9)
       this.cup.squash = 1
       this.doShake(7)
       this.texts.push({
@@ -2619,7 +2693,10 @@ export class PopcornEngine {
       const tier = Math.max(1, Math.floor(this.lvl / BOSS_EVERY))
       const bonus = BOSS_BONUS_BASE + (tier - 1) * BOSS_BONUS_PER_TIER
       this.score += bonus
-      this.bossCoinsRun += BOSS_COINS_BASE + (tier - 1) * BOSS_COINS_PER_TIER
+      /* «Призовые малыша»: монетки с боссов +12% за ступень */
+      this.bossCoinsRun += Math.round(
+        (BOSS_COINS_BASE + (tier - 1) * BOSS_COINS_PER_TIER) * (1 + (this.tree.bossCoins01 ?? 0)),
+      )
       /* Ачивки босса: счёт побед за забег и «без царапин» — сердечек при
           победе не меньше, чем было при появлении малыша */
       this.bossKillsRun++
@@ -2740,7 +2817,7 @@ export class PopcornEngine {
       : this.feverAfter >= 0
         ? this.lastFeverGained
         : 0
-    const key = `${this.score}|${this.lvl}|${this.quota}|${this.collected}|${this.carried.length}|${sec}|${this.paused}|${this.streak}|${this.goldenCount}|${this.pigeonsRun}|${fever}|${feverGained}|${this.wave}|${this.shieldLeft}|${this.runGrains}|${this.runNipples}|${this.minesHit}|${this.shieldSaves}|${this.hearts}|${this.maxHearts}|${this.bigCaught}|${this.bigCaramelRun}|${this.bigCherryRun}|${this.bigGrapeRun}|${this.bossCoinsRun}|${this.bossKillsRun}|${this.bossCleanLast ? 1 : 0}|${this.boss ? `${this.boss.hp}/${this.boss.maxHp}` : '-'}`
+    const key = `${this.score}|${this.lvl}|${this.quota}|${this.collected}|${this.carried.length}|${sec}|${this.paused}|${this.streak}|${this.goldenCount}|${this.pigeonsRun}|${fever}|${feverGained}|${this.wave}|${this.shieldLeft}|${this.runGrains}|${this.runNipples}|${this.minesHit}|${this.shieldSaves}|${this.hearts}|${this.maxHearts}|${this.bigCaught}|${this.bigCaramelRun}|${this.bigCherryRun}|${this.bigGrapeRun}|${this.bossCoinsRun}|${this.goldCoinsRun}|${this.bossKillsRun}|${this.bossCleanLast ? 1 : 0}|${this.boss ? `${this.boss.hp}/${this.boss.maxHp}` : '-'}`
     if (!force && key === this.lastStatsKey) return
     this.lastStatsKey = key
     this.cb.onStats({
@@ -2780,6 +2857,7 @@ export class PopcornEngine {
       bossHp: this.boss?.hp ?? 0,
       bossMaxHp: this.boss?.maxHp ?? 0,
       bossCoins: this.bossCoinsRun,
+      goldCoins: this.goldCoinsRun,
     })
   }
 
@@ -3364,7 +3442,7 @@ export class PopcornEngine {
       })
     }
     /* Кольцо-таймер: остаток времени до побега. Меньше секунды — красное */
-    const left = Math.max(0, 1 - b.t / BIG_LIFE)
+    const left = Math.max(0, 1 - b.t / this.bigLife)
     const urgent = left < 0.4
     const R = 15 * scale + 10 * u
     ctx.save()

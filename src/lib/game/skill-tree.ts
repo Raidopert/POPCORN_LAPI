@@ -230,6 +230,33 @@ export interface TreeBonus {
   timePlus: number
   /** Постоянные апгрейды «Кроткий голубь»: голубь прилетает позже на N сек */
   pigeonLate: number
+  /* ——— v0.0.32: блок больших попкорнин, босса и комбо (только апгрейды) ——— */
+  /** «Ранняя попкорнина»: большая попкорнина выходит на N сек раньше */
+  bigEarly: number
+  /** «Живучая попкорнина»: +N сек к жизни большой попкорнины */
+  bigLife: number
+  /** «Сладкая глазурь»: +N% очков с больших попкорнин (0.1 = +10%) */
+  bigMult01: number
+  /** «Золотая сдача»: +N монеток за каждое сданное золотое зерно */
+  goldCoinPer: number
+  /** «Призовые малыша»: +N% монеток с побед над боссом (0.12 = +12%) */
+  bossCoins01: number
+  /** «Долгий бой»: +N сек к длительности босс-боя */
+  bossTime: number
+  /** «Меткий пинок»: порог пинка лапкой ниже на N% (0.06 = −6%) */
+  flingEase01: number
+  /** «Мягкие рукавички»: шанс N, что касание малыша не отнимет сердце */
+  bossGuard01: number
+  /** «Мир с голубем»: воришка тащит на N зёрен меньше за клюв */
+  pigeonStealCut: number
+  /** «Быстрый старт»: серия сдач начинается с запаса N */
+  comboStart: number
+  /** «Комбо-броня»: столько раз за забег мина/вор не сбивают серию */
+  comboArmor: number
+  /** «Жаркий урожай»: +N% очков в ЛИХОРАДКЕ (0.1 = +10%) */
+  feverMult01: number
+  /** «Кассовый куш»: доля очков забега, возвращающаяся монетками в конце (0.005 = 0.5%) */
+  scoreCoins01: number
 }
 
 const ZERO_BONUS: TreeBonus = {
@@ -253,6 +280,20 @@ const ZERO_BONUS: TreeBonus = {
   healPlus: 0,
   timePlus: 0,
   pigeonLate: 0,
+  /* Новый блок 0.0.32 — его даёт только магазин апгрейдов */
+  bigEarly: 0,
+  bigLife: 0,
+  bigMult01: 0,
+  goldCoinPer: 0,
+  bossCoins01: 0,
+  bossTime: 0,
+  flingEase01: 0,
+  bossGuard01: 0,
+  pigeonStealCut: 0,
+  comboStart: 0,
+  comboArmor: 0,
+  feverMult01: 0,
+  scoreCoins01: 0,
 }
 
 export function treeBonuses(state: TreeState): TreeBonus {
@@ -285,6 +326,20 @@ export function treeBonuses(state: TreeState): TreeBonus {
        («Длинный сеанс» и «Кроткий голубь») через mergeBonuses */
     timePlus: 0,
     pigeonLate: 0,
+    /* Весь блок 0.0.32 — только из магазина апгрейдов, древо тут нулевой */
+    bigEarly: 0,
+    bigLife: 0,
+    bigMult01: 0,
+    goldCoinPer: 0,
+    bossCoins01: 0,
+    bossTime: 0,
+    flingEase01: 0,
+    bossGuard01: 0,
+    pigeonStealCut: 0,
+    comboStart: 0,
+    comboArmor: 0,
+    feverMult01: 0,
+    scoreCoins01: 0,
   }
 }
 
@@ -311,6 +366,20 @@ export function mergeBonuses(tree: TreeBonus, extra: Partial<TreeBonus>): TreeBo
     healPlus: tree.healPlus,
     timePlus: tree.timePlus + (extra.timePlus ?? 0),
     pigeonLate: tree.pigeonLate + (extra.pigeonLate ?? 0),
+    /* v0.0.32: блок больших попкорнин, босса и комбо (постоянные апгрейды) */
+    bigEarly: tree.bigEarly + (extra.bigEarly ?? 0),
+    bigLife: tree.bigLife + (extra.bigLife ?? 0),
+    bigMult01: tree.bigMult01 + (extra.bigMult01 ?? 0),
+    goldCoinPer: tree.goldCoinPer + (extra.goldCoinPer ?? 0),
+    bossCoins01: tree.bossCoins01 + (extra.bossCoins01 ?? 0),
+    bossTime: tree.bossTime + (extra.bossTime ?? 0),
+    flingEase01: tree.flingEase01 + (extra.flingEase01 ?? 0),
+    bossGuard01: tree.bossGuard01 + (extra.bossGuard01 ?? 0),
+    pigeonStealCut: tree.pigeonStealCut + (extra.pigeonStealCut ?? 0),
+    comboStart: tree.comboStart + (extra.comboStart ?? 0),
+    comboArmor: tree.comboArmor + (extra.comboArmor ?? 0),
+    feverMult01: tree.feverMult01 + (extra.feverMult01 ?? 0),
+    scoreCoins01: tree.scoreCoins01 + (extra.scoreCoins01 ?? 0),
   }
 }
 
