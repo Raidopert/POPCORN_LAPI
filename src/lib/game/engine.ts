@@ -2953,6 +2953,7 @@ export class PopcornEngine {
     const grabR = Math.max(50 * u, this.cupH * 0.78)
     for (let i = b.paws.length - 1; i >= 0; i--) {
       const p = b.paws[i]
+      if (!p) break // страховка: массив мог быть очищен посреди кадра
       p.stateT += dt
       p.sway += dt * 2
       /* Корень следует за телом Ланы, кончик — по направлению роста */
@@ -3050,7 +3051,12 @@ export class PopcornEngine {
           p.tx,
           p.ty,
         )
-        if (hit.d < (LANA_PAW_R + 10) * u) this.cutLanaPaw(p, hit.x, hit.y)
+        if (hit.d < (LANA_PAW_R + 10) * u) {
+          this.cutLanaPaw(p, hit.x, hit.y)
+          /* Смертельный разрез: bossDown() чистит b.paws — сразу выходим из
+             цикла, иначе следующая итерация читает stateT у undefined */
+          if (this.boss && this.boss.paws.length === 0) break
+        }
       }
     }
     /* Свободный слот — вырастить следующую лапку: пауза тает с каждым тиром */
