@@ -97,7 +97,7 @@ export interface EngineStats {
   bossMaxHp: number
   /** Побед над боссами за забег (ачивки босса) */
   bossKills: number
-  /** Из них по видам: МАЛЫШ / ЛЬВ / КУНИЦА ЛАНА (ачивки новых боссов) */
+  /** Из них по видам: МАЛЫШ / ЛЬВ (в запасе) / КУНИЦА ЛАНА (ачивки боссов) */
   bossKidKills: number
   bossLionKills: number
   bossMartenKills: number
@@ -230,20 +230,20 @@ const FLING_MIN_SPEED = 430
 /** Трение летящего зерна (экспоненциальное, 1/с): полёт затухает плавно */
 const FLING_FRICTION = 3.4
 
-/* --- v0.0.33: ТРИ ВИДА БОССОВ — каждые 10 уровней чередуются по кругу.
-    МАЛЫШ (уровни 10, 40, 70…) — как был: рвётся к корзине, трогать нельзя.
-    ЛЬВ (уровни 20, 50, 80…) — царь-зверь с гривой-щитом: пока РОКТУЕТ,
-    зёрна отскакивают без урона — бей в паузах между роктом. Рокт ещё и
-    ОТБРАСЫВАЕТ лапку — не дай себя оттолкнуть в мины.
-    КУНИЦА ЛАНА (уровни 30, 60, 90…) — юркая воровка: мелькает рывками,
-    выгребает больше всех и запускает в лапку зерно — уворачивайся! --- */
+/* --- v0.0.34: ДВА ВИДА БОССОВ — каждые 10 уровней чередуются.
+    МАЛЫШ (уровни 10, 30, 50…) — как был: рвётся к корзине, трогать нельзя.
+    КУНИЦА ЛАНА (уровни 20, 40, 60…) — воровка: мелькает по верху поля и
+    тянет к корзинке ДЛИННЫЕ ЛАПКИ с когтями со всех сторон. Лапки нужно
+    ПЕРЕРЕЗАТЬ свайпом лапки — каждый разрез минус жизнь воровке!
+    Дотянувшийся коготь выгребает попкорн из корзинки и уносит добычу.
+    Зерном Лану не достать — она отбивает его лапкой. ЛЬВ пока в запасе
+    («без львов пока что») — код гривы-щита сохранился, вернём позже --- */
 export type BossKind = 'kid' | 'lion' | 'marten'
 
-/** Вид босса по его номеру (тир = уровень/10): 1-МАЛЫШ, 2-ЛЬВ, 3-ЛАНА, потом по кругу.
+/** Вид босса по его номеру (тир = уровень/10): нечётные — МАЛЫШ, чётные — ЛАНА.
     Экспортируется — HUD показывает имя/иконку текущего босса */
 export function bossKindForTier(tier: number): BossKind {
-  const m = ((tier - 1) % 3) + 1
-  return m === 1 ? 'kid' : m === 2 ? 'lion' : 'marten'
+  return ((tier - 1) % 2) + 1 === 1 ? 'kid' : 'marten'
 }
 
 /** +1 жизнь у льва: грива держит удар */
@@ -260,12 +260,19 @@ const BOSS_ATTACK_CUT_BY_KIND: Record<BossKind, number> = { kid: 0, lion: 0.4, m
 const LION_ROAR_EVERY = 5.2
 const LION_ROAR_DUR = 0.9
 const LION_ROAR_PUSH = 520
-/** Лана: дэш-бег в бродяжничестве и зерно в лапку после каждой гребли */
+/** Лана: дэш-бег в бродяжничестве — юркая воровка */
 const MARTEN_DASH_STEP = 0.8 // длина рывка (с)
 const MARTEN_DASH_SPEED = 195 // скорость рывка (u/с) — вдвое быстрее малыша
-const MARTEN_SHOT_SPEED = 250 // скорость зерна в лапку (u/с)
-const MARTEN_SHOT_TTL = 2.6 // зерно живёт не дольше (с)
-const MARTEN_SHOT_R = 26 // радиус попадания зерна в лапку (u)
+/* --- ЛАНА-ВОРОВКА v0.0.34: тянет к корзинке длинные лапки с когтями ---
+    Лапку нужно ПЕРЕРЕЗАТЬ свайпом лапки — это и есть урон воровке.
+    Дотянувшийся коготь выгребает попкорн из корзинки и уносит добычу */
+const LANA_PAW_R = 15 // «толщина» лапки для разреза (u): свайп сквозь лапку
+const LANA_GROW = 118 // скорость вытягивания лапки (u/с)
+const LANA_GROW_TIER = 14 // + к скорости за каждый следующий тир Ланы
+const LANA_HOLD = 1.6 // сколько секунд пустой коготь держится у корзины (с)
+const LANA_RETRACT = 320 // скорость отступания лапки (u/с)
+const LANA_STEAL = 2 // сколько зёрен выгребает коготь за раз (растёт с тиром)
+const LANA_REGROW = 1.15 // пауза между вырастаниями лапок (с)
 
 interface FieldPiece {
   x: number
@@ -366,8 +373,9 @@ interface Pigeon {
   downed: boolean
 }
 
-/** БОСС: ребёнок, лев или куница Лана — каждый рвётся к корзине, трогать
-    лапкой НЕЛЬЗЯ — сердечко слетит. Побеждаются только попкорном, пнутым лапкой */
+/** БОСС: ребёнок или воровка Лана — рвутся к попкорну, трогать лапкой
+    НЕЛЬЗЯ — сердечко слетит. Малыша побеждаем зерном, пнутым лапкой,
+    а Лану — ПЕРЕРЕЗАЯ её длинные лапки свайпом */
 interface Boss {
   x: number
   y: number
@@ -395,17 +403,98 @@ interface Boss {
   roarT: number
   /** Остаток рокта (с): пока > 0 — зёрна отскакивают, лапка отбрасывается */
   roar: number
-  /** Задержка текста «ОТСКОК!», чтобы не заспамить экран */
+  /** Задержка текста «ОТСКОК!/УВЕРНУЛАСЬ!», чтобы не заспамить экран */
   deflectCd: number
+  /* --- ЛАНА: длинные лапки с когтями, тянутся к корзинке --- */
+  paws: LanaPaw[]
+  /** Пауза до вырастания следующей лапки (с) */
+  pawT: number
 }
 
-/** Зерно, брошенное Ланой в лапку: летит по прямой, отскакивает от краёв */
-interface BossShot {
-  x: number
-  y: number
-  vx: number
-  vy: number
-  t: number
+/** ЛАПКА ЛАНЫ: длинная рука с когтями тянется от её тела к корзинке.
+    Игрок ПЕРЕРЕЗАЕТ её свайпом лапки — разрез и есть урон воровке */
+interface LanaPaw {
+  /** Смещение корня от центра тела Ланы (корень следует за телом) */
+  offX: number
+  offY: number
+  /** Корень лапки (у тела) и кончик с когтями — считаются каждый кадр */
+  rx: number
+  ry: number
+  tx: number
+  ty: number
+  /** Направление роста (единичный вектор) и перпендикуляр для покачивания */
+  dx: number
+  dy: number
+  px: number
+  py: number
+  /** Текущая и полная длина лапки */
+  len: number
+  maxLen: number
+  /** 'grow' — тянется · 'hold' — гребёт у корзины · 'back' — отступает ·
+      'cut' — перерезана: обрубок втягивается, кончик отлетает */
+  state: 'grow' | 'hold' | 'back' | 'cut'
+  stateT: number
+  /** Фаза покачивания */
+  sway: number
+  /** Сколько зёрен схватила (0 — лапка пустая) */
+  loot: number
+  /** Текст «ПУСТО!» уже показан — не спамим */
+  emptyShown: boolean
+  /* --- Отлетевший кончик (анимация разреза) --- */
+  cutT: number
+  cutX: number
+  cutY: number
+  cutVX: number
+  cutVY: number
+  cutRot: number
+}
+
+/** Ближайшие точки двух отрезков: расстояние и средняя точка между ними.
+    Используется для РЕЗА лапок Ланы — свайп лапки это отрезок за кадр */
+function segSegClosest(
+  ax: number,
+  ay: number,
+  bx: number,
+  by: number,
+  cx: number,
+  cy: number,
+  dx: number,
+  dy: number,
+): { d: number; x: number; y: number } {
+  const d1x = bx - ax
+  const d1y = by - ay
+  const d2x = dx - cx
+  const d2y = dy - cy
+  const rx = ax - cx
+  const ry = ay - cy
+  const a = d1x * d1x + d1y * d1y
+  const e = d2x * d2x + d2y * d2y
+  const f = d2x * rx + d2y * ry
+  let s = 0
+  let t = 0
+  if (a > 1e-9 && e > 1e-9) {
+    const c = d1x * rx + d1y * ry
+    const bb = d1x * d2x + d1y * d2y
+    const denom = a * e - bb * bb
+    s = denom !== 0 ? Math.min(1, Math.max(0, (bb * f - c * e) / denom)) : 0
+    t = (bb * s + f) / e
+    if (t < 0) {
+      t = 0
+      s = Math.min(1, Math.max(0, -c / a))
+    } else if (t > 1) {
+      t = 1
+      s = Math.min(1, Math.max(0, (bb - c) / a))
+    }
+  } else if (e > 1e-9) {
+    t = Math.min(1, Math.max(0, f / e))
+  } else if (a > 1e-9) {
+    s = Math.min(1, Math.max(0, -(d1x * rx + d1y * ry) / a))
+  }
+  const p1x = ax + d1x * s
+  const p1y = ay + d1y * s
+  const p2x = cx + d2x * t
+  const p2y = cy + d2y * t
+  return { d: Math.hypot(p1x - p2x, p1y - p2y), x: (p1x + p2x) / 2, y: (p1y + p2y) / 2 }
 }
 
 interface Particle {
@@ -577,7 +666,7 @@ export class PopcornEngine {
   private bigCaramelRun = 0
   private bigCherryRun = 0
   private bigGrapeRun = 0
-  /* --- БОССЫ v0.0.33: МАЛЫШ / ЛЬВ / КУНИЦА ЛАНА — по кругу каждые 10 уровней --- */
+  /* --- БОССЫ v0.0.34: МАЛЫШ и КУНИЦА ЛАНА — чередуются каждые 10 уровней --- */
   private boss: Boss | null = null
   /** Монетки за победы над боссами за забег (выдаёт компонент) */
   private bossCoinsRun = 0
@@ -587,8 +676,9 @@ export class PopcornEngine {
   private bossKidKillsRun = 0
   private bossLionKillsRun = 0
   private bossMartenKillsRun = 0
-  /** Зёрна, брошенные Ланой в лапку */
-  private bossShots: BossShot[] = []
+  /** Позиция лапки в прошлом кадре — свайп-сегмент для РЕЗА лапок Ланы */
+  private pawPrevX = 0
+  private pawPrevY = 0
   /** Сердечек было при появлении босса — для «Неприкасаемого» */
   private bossHeartsAtSpawn = 0
   /** Последний бой прошёл без потери сердечек (0/1 — в статистику) */
@@ -785,7 +875,6 @@ export class PopcornEngine {
     this.bossKidKillsRun = 0
     this.bossLionKillsRun = 0
     this.bossMartenKillsRun = 0
-    this.bossShots = []
     this.bossCleanLast = false
     this.bossCoinsRun = 0
     this.boss = null
@@ -1121,7 +1210,15 @@ export class PopcornEngine {
     if (this.phase !== 'playing' || this.paused) return
     this.paw.tx = x
     this.paw.ty = y - lift * this.u
-    this.paw.seen = true
+    if (!this.paw.seen) {
+      /* Первое касание: лапка ПОЯВЛЯЕТСЯ под пальцем, а не летит к нему —
+         иначе первый «замет» через всё поле режет лапки Ланы без свайпа */
+      this.paw.x = x
+      this.paw.y = y - lift * this.u
+      this.pawPrevX = this.paw.x
+      this.pawPrevY = this.paw.y
+      this.paw.seen = true
+    }
   }
 
   /* ================= размеры ================= */
@@ -1540,6 +1637,9 @@ export class PopcornEngine {
     } else {
       const prevX = this.paw.x
       const prevY = this.paw.y
+      /* Свайп-сегмент кадра: им ПЕРЕРЕЗАЮТСЯ лапки Ланы */
+      this.pawPrevX = prevX
+      this.pawPrevY = prevY
       const spd = 14 * (this.pawBonus.speed ?? 1) * (1 + (this.tree.speedAdd ?? 0))
       const k = 1 - Math.exp(-dt * (this.perk === 'slowpaw' ? spd * 0.46 : spd))
       this.paw.x += (this.paw.tx - this.paw.x) * k
@@ -1574,15 +1674,12 @@ export class PopcornEngine {
     // Голубь-воришка: влетает с 3-го уровня и таскает попкорн из стаканчика
     this.updatePigeon(dt)
 
-    // БОСС «МАЛЫШ»: бродит, рвётся к корзине, гребёт из неё — и ловит пинки
+    // БОСС: малыш ловит пинки зерном, а Лане режем лапки свайпом
     this.updateBoss(dt)
     if (this.phase !== 'playing') return // босс повержен: уровень уже завершён
 
     // Летящий попкорн (пнутый лапкой): полёт, отскоки, попадания в босса
     this.updateThrownPieces(dt)
-
-    // Зёрна Ланы в полёте: летят в лапку, отскакивают от краёв
-    this.updateBossShots(dt)
 
     // БОЛЬШАЯ ПОПКОРНИНА: побег, обратный отсчёт и выход на поле по расписанию
     this.updateBig(dt)
@@ -2510,6 +2607,8 @@ export class PopcornEngine {
       roarT: LION_ROAR_EVERY,
       roar: 0,
       deflectCd: 0,
+      paws: [],
+      pawT: 2, // отсчёт стартует, когда Лана уже скользнула в зал
     }
     /* У каждого вида своя явка и своё предупреждение */
     if (kind === 'lion') {
@@ -2554,8 +2653,8 @@ export class PopcornEngine {
 
   /** Босс живёт своей жизнью: бродит по верхней половине, по таймеру РВЁТСЯ
       к корзине и выгребает попкорн. Касание лапкой — сердечко слетает.
-      v0.0.33: ЛЕВ время от времени РОКТУЕТ — зёрна отскакивают от гривы,
-      а лапку отбрасывает волной. ЛАНА мелькает рывками-дэшами */
+      МАЛЫШ ловит пинки зерном, а ЛАНА мелькает рывками-дэшами и тянет к
+      корзинке длинные лапки с когтями — РЕЖЬ их свайпом лапки! */
   private updateBoss(dt: number): void {
     const b = this.boss
     if (!b) return
@@ -2588,7 +2687,7 @@ export class PopcornEngine {
       }
       b.x += b.vx * dt
       b.y += b.vy * dt
-      const mX = 62 * u
+      const mX = (b.kind === 'marten' ? 40 : 62) * u // Лана мелькает у самых краёв
       const top = 84
       const bottom = this.H * 0.55
       if (b.x < mX || b.x > this.W - mX) {
@@ -2604,18 +2703,21 @@ export class PopcornEngine {
         b.vy = 0
         b.stateT = 0
       }
-      b.atkT -= dt
-      if (b.atkT <= 0) {
-        // РЫВОК К КОРЗИНЕ: каждый следующий босс злее и быстрее
-        const tier = Math.max(1, Math.floor(this.lvl / BOSS_EVERY))
-        b.state = 'charge'
-        b.stateT = 0
-        const d = Math.hypot(this.cup.x - b.x, this.cup.y - b.y) || 1
-        const sp =
-          (155 + tier * 26) * u * BOSS_CHARGE_MULT_BY_KIND[b.kind]
-        b.vx = ((this.cup.x - b.x) / d) * sp
-        b.vy = ((this.cup.y - b.y) / d) * sp
-        audio.play('fever')
+      /* ЛАНА сама к корзинке не рвётся — за неё тянутся лапки (ниже) */
+      if (b.kind !== 'marten') {
+        b.atkT -= dt
+        if (b.atkT <= 0) {
+          // РЫВОК К КОРЗИНЕ: каждый следующий босс злее и быстрее
+          const tier = Math.max(1, Math.floor(this.lvl / BOSS_EVERY))
+          b.state = 'charge'
+          b.stateT = 0
+          const d = Math.hypot(this.cup.x - b.x, this.cup.y - b.y) || 1
+          const sp =
+            (155 + tier * 26) * u * BOSS_CHARGE_MULT_BY_KIND[b.kind]
+          b.vx = ((this.cup.x - b.x) / d) * sp
+          b.vy = ((this.cup.y - b.y) / d) * sp
+          audio.play('fever')
+        }
       }
       /* ЛЕВ: таймер рокта — в бродяжничестве набирается, до рывка не доходит,
          если рокт созрел раньше */
@@ -2707,7 +2809,11 @@ export class PopcornEngine {
       return
     }
 
-    /* КАСАНИЕ ЛАПКОЙ: трогать малыша НЕЛЬЗЯ — минус сердечко.
+    /* ЛАНА: лапки тянутся к корзинке, растут и РЕЖУТСЯ свайпом
+       ('flee' вышел выше по return — лапки при победе уже убраны) */
+    if (b.kind === 'marten') this.updateLanaPaws(dt)
+
+    /* КАСАНИЕ ЛАПКОЙ: трогать босса НЕЛЬЗЯ — минус сердечко.
        «Отдышка» после касания не даёт выжечь все сердца одним махом.
        Сюда попадают только состояния на земле — 'in'/'flee' ушли выше */
     if (b.invuln <= 0 && this.stun <= 0) {
@@ -2744,9 +2850,8 @@ export class PopcornEngine {
     }
   }
 
-  /** Босс добрался до корзины: гребёт из неё попкорн — как воришка-голубь,
-      только жирнее (растёт с номером босса). Лана после гребли швыряет
-      зерно в лапку — уворачивайся! Пустую корзину только трясёт */
+  /** МАЛЫШ добрался до корзины: гребёт из неё попкорн — как воришка-голубь,
+      только жирнее (растёт с номером босса). Пустую корзину только трясёт */
   private bossSwat(): void {
     const u = this.u
     const b = this.boss
@@ -2784,74 +2889,289 @@ export class PopcornEngine {
         size: 20 * u,
       })
     }
-    /* ЛАНА: после каждой гребли швыряет зерно прямо в лапку —
-       летит по прицельной прямой, успей увести лапку в сторону */
-    if (b && b.kind === 'marten') {
-      const d = Math.hypot(this.paw.x - b.x, this.paw.y - b.y) || 1
-      this.bossShots.push({
-        x: b.x,
-        y: b.y,
-        vx: ((this.paw.x - b.x) / d) * MARTEN_SHOT_SPEED * u,
-        vy: ((this.paw.y - b.y) / d) * MARTEN_SHOT_SPEED * u,
+    this.emitStats(true)
+  }
+
+  /* ================= ЛАНА-ВОРОВКА: лапки с когтями ================= */
+
+  /** Сколько лапок Лана тянет одновременно: 2 на первом тире, до 4 у матёрой */
+  private lanaMaxPaws(): number {
+    const tier = Math.max(1, Math.floor(this.lvl / BOSS_EVERY))
+    return Math.min(4, 1 + Math.ceil(tier / 2))
+  }
+
+  /** Вырастить лапку: корень сбоку от тела Ланы, кончик — у корзинки */
+  private spawnLanaPaw(): void {
+    const b = this.boss
+    if (!b || b.paws.length >= this.lanaMaxPaws()) return
+    const u = this.u
+    const side = b.paws.length % 2 === 0 ? -1 : 1
+    const offX = side * (14 + Math.random() * 8) * u
+    const offY = (6 + Math.random() * 8) * u
+    const rx = b.x + offX
+    const ry = b.y + offY
+    /* Веер целей вокруг корзинки — когти приходятся с разных сторон */
+    const aimA = Math.atan2(this.cup.y - ry, this.cup.x - rx) + (Math.random() - 0.5) * 0.44
+    const dist = Math.hypot(this.cup.x - rx, this.cup.y - ry)
+    b.paws.push({
+      offX,
+      offY,
+      rx,
+      ry,
+      tx: rx,
+      ty: ry,
+      dx: Math.cos(aimA),
+      dy: Math.sin(aimA),
+      px: -Math.sin(aimA),
+      py: Math.cos(aimA),
+      len: 12 * u,
+      maxLen: dist + (18 + Math.random() * 14) * u,
+      state: 'grow',
+      stateT: 0,
+      sway: Math.random() * Math.PI * 2,
+      loot: 0,
+      emptyShown: false,
+      cutT: 0,
+      cutX: 0,
+      cutY: 0,
+      cutVX: 0,
+      cutVY: 0,
+      cutRot: 0,
+    })
+  }
+
+  /** Жизнь лапок: тянутся к корзинке, гребут попкорн, отступают — и РЕЖУТСЯ
+      свайпом лапки котика (свайп-сегмент кадра пересёк лапку — разрез!) */
+  private updateLanaPaws(dt: number): void {
+    const b = this.boss
+    if (!b) return
+    const u = this.u
+    const tier = Math.max(1, Math.floor(this.lvl / BOSS_EVERY))
+    const growSp = (LANA_GROW + tier * LANA_GROW_TIER) * u
+    /* Зона кражи — не точка у центра, а вся горловина корзинки: Лана
+       мелькает рывками, и кончик должен засчитываться у rim, а не в центре */
+    const grabR = Math.max(50 * u, this.cupH * 0.78)
+    for (let i = b.paws.length - 1; i >= 0; i--) {
+      const p = b.paws[i]
+      p.stateT += dt
+      p.sway += dt * 2
+      /* Корень следует за телом Ланы, кончик — по направлению роста */
+      p.rx = b.x + p.offX
+      p.ry = b.y + p.offY
+      const sw = p.state === 'cut' ? 0 : Math.sin(p.sway) * 5 * u
+      p.tx = p.rx + p.dx * p.len - p.px * sw
+      p.ty = p.ry + p.dy * p.len - p.py * sw
+      const dCup = Math.hypot(p.tx - this.cup.x, p.ty - this.cup.y)
+
+      if (p.state === 'cut') {
+        /* Обрубок втягивается, отрезанный кончик с когтями отлетает */
+        p.len = Math.max(0, p.len - LANA_RETRACT * 1.7 * u * dt)
+        p.cutT += dt
+        p.cutVY += 780 * u * dt
+        p.cutX += p.cutVX * dt
+        p.cutY += p.cutVY * dt
+        p.cutRot += dt * 9
+        if (p.cutT > 0.8) b.paws.splice(i, 1)
+      } else if (p.state === 'grow') {
+        p.len += growSp * dt
+        /* Дотянулась раньше расчётной длины (Лана дэшнулась к корзинке) —
+           хватается сразу, как только коготь в горловине корзинки */
+        if (p.len >= p.maxLen || dCup < grabR) {
+          p.len = Math.min(p.len, p.maxLen)
+          p.state = 'hold'
+          p.stateT = 0
+        }
+      } else if (p.state === 'hold') {
+        /* Коготь добрался до корзинки: выгребает попкорн и уносит добычу */
+        if (p.loot === 0 && dCup < grabR) {
+          if (this.collected > 0) {
+            const steal = Math.min(this.collected, LANA_STEAL + Math.floor((tier - 1) / 2))
+            this.collected -= steal
+            this.levelStolen++
+            this.breakStreak(this.cup.x, this.cup.y - this.cupH * 0.9)
+            this.cup.squash = 1
+            this.doShake(5)
+            this.texts.push({
+              x: this.cup.x,
+              y: this.cup.y - this.cupH * 0.9,
+              text: this.L('txt.stole'),
+              color: '#FF6B5E',
+              t: 0,
+              dur: 1,
+              size: 26 * u,
+            })
+            this.crumbs(this.cup.x, this.cup.y - this.cupH * 0.4, '#FFC2D9', 6)
+            audio.play('penalty')
+            this.buzz(40)
+            p.loot = steal
+            p.stateT = 0
+            this.emitStats(true)
+          } else if (!p.emptyShown) {
+            p.emptyShown = true
+            this.texts.push({
+              x: this.cup.x,
+              y: this.cup.y - this.cupH * 0.9,
+              text: this.L('txt.empty'),
+              color: '#C8CFD8',
+              t: 0,
+              dur: 0.8,
+              size: 20 * u,
+            })
+          }
+        }
+        if (p.loot > 0 ? p.stateT > 0.4 : p.stateT > LANA_HOLD) {
+          p.state = 'back'
+          p.stateT = 0
+        }
+      } else if (p.state === 'back') {
+        p.len -= (LANA_RETRACT + (p.loot > 0 ? 70 : 0)) * u * dt
+        if (p.len <= 10 * u) {
+          b.paws.splice(i, 1)
+          continue
+        }
+      }
+
+      /* РЕЗ: свайп лапки котика за кадр пересёк лапку. Режет только РЕАЛЬНЫЙ
+         мах — свайп не короче 2*u за кадр: стоящая лапка и растущая сквозь
+         неё лапка Ланы не считаются. Отступающую с добычей тоже можно
+         подловить — вернёшь украденное! */
+      const swx = this.paw.x - this.pawPrevX
+      const swy = this.paw.y - this.pawPrevY
+      const cuttable =
+        p.state === 'grow' || p.state === 'hold' || (p.state === 'back' && p.loot > 0)
+      if (cuttable && this.stun <= 0 && this.paw.seen && swx * swx + swy * swy > (2 * u) * (2 * u)) {
+        const hit = segSegClosest(
+          this.pawPrevX,
+          this.pawPrevY,
+          this.paw.x,
+          this.paw.y,
+          p.rx,
+          p.ry,
+          p.tx,
+          p.ty,
+        )
+        if (hit.d < (LANA_PAW_R + 10) * u) this.cutLanaPaw(p, hit.x, hit.y)
+      }
+    }
+    /* Свободный слот — вырастить следующую лапку: пауза тает с каждым тиром */
+    if (b.state === 'wander' && b.paws.length < this.lanaMaxPaws()) {
+      b.pawT -= dt
+      if (b.pawT <= 0) {
+        this.spawnLanaPaw()
+        b.pawT = Math.max(0.75, LANA_REGROW - tier * 0.05) + Math.random() * 0.4
+      }
+    }
+  }
+
+  /** Разрез лапки: кончик отлетает, Лана теряет жизнь. Украденное вываливается */
+  private cutLanaPaw(p: LanaPaw, x: number, y: number): void {
+    const b = this.boss
+    if (!b) return
+    const u = this.u
+    p.state = 'cut'
+    p.stateT = 0
+    p.cutT = 0
+    p.cutX = p.tx
+    p.cutY = p.ty
+    /* Кончик отлетает по маху лапки, как по лезвию */
+    const d = Math.hypot(this.pawVX, this.pawVY) || 1
+    const sp = Math.min(430, d * 0.5)
+    p.cutVX = (this.pawVX / d) * sp * u + (Math.random() - 0.5) * 60 * u
+    p.cutVY = (this.pawVY / d) * sp * u - 130 * u
+    /* Украденные зёрна вываливаются обратно на поле — успей подобрать! */
+    if (p.loot > 0) {
+      for (let k = 0; k < p.loot; k++) {
+        this.pieces.push({
+          x: x + (Math.random() - 0.5) * 30 * u,
+          y: y + (Math.random() - 0.5) * 30 * u,
+          rot: Math.random() * Math.PI * 2,
+          kind: 'popcorn',
+          phase: Math.random() * Math.PI * 2,
+          spawn: 0,
+          spin: (Math.random() < 0.5 ? -1 : 1) * 6,
+          dA: 0,
+          vx: (Math.random() - 0.5) * 240 * u,
+          vy: -(120 + Math.random() * 170) * u,
+        })
+      }
+      p.loot = 0
+      this.texts.push({
+        x,
+        y: y - 34 * u,
+        text: this.L('txt.lootBack'),
+        color: '#FFF3D6',
         t: 0,
+        dur: 0.9,
+        size: 21 * u,
+      })
+    }
+    /* УРОН: каждый разрез — минус жизнь воровке */
+    b.hp--
+    b.flash = 1
+    this.rings.push({ x, y, t: 0, ttl: 0.4, color: '255, 143, 163', r0: 8 * u, r1: 46 * u })
+    this.crumbs(x, y, '#C89B62', 8)
+    this.doShake(4)
+    this.buzz(20)
+    if (b.hp <= 0) {
+      this.bossDown()
+    } else {
+      this.texts.push({
+        x,
+        y: y - 30 * u,
+        text: this.L('txt.pawCut'),
+        color: '#FFE066',
+        t: 0,
+        dur: 0.7,
+        size: 22 * u,
       })
       audio.play('shoo')
     }
     this.emitStats(true)
   }
 
-  /** Зерно Ланы в полёте: скользит по прямой, отскакивает от краёв поля,
-      живёт не дольше MARTEN_SHOT_TTL. Попало в лапку — минус сердечко */
-  private updateBossShots(dt: number): void {
+  /** Боссу засчитан смертельный урон (пинок зерном или разрез лапки):
+      очки, монетки, ачивки за забег — салют и уход за кадр */
+  private bossDown(): void {
+    const b = this.boss
+    if (!b) return
     const u = this.u
-    const mX = 20 * u
-    const top = 40
-    const bottom = this.H - 40 * u
-    for (let i = this.bossShots.length - 1; i >= 0; i--) {
-      const s = this.bossShots[i]
-      s.t += dt
-      s.x += s.vx * dt
-      s.y += s.vy * dt
-      if (s.x < mX) {
-        s.x = mX
-        s.vx = Math.abs(s.vx) * 0.8
-      } else if (s.x > this.W - mX) {
-        s.x = this.W - mX
-        s.vx = -Math.abs(s.vx) * 0.8
-      }
-      if (s.y < top) {
-        s.y = top
-        s.vy = Math.abs(s.vy) * 0.8
-      } else if (s.y > bottom) {
-        s.y = bottom
-        s.vy = -Math.abs(s.vy) * 0.8
-      }
-      /* Попадание в лапку: трогать опасно и без босса, а зёрнышко Ланы
-         бьёт больно — минус сердечко (обереги/рукавички не защищают) */
-      if (
-        this.stun <= 0 &&
-        Math.hypot(this.paw.x - s.x, this.paw.y - s.y) < MARTEN_SHOT_R * u
-      ) {
-        this.bossShots.splice(i, 1)
-        this.texts.push({
-          x: s.x,
-          y: s.y - 30 * u,
-          text: this.L('txt.lanaHit'),
-          color: '#E2B98A',
-          t: 0,
-          dur: 0.9,
-          size: 21 * u,
-        })
-        this.crumbs(s.x, s.y, '#C89B62', 6)
-        this.loseHeart('boss')
-        continue
-      }
-      if (s.t > MARTEN_SHOT_TTL) this.bossShots.splice(i, 1)
-    }
+    b.state = 'flee'
+    b.stateT = 0
+    b.paws.length = 0
+    const tier = Math.max(1, Math.floor(this.lvl / BOSS_EVERY))
+    const bonus = BOSS_BONUS_BASE + (tier - 1) * BOSS_BONUS_PER_TIER
+    this.score += bonus
+    /* «Призовые малыша»: монетки с боссов +12% за ступень */
+    this.bossCoinsRun += Math.round(
+      (BOSS_COINS_BASE + (tier - 1) * BOSS_COINS_PER_TIER) * (1 + (this.tree.bossCoins01 ?? 0)),
+    )
+    /* Ачивки босса: счёт побед за забег и «без царапин» — сердечек при
+        победе не меньше, чем было при появлении босса */
+    this.bossKillsRun++
+    if (b.kind === 'kid') this.bossKidKillsRun++
+    else if (b.kind === 'lion') this.bossLionKillsRun++
+    else this.bossMartenKillsRun++
+    this.bossCleanLast = this.hearts >= this.bossHeartsAtSpawn
+    const downKey =
+      b.kind === 'lion' ? 'txt.bossDownLion' : b.kind === 'marten' ? 'txt.bossDownMarten' : 'txt.bossDown'
+    this.texts.push({
+      x: b.x,
+      y: b.y - 50 * u,
+      text: this.L(downKey, { n: bonus }),
+      color: '#FFE066',
+      t: 0,
+      dur: 1.6,
+      size: 26 * u,
+    })
+    this.confettiBurst(b.x, b.y, 26)
+    audio.play('meow')
+    this.doShake(6)
+    this.emitStats(true)
   }
 
   /** Летящий попкорн: пнутое лапкой зерно скользит с трением, отскакивает
-      от краёв поля и, врезавшись в малыша, снимает ему жизнь */
+      от краёв поля и, врезавшись в МАЛЫША, снимает ему жизнь.
+      ЛАНА зерном не берётся — ловко отбивает лапкой: режь её лапки! */
   private updateThrownPieces(dt: number): void {
     const u = this.u
     const mX = 34 * u
@@ -2890,9 +3210,31 @@ export class PopcornEngine {
         p.vy = -Math.abs(vy) * 0.72
       }
       /* ПОПАДАНИЕ В БОССА: зерно тратится, босс теряет жизнь.
-         ЛЕВ В РОКТЕ — грива-щит отбивает зерно без урона */
+         ЛЕВ В РОКТЕ — грива-щит отбивает зерно без урона.
+         ЛАНА зерном вообще не берётся — отбивает лапкой */
       if (b && b.state !== 'flee' && b.state !== 'in') {
         const hitR = BOSS_HIT_R_BY_KIND[b.kind] * u + 12 * u
+        if (b.kind === 'marten') {
+          if (Math.hypot(p.x - b.x, p.y - b.y) < hitR) {
+            p.vx = -vx * 0.65 + (Math.random() - 0.5) * 90 * u
+            p.vy = -vy * 0.65 + (Math.random() - 0.5) * 90 * u
+            if (b.deflectCd <= 0) {
+              b.deflectCd = 0.6
+              this.texts.push({
+                x: b.x,
+                y: b.y - 60 * u,
+                text: this.L('txt.lanaDodge'),
+                color: '#E2B98A',
+                t: 0,
+                dur: 0.8,
+                size: 21 * u,
+              })
+              this.crumbs(b.x, b.y, '#E8D9B0', 5)
+              audio.play('click')
+            }
+          }
+          continue
+        }
         if (Math.hypot(p.x - b.x, p.y - b.y) < hitR) {
           if (b.kind === 'lion' && b.roar > 0) {
             /* ОТСКОК: зерно летит обратно под углом, жизни не теряет */
@@ -2948,36 +3290,7 @@ export class PopcornEngine {
     this.doShake(4)
     this.buzz(20)
     if (b.hp <= 0) {
-      b.state = 'flee'
-      b.stateT = 0
-      const tier = Math.max(1, Math.floor(this.lvl / BOSS_EVERY))
-      const bonus = BOSS_BONUS_BASE + (tier - 1) * BOSS_BONUS_PER_TIER
-      this.score += bonus
-      /* «Призовые малыша»: монетки с боссов +12% за ступень */
-      this.bossCoinsRun += Math.round(
-        (BOSS_COINS_BASE + (tier - 1) * BOSS_COINS_PER_TIER) * (1 + (this.tree.bossCoins01 ?? 0)),
-      )
-      /* Ачивки босса: счёт побед за забег и «без царапин» — сердечек при
-          победе не меньше, чем было при появлении босса */
-      this.bossKillsRun++
-      if (b.kind === 'kid') this.bossKidKillsRun++
-      else if (b.kind === 'lion') this.bossLionKillsRun++
-      else this.bossMartenKillsRun++
-      this.bossCleanLast = this.hearts >= this.bossHeartsAtSpawn
-      const downKey =
-        b.kind === 'lion' ? 'txt.bossDownLion' : b.kind === 'marten' ? 'txt.bossDownMarten' : 'txt.bossDown'
-      this.texts.push({
-        x: b.x,
-        y: b.y - 50 * u,
-        text: this.L(downKey, { n: bonus }),
-        color: '#FFE066',
-        t: 0,
-        dur: 1.6,
-        size: 26 * u,
-      })
-      this.confettiBurst(b.x, b.y, 26)
-      audio.play('meow')
-      this.doShake(6)
+      this.bossDown()
     } else {
       this.texts.push({
         x: b.x,
@@ -3215,7 +3528,8 @@ export class PopcornEngine {
     this.drawPieces(ts)
     if (this.pigeon && this.phase === 'playing') this.drawPigeon(ts)
     if (this.boss && this.phase === 'playing') this.drawBoss()
-    if (this.bossShots.length > 0) this.drawBossShots()
+    /* ЛАНА: длинные лапки с когтями — поверх босса и корзинки */
+    if (this.boss && this.boss.paws.length > 0) this.drawLanaPaws()
     this.drawFlying()
     this.drawParticles()
     /* Ударные волны поверх частиц: кольца взрывов и победы */
@@ -3678,35 +3992,116 @@ export class PopcornEngine {
     }
   }
 
-  /** Зёрнышки, брошенные Ланой в лапку: коричневое зерно со следом */
-  private drawBossShots(): void {
+  /** ЛАНА: длинные лапки с когтями — рука-лента от тела до корзинки */
+  private drawLanaPaws(): void {
+    const b = this.boss
+    if (!b) return
     const { ctx } = this
     const u = this.u
-    for (const s of this.bossShots) {
-      /* след: угасающие кружочки позади */
-      const age = Math.min(1, s.t / MARTEN_SHOT_TTL)
-      ctx.fillStyle = `rgba(200, 155, 98, ${0.35 * (1 - age)})`
-      ctx.beginPath()
-      ctx.arc(s.x - s.vx * 0.02, s.y - s.vy * 0.02, 6 * u, 0, Math.PI * 2)
-      ctx.fill()
-      /* само зёрнышко */
-      ctx.save()
-      ctx.translate(s.x, s.y)
-      ctx.rotate(Math.atan2(s.vy, s.vx))
-      ctx.fillStyle = '#B98A4A'
-      ctx.beginPath()
-      ctx.ellipse(0, 0, 9 * u, 6 * u, 0, 0, Math.PI * 2)
-      ctx.fill()
+    for (const p of b.paws) {
+      const px = p.px
+      const py = p.py
+      const w0 = 9.5 * u // полуширина у плеча
+      const w1 = 5.5 * u // полуширина у кисти
+      if (p.state === 'cut') {
+        /* Отлетевший кончик: крутится и тает */
+        const a = Math.max(0, 1 - p.cutT / 0.8)
+        ctx.save()
+        ctx.globalAlpha = a
+        ctx.translate(p.cutX, p.cutY)
+        ctx.rotate(p.cutRot)
+        this.drawLanaHand(u)
+        ctx.restore()
+        /* Обрубок у плеча втягивается */
+        ctx.fillStyle = '#8A5A2B'
+        ctx.beginPath()
+        ctx.moveTo(p.rx + px * w0, p.ry + py * w0)
+        ctx.lineTo(p.tx + px * w1 * 0.8, p.ty + py * w1 * 0.8)
+        ctx.lineTo(p.tx - px * w1 * 0.8, p.ty - py * w1 * 0.8)
+        ctx.lineTo(p.rx - px * w0, p.ry - py * w0)
+        ctx.closePath()
+        ctx.fill()
+        continue
+      }
+      /* Рука: сужающаяся лента (шерсть) */
       ctx.fillStyle = '#8A5A2B'
       ctx.beginPath()
-      ctx.ellipse(-2 * u, 0, 3.5 * u, 5.5 * u, 0, 0, Math.PI * 2)
+      ctx.moveTo(p.rx + px * w0, p.ry + py * w0)
+      ctx.lineTo(p.tx + px * w1, p.ty + py * w1)
+      ctx.lineTo(p.tx - px * w1, p.ty - py * w1)
+      ctx.lineTo(p.rx - px * w0, p.ry - py * w0)
+      ctx.closePath()
       ctx.fill()
-      ctx.strokeStyle = '#5E3A14'
-      ctx.lineWidth = 1.5 * u
+      /* Светлая полоска-брюшко вдоль лапки */
+      ctx.fillStyle = '#C9A468'
       ctx.beginPath()
-      ctx.moveTo(-7 * u, 0)
-      ctx.lineTo(7 * u, 0)
-      ctx.stroke()
+      ctx.moveTo(p.rx + px * w0 * 0.45, p.ry + py * w0 * 0.45)
+      ctx.lineTo(p.tx + px * w1 * 0.45, p.ty + py * w1 * 0.45)
+      ctx.lineTo(p.tx - px * w1 * 0.45, p.ty - py * w1 * 0.45)
+      ctx.lineTo(p.rx - px * w0 * 0.45, p.ry - py * w0 * 0.45)
+      ctx.closePath()
+      ctx.fill()
+      /* Борцовая манжета-шарф у плеча — фирменный знак Ланы */
+      const scx = p.rx + p.dx * 7 * u
+      const scy = p.ry + p.dy * 7 * u
+      ctx.fillStyle = '#A33327'
+      ctx.beginPath()
+      ctx.moveTo(scx + px * (w0 + 2.5 * u), scy + py * (w0 + 2.5 * u))
+      ctx.lineTo(scx + p.dx * 11 * u + px * (w0 - u), scy + p.dy * 11 * u + py * (w0 - u))
+      ctx.lineTo(scx + p.dx * 11 * u - px * (w0 - u), scy + p.dy * 11 * u - py * (w0 - u))
+      ctx.lineTo(scx - px * (w0 + 2.5 * u), scy - py * (w0 + 2.5 * u))
+      ctx.closePath()
+      ctx.fill()
+      /* Украденные зёрнышки вдоль лапки */
+      if (p.loot > 0) {
+        ctx.fillStyle = '#FFF3D6'
+        for (let k = 0; k < p.loot; k++) {
+          const t = 0.4 + k * 0.18
+          if (t > 1) break
+          ctx.beginPath()
+          ctx.ellipse(
+            p.rx + p.dx * p.len * t,
+            p.ry + p.dy * p.len * t,
+            4 * u,
+            3 * u,
+            Math.atan2(p.dy, p.dx),
+            0,
+            Math.PI * 2,
+          )
+          ctx.fill()
+        }
+      }
+      /* Кисть с когтями на кончике — у корзинки когти раздвинуты */
+      ctx.save()
+      ctx.translate(p.tx, p.ty)
+      ctx.rotate(Math.atan2(p.dy, p.dx))
+      this.drawLanaHand(u, p.state === 'hold' ? 1.2 : 1)
+      ctx.restore()
+    }
+  }
+
+  /** Кисть лапки Ланы: мохнатый кулак и три серповидных когтя */
+  private drawLanaHand(u: number, scale = 1): void {
+    const { ctx } = this
+    ctx.fillStyle = '#6E4418'
+    ctx.beginPath()
+    ctx.arc(0, 0, 6.5 * u * scale, 0, Math.PI * 2)
+    ctx.fill()
+    ctx.fillStyle = '#F5EFE2'
+    for (const [ox, oy, rot] of [
+      [-4, -3, -0.55],
+      [0.5, -4.5, 0],
+      [5, -2.5, 0.55],
+    ] as const) {
+      ctx.save()
+      ctx.translate(ox * u * scale, oy * u * scale)
+      ctx.rotate(rot)
+      ctx.beginPath()
+      ctx.moveTo(-2.2 * u * scale, 0)
+      ctx.quadraticCurveTo(-0.5 * u * scale, -8 * u * scale, 3 * u * scale, -1.4 * u * scale)
+      ctx.quadraticCurveTo(0.6 * u * scale, -3 * u * scale, -2.2 * u * scale, 0)
+      ctx.closePath()
+      ctx.fill()
       ctx.restore()
     }
   }

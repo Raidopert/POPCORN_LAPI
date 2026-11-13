@@ -4299,8 +4299,8 @@ export function PopcornGame() {
     /* НОВЫЕ МЕХАНИКИ 0.0.31: босс «МАЛЫШ», большие попкорнины, сорта нарезки */
     if (L.bigGrape >= 5) cand.push('bigGrape5')
     if (L.bossKills >= 5) cand.push('boss5life')
-    /* v0.0.33: все три вида боссов побеждены за всё время */
-    if (L.bossKills >= 1 && L.bossLionKills >= 1 && L.bossMartenKills >= 1) cand.push('menagerie')
+    /* v0.0.34: МАЛЫШ (bossKills) и ЛАНА побеждены за один забег (лев в запасе) */
+    if (L.bossKills >= 1 && L.bossMartenKills >= 1) cand.push('menagerie')
     if (L.sliceCaramel > 0 && L.sliceCherry > 0 && L.sliceGrape > 0) cand.push('sliceAll3')
     if (L.runs >= 10) cand.push('runs10')
     if (L.runs >= 25) cand.push('runs25')
