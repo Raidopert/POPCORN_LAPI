@@ -683,6 +683,97 @@ export function makeSmoothPopcornSprite(variant: PopcornVariant = 'white'): Spri
   return { canvas, w: 14, h: 14, smooth: true }
 }
 
+/* ---------- БОЛЬШАЯ ПОПКОРНИНА: редкий жирный приз на поле ----------
+   Крупное пухлое облако в карамельно-золотой глазури с блёстками:
+   читается издалека и отличается от обычных зёрен и золота. ---------- */
+
+export function makeBigPopcornSprite(): Sprite {
+  const S = 96
+  const k = S / 30
+  const canvas = mkCanvas(S, S)
+  const c = canvas.getContext('2d') as CanvasRenderingContext2D | null
+  if (!c) return { canvas, w: 30, h: 30, smooth: true }
+  const pal = {
+    body: '#FFD98A',
+    shade: '#E39B36',
+    shine: '#FFF6DC',
+    edge: '#A06514',
+  }
+  /* Шесть пузырей: пухлое облако-кластер, заметно крупнее любого зерна */
+  const blobs: Array<[number, number, number]> = [
+    [15, 12.6, 7.6],
+    [8.4, 17.2, 5.4],
+    [21.6, 17.2, 5.4],
+    [15, 6.9, 4.9],
+    [5.9, 11.8, 4.1],
+    [24.1, 11.8, 4.1],
+    [11.5, 21.3, 4.3],
+    [18.5, 21.3, 4.3],
+  ]
+
+  /* Силуэт: чуть шире тёмным, поверх — основная заливка */
+  c.fillStyle = pal.edge
+  c.fill(circlesPath(blobs, k, 0.6))
+  c.fillStyle = pal.body
+  const body = circlesPath(blobs, k)
+  c.fill(body)
+
+  /* Объём внутри клипа: тень снизу, блики сверху-слева, карамельная поливка */
+  c.save()
+  c.clip(body)
+  softSpot(c, 19, 21, 13 * k, pal.shade + 'B0')
+  softSpot(c, 9.5, 7.5, 8.5 * k, pal.shine + 'F0')
+  softSpot(c, 16.5, 11, 4 * k, pal.shine + 'C8')
+  softSpot(c, 6.5, 15.5, 2.6 * k, '#FFFBEB' + 'D0')
+  /* Складки-«пушинки», чтобы облако не было стерильным */
+  c.strokeStyle = 'rgba(120, 70, 10, 0.12)'
+  c.lineWidth = 0.7 * k
+  c.lineCap = 'round'
+  c.beginPath()
+  c.arc(15 * k, 14 * k, 9.6 * k, Math.PI * 0.3, Math.PI * 0.72)
+  c.stroke()
+  c.beginPath()
+  c.arc(10.5 * k, 12 * k, 4.6 * k, Math.PI * 0.85, Math.PI * 1.5)
+  c.stroke()
+  c.beginPath()
+  c.arc(20 * k, 13.5 * k, 3.8 * k, Math.PI * 1.1, Math.PI * 1.8)
+  c.stroke()
+  /* Карамельная поливка: волна через верх + капли */
+  c.strokeStyle = '#D88A22'
+  c.lineWidth = 1.7 * k
+  c.beginPath()
+  c.moveTo(6.2 * k, 10.4 * k)
+  c.bezierCurveTo(9 * k, 3.4 * k, 21 * k, 3.4 * k, 23.8 * k, 10.4 * k)
+  c.stroke()
+  c.lineWidth = 1.15 * k
+  c.beginPath()
+  c.moveTo(10.8 * k, 9.2 * k)
+  c.lineTo(10.8 * k, 12.4 * k)
+  c.moveTo(15 * k, 8.2 * k)
+  c.lineTo(15 * k, 10.6 * k)
+  c.moveTo(19.2 * k, 9.2 * k)
+  c.lineTo(19.2 * k, 12 * k)
+  c.stroke()
+  /* Пара вшитых блёсток-звёздочек */
+  c.strokeStyle = '#FFFFFF'
+  c.lineWidth = 0.55 * k
+  c.beginPath()
+  c.moveTo(8.6 * k, 6.6 * k)
+  c.lineTo(8.6 * k, 9.4 * k)
+  c.moveTo(7.2 * k, 8 * k)
+  c.lineTo(10 * k, 8 * k)
+  c.stroke()
+  c.globalAlpha = 0.8
+  c.beginPath()
+  c.moveTo(21.4 * k, 6.2 * k)
+  c.lineTo(21.4 * k, 8.4 * k)
+  c.moveTo(20.3 * k, 7.3 * k)
+  c.lineTo(22.5 * k, 7.3 * k)
+  c.stroke()
+  c.restore()
+  return { canvas, w: 30, h: 30, smooth: true }
+}
+
 /* ---------- Соска: гладкий белый наконечник + розовое колечко ---------- */
 
 export function makeSmoothNippleSprite(): Sprite {

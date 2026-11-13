@@ -42,11 +42,13 @@ function writeNum(key: string, value: number): void {
 /* ================= монетки 🪙 ================= */
 
 export function getCoins(): number {
+  migrateXpBank()
   return readNum(COINS_KEY)
 }
 
 /** Начислить/потратить монетки (delta может быть отрицательной) */
 export function addCoins(delta: number): void {
+  migrateXpBank()
   writeNum(COINS_KEY, readNum(COINS_KEY) + delta)
 }
 
@@ -74,6 +76,17 @@ export function migrateXpBank(): void {
         const v = Math.max(0, Math.floor(Number(window.localStorage.getItem(key)) || 0))
         window.localStorage.setItem(key, String(Math.floor(v / 2.5)))
       }
+      window.dispatchEvent(new Event(STORE_EVENT))
+    }
+    /* --- разовая миграция v0.0.28: цены апгрейдов пересобраны под новую
+        политику «вся прокачка ≈ 10–15 тысяч 🪙» (было 3.3 млн). Банк монет,
+        накопленный в прежней экономике, делим на 10 — купленное остаётся,
+        а мелкий запас не даёт выкупить лавку в первый день --- */
+    const MIG3_KEY = 'popcorn-coins-mig28'
+    if (window.localStorage.getItem(MIG3_KEY) !== '1') {
+      window.localStorage.setItem(MIG3_KEY, '1')
+      const v = Math.max(0, Math.floor(Number(window.localStorage.getItem(COINS_KEY)) || 0))
+      window.localStorage.setItem(COINS_KEY, String(Math.floor(v / 10)))
       window.dispatchEvent(new Event(STORE_EVENT))
     }
     if (window.localStorage.getItem(XP_MIG_KEY) === '1') return

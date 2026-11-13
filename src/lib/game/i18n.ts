@@ -2810,6 +2810,14 @@ export const T: Record<string, Row> = {
     'MINE! FIEBER-PUNKTE VERBRANNT!',
     '¡MINA! ¡PUNTOS PERDIDOS!',
   ],
+  /* БОЛЬШАЯ ПОПКОРНИНА: объявление появления и горький промах */
+  'big.spawn': [
+    'БОЛЬШАЯ ПОПКОРНИНА!',
+    'BIG POPCORN!',
+    'RIESEN-POPCORN!',
+    '¡PALOMITA GIGANTE!',
+  ],
+  'big.miss': ['УКАТИЛАСЬ!', 'IT GOT AWAY!', 'WEGGEROLLT!', '¡SE ESCAPÓ!'],
   'fever.coins': ['монеток', 'coins', 'Münzen', 'monedas'],
 }
 

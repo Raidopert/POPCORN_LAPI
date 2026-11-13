@@ -3543,6 +3543,8 @@ export function PopcornGame() {
     maxHearts: 5,
     mineOn: false,
     goldenOn: false,
+    bigCaught: 0,
+    bigCoins: 0,
   })
   const [bestRaw, storeBest] = useStoredValue(BEST_KEY, '0')
   const [mutedRaw, storeMuted] = useStoredValue(MUTE_KEY, '0')
@@ -3596,6 +3598,8 @@ export function PopcornGame() {
   const [feverCoins, setFeverCoins] = useState<number | null>(null)
   /** Сколько счётчиков забега уже учтено в пожизненной статистике (ачивки) */
   const prevRunRef = useRef({ grains: 0, golden: 0, pigeons: 0, nipples: 0, mines: 0, saves: 0 })
+  /** БОЛЬШАЯ ПОПКОРНИНА: сколько монеток за неё уже выдано в этом забеге */
+  const bigCoinsPaidRef = useRef(0)
   /** Когда начался текущий забег (ачивка-марафон) */
   const runStartRef = useRef(0)
   /** Серверный забег мирового лидерборда: HMAC-токен для защищённого submit */
@@ -4393,6 +4397,18 @@ export function PopcornGame() {
           /* Суммарный счёт за всё время — стаж для ачивок-миллионщиков */
           addLife({ score: delta })
         }
+        /* БОЛЬШАЯ ПОПКОРНИНА: монетки капают сразу при поимке — с множителями
+           «Монетного магнита» (+10%/ступень) и «Копилки-хрюшки» (+25%),
+           как у наград этапов. Счётчик обнулился — забег новый, сбрасываем выдачу */
+        if (s.bigCoins > bigCoinsPaidRef.current) {
+          const diff = s.bigCoins - bigCoinsPaidRef.current
+          bigCoinsPaidRef.current = s.bigCoins
+          addCoins(
+            Math.round(diff * (1 + (treeRef.current.coinsAdd ?? 0)) * marketRef.current.coinGift),
+          )
+        } else if (s.bigCoins < bigCoinsPaidRef.current) {
+          bigCoinsPaidRef.current = s.bigCoins
+        }
         /* HTML-индикатор «ВОЛНА N»: поверх тумана и любых тёмных комнат.
            Таймер держим в ref: новая волна перезапускает тост, а старый
            таймаут не гасит его раньше времени */
@@ -4795,6 +4811,7 @@ export function PopcornGame() {
     setResult(null)
     setClearInfo(null)
     lastScoreRef.current = 0
+    bigCoinsPaidRef.current = 0
     runXpGainRef.current = 0
     setRunXpGain(0)
     transformRef.current = 'none'

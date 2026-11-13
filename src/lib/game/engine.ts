@@ -24,6 +24,7 @@ import {
   makePigeonSprite,
   makeGlowSprite,
   makeSmoothNippleSprite,
+  makeBigPopcornSprite,
   drawSprite,
   easeOutBack,
   easeOutQuad,
@@ -79,6 +80,10 @@ export interface EngineStats {
   mineOn: boolean
   /** Ф0-2 туториал: золотое зерно сейчас на поле */
   goldenOn: boolean
+  /** БОЛЬШАЯ ПОПКОРНИНА: поймано за забег */
+  bigCaught: number
+  /** Монетки, накопленные за большие попкорнины за забег (выдаёт компонент) */
+  bigCoins: number
 }
 
 export interface LevelResult {
@@ -142,6 +147,20 @@ const FEVER_SECONDS = 3
 /** Шанс, что на лихорадке среди зёрен спрячется одна мина-штраф */
 const FEVER_MINE_CHANCE = 0.3
 
+/* --- БОЛЬШАЯ ПОПКОРНИНА: раз за уровень на поле появляется жирный приз.
+    Живёт считанные секунды и пытается убежать — успел дотянуться:
+    +1000 очков сразу (без комбо) и монетки. Не успел — укатилась.
+    Стандартный игрок с телефона чаще всего не успевает, а у скиллового
+    потолка нет: чем глубже забег, тем больше шансов поймать --- */
+const BIG_LIFE = 3.5
+const BIG_POINTS = 1000
+const BIG_COINS = 50
+/** Скорость побега, u/с: вдогонку пальцем — но finger lag решает */
+const BIG_SPEED = 62
+/** Появляется в случайный момент между 6-й и 16-й секундой уровня */
+const BIG_AT_MIN = 6
+const BIG_AT_MAX = 16
+
 interface FieldPiece {
   x: number
   y: number
@@ -153,6 +172,19 @@ interface FieldPiece {
   spin: number
   /** угол дрейфа для перка «Скользкий пол» */
   dA: number
+}
+
+/** БОЛЬШАЯ ПОПКОРНИНА: жирный приз, который живёт секунды и пытается убежать */
+interface BigPiece {
+  x: number
+  y: number
+  /** Сколько секунд уже на поле (BIG_LIFE — укатилась) */
+  t: number
+  /** Текущее направление побега (рад) */
+  dir: number
+  /** Сколько ещё держать направление до следующего поворота */
+  wt: number
+  phase: number
 }
 
 /** Пылинка-мошка в луче света: медленно дрейфует, оживляет фон */
@@ -376,6 +408,16 @@ export class PopcornEngine {
   /* --- голубь-воришка --- */
   private pigeon: Pigeon | null = null
   private pigeonTimer = -1
+  /* --- БОЛЬШАЯ ПОПКОРНИНА: раз за уровень, живёт секунды — успей дотянуться --- */
+  private big: BigPiece | null = null
+  /** Секунд от начала уровня, когда появится большая попкорнина */
+  private bigAt = 8
+  /** Своя большая попкорнина на этом уровне уже вышла (поймана или укатилась) */
+  private bigDone = false
+  /** Поймано за забег (для статистики) */
+  private bigCaught = 0
+  /** Монетки за большие попкорнины за забег (выдаёт компонент) */
+  private bigCoinsRun = 0
   /* --- перк «Кошачий щит»: одно прощение мины за уровень --- */
   private shieldLeft = 0
   /* --- постоянный апгрейд «Большой стаканчик» (+вместимость) --- */
@@ -450,6 +492,8 @@ export class PopcornEngine {
     pigeon0: Sprite
     pigeon1: Sprite
     nipple: Sprite
+    /** БОЛЬШАЯ ПОПКОРНИНА: карамельно-золотое облако-приз */
+    big: Sprite
   }
 
   constructor(canvas: HTMLCanvasElement, cb: EngineCallbacks = {}) {
@@ -474,6 +518,7 @@ export class PopcornEngine {
       pigeon0: makePigeonSprite(false),
       pigeon1: makePigeonSprite(true),
       nipple: makeSmoothNippleSprite(),
+      big: makeBigPopcornSprite(),
     }
     this.lastTs = performance.now()
     this.raf = requestAnimationFrame(this.loop)
@@ -538,6 +583,9 @@ export class PopcornEngine {
     this.runNipples = 0
     this.minesHit = 0
     this.shieldSaves = 0
+    this.bigCaught = 0
+    this.bigCoinsRun = 0
+    this.big = null
     this.lifeUsed = false
     this.fever = null
     this.feverAfter = -1
@@ -636,6 +684,11 @@ export class PopcornEngine {
           : /* Апгрейд «Кроткий голубь»: первый прилёт позже */
             Math.max(4, PIGEON_FIRST_AT - (level - 3) + this.tree.pigeonLate) + Math.random() * 3
         : -1
+    /* Большая попкорнина: уходит вместе с уровнем, следующая появится
+       в случайный момент между 6-й и 16-й секундой нового уровня */
+    this.big = null
+    this.bigDone = false
+    this.bigAt = BIG_AT_MIN + Math.random() * (BIG_AT_MAX - BIG_AT_MIN)
     /* Ачивка «Чистая работа»: считаем шоки и кражи за уровень; и потери сердец */
     this.levelStolen = 0
     this.levelShock = 0
@@ -684,6 +737,8 @@ export class PopcornEngine {
     this.texts.length = 0
     this.pigeon = null
     this.pigeonTimer = -1
+    /* Большая попкорнина не выживает на лихорадке: поле очищается */
+    this.big = null
     this.waveDelay = -1
     this.pendingClear = -1
     this.stun = 0
@@ -1011,6 +1066,146 @@ export class PopcornEngine {
     }
   }
 
+  /* ================= большая попкорнина ================= */
+
+  /** Тик большой попкорнины: побег по полю, обратный отсчёт, спавн по расписанию */
+  private updateBig(dt: number): void {
+    if (this.fever || this.feverAfter >= 0 || this.phase !== 'playing') return
+    const u = this.u
+    if (this.big) {
+      const b = this.big
+      b.t += dt
+      /* Попкорнина пытается убежать: время от времени меняет направление */
+      b.wt -= dt
+      if (b.wt <= 0) {
+        b.wt = 0.45 + Math.random() * 0.55
+        b.dir = Math.random() * Math.PI * 2
+      }
+      b.x += Math.cos(b.dir) * BIG_SPEED * u * dt
+      b.y += Math.sin(b.dir) * BIG_SPEED * u * dt
+      /* Границы поля: отскок, как у зёрен в перке «Скользкий пол» */
+      const mX = 40 * u
+      const top = 40
+      const bot = this.H - 46 * u
+      if (b.x < mX) {
+        b.x = mX
+        b.dir = Math.PI - b.dir
+      }
+      if (b.x > this.W - mX) {
+        b.x = this.W - mX
+        b.dir = Math.PI - b.dir
+      }
+      if (b.y < top) {
+        b.y = top
+        b.dir = -b.dir
+      }
+      if (b.y > bot) {
+        b.y = bot
+        b.dir = -b.dir
+      }
+      /* Время вышло — укатилась: награда потеряна безвозвратно */
+      if (b.t >= BIG_LIFE) {
+        this.crumbs(b.x, b.y, '#C9B38A', 9)
+        this.texts.push({
+          x: b.x,
+          y: b.y - 40 * u,
+          text: this.L('big.miss'),
+          color: '#B9A88F',
+          t: 0,
+          dur: 1,
+          size: 22 * u,
+        })
+        audio.play('penalty')
+        this.big = null
+      }
+      return
+    }
+    /* Ещё не появлялась на этом уровне — время пришло? Ровно одна на уровень:
+       помечаем bigDone в момент выхода, иначе после поимки/промаха
+       расписание сработало бы заново каждый кадр */
+    if (!this.bigDone && this.duration - this.timeLeft >= this.bigAt) {
+      this.bigDone = true
+      this.spawnBig()
+    }
+  }
+
+  /** Выпустить большую попкорнину: подальше от лапки, чтобы успели не все */
+  private spawnBig(): void {
+    const u = this.u
+    const mX = 52 * u
+    const top = 46 + 8 * u
+    const bottom = this.H - 60 * u
+    const diag = Math.hypot(this.W, this.H)
+    let bx = this.W / 2
+    let by = this.H / 2
+    let best = -1
+    for (let tries = 0; tries < 44; tries++) {
+      const x = mX + Math.random() * (this.W - mX * 2)
+      const y = top + Math.random() * Math.max(10, bottom - top)
+      const dPaw = Math.hypot(x - this.paw.x, y - this.paw.y)
+      if (dPaw <= best) continue
+      /* не в стаканчике и не впритык к минам/зёрнам */
+      if (Math.hypot(x - this.cup.x, y - this.cup.y) < 110 * u) continue
+      let bad = false
+      for (const q of this.pieces) {
+        if (Math.hypot(x - q.x, y - q.y) < 52 * u) {
+          bad = true
+          break
+        }
+      }
+      if (bad) continue
+      bx = x
+      by = y
+      best = dPaw
+      if (best > diag * 0.52) break /* уже достаточно далеко — хватит искать */
+    }
+    this.big = { x: bx, y: by, t: 0, dir: Math.random() * Math.PI * 2, wt: 0.5, phase: Math.random() * Math.PI * 2 }
+    /* Золотая ударная волна + объявление: реакция игрока стартует сейчас */
+    this.rings.push({ x: bx, y: by, t: 0, ttl: 0.7, color: '255, 201, 60', r0: 14 * u, r1: 110 * u })
+    this.texts.push({
+      x: bx,
+      y: by - 48 * u,
+      text: this.L('big.spawn'),
+      color: '#FFC93C',
+      t: 0,
+      dur: 1.5,
+      size: 26 * u,
+    })
+    audio.play('chest')
+    this.buzz([20, 30, 20])
+  }
+
+  /** Поймала лапка: +1000 очков сразу (без комбо) и +50 монеток компоненту */
+  private catchBig(): void {
+    const u = this.u
+    const b = this.big
+    if (!b) return
+    this.big = null
+    this.bigCaught++
+    this.bigCoinsRun += BIG_COINS
+    this.score += BIG_POINTS
+    this.paw.pulse = 1
+    this.rings.push({ x: b.x, y: b.y, t: 0, ttl: 0.5, color: '255, 224, 102', r0: 12 * u, r1: 74 * u })
+    this.crumbs(b.x, b.y, '#FFE066', 14)
+    this.texts.push({
+      x: b.x,
+      y: b.y - 44 * u,
+      text: `+${BIG_POINTS}`,
+      color: '#FFC93C',
+      t: 0,
+      dur: 1.2,
+      size: 32 * u,
+    })
+    audio.play('golden')
+    audio.play('coin')
+    this.buzz(35)
+  }
+
+  /** QA/E2E: немедленно выпустить большую попкорнину, минуя расписание */
+  debugSpawnBig(): void {
+    if (this.phase === 'playing' && !this.big && !this.fever) this.spawnBig()
+  }
+
   /* ================= обновление ================= */
 
   private update(dt: number): void {
@@ -1062,6 +1257,9 @@ export class PopcornEngine {
 
     // Голубь-воришка: влетает с 3-го уровня и таскает попкорн из стаканчика
     this.updatePigeon(dt)
+
+    // БОЛЬШАЯ ПОПКОРНИНА: побег, обратный отсчёт и выход на поле по расписанию
+    this.updateBig(dt)
 
     // Радиус подбора зависит от перка лапки, скина и древа (геттер grabR)
     const grabR = this.grabR
@@ -1175,6 +1373,13 @@ export class PopcornEngine {
         audio.play(p.kind === 'golden' ? 'golden' : 'pickup')
         this.buzz(p.kind === 'golden' ? 18 : 8)
       }
+    }
+
+    /* БОЛЬШАЯ ПОПКОРНИНА: мгновенный приз за касание — пока кольцо не закрылось.
+       В шоке лапка не ловит: стоит столбом, пока приз убегает */
+    if (this.big && this.stun <= 0) {
+      const db = Math.hypot(this.paw.x - this.big.x, this.paw.y - this.big.y)
+      if (db < grabR + 30 * u) this.catchBig()
     }
 
     // Высыпание в стаканчик (с перком «Двойной стаканчик» — с дальнего подлёта).
@@ -1981,7 +2186,7 @@ export class PopcornEngine {
       : this.feverAfter >= 0
         ? this.lastFeverGained
         : 0
-    const key = `${this.score}|${this.lvl}|${this.quota}|${this.collected}|${this.carried.length}|${sec}|${this.paused}|${this.streak}|${this.goldenCount}|${this.pigeonsRun}|${fever}|${feverGained}|${this.wave}|${this.shieldLeft}|${this.runGrains}|${this.runNipples}|${this.minesHit}|${this.shieldSaves}|${this.hearts}|${this.maxHearts}`
+    const key = `${this.score}|${this.lvl}|${this.quota}|${this.collected}|${this.carried.length}|${sec}|${this.paused}|${this.streak}|${this.goldenCount}|${this.pigeonsRun}|${fever}|${feverGained}|${this.wave}|${this.shieldLeft}|${this.runGrains}|${this.runNipples}|${this.minesHit}|${this.shieldSaves}|${this.hearts}|${this.maxHearts}|${this.bigCaught}|${this.bigCoinsRun}`
     if (!force && key === this.lastStatsKey) return
     this.lastStatsKey = key
     this.cb.onStats({
@@ -2010,6 +2215,8 @@ export class PopcornEngine {
       maxHearts: this.maxHearts,
       mineOn: this.pieces.some((p) => p.kind === 'corn'),
       goldenOn: this.pieces.some((p) => p.kind === 'golden'),
+      bigCaught: this.bigCaught,
+      bigCoins: this.bigCoinsRun,
     })
   }
 
@@ -2415,6 +2622,60 @@ export class PopcornEngine {
         })
       }
     }
+
+    /* БОЛЬШАЯ ПОПКОРНИНА поверх зёрен: крупное облако с золотым свечением
+       и кольцом-таймером — пока оно не замкнулось, приз можно поймать */
+    if (this.big) this.drawBig(ts)
+  }
+
+  /** Отрисовка большой попкорнины: облако, свечение, таймер-кольцо */
+  private drawBig(ts: number): void {
+    const { ctx } = this
+    const u = this.u
+    const b = this.big
+    if (!b) return
+    const pop = easeOutBack(Math.min(1, b.t / 0.35))
+    const bob = Math.sin(ts * 0.005 + b.phase) * 3 * u
+    const y = b.y + bob
+    const scale = 2.3 * u * Math.max(0.05, pop)
+    /* Тень под облаком */
+    if (this.perfTier < 2) {
+      ctx.fillStyle = 'rgba(0, 0, 0, 0.24)'
+      ctx.beginPath()
+      ctx.ellipse(b.x, b.y + 14 * u, 20 * u * pop, 8 * u * pop, 0, 0, Math.PI * 2)
+      ctx.fill()
+    }
+    /* Золотое свечение — как у золотого зерна, но жирнее */
+    if (this.perfTier < 1) {
+      ctx.save()
+      ctx.globalCompositeOperation = 'lighter'
+      ctx.globalAlpha = 0.5 + 0.22 * Math.sin(ts * 0.006 + b.phase * 2)
+      const glowScale = (scale * this.sp.big.w * 2.4) / this.sp.goldenGlow.w
+      drawSprite(ctx, this.sp.goldenGlow, b.x, y, glowScale)
+      ctx.restore()
+    }
+    drawSprite(ctx, this.sp.big, b.x, y, scale, {
+      rot: Math.sin(ts * 0.003 + b.phase) * 0.12,
+    })
+    if (this.perfTier < 1) {
+      drawSprite(ctx, this.sp.sparkle, b.x + 16 * u, y - 15 * u, 1.4 * u, {
+        rot: ts * 0.005,
+        alpha: 0.95,
+      })
+    }
+    /* Кольцо-таймер: остаток времени до побега. Меньше секунды — красное */
+    const left = Math.max(0, 1 - b.t / BIG_LIFE)
+    const urgent = left < 0.4
+    const R = 15 * scale + 10 * u
+    ctx.save()
+    ctx.globalAlpha = 0.85
+    ctx.strokeStyle = urgent ? '#FF5A4E' : '#FFC93C'
+    ctx.lineWidth = Math.max(2, 3.2 * u)
+    ctx.lineCap = 'round'
+    ctx.beginPath()
+    ctx.arc(b.x, y, R, -Math.PI / 2, -Math.PI / 2 + Math.PI * 2 * left)
+    ctx.stroke()
+    ctx.restore()
   }
 
   private drawFlying(): void {
