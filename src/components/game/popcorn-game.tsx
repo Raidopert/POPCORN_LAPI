@@ -5216,15 +5216,23 @@ export function PopcornGame() {
           ) : (
             <StatPill>
               <span aria-hidden>🥤</span>
-              <span className="tabular-nums">
-                {stats.collected}/{stats.quota}
-              </span>
-              <span className="relative h-1.5 w-9 overflow-hidden rounded-full bg-white/15">
-                <span
-                  className="absolute inset-y-0 left-0 rounded-full bg-amber-300 transition-[width] duration-200"
-                  style={{ width: `${quotaPct}%` }}
-                />
-              </span>
+              {/* Босс-уровень: нормы нет (999999 = «победить малыша»),
+                  после победы показываем только собранное, без фейковой цифры */}
+              {stats.quota >= 999999 ? (
+                <span className="tabular-nums">{stats.collected}</span>
+              ) : (
+                <span className="tabular-nums">
+                  {stats.collected}/{stats.quota}
+                </span>
+              )}
+              {stats.quota < 999999 && (
+                <span className="relative h-1.5 w-9 overflow-hidden rounded-full bg-white/15">
+                  <span
+                    className="absolute inset-y-0 left-0 rounded-full bg-amber-300 transition-[width] duration-200"
+                    style={{ width: `${quotaPct}%` }}
+                  />
+                </span>
+              )}
             </StatPill>
           )}
           <StatPill>
