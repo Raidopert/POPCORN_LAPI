@@ -34,10 +34,108 @@ export interface WorldStats {
   visitors: number
 }
 
+/* ---------- автосоздание таблиц (Supabase: нулевая настройка) ---------- */
+
+/**
+ * Идемпотентный DDL, дословно повторяющий prisma/schema.prisma
+ * (диалект Postgres: quoted identifiers, TIMESTAMP(3), BIGINT).
+ *
+ * Выполняется один раз на процесс сервера при первом обращении к базе:
+ * на Vercel достаточно задать DATABASE_URL → redeploy → первый же
+ * запрос сам создаст все таблицы и индексы. Ни SQL-редактор Supabase,
+ * ни prisma db push вручную запускать не нужно.
+ *
+ * Локальный SQLite сюда не попадает: там таблицы создаёт `bun run db:push`.
+ * Правка схемы: обнови prisma/schema.prisma и этот массив ОДНОВРЕМЕННО.
+ */
+const POSTGRES_DDL: readonly string[] = [
+  `CREATE TABLE IF NOT EXISTS "LeaderPlayer" (
+    "id" TEXT NOT NULL,
+    "device" TEXT NOT NULL,
+    "nick" TEXT NOT NULL DEFAULT 'Котик',
+    "bestScore" INTEGER NOT NULL DEFAULT 0,
+    "bestLevel" INTEGER NOT NULL DEFAULT 0,
+    "runs" INTEGER NOT NULL DEFAULT 0,
+    "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    "updatedAt" TIMESTAMP(3) NOT NULL,
+    CONSTRAINT "LeaderPlayer_pkey" PRIMARY KEY ("id")
+  )`,
+  `CREATE UNIQUE INDEX IF NOT EXISTS "LeaderPlayer_device_key" ON "LeaderPlayer"("device")`,
+  `CREATE INDEX IF NOT EXISTS "LeaderPlayer_bestScore_idx" ON "LeaderPlayer"("bestScore")`,
+
+  `CREATE TABLE IF NOT EXISTS "LeaderRun" (
+    "id" TEXT NOT NULL,
+    "device" TEXT NOT NULL,
+    "ipHash" TEXT,
+    "status" TEXT NOT NULL DEFAULT 'open',
+    "score" INTEGER,
+    "level" INTEGER,
+    "startedAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    "endedAt" TIMESTAMP(3),
+    CONSTRAINT "LeaderRun_pkey" PRIMARY KEY ("id")
+  )`,
+  `CREATE INDEX IF NOT EXISTS "LeaderRun_ipHash_startedAt_idx" ON "LeaderRun"("ipHash", "startedAt")`,
+  `CREATE INDEX IF NOT EXISTS "LeaderRun_device_status_idx" ON "LeaderRun"("device", "status")`,
+
+  `CREATE TABLE IF NOT EXISTS "LeaderSubmission" (
+    "id" TEXT NOT NULL,
+    "runId" TEXT NOT NULL,
+    "device" TEXT NOT NULL,
+    "nick" TEXT NOT NULL,
+    "score" INTEGER NOT NULL,
+    "level" INTEGER NOT NULL,
+    "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    CONSTRAINT "LeaderSubmission_pkey" PRIMARY KEY ("id")
+  )`,
+  `CREATE UNIQUE INDEX IF NOT EXISTS "LeaderSubmission_runId_key" ON "LeaderSubmission"("runId")`,
+  `CREATE INDEX IF NOT EXISTS "LeaderSubmission_score_idx" ON "LeaderSubmission"("score")`,
+  `CREATE INDEX IF NOT EXISTS "LeaderSubmission_device_idx" ON "LeaderSubmission"("device")`,
+
+  `CREATE TABLE IF NOT EXISTS "LeaderStat" (
+    "key" TEXT NOT NULL,
+    "value" BIGINT NOT NULL DEFAULT 0,
+    CONSTRAINT "LeaderStat_pkey" PRIMARY KEY ("key")
+  )`,
+
+  `CREATE TABLE IF NOT EXISTS "LeaderVisit" (
+    "device" TEXT NOT NULL,
+    "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    "lastAt" TIMESTAMP(3) NOT NULL,
+    CONSTRAINT "LeaderVisit_pkey" PRIMARY KEY ("device")
+  )`,
+]
+
+let ensurePromise: Promise<void> | null = null
+
+function isPostgresUrl(): boolean {
+  return /^postgres(ql)?:/i.test((process.env.DATABASE_URL ?? '').trim())
+}
+
+/**
+ * Создать таблицы в Postgres (один раз на процесс; при ошибке —
+ * повтор на следующем запросе). Вызывается перед каждой операцией
+ * с базой внутри существующих try/catch: неудача старта даёт
+ * обычный offline-режим, игра не падает.
+ */
+function ensureTables(): Promise<void> {
+  if (!isPostgresUrl()) return Promise.resolve()
+  if (!ensurePromise) {
+    ensurePromise = (async () => {
+      for (const sql of POSTGRES_DDL) await db.$executeRawUnsafe(sql)
+      console.log('[leaders] ensureTables: таблицы Postgres готовы')
+    })().catch((err) => {
+      ensurePromise = null // разрешаем повторную попытку на следующем запросе
+      throw err
+    })
+  }
+  return ensurePromise
+}
+
 /* ---------- чтение топа и статистики ---------- */
 
 export async function fetchTopLeaders(limit = 20): Promise<OnlineLeader[] | null> {
   try {
+    await ensureTables()
     const rows = await db.leaderSubmission.findMany({
       orderBy: [{ score: 'desc' }, { createdAt: 'asc' }],
       take: limit,
@@ -57,6 +155,7 @@ export async function fetchTopLeaders(limit = 20): Promise<OnlineLeader[] | null
 
 export async function fetchWorldStats(): Promise<WorldStats | null> {
   try {
+    await ensureTables()
     const [counters, groups, visits] = await Promise.all([
       db.leaderStat.findMany({ where: { key: { in: ['launches', 'runs', 'playsecs'] } } }),
       db.leaderSubmission.groupBy({ by: ['device'] }),
@@ -79,6 +178,7 @@ export async function fetchWorldStats(): Promise<WorldStats | null> {
 /** Прибавить delta к счётчику (запуск игры, забег, секунды в игре); null без базы */
 export async function bumpStat(key: string, delta = 1): Promise<number | null> {
   try {
+    await ensureTables()
     const s = await db.leaderStat.upsert({
       where: { key },
       create: { key, value: Math.max(1, Math.floor(delta)) },
@@ -97,6 +197,7 @@ export async function bumpStat(key: string, delta = 1): Promise<number | null> {
  */
 export async function recordVisit(device: string): Promise<boolean> {
   try {
+    await ensureTables()
     const existing = await db.leaderVisit.findUnique({ where: { device } })
     if (existing) {
       /* lastAt обновится сам (@updatedAt) */
@@ -121,6 +222,7 @@ export interface OpenRun {
 /** Открыть забег: строка LeaderRun (nonce) + HMAC-токен, одноразовый */
 export async function startLeaderRun(device: string, ipHash: string): Promise<OpenRun | null> {
   try {
+    await ensureTables()
     const run = await db.leaderRun.create({ data: { device, ipHash } })
     return { runId: run.id, startedAt: run.startedAt.getTime() }
   } catch (err) {
@@ -162,6 +264,7 @@ export interface SubmitResult {
 export async function submitLeaderRun(a: SubmitArgs): Promise<SubmitResult> {
   let run
   try {
+    await ensureTables()
     run = await db.leaderRun.findUnique({
       where: { id: a.runId },
       select: { id: true, device: true, status: true, startedAt: true },
@@ -232,6 +335,7 @@ export async function submitLeaderRun(a: SubmitArgs): Promise<SubmitResult> {
 /** Истечь просроченный забег (записать, чтобы не висел open) */
 export async function expireRun(runId: string): Promise<void> {
   try {
+    await ensureTables()
     await db.leaderRun.updateMany({
       where: { id: runId, status: 'open' },
       data: { status: 'expired', endedAt: new Date() },
@@ -249,6 +353,7 @@ export interface PlayerRank {
 /** Место игрока по личному рекорду: 1 + сколько игроков строже */
 export async function playerRank(device: string): Promise<PlayerRank | null> {
   try {
+    await ensureTables()
     const p = await db.leaderPlayer.findUnique({
       where: { device },
       select: { bestScore: true },
