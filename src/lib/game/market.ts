@@ -47,13 +47,13 @@ export function exchangeQuote(from: Currency, to: Currency, n: number): number {
 
 export type ArtifactId = 'piggy' | 'academy' | 'sieve' | 'travelmap' | 'bell' | 'rattle'
 
-export const ARTIFACTS: ReadonlyArray<{ id: ArtifactId; price: number }> = [
-  { id: 'piggy', price: 280 },
-  { id: 'academy', price: 280 },
-  { id: 'sieve', price: 240 },
-  { id: 'travelmap', price: 450 },
-  { id: 'bell', price: 650 },
-  { id: 'rattle', price: 500 },
+export const ARTIFACTS: ReadonlyArray<{ id: ArtifactId; price: number; reqLevel?: number }> = [
+  { id: 'piggy', price: 280, reqLevel: 2 },
+  { id: 'academy', price: 280, reqLevel: 2 },
+  { id: 'sieve', price: 240, reqLevel: 2 },
+  { id: 'travelmap', price: 450, reqLevel: 4 },
+  { id: 'rattle', price: 500, reqLevel: 5 },
+  { id: 'bell', price: 650, reqLevel: 6 },
 ]
 
 export const ARTIFACT_MAP: Record<ArtifactId, (typeof ARTIFACTS)[number]> = ARTIFACTS.reduce(
@@ -63,6 +63,11 @@ export const ARTIFACT_MAP: Record<ArtifactId, (typeof ARTIFACTS)[number]> = ARTI
   },
   {} as Record<ArtifactId, (typeof ARTIFACTS)[number]>,
 )
+
+/** УРОВЕНЬ КОТИКА, с которого артефакт открывается (v0.0.33) */
+export function artifactReqLevel(id: ArtifactId): number {
+  return ARTIFACT_MAP[id]?.reqLevel ?? 1
+}
 
 export const isArtifactId = (v: unknown): v is ArtifactId =>
   v === 'piggy' || v === 'academy' || v === 'sieve' || v === 'travelmap' || v === 'bell' || v === 'rattle'

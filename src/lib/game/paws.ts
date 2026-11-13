@@ -63,6 +63,9 @@ export interface PawDef {
   price: number
   /** Валюта покупки: 'xp' — опыт 🍿 (по умолчанию), 'coins' — монетки 🪙 */
   currency?: 'xp' | 'coins'
+  /** УРОВЕНЬ КОТИКА, с которого лапка открывается (v0.0.33 — гейт опыта).
+      Отсутствует или 1 — доступна сразу */
+  reqLevel?: number
   palette: Partial<PawPalette>
   bonus: PawBonus
 }
@@ -84,6 +87,7 @@ export const PAWS: PawDef[] = [
     desc: 'Чёрная как смоль, но зёрна чует чуть лучше всех.',
     bonusLabel: 'Радиус подбора +10%',
     price: 1500,
+    reqLevel: 1,
     palette: {
       fur: '#3A3432',
       furShade: '#2B2624',
@@ -100,6 +104,7 @@ export const PAWS: PawDef[] = [
     desc: 'Белая пушистика с красными коготками-оберегами.',
     bonusLabel: '25% шанс: мина не отнимет очко',
     price: 3300,
+    reqLevel: 3,
     palette: {
       fur: '#F8F2E9',
       furShade: '#E3D6C5',
@@ -117,6 +122,7 @@ export const PAWS: PawDef[] = [
     desc: 'Горячая шёрстка подгоняет часы — времени чуть больше.',
     bonusLabel: '+5 секунд к каждому уровню',
     price: 5200,
+    reqLevel: 4,
     palette: {
       fur: '#F4552F',
       furShade: '#D8381C',
@@ -133,6 +139,7 @@ export const PAWS: PawDef[] = [
     desc: 'Яркая, как летний луг. Золото само липнет к шерсти.',
     bonusLabel: 'Золотых зёрен заметно больше',
     price: 8000,
+    reqLevel: 5,
     palette: {
       fur: '#7BC447',
       furShade: '#5E9E33',
@@ -149,6 +156,7 @@ export const PAWS: PawDef[] = [
     desc: 'Прохладный морской окрас. Кукуруза её побаивается.',
     bonusLabel: 'На одну мину меньше в каждой волне',
     price: 11000,
+    reqLevel: 6,
     palette: {
       fur: '#2FB8A6',
       furShade: '#1F8F80',
@@ -165,6 +173,7 @@ export const PAWS: PawDef[] = [
     desc: 'Портновская точность: лапка и юркая, и цепкая, как игла.',
     bonusLabel: 'Радиус +15% и лапка проворнее',
     price: 13000,
+    reqLevel: 8,
     palette: {
       fur: '#C9B37E',
       furShade: '#A98F58',
@@ -181,6 +190,7 @@ export const PAWS: PawDef[] = [
     desc: 'Сладкая и шустрая — ягодный заряд бодрости.',
     bonusLabel: 'Радиус +20% и лапка проворнее',
     price: 15000,
+    reqLevel: 9,
     palette: {
       fur: '#E23B7A',
       furShade: '#BC2459',
@@ -197,6 +207,7 @@ export const PAWS: PawDef[] = [
     desc: 'Спелая ягода в крапинку — мины на неё натыкаются и стесняются.',
     bonusLabel: '35% шанс: мина не отнимет очко',
     price: 19000,
+    reqLevel: 10,
     palette: {
       fur: '#F0526A',
       furShade: '#CC3550',
@@ -214,6 +225,7 @@ export const PAWS: PawDef[] = [
     desc: 'Все цвета радуги на трёх пальцах! Носит больше зерна.',
     bonusLabel: 'Вместимость +1 зерно',
     price: 21000,
+    reqLevel: 12,
     palette: {
       fur: '#F2B35A',
       furShade: '#D8923C',
@@ -232,6 +244,7 @@ export const PAWS: PawDef[] = [
     desc: 'Королевский зверь: пятнистая роскошь и вся мощь сразу!',
     bonusLabel: '+5 сек · радиус +15% · мин −1 · больше золота',
     price: 30000,
+    reqLevel: 15,
     palette: {
       fur: '#E9C46A',
       furShade: '#D1A94E',
@@ -249,6 +262,7 @@ export const PAWS: PawDef[] = [
     desc: 'Светится в темноте кинозала и мелькает быстрее всех!',
     bonusLabel: 'Скорость лапки +40%',
     price: 24000,
+    reqLevel: 14,
     palette: {
       fur: '#FF3DA6',
       furShade: '#D91E86',
@@ -266,6 +280,7 @@ export const PAWS: PawDef[] = [
     desc: 'Легендарный артефакт: золото липнет к ней, как попкорн к маслу!',
     bonusLabel: 'Золота +10% и вместимость +1',
     price: 38000,
+    reqLevel: 16,
     palette: {
       fur: '#FFD24A',
       furShade: '#E0AE2C',
@@ -285,6 +300,7 @@ export const PAWS: PawDef[] = [
     bonusLabel: 'Вместимость +1 зерно · радиус +10%',
     price: 39000,
     currency: 'coins',
+    reqLevel: 12,
     palette: {
       fur: '#9B6BB3',
       furShade: '#7E4F96',
@@ -302,6 +318,7 @@ export const PAWS: PawDef[] = [
     bonusLabel: '50% шанс: мина не отнимет очко',
     price: 63000,
     currency: 'coins',
+    reqLevel: 18,
     palette: {
       fur: '#DCE3F5',
       furShade: '#BCC8E8',
@@ -320,6 +337,7 @@ export const PAWS: PawDef[] = [
     bonusLabel: 'Шлейф звёзд · золота +6% · проворнее',
     price: 90000,
     currency: 'coins',
+    reqLevel: 20,
     palette: {
       fur: '#4A5FBF',
       furShade: '#38499A',
@@ -337,6 +355,7 @@ export const PAWS: PawDef[] = [
     desc: 'Тёплая лапка с сердоликовой подушечкой: любовь котика — лучшая броня. Дарит лишнее сердечко в каждом забеге!',
     bonusLabel: 'Сердечек +1 ❤️ · оберег от мин 15%',
     price: 18000,
+    reqLevel: 11,
     palette: {
       fur: '#E86A8A',
       furShade: '#C74E6E',
@@ -354,6 +373,7 @@ export const PAWS: PawDef[] = [
     desc: 'Розовая лапка с карамельными сердечками: мурчет так, что зёрна сами прыгают в ладошку!',
     bonusLabel: 'Сладкий шлейф · проворнее на 5%',
     price: 8200,
+    reqLevel: 2,
     palette: {
       fur: '#FF9EBB',
       furShade: '#E87DA0',

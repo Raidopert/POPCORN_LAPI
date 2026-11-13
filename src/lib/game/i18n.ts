@@ -55,6 +55,13 @@ export const T: Record<string, Row> = {
     '🎖 Kätzchen erreicht Level {{n}}! +1 Baum-Punkt',
     '🎖 ¡El gatito llegó al nivel {{n}}! +1 punto del árbol',
   ],
+  /* v0.0.33: повышение уровня с наградой-разблокировкой */
+  'char.levelUpUnlocks': [
+    '🎖 Уровень {{n}}! Открыто: {{list}} · +1 очко древа',
+    '🎖 Level {{n}}! Unlocked: {{list}} · +1 tree point',
+    '🎖 Level {{n}}! Freigeschaltet: {{list}} · +1 Baum-Punkt',
+    '🎖 ¡Nivel {{n}}! Desbloqueado: {{list}} · +1 punto del árbol',
+  ],
   'menu.play': ['▶ ИГРАТЬ', '▶ PLAY', '▶ SPIELEN', '▶ JUGAR'],
   'menu.rules': ['ПРАВИЛА', 'RULES', 'REGELN', 'REGLAS'],
   'menu.leaders': ['ЛИДЕРЫ', 'RANKING', 'BESTEN', 'RÉCORDS'],
@@ -474,6 +481,14 @@ export const T: Record<string, Row> = {
   'shop.equipped': ['НАДЕТА', 'EQUIPPED', 'ANGELEGT', 'EQUIPADA'],
   'shop.equip': ['НАДЕТЬ', 'EQUIP', 'ANLEGEN', 'EQUIPAR'],
   'shop.max': ['МАКСИМУМ', 'MAXED', 'MAXIMUM', 'MÁXIMO'],
+  /* v0.0.33: гейтинг по уровню котика — замок вместо цены */
+  'shop.locked': ['🔒 ур. {{n}}', '🔒 lvl {{n}}', '🔒 Lvl {{n}}', '🔒 nv {{n}}'],
+  'shop.lockedHint': [
+    'Откроется, когда котик вырастет до уровня {{n}} — играй забеги и качай опыт!',
+    'Unlocks when your kitty reaches level {{n}} — play runs and grow your XP!',
+    'Öffnet sich, wenn dein Kätzchen Level {{n}} erreicht — spiele und sammle XP!',
+    'Se abre cuando tu gatito llegue al nivel {{n}}: ¡juega y gana exp!',
+  ],
   'shop.note': [
     'Очки попкорна = опыт: играй забеги и копи на улучшения!',
     'Popcorn points = XP: play runs and save up for upgrades!',
@@ -2314,6 +2329,10 @@ export const T: Record<string, Row> = {
     '🍿 +{{s}} XP · gesamt: {{t}}',
     '🍿 +{{s}} exp · total: {{t}}',
   ],
+  /* v0.0.33: уровень котика на экране результатов — реальный опыт за забег */
+  'over.lvlBadge': ['⬆ УРОВЕНЬ!', '⬆ LEVEL UP!', '⬆ LEVEL!', '⬆ ¡NIVEL!'],
+  'over.unlocked': ['Открыто: {{list}}', 'Unlocked: {{list}}', 'Freigeschaltet: {{list}}', 'Desbloqueado: {{list}}'],
+  'over.lvlNext': ['до ур. {{n}}: {{left}} 🍿', 'to lvl {{n}}: {{left}} 🍿', 'bis Lvl {{n}}: {{left}} 🍿', 'al nv {{n}}: {{left}} 🍿'],
   'over.charLevel': [
     '🎖 Уровень котика: {{n}} — стаж растёт с каждой попыткой!',
     '🎖 Kitty level: {{n}} — your skill grows with every attempt!',
@@ -3095,6 +3114,28 @@ export const T: Record<string, Row> = {
     '¡PEQUEÑO DERROTADO! +{{n}}',
   ],
   'hud.boss': ['МАЛЫШ', 'KID', 'KNIRPS', 'PEQUE'],
+  /* ---------- v0.0.33: ЛЬВ и КУНИЦА ЛАНА — боссы чередуются каждые 10 уровней ---------- */
+  'banner.bossLion': ['🦁 ЛЬВ ИДЁТ!', '🦁 THE LION ATTACKS!', '🦁 DER LÖWE!', '¡🦁 EL LEÓN!'],
+  'banner.bossMarten': ['🦡 КУНИЦА ЛАНА!', '🦡 LANA THE MARTEN!', '🦡 MARDER LANA!', '🦡 LA MARTA LANA!'],
+  'txt.bossWarnLion': [
+    'В РЁВЕ ГРИВА-ЩИТ: ЗЁРНА ОТСКОЧАТ — БЕЙ ПОСЛЕ!',
+    'IN THE ROAR HIS MANE DEFLECTS — STRIKE AFTER IT!',
+    'IM BRÜLLEN WEHRT DIE MÄHNE AB — TRIFF DANACH!',
+    'EN EL RUGIDO LA MELÉNA REBOTA: ¡GOLPEA DESPUÉS!',
+  ],
+  'txt.bossWarnMarten': [
+    'ЛАНА ШВЫРЯЕТСЯ ЗЁРНАМИ — УВОРАЧИВАЙСЯ!',
+    'LANA THROWS KERNELS — DODGE THEM!',
+    'LANA WIRFT KERNE — WEICHE AUS!',
+    '¡LANA LANZA GRANOS: ESQUIVA!',
+  ],
+  'txt.roar': ['Р-Р-РЁВ!', 'ROAAAR!', 'R-R-RÖHR!', '¡RRRR!'],
+  'txt.deflect': ['ОТСКОК!', 'DEFLECTED!', 'ABGEPRALLT!', '¡REBOTE!'],
+  'txt.lanaHit': ['ЗЕРНО В ЛОБ!', 'KERNEL HIT!', 'KORN-TREFFER!', '¡GRANO!'],
+  'txt.bossDownLion': ['ЛЬВ ПОВЕРЖЕН! +{{n}}', 'LION DEFEATED! +{{n}}', 'LÖWE BESIEGT! +{{n}}', '¡LEÓN DERROTADO! +{{n}}'],
+  'txt.bossDownMarten': ['ЛАНА ПОЙМАНА! +{{n}}', 'LANA CAUGHT! +{{n}}', 'LANA GEFANGEN! +{{n}}', '¡LANA ATRAPADA! +{{n}}'],
+  'hud.bossLion': ['ЛЬВ', 'LION', 'LÖWE', 'LEÓN'],
+  'hud.bossMarten': ['ЛАНА', 'LANA', 'LANA', 'LANA'],
   'txt.feverWin': [
     '🔥 +{{n}} ЗА ЛИХОРАДКУ!',
     '🔥 +{{n}} FEVER BONUS!',

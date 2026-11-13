@@ -43,6 +43,10 @@ export interface LifeStats {
   bigGrape: number
   /** Побед над боссом МАЛЫШЕМ за всё время */
   bossKills: number
+  /** Побед над ЛЬВОМ за всё время (v0.0.33) */
+  bossLionKills: number
+  /** Побед над КУНИЦЕЙ ЛАНОЙ за всё время (v0.0.33) */
+  bossMartenKills: number
   /** Нарезок по сортам за всё время — ачивка «Полное меню» */
   sliceCaramel: number
   sliceCherry: number
@@ -70,6 +74,8 @@ const DEFAULT_LIFE: LifeStats = {
   bigCherry: 0,
   bigGrape: 0,
   bossKills: 0,
+  bossLionKills: 0,
+  bossMartenKills: 0,
   sliceCaramel: 0,
   sliceCherry: 0,
   sliceGrape: 0,

@@ -30,7 +30,7 @@ import {
   Volume2,
   VolumeX,
 } from 'lucide-react'
-import { PopcornEngine, type EngineStats } from '@/lib/game/engine'
+import { PopcornEngine, bossKindForTier, type EngineStats } from '@/lib/game/engine'
 import { audio } from '@/lib/game/audio'
 import {
   TREE_NODES,
@@ -151,6 +151,7 @@ import {
 } from '@/lib/game/marten'
 import {
   ZERO_MARKET_BONUS,
+  artifactReqLevel,
   DEFAULT_MARKET,
   addGrains,
   buyArtifact,
@@ -170,6 +171,7 @@ import {
   type MarketState,
 } from '@/lib/game/market'
 import { GAME_VERSION_LABEL } from '@/lib/game/version'
+import { unlockNamesForRange, type LevelUnlock } from '@/lib/game/unlocks'
 import { tFor, LANGS, LOCALES, type Lang, type TranslateFn } from '@/lib/game/i18n'
 import {
   DEFAULT_SETTINGS,
@@ -1324,6 +1326,7 @@ function MarketOverlay({
   coins,
   xp,
   market,
+  catLevel,
   t,
   onExchange,
   onBuyArtifact,
@@ -1333,6 +1336,8 @@ function MarketOverlay({
   coins: number
   xp: number
   market: MarketState
+  /** Уровень котика 🎖: часть артефактов закрыта замком (v0.0.33) */
+  catLevel: number
   t: TranslateFn
   onExchange: (from: Currency, to: Currency, amount: number) => boolean
   onBuyArtifact: (id: ArtifactId) => void
@@ -1558,12 +1563,20 @@ function MarketOverlay({
           >
             {ARTIFACTS.map((def) => {
               const owned = market.artifacts.includes(def.id)
-              const canBuy = !owned && marten.diamonds >= def.price
+              /* v0.0.33: артефакт закрыт до нужного уровня котика */
+              const reqLvl = artifactReqLevel(def.id)
+              const levelLocked = reqLvl > catLevel
+              const canBuy = !owned && !levelLocked && marten.diamonds >= def.price
               return (
                 <li
                   key={def.id}
+                  title={levelLocked ? t('shop.lockedHint', { n: reqLvl }) : undefined}
                   className={`flex items-center gap-2.5 rounded-xl border-2 p-2 ${
-                    owned ? 'border-amber-400 bg-amber-50' : 'border-[#e3cba4] bg-[#fdf3e0]'
+                    owned
+                      ? 'border-amber-400 bg-amber-50'
+                      : levelLocked
+                        ? 'border-[#e3cba4] bg-[#fdf3e0] opacity-60'
+                        : 'border-[#e3cba4] bg-[#fdf3e0]'
                   }`}
                 >
                   <span
@@ -1589,6 +1602,13 @@ function MarketOverlay({
                   {owned ? (
                     <span className="shrink-0 rounded-full bg-amber-400 px-2.5 py-1.5 font-ui text-[10px] font-bold text-[#5C3A1E]">
                       {t('market.owned')}
+                    </span>
+                  ) : levelLocked ? (
+                    <span
+                      aria-label={t('shop.lockedHint', { n: reqLvl })}
+                      className="shrink-0 rounded-lg bg-[#d9c6a8] px-2.5 py-1.5 font-ui text-[11px] font-bold text-[#6b5233]"
+                    >
+                      {t('shop.locked', { n: reqLvl })}
                     </span>
                   ) : (
                     <button
@@ -1631,6 +1651,7 @@ function ShopOverlay({
   owned,
   equipped,
   upgrades,
+  catLevel,
   t,
   onBuy,
   onEquip,
@@ -1642,6 +1663,8 @@ function ShopOverlay({
   owned: PawId[]
   equipped: PawId
   upgrades: UpgradeState
+  /** Уровень котика 🎖: часть товаров закрыта замком до нужного стажа (v0.0.33) */
+  catLevel: number
   t: TranslateFn
   onBuy: (def: PawDef) => void
   onEquip: (id: PawId) => void
@@ -1708,12 +1731,20 @@ function ShopOverlay({
               const isOwned = owned.includes(def.id)
               const isEquipped = equipped === def.id
               const cur = def.currency ?? 'xp'
-              const canBuy = !isOwned && (cur === 'coins' ? coins >= def.price : xp >= def.price)
+              /* v0.0.33: лапка закрыта, пока котик не дорос до нужного уровня */
+              const reqLvl = def.reqLevel ?? 1
+              const levelLocked = reqLvl > catLevel
+              const canBuy = !isOwned && !levelLocked && (cur === 'coins' ? coins >= def.price : xp >= def.price)
               return (
                 <li
                   key={def.id}
+                  title={levelLocked ? t('shop.lockedHint', { n: reqLvl }) : undefined}
                   className={`flex items-center gap-2.5 rounded-xl border-2 p-2 ${
-                    isEquipped ? 'border-amber-400 bg-amber-50' : 'border-[#e3cba4] bg-[#fdf3e0]'
+                    isEquipped
+                      ? 'border-amber-400 bg-amber-50'
+                      : levelLocked
+                        ? 'border-[#e3cba4] bg-[#fdf3e0] opacity-60'
+                        : 'border-[#e3cba4] bg-[#fdf3e0]'
                   }`}
                 >
                   <PawImg skinId={def.id} />
@@ -1735,7 +1766,14 @@ function ShopOverlay({
                       {t(`paw.${def.id}.bonus`)}
                     </div>
                   </div>
-                  {isEquipped ? (
+                  {levelLocked && !isOwned ? (
+                    <span
+                      aria-label={t('shop.lockedHint', { n: reqLvl })}
+                      className="shrink-0 rounded-lg bg-[#d9c6a8] px-2.5 py-1.5 font-ui text-[11px] font-bold text-[#6b5233]"
+                    >
+                      {t('shop.locked', { n: reqLvl })}
+                    </span>
+                  ) : isEquipped ? (
                     <span className="shrink-0 rounded-full bg-amber-400 px-2.5 py-1.5 font-ui text-[10px] font-bold text-[#5C3A1E]">
                       {t('shop.equipped')}
                     </span>
@@ -1789,11 +1827,15 @@ function ShopOverlay({
                       const level = upgrades[def.id]
                       const maxed = level >= def.prices.length
                       const cost = maxed ? 0 : def.prices[level]
-                      const canBuy = !maxed && xp >= cost
+                      /* v0.0.33: апгрейд закрыт до нужного уровня котика */
+                      const reqLvl = def.reqLevel ?? 1
+                      const levelLocked = reqLvl > catLevel
+                      const canBuy = !maxed && !levelLocked && xp >= cost
                       return (
                         <li
                           key={def.id}
-                          className="rounded-xl border-2 border-[#e3cba4] bg-[#fdf3e0] p-2"
+                          title={levelLocked ? t('shop.lockedHint', { n: reqLvl }) : undefined}
+                          className={`rounded-xl border-2 border-[#e3cba4] bg-[#fdf3e0] p-2 ${levelLocked ? 'opacity-60' : ''}`}
                         >
                           <div className="flex items-center gap-2">
                             <span aria-hidden className="text-2xl">
@@ -1823,6 +1865,13 @@ function ShopOverlay({
                             {maxed ? (
                               <span className="inline-block rounded-full bg-amber-400 px-2.5 py-1.5 font-ui text-[10px] font-bold text-[#5C3A1E]">
                                 {t('shop.max')}
+                              </span>
+                            ) : levelLocked ? (
+                              <span
+                                aria-label={t('shop.lockedHint', { n: reqLvl })}
+                                className="inline-block rounded-lg bg-[#d9c6a8] px-2.5 py-1.5 font-ui text-[11px] font-bold text-[#6b5233]"
+                              >
+                                {t('shop.locked', { n: reqLvl })}
                               </span>
                             ) : (
                               <button
@@ -3597,9 +3646,17 @@ export function PopcornGame() {
     goldenOn: false,
     bigCaught: 0,
     bigCoins: 0,
+    bigCaramel: 0,
+    bigCherry: 0,
+    bigGrape: 0,
     boss: false,
     bossHp: 0,
     bossMaxHp: 0,
+    bossKills: 0,
+    bossKidKills: 0,
+    bossLionKills: 0,
+    bossMartenKills: 0,
+    bossClean: false,
     bossCoins: 0,
     goldCoins: 0,
   })
@@ -3626,6 +3683,10 @@ export function PopcornGame() {
   const [perk, setPerk] = useState<PerkId | null>(null)
   /** Тост «Котик подрос»: уровень персонажа вырос */
   const [charToast, setCharToast] = useState<number | null>(null)
+  /** Названия разблокировок в тосте повышения уровня (v0.0.33) */
+  const [charToastUnlocks, setCharToastUnlocks] = useState<string[]>([])
+  /** Разблокировки, открывшиеся за весь забег — список на экране результатов */
+  const [runLevelUnlocks, setRunLevelUnlocks] = useState<string[]>([])
   /** HTML-индикатор волны: виден поверх попкорнового тумана (туман — в канвасе) */
   const [waveToast, setWaveToast] = useState<number | null>(null)
   /* ---------- Ф0-2: туториал первого забега ----------
@@ -3658,6 +3719,18 @@ export function PopcornGame() {
   /** Большие попкорнины/босс за забег: дельты для пожизненных счётчиков и ачивок */
   const prevBigRef = useRef({ big: 0, caramel: 0, cherry: 0, grape: 0 })
   const prevBossKillsRef = useRef(0)
+  /** Победы по видам боссов за забег: дельты для ачивок ЛЬВА и ЛАНЫ (v0.0.33) */
+  const prevBossKidRef = useRef(0)
+  const prevBossLionRef = useRef(0)
+  const prevBossMartenRef = useRef(0)
+  /** Уровень котика на старте забега — экран результатов покажет повышение.
+      Дубль в состоянии для рендера + ref для колбэков движка */
+  const [runStartLevel, setRunStartLevel] = useState(1)
+  const runStartLevelRef = useRef(1)
+  /** Сколько опыта уже показано чипом 🍿 в HUD (чтобы не дёргать setState впустую) */
+  const lastRunXpShownRef = useRef(0)
+  /** Таймер тоста повышения уровня: общий для очков забега и наград этапов */
+  const lvlToastTimerRef = useRef<number | null>(null)
   /** БОЛЬШАЯ ПОПКОРНИНА: сколько монеток за неё уже выдано в этом забеге */
   const bigCoinsPaidRef = useRef(0)
   /** Монетки за победы над боссами, уже выданные в этом забеге */
@@ -4047,6 +4120,11 @@ export function PopcornGame() {
     const def = ARTIFACT_MAP[id]
     if (!def) return
     if (getMarketSnapshot().artifacts.includes(id)) return
+    /* v0.0.33: артефакт закрыт до нужного уровня котика — даже с алмазами */
+    if (artifactReqLevel(id) > charLevel(getTotalXp())) {
+      audio.play('penalty')
+      return
+    }
     if (getMartenSnapshot().diamonds < def.price) {
       audio.play('penalty')
       return
@@ -4221,6 +4299,8 @@ export function PopcornGame() {
     /* НОВЫЕ МЕХАНИКИ 0.0.31: босс «МАЛЫШ», большие попкорнины, сорта нарезки */
     if (L.bigGrape >= 5) cand.push('bigGrape5')
     if (L.bossKills >= 5) cand.push('boss5life')
+    /* v0.0.33: все три вида боссов побеждены за всё время */
+    if (L.bossKills >= 1 && L.bossLionKills >= 1 && L.bossMartenKills >= 1) cand.push('menagerie')
     if (L.sliceCaramel > 0 && L.sliceCherry > 0 && L.sliceGrape > 0) cand.push('sliceAll3')
     if (L.runs >= 10) cand.push('runs10')
     if (L.runs >= 25) cand.push('runs25')
@@ -4268,6 +4348,23 @@ export function PopcornGame() {
     window.localStorage.setItem(XP_KEY, String(next))
     const tot = Math.max(0, Number(window.localStorage.getItem(TOTAL_KEY) ?? 0) || 0)
     window.localStorage.setItem(TOTAL_KEY, String(Math.floor(tot + gain)))
+    /* v0.0.33: уровень может вырасти ПРЯМО ЗАБЕГОМ (очки = опыт) —
+       тост с плодами роста не ждёт конца этапа. Дубликат исключён:
+       awardStage сравнивает уровни на момент своей работы */
+    const lvlBefore = charLevel(tot)
+    const lvlAfter = charLevel(tot + gain)
+    if (lvlAfter > lvlBefore) {
+      setCharToast(lvlAfter)
+      audio.play('record')
+      setCharToastUnlocks(
+        unlockNamesForRange(lvlBefore, lvlAfter).map((u) => tFor(settingsRef.current.lang)(u.nameKey)),
+      )
+      window.clearTimeout(lvlToastTimerRef.current ?? undefined)
+      lvlToastTimerRef.current = window.setTimeout(() => {
+        setCharToast(null)
+        setCharToastUnlocks([])
+      }, 3400)
+    }
     window.dispatchEvent(new Event(STORE_EVENT))
   }, [])
 
@@ -4291,11 +4388,19 @@ export function PopcornGame() {
       if (after > before) {
         setCharToast(after)
         audio.play('record')
-        window.setTimeout(() => setCharToast(null), 3400)
+        /* v0.0.33: повышение уровня — это ПЛОДЫ роста: тост перечисляет,
+           какие лапки/апгрейды/артефакты открылись на новом уровне */
+        const unlocks = unlockNamesForRange(before, after).map((u) => t(u.nameKey))
+        setCharToastUnlocks(unlocks)
+        window.clearTimeout(lvlToastTimerRef.current ?? undefined)
+        lvlToastTimerRef.current = window.setTimeout(() => {
+          setCharToast(null)
+          setCharToastUnlocks([])
+        }, 3400)
       }
       checkLifeAch()
     },
-    [checkLifeAch],
+    [checkLifeAch, t],
   )
 
   /** Приз в каждом из трёх сундуков — адекватен «злости» перка:
@@ -4576,17 +4681,38 @@ export function PopcornGame() {
           bigGrape: Math.max(0, s.bigGrape - prevBigRef.current.grape),
         })
         prevBigRef.current = { big: s.bigCaught, caramel: s.bigCaramel, cherry: s.bigCherry, grape: s.bigGrape }
-        /* БОСС «МАЛЫШ» 0.0.31: «Малыш повержен», «Три нянки» (3 за забег),
-           «Неприкасаемый» (бой без потери сердец), пожизненный счётчик */
+        /* БОССЫ 0.0.31/0.0.33: «Малыш повержен», «Три нянки» (3 за забег),
+           «Неприкасаемый» (бой без потери сердец), пожизненные счётчики;
+           ЛЬВ и КУНИЦА ЛАНА — свои ачивки и пожизненные счётчики по видам */
         if (s.bossKills > prevBossKillsRef.current) {
           announceAch(['boss1'])
           if (s.bossKills >= 3) announceAch(['boss3run'])
           if (s.bossClean) announceAch(['bossNoHit'])
-          addLife({ bossKills: s.bossKills - prevBossKillsRef.current })
+          const dKid = Math.max(0, s.bossKidKills - prevBossKidRef.current)
+          const dLion = Math.max(0, s.bossLionKills - prevBossLionRef.current)
+          const dMarten = Math.max(0, s.bossMartenKills - prevBossMartenRef.current)
+          if (dLion > 0) announceAch(['lion1'])
+          if (dMarten > 0) announceAch(['marten1'])
+          addLife({
+            bossKills: s.bossKills - prevBossKillsRef.current,
+            bossLionKills: dLion,
+            bossMartenKills: dMarten,
+          })
           prevBossKillsRef.current = s.bossKills
+          prevBossKidRef.current = s.bossKidKills
+          prevBossLionRef.current = s.bossLionKills
+          prevBossMartenRef.current = s.bossMartenKills
         } else if (s.bossKills < prevBossKillsRef.current) {
           /* Новый забег: счётчики сбросились */
           prevBossKillsRef.current = s.bossKills
+          prevBossKidRef.current = s.bossKidKills
+          prevBossLionRef.current = s.bossLionKills
+          prevBossMartenRef.current = s.bossMartenKills
+        }
+        /* Живой чип опыта 🍿 в панели сверху — опыт за забег виден сразу */
+        if (runXpGainRef.current !== lastRunXpShownRef.current) {
+          lastRunXpShownRef.current = runXpGainRef.current
+          setRunXpGain(runXpGainRef.current)
         }
         if ((Number(window.localStorage.getItem(XP_KEY) ?? 0) || 0) >= 10000) cand.push('rich10k')
         announceAch(cand)
@@ -4785,6 +4911,17 @@ export function PopcornGame() {
             .catch(() => {})
         }
         setRunXpGain(runXpGainRef.current)
+        /* v0.0.33: опыт за забег — ачивки «студента» и «профессора» */
+        if (runXpGainRef.current >= 250) announceAch(['xpRun250'])
+        if (runXpGainRef.current >= 750) announceAch(['xpRun750'])
+        /* Разблокировки за весь забег: список на экране результатов.
+           Перевод берём из ref настроек — колбэк движка создаётся один раз */
+        const tt = tFor(settingsRef.current.lang)
+        setRunLevelUnlocks(
+          unlockNamesForRange(runStartLevelRef.current, charLevel(getTotalXp())).map(
+            (u: LevelUnlock) => tt(u.nameKey),
+          ),
+        )
         setResult({ score: r.score, level: r.level, record, rank: list.indexOf(entry), canRevive, reason: r.reason })
         /* Забег кончился — перебивка больше не актуальна */
         setPosterPending(null)
@@ -4938,6 +5075,11 @@ export function PopcornGame() {
     bossCoinsPaidRef.current = 0
     goldCoinsPaidRef.current = 0
     runXpGainRef.current = 0
+    lastRunXpShownRef.current = 0
+    const startLvl = charLevel(getTotalXp())
+    runStartLevelRef.current = startLvl
+    setRunStartLevel(startLvl)
+    setRunLevelUnlocks([])
     setRunXpGain(0)
     transformRef.current = 'none'
     const canvas = canvasRef.current
@@ -4971,6 +5113,9 @@ export function PopcornGame() {
     /* Счётчики больших попкорнин и босса нового забега */
     prevBigRef.current = { big: 0, caramel: 0, cherry: 0, grape: 0 }
     prevBossKillsRef.current = 0
+    prevBossKidRef.current = 0
+    prevBossLionRef.current = 0
+    prevBossMartenRef.current = 0
     setPerk(startPerk)
     lockOrientation(settingsRef.current.orientation)
     setPhase('playing')
@@ -5225,6 +5370,11 @@ export function PopcornGame() {
         equipPaw(def.id)
         return
       }
+      /* v0.0.33: лапка закрыта до нужного уровня котика — даже с полным банком */
+      if ((def.reqLevel ?? 1) > charLevel(getTotalXp())) {
+        audio.play('penalty')
+        return
+      }
       const coins = (def.currency ?? 'xp') === 'coins'
       if (coins) {
         /* Артефактная лапка: монетки падают из сундучков и Лихорадки */
@@ -5259,6 +5409,11 @@ export function PopcornGame() {
   const buyUpgrade = useCallback(
     (id: UpgradeId) => {
       const def = UPGRADE_MAP[id]
+      /* v0.0.33: апгрейд закрыт до нужного уровня котика */
+      if ((def.reqLevel ?? 1) > charLevel(getTotalXp())) {
+        audio.play('penalty')
+        return
+      }
       const state = parseUpgrades(window.localStorage.getItem(UPG_KEY))
       const level = state[id]
       if (level >= def.prices.length) return
@@ -5285,6 +5440,8 @@ export function PopcornGame() {
   const sec = Math.ceil(stats.timeLeft)
   const urgent = sec <= 10
   const onLevel = phase === 'playing' || phase === 'paused'
+  /* Вид босса текущего босс-уровня: HUD показывает его имя и значок (v0.0.33) */
+  const hudBossKind = bossKindForTier(Math.max(1, Math.floor(stats.level / 10)))
   const quotaPct = Math.min(100, (stats.collected / Math.max(1, stats.quota)) * 100)
   const chosen: PerkDef | null = openedIdx !== null ? (offers[openedIdx] ?? null) : null
   const activePerk = perk ? PERK_MAP[perk] : null
@@ -5307,6 +5464,13 @@ export function PopcornGame() {
             <Popcorn className="h-3.5 w-3.5 text-amber-300" aria-hidden />
             <span className="tabular-nums">{stats.score}</span>
           </StatPill>
+          {/* v0.0.33: живой чип опыта 🍿 — видно, как забег качает уровень котика */}
+          {runXpGain > 0 && (
+            <StatPill aria-label={t('over.xp', { s: runXpGain, t: xp })} className="font-pixel text-[11px]">
+              <span className="tabular-nums text-amber-200">+{runXpGain}</span>
+              <span aria-hidden>🍿</span>
+            </StatPill>
+          )}
           {/* Сердечки-жизни: мина и повторный клюв голубя отнимают, за уровень возвращается */}
           <StatPill
             aria-label={t('hud.hearts', { n: stats.hearts, m: stats.maxHearts })}
@@ -5322,11 +5486,20 @@ export function PopcornGame() {
               ))}
             </span>
           </StatPill>
-          {/* Норма — или, в босс-бою, жизни малыша: трогать его нельзя! */}
+          {/* Норма — или, в босс-бою, жизни босса: трогать его нельзя!
+              v0.0.33: у каждого вида свой значок и имя — МАЛЫШ / ЛЬВ / ЛАНА */}
           {stats.boss ? (
             <StatPill className="border-pink-300/60 text-pink-200">
-              <span aria-hidden>👶</span>
-              <span className="font-pixel">{t('hud.boss')}</span>
+              <span aria-hidden>
+                {hudBossKind === 'lion' ? '🦁' : hudBossKind === 'marten' ? '🦡' : '👶'}
+              </span>
+              <span className="font-pixel">
+                {hudBossKind === 'lion'
+                  ? t('hud.bossLion')
+                  : hudBossKind === 'marten'
+                    ? t('hud.bossMarten')
+                    : t('hud.boss')}
+              </span>
               <span className="flex items-center gap-px" aria-hidden>
                 {Array.from({ length: stats.bossMaxHp }).map((_, i) => (
                   <Heart
@@ -6312,6 +6485,40 @@ export function PopcornGame() {
                   <p className="mt-1.5 font-ui text-xs font-bold text-[#5C3A1E]">
                     {t('over.xp', { s: runXpGain, t: xp })}
                   </p>
+
+                  {/* v0.0.33: УРОВЕНЬ КОТИКА на результатах — реальный опыт
+                      за забег виден в полосе стажа, повышение — с наградами */}
+                  <div className="mx-auto mt-2.5 max-w-[260px] rounded-xl border-2 border-[#e3cba4] bg-[#fdf3e0] px-3 py-2">
+                    <div className="flex items-center justify-between gap-2">
+                      <span className="font-pixel text-xs font-bold text-[#5C3A1E]">
+                        {t('menu.charLevel', { n: charInfo.level })}
+                      </span>
+                      {charInfo.level > runStartLevel && (
+                        <span className="rounded-full bg-[#B33A26] px-2 py-0.5 font-pixel text-[10px] font-bold text-white">
+                          {t('over.lvlBadge')}
+                        </span>
+                      )}
+                    </div>
+                    <div className="mt-1.5 h-2 overflow-hidden rounded-full bg-[#3a2210]">
+                      <div
+                        className="h-full rounded-full bg-amber-300 transition-all duration-700"
+                        style={{
+                          width: `${Math.min(100, Math.round((charInfo.into / Math.max(1, charInfo.need)) * 100))}%`,
+                        }}
+                      />
+                    </div>
+                    <p className="mt-1 font-ui text-[10px] font-medium text-[#8a5330]">
+                      {t('over.lvlNext', {
+                        n: charInfo.level + 1,
+                        left: Math.max(0, charInfo.need - charInfo.into),
+                      })}
+                    </p>
+                    {charInfo.level > runStartLevel && runLevelUnlocks.length > 0 && (
+                      <p className="mt-1 font-ui text-[10px] font-bold leading-snug text-[#3f6b28]">
+                        {t('over.unlocked', { list: runLevelUnlocks.join(', ') })}
+                      </p>
+                    )}
+                  </div>
                   {result.rank >= 0 && result.rank < 10 && (
                     <p className="mt-1 font-ui text-xs font-bold text-[#B33A26]">
                       {t('over.rank', { n: result.rank + 1 })}
@@ -6407,6 +6614,7 @@ export function PopcornGame() {
               owned={ownedPaws}
               equipped={equippedPaw}
               upgrades={upgrades}
+              catLevel={charInfo.level}
               t={t}
               onBuy={buyPaw}
               onEquip={equipPaw}
@@ -6474,6 +6682,7 @@ export function PopcornGame() {
               coins={coins}
               xp={xp}
               market={market}
+              catLevel={charInfo.level}
               t={t}
               onExchange={handleExchange}
               onBuyArtifact={handleBuyArtifact}
@@ -6580,10 +6789,12 @@ export function PopcornGame() {
             exit={{ opacity: 0, y: 12, scale: 0.95 }}
             transition={{ type: 'spring', stiffness: 320, damping: 24 }}
           >
-            <div className="flex items-center gap-2 rounded-full border-2 border-amber-300 bg-[#2b1a0e]/95 px-4 py-2 shadow-[0_8px_24px_rgba(0,0,0,0.6)]">
+            <div className="flex max-w-[86vw] items-center gap-2 rounded-full border-2 border-amber-300 bg-[#2b1a0e]/95 px-4 py-2 shadow-[0_8px_24px_rgba(0,0,0,0.6)]">
               {/* 🎖 уже внутри строки char.levelUp — не дублируем эмодзи */}
               <div className="font-pixel text-sm font-bold leading-tight text-amber-200">
-                {t('char.levelUp', { n: charToast })}
+                {charToastUnlocks.length > 0
+                  ? t('char.levelUpUnlocks', { n: charToast, list: charToastUnlocks.join(', ') })
+                  : t('char.levelUp', { n: charToast })}
               </div>
             </div>
           </motion.div>
