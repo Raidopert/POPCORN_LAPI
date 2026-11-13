@@ -84,6 +84,14 @@ export interface EngineStats {
   bigCaught: number
   /** Монетки, накопленные за большие попкорнины за забег (выдаёт компонент) */
   bigCoins: number
+  /** БОСС: сейчас идёт бой с малышом (каждый 10-й уровень) */
+  boss: boolean
+  /** Жизней у малыша сейчас */
+  bossHp: number
+  /** Всего жизней у малыша */
+  bossMaxHp: number
+  /** Монетки, накопленные за победы над боссами за забег (выдаёт компонент) */
+  bossCoins: number
 }
 
 export interface LevelResult {
@@ -152,14 +160,35 @@ const FEVER_MINE_CHANCE = 0.3
     +1000 очков сразу (без комбо) и монетки. Не успел — укатилась.
     Стандартный игрок с телефона чаще всего не успевает, а у скиллового
     потолка нет: чем глубже забег, тем больше шансов поймать --- */
-const BIG_LIFE = 3.5
+const BIG_LIFE = 2.4
 const BIG_POINTS = 1000
 const BIG_COINS = 50
 /** Скорость побега, u/с: вдогонку пальцем — но finger lag решает */
-const BIG_SPEED = 62
+const BIG_SPEED = 74
 /** Появляется в случайный момент между 6-й и 16-й секундой уровня */
 const BIG_AT_MIN = 6
 const BIG_AT_MAX = 16
+
+/* --- БОСС «МАЛЫШ»: на каждом 10-м уровне в зал вламывается ребёнок.
+    Он крупнее воришки-голубя, рвётся к корзине и выгребает попкорн.
+    Трогать малыша лапкой НЕЛЬЗЯ — слетает сердечко. Победить можно
+    только издали: в босс-бою быстрый мах лапкой ПИНАЕТ попкорнинки,
+    те летят как в арканоиде и бивают малыша. У первого босса 3 жизни,
+    у каждого следующего — на одну больше. Время уровня ограничено --- */
+const BOSS_EVERY = 10 // босс выходит на каждом 10-м уровне (10, 20, 30…)
+const BOSS_BASE_HP = 3 // жизней у первого босса
+const BOSS_HP_PER_TIER = 1 // +1 жизнь за каждого следующего босса
+const BOSS_TOUCH_R = 44 // радиус «трогать ребёнка», u: касание — минус сердечко
+const BOSS_TOUCH_CD = 1.1 // «отдышка» малыша после касания — не жжёт сердца серией
+const BOSS_BONUS_BASE = 600 // очки за победу над первым боссом
+const BOSS_BONUS_PER_TIER = 200 // + очки за каждого следующего босса
+const BOSS_COINS_BASE = 120 // монетки за победу (выдаёт компонент с множителями)
+const BOSS_CHARGE_BASE = 3.6 // пауза между рывками малыша к корзине, с
+const BOSS_STEAL = 3 // сколько зёрен выгребает за раз (растёт с номером босса)
+/** Скорость лапки, с которой она ПИНАЕТ зерно (u/с): ниже — обычный подбор */
+const FLING_MIN_SPEED = 430
+/** Трение летящего зерна (экспоненциальное, 1/с): полёт затухает плавно */
+const FLING_FRICTION = 3.4
 
 interface FieldPiece {
   x: number
@@ -172,6 +201,9 @@ interface FieldPiece {
   spin: number
   /** угол дрейфа для перка «Скользкий пол» */
   dA: number
+  /** Скорость летящего зерна (пинок лапкой в босс-бою): 0/undefined — лежит спокойно */
+  vx?: number
+  vy?: number
 }
 
 /** БОЛЬШАЯ ПОПКОРНИНА: жирный приз, который живёт секунды и пытается убежать */
@@ -257,6 +289,31 @@ interface Pigeon {
   downed: boolean
 }
 
+/** БОСС «МАЛЫШ»: ребёнок крупнее голубя, рвётся к корзине. Трогать нельзя —
+    сердечко слетит. Побеждается только попкорном, пнутым лапкой */
+interface Boss {
+  x: number
+  y: number
+  vx: number
+  vy: number
+  hp: number
+  maxHp: number
+  /** 'in' — вламывается · 'wander' — бродит · 'charge' — рвётся к корзине ·
+      'swat' — гребёт из корзины · 'hurt' — отшатнулся после попадания ·
+      'flee' — побеждён, уходит */
+  state: 'in' | 'wander' | 'charge' | 'swat' | 'hurt' | 'flee'
+  stateT: number
+  /** Пауза до рывка к корзине */
+  atkT: number
+  flash: number
+  /** «Отдышка» после касания лапкой */
+  invuln: number
+  /** Фаза шага: тело покачивается при ходьбе */
+  wobble: number
+  /** Взмах руки при гребле корзины (1 → 0) */
+  swing: number
+}
+
 interface Particle {
   x: number
   y: number
@@ -281,8 +338,8 @@ interface FloatText {
   size: number
 }
 
-const LEVEL_SECONDS = 60
-const LEVEL_SECONDS_PERK = 75 // перк «Кошачьи часы»
+const LEVEL_SECONDS = 50
+const LEVEL_SECONDS_PERK = 62 // перк «Кошачьи часы»
 const SPAWN_DUR = 0.35
 const CLEAR_DELAY = 0.5 // пауза до «уровень пройден», чтобы зёрна долетели
 const PIGEON_FIRST_AT = 11 // голубь прилетает на этом отрезке уровня (с 3-го уровня)
@@ -418,6 +475,13 @@ export class PopcornEngine {
   private bigCaught = 0
   /** Монетки за большие попкорнины за забег (выдаёт компонент) */
   private bigCoinsRun = 0
+  /* --- БОСС «МАЛЫШ»: каждый 10-й уровень — бой в тир-арканоид --- */
+  private boss: Boss | null = null
+  /** Монетки за победы над боссами за забег (выдаёт компонент) */
+  private bossCoinsRun = 0
+  /* --- Скорость лапки (px/с, сглаженная): быстрым махом пинаем попкорн --- */
+  private pawVX = 0
+  private pawVY = 0
   /* --- перк «Кошачий щит»: одно прощение мины за уровень --- */
   private shieldLeft = 0
   /* --- постоянный апгрейд «Большой стаканчик» (+вместимость) --- */
@@ -585,6 +649,8 @@ export class PopcornEngine {
     this.shieldSaves = 0
     this.bigCaught = 0
     this.bigCoinsRun = 0
+    this.bossCoinsRun = 0
+    this.boss = null
     this.big = null
     this.lifeUsed = false
     this.fever = null
@@ -612,6 +678,8 @@ export class PopcornEngine {
           this.tree.timePlus +
           diffTime,
       )
+    /* Нормы больше не упирается в потолок: чем глубже забег, тем труднее
+       успеть. Босс-уровень переопределит её ниже — там победа другая */
     this.quota = this.debugFast ? 3 : quotaFor(level, perk === 'doublepoints')
     /* Сложность: лёгкая — норма ×0.8, сложная — ×1.2 */
     if (!this.debugFast && this.opts.difficulty !== 'normal') {
@@ -627,23 +695,23 @@ export class PopcornEngine {
     /* Ступень сложности каждые 5 уровней: пропорционально больше попкорна
        и мин на волне — за отведённое время нужно собирать всё больше, но без безумия */
     const step = Math.floor((level - 1) / 5)
-    /* Зёрен в волне — тоже больше вместе с NANA (×1…×1.6), потолок 44:
-       поле должно прокормить выросшую норму, но не захламляться */
-    this.popPerWave = Math.min(
-      44,
-      Math.round((Math.min(26, 10 + step * 3) + (this.tree.grains ?? 0)) * this.mess.pop),
+    /* Зёрен в волне — тоже больше вместе с NANA (×1…×1.6), потолка нет:
+       скилловый игрок успевает собрать больше — у очков нет предела,
+       а средний игрок всё равно упрётся в таймер уровня */
+    this.popPerWave = Math.round(
+      (Math.min(30, 10 + step * 3) + (this.tree.grains ?? 0)) * this.mess.pop,
     )
-    this.cornPerWave = Math.min(11, 3 + step)
-    if (perk === 'cornrain') this.cornPerWave = Math.min(14, this.cornPerWave * 2)
+    this.cornPerWave = Math.min(16, 4 + step)
+    if (perk === 'cornrain') this.cornPerWave = Math.min(18, this.cornPerWave * 2)
     /* Лапка-оберег от мин: меньше кукурузы в каждой волне */
     this.cornPerWave = Math.max(0, this.cornPerWave - (this.pawBonus.cornCut ?? 0))
     /* Древо «Шахтёр»: мин в волне стало меньше */
     this.cornPerWave = Math.max(0, this.cornPerWave - (this.tree.cornCut ?? 0))
     /* Сложность: лёгкая — на мину меньше, сложная — на мину больше */
     if (this.opts.difficulty === 'easy') this.cornPerWave = Math.max(0, this.cornPerWave - 1)
-    if (this.opts.difficulty === 'hard') this.cornPerWave = Math.min(15, this.cornPerWave + 1)
+    if (this.opts.difficulty === 'hard') this.cornPerWave = Math.min(18, this.cornPerWave + 1)
     /* Разгром NANA: мины прибавляются (+1 за 10 уровней куницы, до +3) */
-    this.cornPerWave = Math.min(15, this.cornPerWave + this.mess.mines)
+    this.cornPerWave = Math.min(18, this.cornPerWave + this.mess.mines)
     this.goldenChance =
       perk === 'goldenvein'
         ? 0.26
@@ -651,7 +719,7 @@ export class PopcornEngine {
     /* Разнообразие зёрен: карамель и масло появляются с ростом уровня */
     this.caramelChance = Math.min(0.2, 0.04 + (this.lvl - 1) * 0.014)
     this.butterChance = this.lvl >= 3 ? Math.min(0.1, 0.015 + (this.lvl - 3) * 0.007) : 0
-    this.baseWaveDelay = Math.max(0.4, 0.8 - (level - 1) * 0.03)
+    this.baseWaveDelay = Math.max(0.28, 0.8 - (level - 1) * 0.03)
 
     this.phase = 'playing'
     this.paused = false
@@ -689,6 +757,10 @@ export class PopcornEngine {
     this.big = null
     this.bigDone = false
     this.bigAt = BIG_AT_MIN + Math.random() * (BIG_AT_MAX - BIG_AT_MIN)
+    /* Босс и скорость лапки с прошлого уровня не выживают */
+    this.boss = null
+    this.pawVX = 0
+    this.pawVY = 0
     /* Ачивка «Чистая работа»: считаем шоки и кражи за уровень; и потери сердец */
     this.levelStolen = 0
     this.levelShock = 0
@@ -706,6 +778,30 @@ export class PopcornEngine {
       this.paw.ty = this.paw.y
     }
     this.paw.hurt = 0
+    /* БОСС «МАЛЫШ»: каждый 10-й уровень вместо обычного — бой в тир-арканоид.
+       Никаких мин и воришек: малыш сам рвётся к корзине, а попкорн для
+       «стрельбы» подбрасывается волнами. Нормы нет — победить только босса */
+    if (level % BOSS_EVERY === 0) {
+      this.quota = 999999 // победа — только жизни малыша в ноль
+      this.popPerWave = 9 // попкорн-«снаряды» для пинков
+      this.cornPerWave = 0 // мины в тире не нужны — и так жарко
+      this.goldenChance = 0.04
+      this.caramelChance = 0.1
+      this.butterChance = 0
+      this.pigeon = null
+      this.pigeonTimer = -1
+      this.bigDone = true // большая попкорнина не выживает рядом с малышом
+      /* Лапка новичка отступает к нижнему краю: автопилот не должен висеть
+         в верхней трети, где бродит малыш — иначе бесплатное сердце */
+      if (!this.paw.seen) {
+        this.paw.seen = true
+        this.paw.x = Math.max(40 * this.u, this.W * 0.16)
+        this.paw.y = this.H * 0.82
+      }
+      this.paw.tx = this.paw.x
+      this.paw.ty = this.paw.y
+      this.spawnBoss()
+    }
     audio.play('wave')
     this.spawnWave()
     this.emitStats(true)
@@ -994,9 +1090,11 @@ export class PopcornEngine {
     )
   }
 
-  /** Комбо-множитель: +1 за каждые 6 сдач подряд (с «Комбо-тренером» — 5), потолок ×5 */
+  /** Комбо-множитель: +1 за каждые 6 сдач подряд (с «Комбо-тренером» — 5).
+      Потолка больше нет: серия мастера разгоняется без предела,
+      а мины и воришки всё ещё сбивают её в ноль */
   private get comboMult(): number {
-    return 1 + Math.min(4, Math.floor(this.streak / (this.tree.comboFast ? 5 : 6)))
+    return 1 + Math.floor(this.streak / (this.tree.comboFast ? 5 : 6))
   }
 
   /** Радиус подбора лапки: перки + скин + древо («Магнит» +8% за уровень) */
@@ -1206,6 +1304,11 @@ export class PopcornEngine {
     if (this.phase === 'playing' && !this.big && !this.fever) this.spawnBig()
   }
 
+  /** Отладка/E2E: принудительно выпустить босса на текущем уровне */
+  debugSpawnBoss(): void {
+    if (this.phase === 'playing' && !this.boss && !this.fever) this.spawnBoss()
+  }
+
   /* ================= обновление ================= */
 
   private update(dt: number): void {
@@ -1226,7 +1329,13 @@ export class PopcornEngine {
        когда никакие массивы не обходятся */
     if (this.pendingFever) {
       this.pendingFever = false
-      if (!this.fever && this.feverAfter < 0 && this.pendingClear < 0 && this.phase === 'playing') {
+      if (
+        !this.fever &&
+        !this.boss &&
+        this.feverAfter < 0 &&
+        this.pendingClear < 0 &&
+        this.phase === 'playing'
+      ) {
         this.startFever(this.lvl)
         return
       }
@@ -1241,7 +1350,11 @@ export class PopcornEngine {
     if (this.stun > 0) {
       // Шок от мины: лапка «опешила» и застыла на месте — цель запоминается,
       // когда отпустит, лапка догонит палец
+      this.pawVX = 0
+      this.pawVY = 0
     } else {
+      const prevX = this.paw.x
+      const prevY = this.paw.y
       const spd = 14 * (this.pawBonus.speed ?? 1) * (1 + (this.tree.speedAdd ?? 0))
       const k = 1 - Math.exp(-dt * (this.perk === 'slowpaw' ? spd * 0.46 : spd))
       this.paw.x += (this.paw.tx - this.paw.x) * k
@@ -1250,6 +1363,12 @@ export class PopcornEngine {
          снизу — до столика со стаканчиком */
       this.paw.x = Math.max(22 * u, Math.min(this.W - 22 * u, this.paw.x))
       this.paw.y = Math.max(46, Math.min(this.H - 42 * u, this.paw.y))
+      /* Скорость лапки (px/с), сглаженная: быстрым махом в босс-бою пинаем попкорн */
+      const ivx = (this.paw.x - prevX) / Math.max(dt, 0.001)
+      const ivy = (this.paw.y - prevY) / Math.max(dt, 0.001)
+      const kv = Math.min(1, dt * 14)
+      this.pawVX += (ivx - this.pawVX) * kv
+      this.pawVY += (ivy - this.pawVY) * kv
     }
 
     if (this.perk === 'drift') this.driftPieces(dt)
@@ -1257,6 +1376,13 @@ export class PopcornEngine {
 
     // Голубь-воришка: влетает с 3-го уровня и таскает попкорн из стаканчика
     this.updatePigeon(dt)
+
+    // БОСС «МАЛЫШ»: бродит, рвётся к корзине, гребёт из неё — и ловит пинки
+    this.updateBoss(dt)
+    if (this.phase !== 'playing') return // босс повержен: уровень уже завершён
+
+    // Летящий попкорн (пнутый лапкой): полёт, отскоки, попадания в малыша
+    this.updateThrownPieces(dt)
 
     // БОЛЬШАЯ ПОПКОРНИНА: побег, обратный отсчёт и выход на поле по расписанию
     this.updateBig(dt)
@@ -1271,6 +1397,22 @@ export class PopcornEngine {
       if (this.stun > 0) break // «опешила»: ни подбора, ни новых подрывов
       if (p.spawn > 0.12) continue
       const d = Math.hypot(this.paw.x - p.x, this.paw.y - p.y)
+      /* ТИР-АРКАНОИД: в босс-бою быстрый мах лапкой ПИНАЕТ зерно — оно летит
+         и бивает малыша. Медленное касание — обычный подбор, как всегда */
+      if (
+        this.boss &&
+        p.kind !== 'corn' &&
+        Math.hypot(this.pawVX, this.pawVY) > FLING_MIN_SPEED * u &&
+        d < grabR + 12 * u
+      ) {
+        p.vx = this.pawVX * 0.94
+        p.vy = this.pawVY * 0.94
+        p.spin = (Math.random() < 0.5 ? -1 : 1) * 7
+        audio.play('shoo')
+        this.crumbs(p.x, p.y, '#FFF3D6', 4)
+        this.paw.pulse = 1
+        continue
+      }
       if (p.kind === 'corn') {
         // Кукуруза-мина: чем толще мина, тем шире радиус задевания
         if (d < 38 * u * (0.7 + 0.3 * this.cornScale)) {
@@ -1426,6 +1568,7 @@ export class PopcornEngine {
            очищает массивы, которые сейчас обходит цикл сдачи */
         if (
           !this.fever &&
+          !this.boss &&
           this.feverAfter < 0 &&
           this.pendingClear < 0 &&
           (this.tree.feverLuck ?? 0) > 0 &&
@@ -1728,15 +1871,28 @@ export class PopcornEngine {
     this.cb.onEnd?.({ score: Math.floor(this.score), level: this.lvl, reason })
   }
 
-  /** Потеря сердечка: мина или повторный клюв голубя. Ноль — поражение */
-  private loseHeart(where: 'mine' | 'pigeon'): void {
+  /** Потеря сердечка: мина, повторный клюв голубя или касание босса-малыша.
+      Ноль — поражение */
+  private loseHeart(where: 'mine' | 'pigeon' | 'boss'): void {
     if (this.phase !== 'playing' || this.hearts <= 0) return
     const u = this.u
     this.hearts--
     this.heartLost++
+    const hx =
+      where === 'boss'
+        ? (this.boss?.x ?? this.paw.x)
+        : where === 'mine'
+          ? this.paw.x
+          : this.cup.x
+    const hy =
+      where === 'boss'
+        ? (this.boss?.y ?? this.paw.y)
+        : where === 'mine'
+          ? this.paw.y - 64 * u
+          : this.cup.y - this.cupH * 1.5
     this.texts.push({
-      x: where === 'mine' ? this.paw.x : this.cup.x,
-      y: where === 'mine' ? this.paw.y - 64 * u : this.cup.y - this.cupH * 1.5,
+      x: hx,
+      y: hy,
       text: this.L('txt.heart'),
       color: '#FF6B8A',
       t: 0,
@@ -2103,6 +2259,331 @@ export class PopcornEngine {
     }
   }
 
+  /* ================= босс «МАЛЫШ» ================= */
+
+  /** Жизни босса: у первого (10-й уровень) 3, у каждого следующего +1.
+      Сложность из настроек: лёгкая −1, сложная +1 */
+  private bossMaxHp(): number {
+    const tier = Math.max(1, Math.floor(this.lvl / BOSS_EVERY))
+    let hp = BOSS_BASE_HP + (tier - 1) * BOSS_HP_PER_TIER
+    if (this.opts.difficulty === 'easy') hp = Math.max(2, hp - 1)
+    if (this.opts.difficulty === 'hard') hp += 1
+    return hp
+  }
+
+  private spawnBoss(): void {
+    const u = this.u
+    const maxHp = this.bossMaxHp()
+    this.boss = {
+      x: this.W / 2,
+      y: -80 * u,
+      vx: 0,
+      vy: 0,
+      hp: maxHp,
+      maxHp,
+      state: 'in',
+      stateT: 0,
+      atkT: BOSS_CHARGE_BASE,
+      flash: 0,
+      invuln: 0,
+      wobble: Math.random() * Math.PI * 2,
+      swing: 0,
+    }
+    this.banner = { text: this.L('banner.boss'), t: 0 }
+    this.texts.push({
+      x: this.W / 2,
+      y: this.H * 0.32,
+      text: this.L('txt.bossWarn'),
+      color: '#FF8FA3',
+      t: 0,
+      dur: 2.4,
+      size: 23 * u,
+    })
+    audio.play('pigeon')
+    this.buzz([30, 40, 80])
+    this.doShake(6)
+    this.emitStats(true)
+  }
+
+  /** Босс живёт своей жизнью: бродит по верхней половине, по таймеру РВЁТСЯ
+      к корзине и выгребает попкорн. Касание лапкой — сердечко слетает */
+  private updateBoss(dt: number): void {
+    const b = this.boss
+    if (!b) return
+    const u = this.u
+    b.stateT += dt
+    b.flash = Math.max(0, b.flash - dt * 3)
+    b.invuln = Math.max(0, b.invuln - dt)
+    b.swing = Math.max(0, b.swing - dt * 2.2)
+    b.wobble += dt * (b.state === 'charge' ? 15 : 6.5)
+
+    if (b.state === 'in') {
+      // вламывается сверху к своей зоне бродяжничества
+      const ty = this.H * 0.3
+      b.y += 230 * u * dt
+      if (b.y >= ty) {
+        b.y = ty
+        b.state = 'wander'
+        b.stateT = 0
+        b.atkT = BOSS_CHARGE_BASE
+      }
+    } else if (b.state === 'wander') {
+      // неторопливо бродит и меняет направление — в него ещё надо попасть
+      if (b.vx === 0 && b.vy === 0) {
+        const a = Math.random() * Math.PI * 2
+        b.vx = Math.cos(a) * 62 * u
+        b.vy = Math.sin(a) * 44 * u
+      }
+      b.x += b.vx * dt
+      b.y += b.vy * dt
+      const mX = 62 * u
+      const top = 84
+      const bottom = this.H * 0.55
+      if (b.x < mX || b.x > this.W - mX) {
+        b.vx *= -1
+        b.x = Math.max(mX, Math.min(this.W - mX, b.x))
+      }
+      if (b.y < top || b.y > bottom) {
+        b.vy *= -1
+        b.y = Math.max(top, Math.min(bottom, b.y))
+      }
+      if (b.stateT > 1.7) {
+        b.vx = 0
+        b.vy = 0
+        b.stateT = 0
+      }
+      b.atkT -= dt
+      if (b.atkT <= 0) {
+        // РЫВОК К КОРЗИНЕ: каждый следующий босс злее и быстрее
+        const tier = Math.max(1, Math.floor(this.lvl / BOSS_EVERY))
+        b.state = 'charge'
+        b.stateT = 0
+        const d = Math.hypot(this.cup.x - b.x, this.cup.y - b.y) || 1
+        const sp = (155 + tier * 26) * u
+        b.vx = ((this.cup.x - b.x) / d) * sp
+        b.vy = ((this.cup.y - b.y) / d) * sp
+        audio.play('fever')
+      }
+    } else if (b.state === 'charge') {
+      b.x += b.vx * dt
+      b.y += b.vy * dt
+      if (Math.hypot(b.x - this.cup.x, b.y - this.cup.y) < 74 * u) {
+        b.state = 'swat'
+        b.stateT = 0
+        b.swing = 1
+        this.bossSwat()
+      }
+    } else if (b.state === 'swat') {
+      // гребёт из корзины полсекунды — потом пятится и снова бродит
+      if (b.stateT > 0.55) {
+        b.state = 'wander'
+        b.stateT = 0
+        b.atkT =
+          Math.max(2.3, BOSS_CHARGE_BASE - Math.floor(this.lvl / BOSS_EVERY) * 0.35) +
+          Math.random() * 0.7
+        const d = Math.hypot(b.x - this.cup.x, b.y - this.cup.y) || 1
+        b.vx = ((b.x - this.cup.x) / d) * 130 * u
+        b.vy = ((b.y - this.cup.y) / d) * 130 * u
+      }
+    } else if (b.state === 'hurt') {
+      // отшатнулся от пинка, тормозит — потом снова бродит
+      b.x += b.vx * dt
+      b.y += b.vy * dt
+      const dec = Math.max(0, 1 - dt * 4.5)
+      b.vx *= dec
+      b.vy *= dec
+      const mX = 62 * u
+      b.x = Math.max(mX, Math.min(this.W - mX, b.x))
+      b.y = Math.max(60, Math.min(this.H - 120 * u, b.y))
+      if (b.stateT > 0.5) {
+        b.state = 'wander'
+        b.stateT = 0
+        b.vx = 0
+        b.vy = 0
+      }
+    } else if (b.state === 'flee') {
+      // побеждён: уплывает вверх, покачиваясь из стороны в сторону
+      b.y -= 300 * u * dt
+      b.x += Math.sin(b.stateT * 9) * 40 * u * dt
+      if (b.y < -110 * u) {
+        this.boss = null
+        this.bossDefeated()
+      }
+      return
+    }
+
+    /* КАСАНИЕ ЛАПКОЙ: трогать малыша НЕЛЬЗЯ — минус сердечко.
+       «Отдышка» после касания не даёт выжечь все сердца одним махом.
+       Сюда попадают только состояния на земле — 'in'/'flee' ушли выше */
+    if (b.invuln <= 0 && this.stun <= 0) {
+      const dtouch = Math.hypot(this.paw.x - b.x, this.paw.y - b.y)
+      if (dtouch < (BOSS_TOUCH_R + 24) * u) {
+        b.invuln = BOSS_TOUCH_CD
+        b.flash = 1
+        const d = dtouch || 1
+        b.vx = ((b.x - this.paw.x) / d) * 170 * u
+        b.vy = ((b.y - this.paw.y) / d) * 170 * u
+        if (b.state === 'charge') {
+          b.state = 'hurt'
+          b.stateT = 0
+        }
+        this.loseHeart('boss')
+      }
+    }
+  }
+
+  /** Малыш добрался до корзины: гребёт из неё попкорн — как воришка-голубь,
+      только жирнее (растёт с номером босса). Пустую корзину только трясёт */
+  private bossSwat(): void {
+    const u = this.u
+    if (this.collected > 0) {
+      const tier = Math.max(1, Math.floor(this.lvl / BOSS_EVERY))
+      const steal = Math.min(this.collected, BOSS_STEAL + tier - 1)
+      this.collected -= steal
+      this.levelStolen++
+      this.streak = 0
+      this.cup.squash = 1
+      this.doShake(7)
+      this.texts.push({
+        x: this.cup.x,
+        y: this.cup.y - this.cupH * 0.9,
+        text: this.L('txt.stole'),
+        color: '#FF6B5E',
+        t: 0,
+        dur: 1,
+        size: 26 * u,
+      })
+      this.crumbs(this.cup.x, this.cup.y - this.cupH * 0.4, '#FFC2D9', 7)
+      audio.play('penalty')
+      this.buzz(40)
+    } else {
+      this.texts.push({
+        x: this.cup.x,
+        y: this.cup.y - this.cupH * 0.9,
+        text: this.L('txt.empty'),
+        color: '#C8CFD8',
+        t: 0,
+        dur: 0.8,
+        size: 20 * u,
+      })
+    }
+    this.emitStats(true)
+  }
+
+  /** Летящий попкорн: пнутое лапкой зерно скользит с трением, отскакивает
+      от краёв поля и, врезавшись в малыша, снимает ему жизнь */
+  private updateThrownPieces(dt: number): void {
+    const u = this.u
+    const mX = 34 * u
+    const top = 50
+    const bottom = this.H - 52 * u
+    const b = this.boss
+    for (let i = this.pieces.length - 1; i >= 0; i--) {
+      const p = this.pieces[i]
+      const vx = p.vx ?? 0
+      const vy = p.vy ?? 0
+      if (Math.hypot(vx, vy) < 26 * u) {
+        if (vx !== 0 || vy !== 0) {
+          p.vx = 0
+          p.vy = 0
+        }
+        continue
+      }
+      p.x += vx * dt
+      p.y += vy * dt
+      const fr = Math.exp(-FLING_FRICTION * dt)
+      p.vx = vx * fr
+      p.vy = vy * fr
+      /* Отскоки от краёв поля: зерно не улетает за кадр */
+      if (p.x < mX) {
+        p.x = mX
+        p.vx = Math.abs(vx) * 0.72
+      } else if (p.x > this.W - mX) {
+        p.x = this.W - mX
+        p.vx = -Math.abs(vx) * 0.72
+      }
+      if (p.y < top) {
+        p.y = top
+        p.vy = Math.abs(vy) * 0.72
+      } else if (p.y > bottom) {
+        p.y = bottom
+        p.vy = -Math.abs(vy) * 0.72
+      }
+      /* ПОПАДАНИЕ В МАЛЫША: зерно тратится, малыш теряет жизнь */
+      if (b && b.state !== 'flee' && b.state !== 'in') {
+        if (Math.hypot(p.x - b.x, p.y - b.y) < 48 * u + 12 * u) {
+          this.pieces.splice(i, 1)
+          this.hitBoss(p.x, p.y, vx, vy)
+        }
+      }
+    }
+  }
+
+  /** Пинок попкорном прилетел в малыша: минус жизнь, малыш отшатывается.
+      Жизни кончились — побеждён, уплывает за кадр */
+  private hitBoss(x: number, y: number, vx: number, vy: number): void {
+    const b = this.boss
+    if (!b) return
+    const u = this.u
+    b.hp--
+    b.flash = 1
+    b.state = 'hurt'
+    b.stateT = 0
+    const d = Math.hypot(vx, vy) || 1
+    b.vx = (vx / d) * 150 * u
+    b.vy = (vy / d) * 150 * u
+    this.rings.push({
+      x,
+      y,
+      t: 0,
+      ttl: 0.4,
+      color: '255, 143, 163',
+      r0: 8 * u,
+      r1: 46 * u,
+    })
+    this.crumbs(x, y, '#FFF3D6', 8)
+    this.doShake(4)
+    this.buzz(20)
+    if (b.hp <= 0) {
+      b.state = 'flee'
+      b.stateT = 0
+      const tier = Math.max(1, Math.floor(this.lvl / BOSS_EVERY))
+      const bonus = BOSS_BONUS_BASE + (tier - 1) * BOSS_BONUS_PER_TIER
+      this.score += bonus
+      this.bossCoinsRun += BOSS_COINS_BASE + (tier - 1) * 40
+      this.texts.push({
+        x: b.x,
+        y: b.y - 50 * u,
+        text: this.L('txt.bossDown', { n: bonus }),
+        color: '#FFE066',
+        t: 0,
+        dur: 1.6,
+        size: 26 * u,
+      })
+      this.confettiBurst(b.x, b.y, 26)
+      audio.play('meow')
+      this.doShake(6)
+    } else {
+      this.texts.push({
+        x: b.x,
+        y: b.y - 50 * u,
+        text: this.L('txt.bossHit'),
+        color: '#FFFFFF',
+        t: 0,
+        dur: 0.7,
+        size: 22 * u,
+      })
+      audio.play('shoo')
+    }
+    this.emitStats(true)
+  }
+
+  /** Малыш повержен и уплыл за кадр: уровень завершается той же дорогой,
+      что и обычная сдача нормы — салют, сундучок, нарезка, следующий этап */
+  private bossDefeated(): void {
+    this.levelComplete()
+  }
+
   /* ================= цикл ================= */
 
   private loop = (ts: number): void => {
@@ -2186,7 +2667,7 @@ export class PopcornEngine {
       : this.feverAfter >= 0
         ? this.lastFeverGained
         : 0
-    const key = `${this.score}|${this.lvl}|${this.quota}|${this.collected}|${this.carried.length}|${sec}|${this.paused}|${this.streak}|${this.goldenCount}|${this.pigeonsRun}|${fever}|${feverGained}|${this.wave}|${this.shieldLeft}|${this.runGrains}|${this.runNipples}|${this.minesHit}|${this.shieldSaves}|${this.hearts}|${this.maxHearts}|${this.bigCaught}|${this.bigCoinsRun}`
+    const key = `${this.score}|${this.lvl}|${this.quota}|${this.collected}|${this.carried.length}|${sec}|${this.paused}|${this.streak}|${this.goldenCount}|${this.pigeonsRun}|${fever}|${feverGained}|${this.wave}|${this.shieldLeft}|${this.runGrains}|${this.runNipples}|${this.minesHit}|${this.shieldSaves}|${this.hearts}|${this.maxHearts}|${this.bigCaught}|${this.bigCoinsRun}|${this.boss ? `${this.boss.hp}/${this.boss.maxHp}` : '-'}|${this.bossCoinsRun}`
     if (!force && key === this.lastStatsKey) return
     this.lastStatsKey = key
     this.cb.onStats({
@@ -2217,6 +2698,10 @@ export class PopcornEngine {
       goldenOn: this.pieces.some((p) => p.kind === 'golden'),
       bigCaught: this.bigCaught,
       bigCoins: this.bigCoinsRun,
+      boss: !!this.boss,
+      bossHp: this.boss?.hp ?? 0,
+      bossMaxHp: this.boss?.maxHp ?? 0,
+      bossCoins: this.bossCoinsRun,
     })
   }
 
@@ -2305,6 +2790,7 @@ export class PopcornEngine {
     this.drawCup(ts)
     this.drawPieces(ts)
     if (this.pigeon && this.phase === 'playing') this.drawPigeon(ts)
+    if (this.boss && this.phase === 'playing') this.drawBoss()
     this.drawFlying()
     this.drawParticles()
     /* Ударные волны поверх частиц: кольца взрывов и победы */
@@ -2421,6 +2907,142 @@ export class PopcornEngine {
       if (g.flash > 0) {
         ctx.save()
         ctx.globalAlpha = Math.min(1, g.flash)
+        ctx.strokeStyle = '#FFFFFF'
+        ctx.lineWidth = Math.max(1.5, 1.5 * u)
+        ctx.strokeRect(bx - 2 * u, by - 2 * u, bw + 4 * u, bh + 4 * u)
+        ctx.restore()
+      }
+    }
+  }
+
+  /** БОСС «МАЛЫШ»: упитанный ребёнок крупнее воришки-голубя. Зелёный
+      комбинезончик с карманчиком, хохолок, сердитые брови и надутый ротик.
+      Бродит, рвётся к корзине и гребёт из неё. Полоска жизней над головой */
+  private drawBoss(): void {
+    const b = this.boss
+    if (!b) return
+    const { ctx } = this
+    const u = this.u
+    const wob = Math.sin(b.wobble)
+    const bob = wob * 3 * u
+    const tilt = wob * 0.07
+    const R = 44 * u // базовый радиус тела малыша
+
+    // тень на полу — малыш уже в деле
+    if (b.state !== 'in') {
+      ctx.fillStyle = 'rgba(0, 0, 0, 0.18)'
+      ctx.beginPath()
+      ctx.ellipse(b.x, this.cup.y + 22 * u, 30 * u, 7 * u, 0, 0, Math.PI * 2)
+      ctx.fill()
+    }
+
+    ctx.save()
+    ctx.translate(b.x, b.y + bob)
+    ctx.rotate(tilt)
+
+    // ножки-коротышки: шаркают вразнобой
+    const legSwing = Math.sin(b.wobble) * 5 * u
+    ctx.fillStyle = '#E8B48C'
+    ctx.beginPath()
+    ctx.ellipse(-16 * u + legSwing, R * 0.82, 7 * u, 9 * u, 0, 0, Math.PI * 2)
+    ctx.ellipse(16 * u - legSwing, R * 0.82, 7 * u, 9 * u, 0, 0, Math.PI * 2)
+    ctx.fill()
+
+    // тело: круглый комбинезончик с карманчиком
+    ctx.fillStyle = '#7BC47F'
+    ctx.beginPath()
+    ctx.ellipse(0, R * 0.18, R * 0.74, R * 0.66, 0, 0, Math.PI * 2)
+    ctx.fill()
+    ctx.fillStyle = '#5FA65F'
+    ctx.beginPath()
+    ctx.ellipse(0, R * 0.32, R * 0.34, R * 0.26, 0, 0, Math.PI * 2)
+    ctx.fill()
+
+    // ручки: в гребле машут, в рывке выставлены вперёд-вниз
+    const armA = b.swing > 0 ? Math.sin(b.stateT * 18) * 0.6 : wob * 0.2
+    ctx.strokeStyle = '#E8B48C'
+    ctx.lineWidth = 9 * u
+    ctx.lineCap = 'round'
+    ctx.beginPath()
+    ctx.moveTo(-R * 0.58, -R * 0.08)
+    ctx.lineTo(-R * 0.9, R * 0.2 + Math.sin(armA) * 12 * u)
+    ctx.moveTo(R * 0.58, -R * 0.08)
+    ctx.lineTo(R * 0.9, R * 0.2 - Math.sin(armA) * 12 * u)
+    ctx.stroke()
+
+    // голова: крупная, почти в размер тела
+    ctx.fillStyle = '#F7C9A3'
+    ctx.beginPath()
+    ctx.arc(0, -R * 0.62, R * 0.58, 0, Math.PI * 2)
+    ctx.fill()
+    // хохолок-завиток
+    ctx.strokeStyle = '#B4653C'
+    ctx.lineWidth = 5 * u
+    ctx.lineCap = 'round'
+    ctx.beginPath()
+    ctx.arc(0, -R * 1.04, 9 * u, Math.PI * 0.15, Math.PI * 1.05)
+    ctx.stroke()
+
+    // сердитые брови и глаза
+    ctx.strokeStyle = '#6B421F'
+    ctx.lineWidth = 4.5 * u
+    ctx.beginPath()
+    ctx.moveTo(-R * 0.36, -R * 0.8)
+    ctx.lineTo(-R * 0.12, -R * 0.7)
+    ctx.moveTo(R * 0.36, -R * 0.8)
+    ctx.lineTo(R * 0.12, -R * 0.7)
+    ctx.stroke()
+    ctx.fillStyle = '#2B1A0E'
+    ctx.beginPath()
+    ctx.arc(-R * 0.22, -R * 0.58, 4.5 * u, 0, Math.PI * 2)
+    ctx.arc(R * 0.22, -R * 0.58, 4.5 * u, 0, Math.PI * 2)
+    ctx.fill()
+    // надутый ротик и румянец
+    ctx.strokeStyle = '#B4653C'
+    ctx.lineWidth = 3.5 * u
+    ctx.beginPath()
+    ctx.arc(0, -R * 0.32, 7 * u, Math.PI * 0.15, Math.PI * 0.85)
+    ctx.stroke()
+    ctx.fillStyle = 'rgba(232, 108, 108, 0.55)'
+    ctx.beginPath()
+    ctx.arc(-R * 0.44, -R * 0.44, 6 * u, 0, Math.PI * 2)
+    ctx.arc(R * 0.44, -R * 0.44, 6 * u, 0, Math.PI * 2)
+    ctx.fill()
+
+    ctx.restore()
+
+    // вспышка при попадании/касании: белое кольцо вокруг малыша
+    if (b.flash > 0) {
+      ctx.save()
+      ctx.globalAlpha = Math.min(1, b.flash) * 0.8
+      ctx.strokeStyle = '#FFFFFF'
+      ctx.lineWidth = Math.max(2, 3 * u)
+      ctx.beginPath()
+      ctx.arc(b.x, b.y + bob, R * 1.18, 0, Math.PI * 2)
+      ctx.stroke()
+      ctx.restore()
+    }
+
+    // ПОЛОСКА ЖИЗНЕЙ над головой: насечки — сколько ещё пинков выдержит
+    if (b.state !== 'flee') {
+      const bw = 64 * u
+      const bh = 8 * u
+      const bx = b.x - bw / 2
+      const by = b.y - R * 1.38 + bob
+      ctx.fillStyle = 'rgba(24, 10, 4, 0.9)'
+      ctx.fillRect(bx - 2 * u, by - 2 * u, bw + 4 * u, bh + 4 * u)
+      ctx.fillStyle = '#3A2410'
+      ctx.fillRect(bx, by, bw, bh)
+      const frac = Math.max(0, b.hp / b.maxHp)
+      ctx.fillStyle = frac > 0.5 ? '#FF8FA3' : frac > 0.25 ? '#FFC93C' : '#E5342E'
+      ctx.fillRect(bx, by, bw * frac, bh)
+      ctx.fillStyle = 'rgba(24, 10, 4, 0.55)'
+      for (let i = 1; i < b.maxHp; i++) {
+        ctx.fillRect(bx + (bw * i) / b.maxHp - u, by, Math.max(1.5, 2 * u), bh)
+      }
+      if (b.flash > 0) {
+        ctx.save()
+        ctx.globalAlpha = Math.min(1, b.flash)
         ctx.strokeStyle = '#FFFFFF'
         ctx.lineWidth = Math.max(1.5, 1.5 * u)
         ctx.strokeRect(bx - 2 * u, by - 2 * u, bw + 4 * u, bh + 4 * u)

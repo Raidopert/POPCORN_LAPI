@@ -2798,6 +2798,22 @@ export const T: Record<string, Row> = {
   'txt.empty': ['ПУСТО!', 'EMPTY!', 'LEER!', '¡VACÍO!'],
   'txt.guard': ['ОБЕРЕГ!', 'SAVED!', 'GERETTET!', '¡SALVADO!'],
   'txt.shield': ['ЩИТ!', 'SHIELD!', 'SCHILD!', '¡ESCUDO!'],
+  /* ---------- БОСС «МАЛЫШ» (каждый 10-й уровень) ---------- */
+  'banner.boss': ['👶 МАЛЫШ ИДЁТ!', '👶 THE KID ATTACKS!', '👶 DER KNIRPS!', '¡👶 EL PEQUEÑO!'],
+  'txt.bossWarn': [
+    'НЕ ТРОГАЙ РУКАМИ — ПИНЬ ПОПКОРН!',
+    'DON’T TOUCH — KICK POPCORN!',
+    'NICHT ANFASSEN — POPCORN TRETTEN!',
+    'NO LO TOQUES: ¡PATEA PALOMITAS!',
+  ],
+  'txt.bossHit': ['ФЫРК! ПОПАЛ!', 'HIT!', 'GETROFFEN!', '¡GOLPE!'],
+  'txt.bossDown': [
+    'МАЛЫШ ПОВЕРЖЕН! +{{n}}',
+    'KID DEFEATED! +{{n}}',
+    'KNIRPS BESIEGT! +{{n}}',
+    '¡PEQUEÑO DERROTADO! +{{n}}',
+  ],
+  'hud.boss': ['МАЛЫШ', 'KID', 'KNIRPS', 'PEQUE'],
   'txt.feverWin': [
     '🔥 +{{n}} ЗА ЛИХОРАДКУ!',
     '🔥 +{{n}} FEVER BONUS!',

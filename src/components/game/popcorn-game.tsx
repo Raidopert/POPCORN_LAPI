@@ -3545,6 +3545,10 @@ export function PopcornGame() {
     goldenOn: false,
     bigCaught: 0,
     bigCoins: 0,
+    boss: false,
+    bossHp: 0,
+    bossMaxHp: 0,
+    bossCoins: 0,
   })
   const [bestRaw, storeBest] = useStoredValue(BEST_KEY, '0')
   const [mutedRaw, storeMuted] = useStoredValue(MUTE_KEY, '0')
@@ -3600,6 +3604,8 @@ export function PopcornGame() {
   const prevRunRef = useRef({ grains: 0, golden: 0, pigeons: 0, nipples: 0, mines: 0, saves: 0 })
   /** БОЛЬШАЯ ПОПКОРНИНА: сколько монеток за неё уже выдано в этом забеге */
   const bigCoinsPaidRef = useRef(0)
+  /** Монетки за победы над боссами, уже выданные в этом забеге */
+  const bossCoinsPaidRef = useRef(0)
   /** Когда начался текущий забег (ачивка-марафон) */
   const runStartRef = useRef(0)
   /** Серверный забег мирового лидерборда: HMAC-токен для защищённого submit */
@@ -4409,6 +4415,17 @@ export function PopcornGame() {
         } else if (s.bigCoins < bigCoinsPaidRef.current) {
           bigCoinsPaidRef.current = s.bigCoins
         }
+        /* БОСС «МАЛЫШ»: монетки за победу капают сразу — с теми же множителями
+           монет, что и у наград этапов. Счётчик обнулился — забег новый */
+        if (s.bossCoins > bossCoinsPaidRef.current) {
+          const diff = s.bossCoins - bossCoinsPaidRef.current
+          bossCoinsPaidRef.current = s.bossCoins
+          addCoins(
+            Math.round(diff * (1 + (treeRef.current.coinsAdd ?? 0)) * marketRef.current.coinGift),
+          )
+        } else if (s.bossCoins < bossCoinsPaidRef.current) {
+          bossCoinsPaidRef.current = s.bossCoins
+        }
         /* HTML-индикатор «ВОЛНА N»: поверх тумана и любых тёмных комнат.
            Таймер держим в ref: новая волна перезапускает тост, а старый
            таймаут не гасит его раньше времени */
@@ -4812,6 +4829,7 @@ export function PopcornGame() {
     setClearInfo(null)
     lastScoreRef.current = 0
     bigCoinsPaidRef.current = 0
+    bossCoinsPaidRef.current = 0
     runXpGainRef.current = 0
     setRunXpGain(0)
     transformRef.current = 'none'
@@ -5178,18 +5196,37 @@ export function PopcornGame() {
               ))}
             </span>
           </StatPill>
-          <StatPill>
-            <span aria-hidden>🥤</span>
-            <span className="tabular-nums">
-              {stats.collected}/{stats.quota}
-            </span>
-            <span className="relative h-1.5 w-9 overflow-hidden rounded-full bg-white/15">
-              <span
-                className="absolute inset-y-0 left-0 rounded-full bg-amber-300 transition-[width] duration-200"
-                style={{ width: `${quotaPct}%` }}
-              />
-            </span>
-          </StatPill>
+          {/* Норма — или, в босс-бою, жизни малыша: трогать его нельзя! */}
+          {stats.boss ? (
+            <StatPill className="border-pink-300/60 text-pink-200">
+              <span aria-hidden>👶</span>
+              <span className="font-pixel">{t('hud.boss')}</span>
+              <span className="flex items-center gap-px" aria-hidden>
+                {Array.from({ length: stats.bossMaxHp }).map((_, i) => (
+                  <Heart
+                    key={i}
+                    strokeWidth={2.5}
+                    className={`h-3.5 w-3.5 ${
+                      i < stats.bossHp ? 'fill-red-400 text-red-400' : 'text-white/25'
+                    }`}
+                  />
+                ))}
+              </span>
+            </StatPill>
+          ) : (
+            <StatPill>
+              <span aria-hidden>🥤</span>
+              <span className="tabular-nums">
+                {stats.collected}/{stats.quota}
+              </span>
+              <span className="relative h-1.5 w-9 overflow-hidden rounded-full bg-white/15">
+                <span
+                  className="absolute inset-y-0 left-0 rounded-full bg-amber-300 transition-[width] duration-200"
+                  style={{ width: `${quotaPct}%` }}
+                />
+              </span>
+            </StatPill>
+          )}
           <StatPill>
             <span aria-hidden>🐾</span>
             <span className="tabular-nums">
