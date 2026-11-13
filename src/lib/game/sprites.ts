@@ -1235,6 +1235,590 @@ export function makeSmoothPawSprite(pal: Partial<PawPalette> = {}): Sprite {
   return { canvas, w: 24, h: 30, smooth: true }
 }
 
+/* ================= v0.0.35: ПРИМЕРКА ЛАПКИ — 4 милых варианта =================
+   Запрос игрока: «милая куничье-кошачья с коготками». Урок прошлой итерации:
+   сотни шерстинок превращают лапку в «кашу» — теперь стиль строится на
+   ЧИСТЫХ формах: единый пухлый силуэт, чёткий тонкий контур (метод
+   «раздувания» — контур ложится идеально ровно, без швов между кружками),
+   мягкие градиенты объёма, крупные блестящие бобышки, сердечко-подушечка
+   и аккуратные серповидные коготки. Мех читается лёгкими штрихами
+   и пухлыми клочьями по краю, а не «шубой» из волос.
+   Палитры скинов, радужные пальцы, леопардовые пятна и волшебный
+   колпак полностью поддерживаются. */
+
+export const PAW_STYLE_COUNT = 4
+
+/** Зона кремового «нагрудника»: ладонь+запястье (куница) или кончики пальцев */
+type BellyZone = 'palm' | 'fingers' | null
+
+interface CuteCfg {
+  /** основной мех / свет (верх-лево) / тень (низ-право) */
+  fur: string
+  furHi: string
+  furLo: string
+  /** цвет нагрудника и его блик */
+  belly: string
+  bellyHi: string
+  bellyZone: BellyZone
+  /** подушечка-сердечко и бобышки */
+  pad: string
+  beans: string
+  /** коготки: тело / острие */
+  claw: string
+  clawTip: string
+  /** контур */
+  edge: string
+  /** толщина контура (лог. ед. раздувания) */
+  edgeW: number
+  /** пухлость пальцев и разлёт */
+  toeR: number
+  spread: number
+  /** видимая длина коготка ЗА краем меха (коготь выглядывает из-под шерсти) */
+  clawLen: number
+  clawW: number
+  /** перемычки шерсти между пальцами (гладкая лапка) */
+  bridges: boolean
+  /** клочья пуха на силуэте */
+  tufts: number
+  /** внутренних штрихов шерсти (0 — гладкая плюшевая) */
+  strokes: number
+}
+
+const CUTE_CFGS: CuteCfg[] = [
+  /* 1 «ПУХЛЯШКА» — плюшевый чиби: тёплый мёд, крупные розовые бобышки,
+     крошечные кремовые коготки, толстенькие пальчики, чистый силуэт */
+  {
+    fur: '#B9824A',
+    furHi: '#EDC28A',
+    furLo: '#8E5A2C',
+    belly: '#F4E0BC',
+    bellyHi: '#FFF2D8',
+    bellyZone: null,
+    pad: '#F2A0A8',
+    beans: '#F5A9B2',
+    claw: '#F6E7CE',
+    clawTip: '#DDBA8E',
+    edge: '#3A2210',
+    edgeW: 0.5,
+    toeR: 1.06,
+    spread: 0,
+    clawLen: 1.7,
+    clawW: 0.56,
+    bridges: false,
+    tufts: 0,
+    strokes: 0,
+  },
+  /* 2 «КУНИЧКА» — настоящий окрас куницы: тёплая спинка и кремовый
+     «нагрудник» на ладони, ловкие ivory-коготки, шустрые клочья по бокам */
+  {
+    fur: '#A56A33',
+    furHi: '#DCA75F',
+    furLo: '#7A4A20',
+    belly: '#F4E5C6',
+    bellyHi: '#FFF7E2',
+    bellyZone: 'palm',
+    pad: '#EFA292',
+    beans: '#F4B0A0',
+    claw: '#F5ECD8',
+    clawTip: '#C9A96E',
+    edge: '#33200E',
+    edgeW: 0.44,
+    toeR: 1.0,
+    spread: 0.08,
+    clawLen: 1.8,
+    clawW: 0.58,
+    bridges: true,
+    tufts: 0,
+    strokes: 10,
+  },
+  /* 3 «КОШЕЧКА» — мягкий персиковый пух: пушистый край, коготки выглядывают
+     наполовину, крупное розовое сердечко-подушечка */
+  {
+    fur: '#DDB088',
+    furHi: '#F7DCB4',
+    furLo: '#A97448',
+    belly: '#F6E8CC',
+    bellyHi: '#FFF2DA',
+    bellyZone: null,
+    pad: '#F0A2AE',
+    beans: '#F0A2AE',
+    claw: '#F4E6D6',
+    clawTip: '#D9AE94',
+    edge: '#46301C',
+    edgeW: 0.44,
+    toeR: 1.0,
+    spread: 0.18,
+    clawLen: 1.5,
+    clawW: 0.52,
+    bridges: true,
+    tufts: 0,
+    strokes: 14,
+  },
+  /* 4 «ОХОТНИЦА» — лапка приготовилась к прыжку: пальцы растопырены,
+     серповидные коготки полной длины, кремовые кончики, тёмный шатён */
+  {
+    fur: '#8C5A2E',
+    furHi: '#C08A50',
+    furLo: '#5E3A18',
+    belly: '#EFE0C0',
+    bellyHi: '#FFF6DE',
+    bellyZone: 'fingers',
+    pad: '#EF9E92',
+    beans: '#F2B0A0',
+    claw: '#F2E8D0',
+    clawTip: '#B98B4C',
+    edge: '#2E1B0C',
+    edgeW: 0.44,
+    toeR: 0.98,
+    spread: 0.2,
+    clawLen: 1.9,
+    clawW: 0.64,
+    bridges: true,
+    tufts: 0,
+    strokes: 8,
+  },
+]
+
+/**
+ * Лапка «кошка × куница» в одном из 4 стилей. Логические 24×30,
+ * канва 192×240 (k=8) — при отрисовке в игре сжимается, контур остаётся чётким.
+ * pal из магазина скинов перекрашивает мех/когти; пальцы, пятна и колпак — работают.
+ */
+export function makeCutePawSprite(style: number, pal: Partial<PawPalette> = {}): Sprite {
+  const idx = ((style % PAW_STYLE_COUNT) + PAW_STYLE_COUNT) % PAW_STYLE_COUNT
+  const base = CUTE_CFGS[idx]
+  const cfg: CuteCfg = {
+    ...base,
+    fur: pal.fur ?? base.fur,
+    furHi: pal.furLight ?? base.furHi,
+    furLo: pal.furShade ?? base.furLo,
+    belly: base.bellyZone === 'palm' ? (pal.furLight ?? base.belly) : base.belly,
+    pad: pal.pad ?? base.pad,
+    beans: pal.beans ?? base.beans,
+    claw: pal.claw ?? base.claw,
+    edge: pal.edge ?? base.edge,
+  }
+  const W = 192
+  const H = 240
+  const k = W / 24
+  const canvas = mkCanvas(W, H)
+  const c = canvas.getContext('2d') as CanvasRenderingContext2D | null
+  if (!c) return { canvas, w: 24, h: 30, smooth: true }
+  const X = (v: number): number => v * k
+
+  /* Детерминированный «рандом» — одна и та же шубка при каждом рендере */
+  let seed = 0x9e3779b9 ^ ((idx + 1) * 0x85ebca6b)
+  const rnd = (): number => {
+    seed = (seed * 1664525 + 1013904223) >>> 0
+    return seed / 4294967296
+  }
+
+  /* Закрытая «шерстинка/клочок»: изогнутый листик с острым кончиком */
+  const hairPath = (
+    hx: number,
+    hy: number,
+    ang: number,
+    len: number,
+    w: number,
+    bend: number,
+  ): Path2D => {
+    const ex = hx + Math.cos(ang) * len
+    const ey = hy + Math.sin(ang) * len
+    const px = -Math.sin(ang)
+    const py = Math.cos(ang)
+    const cx = hx + Math.cos(ang) * len * 0.5 + px * bend
+    const cy = hy + Math.sin(ang) * len * 0.5 + py * bend
+    const p = new Path2D()
+    p.moveTo(X(hx + px * w), X(hy + py * w))
+    p.quadraticCurveTo(X(cx + px * w * 0.4), X(cy + py * w * 0.4), X(ex), X(ey))
+    p.quadraticCurveTo(X(cx - px * w * 0.4), X(cy - py * w * 0.4), X(hx - px * w), X(hy - py * w))
+    p.closePath()
+    return p
+  }
+
+  const hair = (
+    hx: number,
+    hy: number,
+    ang: number,
+    len: number,
+    w: number,
+    color: string,
+    bend: number,
+  ): void => {
+    c.fillStyle = color
+    c.fill(hairPath(hx, hy, ang, len, w, bend))
+  }
+
+  /* РОВНЫЙ КОНТУР без швов: «раздувание» — фигура заливается контурным
+     цветом в 12 направлениях, поверх идёт чистая заливка. Тонкое кольцо
+     получается идеально равномерным по всей фигуре */
+  const dilate = (
+    g: CanvasRenderingContext2D,
+    path: Path2D,
+    d: number,
+    color: string,
+    dirs = 12,
+  ): void => {
+    g.fillStyle = color
+    for (let i = 0; i < dirs; i++) {
+      const a = (i * Math.PI * 2) / dirs
+      g.save()
+      g.translate(Math.cos(a) * d, Math.sin(a) * d)
+      g.fill(path)
+      g.restore()
+    }
+    g.fill(path)
+  }
+
+  /* ---------- Геометрия: запястье, пясть, 4 пухлых пальца ---------- */
+  const s = cfg.spread
+  const toes = [
+    { cx: 5.9 - s * 0.9, cy: 11.4, r: 1.8 * cfg.toeR },
+    { cx: 9.7 - s * 0.35, cy: 9.2, r: 2.0 * cfg.toeR },
+    { cx: 14.3 + s * 0.35, cy: 9.2, r: 2.0 * cfg.toeR },
+    { cx: 18.1 + s * 0.9, cy: 11.4, r: 1.8 * cfg.toeR },
+  ]
+  const SIL: Array<[number, number, number]> = [
+    /* запястье: мягкая колонна с пухом по бокам */
+    [12, 24.2, 2.5],
+    [12, 26.6, 2.3],
+    [12, 28.6, 2.0],
+    [12, 29.7, 1.7],
+    [9.2, 23.4, 0.95],
+    [14.8, 23.4, 0.95],
+    [8.6, 26.0, 0.75],
+    [15.4, 26.0, 0.75],
+    [9.9, 28.5, 0.65],
+    [14.1, 28.5, 0.65],
+    /* переход пясть→запястье: без пережатой «талии» */
+    [12, 21.9, 2.55],
+    [9.8, 21.0, 1.5],
+    [14.2, 21.0, 1.5],
+    /* пясть */
+    [12, 16.4, 5.1],
+    [8.9, 17.9, 2.2],
+    [15.1, 17.9, 2.2],
+    [9.3, 14.4, 2.4],
+    [14.7, 14.4, 2.4],
+  ]
+  if (cfg.bridges) {
+    SIL.push([7.7, 12.4, 1.1], [12, 11.4, 1.25], [16.3, 12.4, 1.1])
+  }
+  for (const t of toes) {
+    /* пухлый пальчик: круг + чуть вытянутый верх (не «сосиска») */
+    SIL.push([t.cx, t.cy, t.r], [t.cx, t.cy - 1.25, t.r * 0.9])
+  }
+  const sil = circlesPath(SIL, k)
+
+  /* Жёсткая маска-союз кружков */
+  const hard = mkCanvas(W, H)
+  const hc = hard.getContext('2d') as CanvasRenderingContext2D | null
+  if (!hc) return { canvas, w: 24, h: 30, smooth: true }
+  hc.fillStyle = '#000'
+  hc.fill(sil)
+
+  /* ГЛАДКИЙ СИЛУЭТ «метаболлами»: blur смягчает стыки кружков в цельную
+     фигуру, contrast возвращает резкий край; затем ЖЁСТКАЯ отсечка альфы —
+     контур получается идеально чётким, без мягкого «ореола».
+     Без поддержки filter остаётся обычный союз кружков */
+  const blurPx = (0.5 * k).toFixed(1)
+  const hasFilter = typeof c.filter === 'string'
+  const blob = mkCanvas(W, H)
+  const bc = blob.getContext('2d') as CanvasRenderingContext2D | null
+  if (!bc) return { canvas, w: 24, h: 30, smooth: true }
+  bc.save()
+  if (hasFilter) bc.filter = `blur(${blurPx}px) contrast(24)`
+  bc.drawImage(hard, 0, 0)
+  bc.restore()
+  if (hasFilter) {
+    /* порог альфы: всё, что полупрозрачно — прочь. Канва маленькая,
+       это делается один раз при создании спрайта */
+    const img = bc.getImageData(0, 0, W, H)
+    const dd = img.data
+    for (let i = 3; i < dd.length; i += 4) dd[i] = dd[i] > 110 ? 255 : 0
+    bc.putImageData(img, 0, 0)
+  }
+  c.drawImage(blob, 0, 0)
+
+  /** Слой-копия силуэта, залитая цветом/градиентом (source-in) */
+  const tinted = (fill: string | CanvasGradient): HTMLCanvasElement | OffscreenCanvas => {
+    const t = mkCanvas(W, H)
+    const tc = t.getContext('2d') as CanvasRenderingContext2D | null
+    if (!tc) return t
+    tc.drawImage(blob, 0, 0)
+    tc.globalCompositeOperation = 'source-in'
+    tc.fillStyle = fill
+    tc.fillRect(0, 0, W, H)
+    return t
+  }
+
+  /* Меховая база: свет падает сверху-слева (рисуется ПОСЛЕ контура) */
+  const furGrad = c.createRadialGradient(X(9.8), X(11.8), 1.5 * k, X(12.2), X(17.5), 13 * k)
+  furGrad.addColorStop(0, cfg.furHi)
+  furGrad.addColorStop(0.48, cfg.fur)
+  furGrad.addColorStop(1, cfg.furLo)
+
+  /* ---------- Коготки: выглядывают ИЗ-ПОД верхнего края меха.
+     Слой когтей (с контуром) стирается по гладкому силуэту — остаётся
+     только выглядывающий кончик; контур ляжет ПОВЕРХ основания когтя,
+     мех закроет корень — коготь аккуратно «выползает» из-под шёрстки ---------- */
+  {
+    const clCanvas = mkCanvas(W, H)
+    const cc = clCanvas.getContext('2d') as CanvasRenderingContext2D | null
+    if (cc) {
+      const tilts = [-0.34, -0.12, 0.12, 0.34]
+      toes.forEach((t, i) => {
+        if (cfg.clawLen <= 0) return
+        const tilt = tilts[i]
+        const ux = Math.sin(tilt)
+        const uy = -Math.cos(tilt)
+        const px = -uy
+        const py = ux
+        const topY = t.cy - 1.25 - t.r * 0.9
+        const B = { x: t.cx + ux * 0.3, y: topY + 0.75 }
+        const L = 0.75 + cfg.clawLen
+        const T = { x: B.x + ux * L, y: B.y + uy * L }
+        const bend = tilt * 0.45
+        const C = { x: B.x + ux * L * 0.5 + px * bend, y: B.y + uy * L * 0.5 + py * bend }
+        const bw = cfg.clawW
+        const clawP = new Path2D()
+        clawP.moveTo(X(B.x + px * bw), X(B.y + py * bw))
+        clawP.quadraticCurveTo(X(C.x + px * bw * 0.5), X(C.y + py * bw * 0.5), X(T.x), X(T.y))
+        clawP.quadraticCurveTo(X(C.x - px * bw * 0.5), X(C.y - py * bw * 0.5), X(B.x - px * bw), X(B.y - py * bw))
+        clawP.closePath()
+        dilate(cc, clawP, 0.2 * k, cfg.edge, 8)
+        const cg = cc.createLinearGradient(X(B.x), X(B.y), X(T.x), X(T.y))
+        cg.addColorStop(0, cfg.claw)
+        cg.addColorStop(0.75, cfg.claw)
+        cg.addColorStop(1, cfg.clawTip)
+        cc.fillStyle = cg
+        cc.fill(clawP)
+      })
+      /* часть когтей ПОД мехом — прочь: остаются только выглядывающие кончики */
+      cc.globalCompositeOperation = 'destination-out'
+      if (hasFilter) cc.filter = `blur(${blurPx}px) contrast(24)`
+      cc.drawImage(hard, 0, 0)
+      cc.filter = 'none'
+      cc.globalCompositeOperation = 'source-over'
+      c.drawImage(clCanvas, 0, 0)
+    }
+  }
+
+  /* ЧЁТКИЙ КОНТУР: 12 смещённых копий контурного слоя + центр —
+     кольцо ложится идеально ровно по всей фигуре */
+  const dOut = cfg.edgeW * k
+  const edgeLayer = tinted(cfg.edge)
+  for (let i = 0; i < 12; i++) {
+    const a = (i * Math.PI * 2) / 12
+    c.drawImage(edgeLayer, Math.cos(a) * dOut, Math.sin(a) * dOut)
+  }
+  c.drawImage(edgeLayer, 0, 0)
+
+  /* Мех поверх контура: остаётся только тонкое ровное кольцо */
+  c.drawImage(tinted(furGrad), 0, 0)
+
+  /* ---------- Объём внутри силуэта ---------- */
+  c.save()
+  c.globalCompositeOperation = 'source-atop'
+
+  /* Кремовый нагрудник куницы: мягкое пятно на ладони и запястье */
+  if (cfg.bellyZone === 'palm') {
+    const bellyList: Array<[number, number, number]> = [
+      [12, 19.6, 3.9],
+      [12, 22.4, 3.4],
+      [12, 25.2, 2.8],
+      [12, 27.8, 2.1],
+      [9.6, 21.6, 1.7],
+      [14.4, 21.6, 1.7],
+      [10.1, 24.6, 1.5],
+      [13.9, 24.6, 1.5],
+    ]
+    const lg = c.createLinearGradient(0, X(14.6), 0, X(17.6))
+    lg.addColorStop(0, cfg.belly + '00')
+    lg.addColorStop(0.6, cfg.belly + 'AC')
+    lg.addColorStop(1, cfg.belly)
+    c.fillStyle = lg
+    c.fill(circlesPath(bellyList, k))
+    softSpot(c, X(12), X(23.8), 5 * k, cfg.bellyHi + 'A0')
+  }
+
+  /* Кремовые кончики пальцев охотницы */
+  if (cfg.bellyZone === 'fingers') {
+    for (const t of toes) {
+      const tip = { x: t.cx, y: t.cy - 1.25, r: t.r * 0.9 }
+      c.fillStyle = cfg.belly
+      c.beginPath()
+      c.arc(X(tip.x), X(tip.y), tip.r * 0.78 * k, 0, Math.PI * 2)
+      c.fill()
+      softSpot(c, X(tip.x), X(tip.y), tip.r * 1.1 * k, cfg.furLo + '3C')
+    }
+  }
+
+  /* Радужные/неоновые пальцы скина */
+  if (pal.fingers) {
+    toes.forEach((t, i) => {
+      const col = pal.fingers![i % 4]
+      c.fillStyle = col
+      c.beginPath()
+      c.arc(X(t.cx), X(t.cy), t.r * 0.95 * k, 0, Math.PI * 2)
+      c.fill()
+      c.beginPath()
+      c.arc(X(t.cx), X(t.cy - 1.25), t.r * 0.9 * 0.9 * k, 0, Math.PI * 2)
+      c.fill()
+    })
+  }
+
+  /* Леопардовые пятна скина */
+  if (pal.spots) {
+    const dots: Array<[number, number, number]> = [
+      [8.6, 13.0, 1.05],
+      [15.2, 15.8, 1.1],
+      [9.6, 21.6, 1.0],
+      [14.4, 21.0, 1.0],
+      [12.0, 12.6, 0.8],
+      [16.0, 25.4, 0.95],
+      [7.6, 17.6, 0.9],
+    ]
+    c.globalAlpha = 0.85
+    c.fillStyle = pal.spots
+    for (const [dx, dy, dr] of dots) {
+      c.beginPath()
+      c.arc(X(dx), X(dy), dr * k, 0, Math.PI * 2)
+      c.fill()
+    }
+    c.globalAlpha = 1
+  }
+
+  /* Щёлочки между пальцами: отдельные пальчики читаются лучше */
+  {
+    const ca = cfg.bridges ? '40' : '58'
+    softSpot(c, X(7.8), X(11.9), 0.8 * k, cfg.furLo + ca)
+    softSpot(c, X(12), X(10.9), 0.8 * k, cfg.furLo + ca)
+    softSpot(c, X(16.2), X(11.9), 0.8 * k, cfg.furLo + ca)
+  }
+
+  /* Тень веса справа-снизу + контровой свет слева-сверху */
+  softSpot(c, X(15.6), X(19.6), 6 * k, cfg.furLo + '54')
+  softSpot(c, X(13.8), X(26.4), 5 * k, cfg.furLo + '4C')
+  softSpot(c, X(7.9), X(10.8), 2.8 * k, cfg.furHi + '8C')
+  softSpot(c, X(6.7), X(15.8), 2.4 * k, cfg.furHi + '78')
+  for (const t of toes) {
+    softSpot(c, X(t.cx - 0.3), X(t.cy - 1.0), t.r * 0.62 * k, cfg.furHi + '8C')
+  }
+
+  /* Лёгкие штрихи шерсти: направление роста — от запястья к пальцам */
+  if (cfg.strokes > 0) {
+    const UP = -Math.PI / 2
+    const marks: Array<[number, number]> = [
+      [8.2, 13.2],
+      [10.6, 12.4],
+      [13.3, 12.2],
+      [15.8, 13.3],
+      [7.4, 16.4],
+      [16.6, 16.5],
+      [8.0, 20.2],
+      [16.0, 20.3],
+      [9.8, 23.4],
+      [14.2, 23.6],
+      [10.4, 26.0],
+      [13.6, 26.2],
+      [6.6, 15.0],
+      [17.4, 15.2],
+      [12.0, 14.6],
+      [12.0, 22.6],
+    ]
+    for (let i = 0; i < Math.min(cfg.strokes, marks.length); i++) {
+      const [hx, hy] = marks[i]
+      const tone = hx < 12 ? cfg.furHi + 'A6' : cfg.furLo + '96'
+      hair(hx, hy, UP + (hx - 12) * 0.1 + (rnd() - 0.5) * 0.4, 0.7 + rnd() * 0.5, 0.15, tone, (rnd() - 0.5) * 0.5)
+    }
+  }
+
+  /* ---------- Бобышки: розовые капли с мягким бликом (в центре пальчика) ---------- */
+  toes.forEach((t, i) => {
+    const bx = t.cx
+    const by = t.cy - 0.2
+    const br = t.r * 0.46 + (i === 1 || i === 2 ? 0.05 : 0)
+    softSpot(c, X(bx), X(by + 0.24), br * 1.55 * k, cfg.furLo + '48')
+    c.globalAlpha = 0.3
+    c.fillStyle = cfg.edge
+    c.beginPath()
+    c.arc(X(bx), X(by), br * 1.14 * k, 0, Math.PI * 2)
+    c.fill()
+    c.globalAlpha = 1
+    const bg = c.createRadialGradient(X(bx - 0.18), X(by - 0.26), 0.04 * k, X(bx), X(by), br * 1.16 * k)
+    bg.addColorStop(0, '#FFFFFFD9')
+    bg.addColorStop(0.3, '#FFFFFF5E')
+    bg.addColorStop(0.6, cfg.beans)
+    bg.addColorStop(0.9, cfg.beans + 'A6')
+    bg.addColorStop(1, cfg.beans + '00')
+    c.fillStyle = bg
+    c.beginPath()
+    c.arc(X(bx), X(by), br * 1.08 * k, 0, Math.PI * 2)
+    c.fill()
+    c.fillStyle = '#FFFFFF8C'
+    c.beginPath()
+    c.arc(X(bx - 0.2), X(by - 0.28), 0.18 * k, 0, Math.PI * 2)
+    c.fill()
+  })
+
+  /* ---------- Подушечка-сердечко (компактная — не занимает всю пясть) ---------- */
+  const padPath = new Path2D()
+  for (const [qx, qy, qr] of [
+    [10.6, 15.4, 1.25],
+    [13.4, 15.4, 1.25],
+    [12.0, 17.1, 2.2],
+  ] as Array<[number, number, number]>) {
+    padPath.moveTo(X(qx + qr), X(qy))
+    padPath.arc(X(qx), X(qy), qr * k, 0, Math.PI * 2)
+  }
+  c.globalAlpha = 0.45
+  dilate(c, padPath, 0.2 * k, cfg.edge)
+  c.globalAlpha = 1
+  const padGrad = c.createRadialGradient(X(11.1), X(15.4), 0.25 * k, X(12.0), X(16.9), 2.5 * k)
+  padGrad.addColorStop(0, '#FFFFFF8C')
+  padGrad.addColorStop(0.4, cfg.pad)
+  padGrad.addColorStop(0.82, cfg.pad + 'C0')
+  padGrad.addColorStop(1, cfg.pad + '00')
+  c.fillStyle = padGrad
+  c.fill(padPath)
+  softSpot(c, X(12.2), X(19.6), 1.8 * k, cfg.furLo + '40')
+
+  c.restore()
+
+  /* ---------- Волшебный колпак скина ---------- */
+  if (pal.hat) {
+    const hatMain = '#8AA0D8'
+    const hatDark = '#66739F'
+    c.save()
+    c.strokeStyle = '#4A5578'
+    c.lineWidth = 0.5 * k
+    c.lineJoin = 'round'
+    c.fillStyle = hatDark
+    c.beginPath()
+    c.ellipse(X(13.4), X(5.0), X(4.6), X(0.95), 0, 0, Math.PI * 2)
+    c.fill()
+    c.stroke()
+    const grad = c.createLinearGradient(X(9), 0, X(17), 0)
+    grad.addColorStop(0, hatMain)
+    grad.addColorStop(0.55, hatMain)
+    grad.addColorStop(1, hatDark)
+    c.fillStyle = grad
+    c.beginPath()
+    c.moveTo(X(13.4), X(0.4))
+    c.bezierCurveTo(X(12.4), X(1.4), X(11.1), X(2.4), X(9.5), X(4.1))
+    c.lineTo(X(17.2), X(4.1))
+    c.bezierCurveTo(X(15.7), X(2.4), X(14.4), X(1.4), X(13.4), X(0.4))
+    c.closePath()
+    c.fill()
+    c.stroke()
+    softSpot(c, X(12.6), X(1.6), 0.9 * k, '#F2F6FFD0')
+    c.restore()
+  }
+
+  return { canvas, w: 24, h: 30, smooth: true }
+}
+
 /* ---------- Зерно-мина: красно-белая ЗВЕЗДА с чёрным контуром.
    4 варианта отрисовки (переключаются через ?mine=1..4):
    0 «Вспышка» — 9-конечная, красный градиент + белое ядро,

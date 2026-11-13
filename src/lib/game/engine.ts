@@ -14,11 +14,12 @@ import {
   bgPerkFor,
   type PerkId,
 } from './perks'
-import { PAW_MAP, type PawBonus, type PawId } from './paws'
+import { PAW_MAP, DEFAULT_PAW, type PawBonus, type PawId } from './paws'
 import {
   makeSmoothPopcornSprite,
   makeCupSprite,
-  makeSmoothPawSprite,
+  makeCutePawSprite,
+  PAW_STYLE_COUNT,
   makeSparkleSprite,
   makeMineSprite,
   makePigeonSprite,
@@ -604,6 +605,10 @@ export class PopcornEngine {
   private collected = 0
   /** Постоянные улучшения из магазина лапок (действуют весь забег и все забеги) */
   private pawBonus: PawBonus = {}
+  /** v0.0.35 «примерка»: текущий стиль отрисовки лапки (0..PAW_STYLE_COUNT-1) */
+  private pawStyle = 0
+  /** Текущий скин из магазина — палитра сохраняется при смене стиля */
+  private pawSkinId: PawId = DEFAULT_PAW
   private wave = 1
   private popPerWave = 10
   private cornPerWave = 3
@@ -788,7 +793,7 @@ export class PopcornEngine {
       mines: [0, 1, 2, 3].map((k) => makeMineSprite(k, false)),
       minesCB: [0, 1, 2, 3].map((k) => makeMineSprite(k, true)),
       cup: makeCupSprite(),
-      paw: makeSmoothPawSprite(),
+      paw: makeCutePawSprite(0),
       sparkle: makeSparkleSprite(),
       pigeon0: makePigeonSprite(false),
       pigeon1: makePigeonSprite(true),
@@ -813,8 +818,17 @@ export class PopcornEngine {
   /** Скин лапки из магазина: палитра спрайта + постоянные улучшения */
   setPawSkin(id: PawId): void {
     const def = PAW_MAP[id] ?? PAW_MAP.classic
+    this.pawSkinId = id
     this.pawBonus = def.bonus
-    this.sp.paw = makeSmoothPawSprite(def.palette)
+    this.sp.paw = makeCutePawSprite(this.pawStyle, def.palette)
+  }
+
+  /** v0.0.35 «примерка»: стиль отрисовки лапки (0..PAW_STYLE_COUNT-1).
+      Палитра текущего скина сохраняется — стиль меняет только рисунок */
+  setPawStyle(style: number): void {
+    this.pawStyle = ((style % PAW_STYLE_COUNT) + PAW_STYLE_COUNT) % PAW_STYLE_COUNT
+    const def = PAW_MAP[this.pawSkinId] ?? PAW_MAP.classic
+    this.sp.paw = makeCutePawSprite(this.pawStyle, def.palette)
   }
 
   /** Постоянные апгрейды магазина (действуют во всех забегах) */

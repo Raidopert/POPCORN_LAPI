@@ -66,7 +66,7 @@ import {
 } from '@/lib/game/perks'
 import {
   makeChestSprite,
-  makeSmoothPawSprite,
+  makeCutePawSprite,
   makeSmoothPopcornSprite,
   makeMineSprite,
   MINE_VARIANTS,
@@ -619,23 +619,55 @@ function ChestImg({ open }: { open: boolean }) {
   return <canvas ref={ref} aria-hidden className="pixelated h-auto w-16 sm:w-20 [@media(max-height:520px)]:w-11 sm:[@media(max-height:520px)]:w-11" />
 }
 
-/** Гладкая лапка выбранного окраса (магазин скинов) */
-function PawImg({ skinId, className = 'w-9' }: { skinId: PawId; className?: string }) {
+/** Лапка выбранного окраса и стиля (магазин скинов) */
+function PawImg({
+  skinId,
+  style = 0,
+  className = 'w-9',
+}: {
+  skinId: PawId
+  style?: number
+  className?: string
+}) {
   const ref = useRef<HTMLCanvasElement | null>(null)
   useEffect(() => {
     const c = ref.current
     if (!c) return
-    /* Hi-res спрайт 96×120 рисуется в канвас 1:1 — браузер сам плавно
+    /* Hi-res спрайт 192×240 рисуется в канвас 1:1 — браузер сам плавно
        ужмёт к 36px, без пиксельной угловатости */
-    const spr = makeSmoothPawSprite(PAW_MAP[skinId].palette)
+    const spr = makeCutePawSprite(style, PAW_MAP[skinId].palette)
     c.width = spr.canvas.width
     c.height = spr.canvas.height
     const ctx = c.getContext('2d')
     if (!ctx) return
     ctx.clearRect(0, 0, c.width, c.height)
     ctx.drawImage(spr.canvas, 0, 0)
-  }, [skinId])
+  }, [skinId, style])
   return <canvas ref={ref} aria-hidden className={`h-auto shrink-0 ${className}`} />
+}
+
+/* ---------- v0.0.35 ПРИМЕРКА ЛАПКИ: временная панель выбора стиля.
+   Игрок пробует 4 варианта прямо в игре и говорит, какой оставить.
+   Выбор сохраняется в localStorage и применяется к движку сразу ---------- */
+
+const CUTE_PAW_NAMES = ['Пухляшка', 'Куничка', 'Кошечка', 'Охотница']
+const PAW_STYLE_KEY = 'popcorn.pawStyle'
+
+/** Мини-превью стиля лапки для панели-примерки */
+function PawStyleThumb({ style, skinId }: { style: number; skinId: PawId }) {
+  const ref = useRef<HTMLCanvasElement | null>(null)
+  useEffect(() => {
+    const cv = ref.current
+    if (!cv) return
+    const spr = makeCutePawSprite(style, PAW_MAP[skinId].palette)
+    cv.width = spr.canvas.width
+    cv.height = spr.canvas.height
+    const ctx = cv.getContext('2d')
+    if (!ctx) return
+    ctx.clearRect(0, 0, cv.width, cv.height)
+    ctx.drawImage(spr.canvas, 0, 0)
+  }, [style, skinId])
+  return <canvas ref={ref} aria-hidden className="h-auto w-8" />
 }
 
 /** Dev-полоса сравнения вариантов мины: включается через ?mine=1..4 */
@@ -1747,7 +1779,7 @@ function ShopOverlay({
                         : 'border-[#e3cba4] bg-[#fdf3e0]'
                   }`}
                 >
-                  <PawImg skinId={def.id} />
+                  <PawImg skinId={def.id} style={pawStyle} />
                   <div className="min-w-0 flex-1">
                     <div className="flex items-center gap-1.5">
                       <span className="font-pixel text-sm font-bold leading-tight text-[#5C3A1E]">
@@ -3606,6 +3638,9 @@ export function PopcornGame() {
   /** Опыт 🍿, заработанный ТЕКУЩИМ забегом (курс 10:1 с округлением вниз по дельтам) */
   const runXpGainRef = useRef(0)
   const [runXpGain, setRunXpGain] = useState(0)
+  /* v0.0.35 «примерка лапки»: выбранный стиль отрисовки (временная панель) */
+  const [pawStyle, setPawStyle] = useState(0)
+  const [pawFitOpen, setPawFitOpen] = useState(true)
 
   /* Настройки: язык, сложность, качество, ориентация, перки, экран, вибрация */
   const [settings, setSettings] = useSettings()
@@ -4951,6 +4986,10 @@ export function PopcornGame() {
     engine.setTree(treeRef.current)
     /* «Беспорядок NANA»: уровень куницы — жирнее забеги (квота/волны/мины) */
     engine.setMartenMess(martenMess(martenLevelOf(getMartenSnapshot()).level))
+    /* v0.0.35 примерка: возвращаем сохранённый стиль лапки */
+    const savedPawStyle = Number(window.localStorage.getItem(PAW_STYLE_KEY) ?? 0) || 0
+    if (savedPawStyle) engine.setPawStyle(savedPawStyle)
+    setPawStyle(savedPawStyle)
     layoutRef.current()
 
     return () => {
@@ -5363,6 +5402,14 @@ export function PopcornGame() {
     [ownedPaws, storePaw],
   )
 
+  /** v0.0.35 примерка: переключить стиль лапки (выбор сохраняется) */
+  const choosePawStyle = useCallback((i: number) => {
+    audio.play('click')
+    setPawStyle(i)
+    window.localStorage.setItem(PAW_STYLE_KEY, String(i))
+    engineRef.current?.setPawStyle(i)
+  }, [])
+
   /** Покупка лапки: за опыт 🍿 или монетки 🪙 (артефактные лапки — за монетки) */
   const buyPaw = useCallback(
     (def: PawDef) => {
@@ -5643,6 +5690,58 @@ export function PopcornGame() {
         {/* CRT-развёртка (настройка): чистый CSS поверх канваса — канвас
             и игровой цикл не трогаем, рисует композитор GPU бесплатно */}
         {settings.crt && <div aria-hidden className="popcorn-crt pointer-events-none absolute inset-0 z-20" />}
+
+        {/* v0.0.35 ПРИМЕРКА ЛАПКИ: временная панель — игрок смотрит 4 варианта
+            прямо в игре и говорит, какой оставить. Сворачивается в кнопку 🐾,
+            чтобы не мешала объезжать мины */}
+        <div className="absolute bottom-3 left-3 z-30 select-none">
+          <div className="rounded-2xl border-2 border-amber-300/70 bg-[#2b1a0e]/90 p-2 shadow-[0_6px_20px_rgba(0,0,0,0.5)] backdrop-blur-sm">
+            <div className="flex items-center justify-between gap-3">
+              <span className="font-pixel text-[11px] font-bold text-amber-200">🐾 Примерка лапки</span>
+              <button
+                type="button"
+                onClick={() => setPawFitOpen((o) => !o)}
+                className="rounded-lg border border-amber-300/50 px-2 py-0.5 font-pixel text-[10px] text-amber-100/80 transition hover:bg-amber-300/10"
+                aria-expanded={pawFitOpen}
+                aria-label="Свернуть или развернуть примерку лапки"
+              >
+                {pawFitOpen ? '—' : '🐾'}
+              </button>
+            </div>
+            {pawFitOpen && (
+              <>
+                <div className="mt-2 grid grid-cols-4 gap-1.5">
+                  {CUTE_PAW_NAMES.map((name, i) => (
+                    <button
+                      key={name}
+                      type="button"
+                      onClick={() => choosePawStyle(i)}
+                      aria-pressed={pawStyle === i}
+                      aria-label={`Стиль лапки: ${name}`}
+                      className={`flex flex-col items-center gap-1 rounded-xl border-2 px-1 py-1.5 transition ${
+                        pawStyle === i
+                          ? 'border-amber-300 bg-amber-300/15'
+                          : 'border-amber-300/25 opacity-80 hover:opacity-100'
+                      }`}
+                    >
+                      <PawStyleThumb style={i} skinId={equippedPaw} />
+                      <span
+                        className={`font-pixel text-[9px] leading-none ${
+                          pawStyle === i ? 'text-amber-200' : 'text-amber-100/70'
+                        }`}
+                      >
+                        {name}
+                      </span>
+                    </button>
+                  ))}
+                </div>
+                <p className="mt-1.5 max-w-[250px] font-pixel text-[9px] leading-snug text-amber-100/50">
+                  Временная примерка: поиграй с каждым и скажи, какой оставить
+                </p>
+              </>
+            )}
+          </div>
+        </div>
 
         {/* Индикатор «ВОЛНА N»: HTML поверх канваса — виден сквозь попкорновый
             туман и любую темноту (туман рисуется внутри канваса) */}
