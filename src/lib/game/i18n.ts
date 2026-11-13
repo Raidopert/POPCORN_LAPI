@@ -36,6 +36,12 @@ export const T: Record<string, Row> = {
     'POPCORN PAWS',
   ],
   'menu.record': ['Рекорд: {{n}}', 'Best: {{n}}', 'Rekord: {{n}}', 'Récord: {{n}}'],
+  'menu.world': [
+    'Заходов: {{n}} · Котиков: {{v}}',
+    'Visits: {{n}} · Cats: {{v}}',
+    'Starts: {{n}} · Katzen: {{v}}',
+    'Visitas: {{n}} · Gatos: {{v}}',
+  ],
   'menu.xp': ['Опыт: {{n}}', 'XP: {{n}}', 'XP: {{n}}', 'Exp: {{n}}'],
   'menu.charLevel': [
     '🎖 Котик: ур. {{n}}',

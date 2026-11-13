@@ -6142,6 +6142,25 @@ export function PopcornGame() {
                 >
                   {GAME_VERSION_LABEL}
                 </span>
+
+                {/* Счётчик заходов в мир (v0.0.36): сколько раз игру открывали
+                    и сколько уникальных устройств приходило — левый нижний угол.
+                    Цифры живые: приходят из /api/sessions при открытии меню */}
+                {worldStats && (
+                  <span
+                    title={t('lead.stats', {
+                      n: worldStats.launches,
+                      r: worldStats.runs,
+                      p: worldStats.players,
+                    })}
+                    className="pointer-events-none absolute bottom-0.5 left-2 font-ui text-[9px] font-semibold tracking-wide text-[#a97c50]/60 sm:bottom-1 sm:left-2.5"
+                  >
+                    {t('menu.world', {
+                      n: worldStats.launches,
+                      v: worldStats.visitors ?? worldStats.players,
+                    })}
+                  </span>
+                )}
               </motion.div>
             </motion.div>
           )}
