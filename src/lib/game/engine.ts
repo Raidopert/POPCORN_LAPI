@@ -4419,36 +4419,14 @@ export class PopcornEngine {
       }
     }
 
-    // Светлое пятно под лапкой: курсор виден на ЛЮБОМ фоне — тёмный чердак,
-    // ночной двор, старые Android-браузеры (была жалоба: «курсора не видно»)
-    ctx.fillStyle = 'rgba(255, 247, 220, 0.16)'
-    ctx.beginPath()
-    ctx.ellipse(px, py - 2 * u, 46 * u, 34 * u, 0, 0, Math.PI * 2)
-    ctx.fill()
-    ctx.fillStyle = 'rgba(255, 247, 220, 0.22)'
-    ctx.beginPath()
-    ctx.ellipse(px, py - 2 * u, 30 * u, 22 * u, 0, 0, Math.PI * 2)
-    ctx.fill()
-
-    /* Кольцо зоны подбора: тонкий пунктир, по которому видно «очертания»
-       ловли на любом фоне и любом экране (старые Android, тёмные комнаты) */
-    if (this.phase === 'playing' && !this.paused) {
-      const gr = this.grabR
-      ctx.save()
-      ctx.globalAlpha = 0.16 + 0.05 * Math.sin(ts * 0.004)
-      ctx.strokeStyle = '#FFF3D0'
-      ctx.lineWidth = Math.max(1.5, 1.6 * u)
-      ctx.setLineDash([7 * u, 6 * u])
-      ctx.beginPath()
-      ctx.ellipse(px, py + 4 * u, gr * 1.12, gr * 0.82, 0, 0, Math.PI * 2)
-      ctx.stroke()
-      ctx.restore()
-    }
+    /* v0.0.35: ореол и пульсирующий пунктир зоны подбора УБРАНЫ по запросу
+       игрока — они мешали аккуратно обходить мины. Видимость на тёмном фоне
+       держит сам силуэт лапки: чёткий тёмный контур нового спрайта */
 
     // Тень лапки
-    ctx.fillStyle = 'rgba(0, 0, 0, 0.18)'
+    ctx.fillStyle = 'rgba(0, 0, 0, 0.14)'
     ctx.beginPath()
-    ctx.ellipse(px, py + 28 * u, 26 * u, 7 * u, 0, 0, Math.PI * 2)
+    ctx.ellipse(px, py + 28 * u, 24 * u, 6 * u, 0, 0, Math.PI * 2)
     ctx.fill()
 
     const basePaw = this.perk === 'bigpaw' ? 3.6 : this.perk === 'smallpaw' ? 2.17 : 2.85

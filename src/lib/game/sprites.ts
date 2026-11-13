@@ -837,24 +837,91 @@ export function makeSmoothNippleSprite(): Sprite {
   return { canvas, w: 14, h: 14, smooth: true }
 }
 
-/* ---------- Лапка куницы: гладкая, с мехом-градиентами и коготками.
-   v0.0.27 — новая анатомия вместо «плюшевого тапка»: 4 тонких пальца
-   дугой (средний длиннее — как у настоящей куницы), серповидные
-   коготки, узкое запястье с меховой бахромой, подушечка-сердечко.
-   Милота — из округлых «бобышек» и бахромы, натурность — из
-   асимметрии пальцев и острых коготков ---------- */
+/* ---------- Лапка КОШКА × КУНИЦА, v0.0.35 — реалистичный мех.
+   Канва 192×240 (×8 к логическим 24×30). Шубка живая:
+   — подшёрсток: ~250 изогнутых шерстинок трёх тонов, течение
+     меха от запястья к пальцам (как у настоящей зверюшки);
+   — остевые волоски куницы: редкие длинные, рвут гладкость;
+   — пухлые клочья по бокам поверх контура — пушистый силуэт;
+   — контур тонкий и чёткий (не «плюшевая» обводка);
+   — коготки серповидные с корнем под пальцем и бликом;
+   — подушечка и бобышки с объёмом и specular.
+   Палитра скинов, леопардовые пятна, радужные пальцы и
+   волшебный колпак полностью сохранены ---------- */
 
 export function makeSmoothPawSprite(pal: Partial<PawPalette> = {}): Sprite {
   const p: PawPalette = { ...PAW_DEFAULT, ...pal }
   const light = p.furLight ?? p.pad
-  const W = 96
-  const H = 120
+  const W = 192
+  const H = 240
   const k = W / 24
   const canvas = mkCanvas(W, H)
   const c = canvas.getContext('2d') as CanvasRenderingContext2D | null
   if (!c) return { canvas, w: 24, h: 30, smooth: true }
   const x = (v: number): number => v * k
   const y = (v: number): number => v * k
+
+  /* Детерминированный «рандом» меха: одна и та же шубка при каждом рендере */
+  let seed = 0x2f6e2b1
+  const rnd = (): number => {
+    seed = (seed * 1664525 + 1013904223) >>> 0
+    return seed / 4294967296
+  }
+
+  /* Шерстинка: изогнутое «пёрышко» с острым кончиком.
+     hx,hy — корень (лог. ед.), ang — направление роста, len — длина,
+     w — полуширина корня, bend — изгиб по перпендикуляру */
+  const hair = (
+    hx: number,
+    hy: number,
+    ang: number,
+    len: number,
+    w: number,
+    color: string,
+    bend: number,
+  ): void => {
+    const ex = hx + Math.cos(ang) * len
+    const ey = hy + Math.sin(ang) * len
+    const px = -Math.sin(ang)
+    const py = Math.cos(ang)
+    const cx = hx + Math.cos(ang) * len * 0.5 + px * bend
+    const cy = hy + Math.sin(ang) * len * 0.5 + py * bend
+    c.fillStyle = color
+    c.beginPath()
+    c.moveTo(x(hx + px * w), y(hy + py * w))
+    c.quadraticCurveTo(x(cx + px * w * 0.4), y(cy + py * w * 0.4), x(ex), y(ey))
+    c.quadraticCurveTo(x(cx - px * w * 0.4), y(cy - py * w * 0.4), x(hx - px * w), y(hy - py * w))
+    c.closePath()
+    c.fill()
+  }
+
+  /* Серповидный коготок: корень под кончиком пальца, изгиб наружу */
+  const sickle = (
+    rx: number,
+    ry: number,
+    tx: number,
+    ty: number,
+    w: number,
+    bend: number,
+    color: string,
+  ): void => {
+    const dx = tx - rx
+    const dy = ty - ry
+    const L = Math.hypot(dx, dy) || 1
+    const ux = dx / L
+    const uy = dy / L
+    const px = -uy
+    const py = ux
+    const cx = (rx + tx) / 2 + px * bend
+    const cy = (ry + ty) / 2 + py * bend
+    c.fillStyle = color
+    c.beginPath()
+    c.moveTo(x(rx + px * w), y(ry + py * w))
+    c.quadraticCurveTo(x(cx + px * w * 0.55), y(cy + py * w * 0.55), x(tx), y(ty))
+    c.quadraticCurveTo(x(cx - px * w * 0.55), y(cy - py * w * 0.55), x(rx - px * w), y(ry - py * w))
+    c.closePath()
+    c.fill()
+  }
 
   /* Силуэт: запястье + бахрома + пясть + перепонки + 4 вытянутых пальца + коготки */
   const FUR: Array<[number, number, number]> = [
@@ -872,11 +939,15 @@ export function makeSmoothPawSprite(pal: Partial<PawPalette> = {}): Sprite {
     [12, 16.2, 5.3],
     [8.4, 17.9, 2.3],
     [15.6, 17.9, 2.3],
-    /* пушистые перепонки между пальцами — ниже, чтобы не зливали щели */
+    /* пушистые перепонки между пальцами */
     [7.9, 13.2, 1.5],
     [11.5, 12.2, 1.6],
     [15.3, 13.4, 1.5],
-    /* боковые клочья на пястье — рвут «плюшевый» контур */
+    /* мосты шерсти между пальцами: не «сосиски», а живая лапа */
+    [7.5, 10.8, 1.2],
+    [12.0, 9.9, 1.25],
+    [16.3, 10.6, 1.15],
+    /* боковые клочья на пястье */
     [6.6, 15.2, 0.9],
     [17.4, 15.4, 0.9],
     [7.0, 19.6, 1.0],
@@ -899,36 +970,94 @@ export function makeSmoothPawSprite(pal: Partial<PawPalette> = {}): Sprite {
   ]
   const silhouette = circlesPath([...FUR, ...CLAWS], k)
 
-  /* Обводка-силуэт (чуть шире) */
+  /* Чёткий тёмный контур: узкое кольцо вместо прежней «жирной» обводки */
   c.fillStyle = p.edge
-  c.fill(circlesPath([...FUR, ...CLAWS], k, 0.5))
+  c.fill(circlesPath([...FUR, ...CLAWS], k, 0.52))
   /* База: шерсть */
   c.fillStyle = p.fur
   c.fill(silhouette)
 
-  /* Коготки: тёмные серповидные, торчат из-за кончиков пальцев */
-  for (const [cx1, cy1, cr1] of CLAWS) {
-    c.fillStyle = p.claw
-    c.beginPath()
-    c.arc(x(cx1), y(cy1), cr1 * k, 0, Math.PI * 2)
-    c.fill()
-  }
-
-  /* Объём меха: свет сверху-слева, тень справа — в клипе силуэта */
+  /* Шубка: всё только внутри силуэта */
   c.save()
   c.clip(silhouette)
-  softSpot(c, x(9.2), y(13.4), 6 * k, light + 'B0')
-  softSpot(c, x(9.8), y(7.4), 2.8 * k, light + 'C8')
-  softSpot(c, x(15.4), y(18.2), 6 * k, p.furShade + 'A8')
-  softSpot(c, x(14.2), y(26.0), 5 * k, p.furShade + '90')
-  softSpot(c, x(19.0), y(10.6), 2.4 * k, p.furShade + 'B0')
-  /* складки меха у перепонок + глубокие щели между пальцами */
-  softSpot(c, x(7.5), y(10.6), 1.1 * k, p.furShade + 'C0')
-  softSpot(c, x(11.4), y(9.6), 1.15 * k, p.furShade + 'C0')
-  softSpot(c, x(15.6), y(10.8), 1.1 * k, p.furShade + 'C0')
-  softSpot(c, x(8.8), y(13.4), 1.3 * k, p.furShade + '80')
-  softSpot(c, x(12.4), y(12.5), 1.3 * k, p.furShade + '80')
-  softSpot(c, x(16.0), y(13.6), 1.3 * k, p.furShade + '80')
+
+  /* Контурное кольцо изнутри — БЕЗ швов: полупрозрачный тёмный слой
+     чуть шире шубки; заливка-объединение не рисует стыки кружков */
+  c.globalAlpha = 0.5
+  c.fillStyle = p.edge
+  c.fill(circlesPath([...FUR, ...CLAWS], k, 0.3))
+  c.globalAlpha = 1
+
+  /* Световая база шубки: непрозрачная, перерисовывает внутренность —
+     остаётся только тонкое тёмное кольцо [0.10..0.30] */
+  const furBase = c.createRadialGradient(x(9.6), y(12.5), 1.6 * k, x(12), y(17), 14 * k)
+  furBase.addColorStop(0, light + 'E0')
+  furBase.addColorStop(0.42, p.fur)
+  furBase.addColorStop(1, p.furShade)
+  c.fillStyle = furBase
+  c.fill(silhouette)
+
+  /* Точка внутри силуэта — посев шерстинок без «летающего меха» */
+  const inSil = (sx: number, sy: number): boolean => {
+    for (const [fx, fy, fr] of FUR) {
+      if (Math.hypot(sx - fx, sy - fy) < fr * 0.95) return true
+    }
+    return false
+  }
+  const rndInSil = (): [number, number] => {
+    for (;;) {
+      const sx = 3.2 + rnd() * 17.6
+      const sy = 4.6 + rnd() * 25.4
+      if (inSil(sx, sy)) return [sx, sy]
+    }
+  }
+
+  /* Подшёрсток: жирные изогнутые шерстинки. Тёмных больше и они шире
+     (плотный подшёрсток), светлых меньше и они уже (пряные блики) —
+     так мех не превращается в полосатую «зебру» */
+  const UP = -Math.PI / 2
+  for (let i = 0; i < 170; i++) {
+    const [hx, hy] = rndInSil()
+    const r = rnd()
+    const isLight = r < (hx < 12 ? 0.48 : 0.2)
+    const isDark = !isLight && r > 1 - ((hx > 12.4 ? 0.48 : 0.26) + (hy > 21 ? 0.24 : 0))
+    const tone = isLight ? light + 'D4' : isDark ? p.furShade + 'B4' : p.fur + '8C'
+    const wBase = isLight ? 0.18 + rnd() * 0.12 : 0.26 + rnd() * 0.18
+    if (hy < 11.8) {
+      /* пальцы: шерсть по оси пальца к кончику */
+      const fi = hx < 7.2 ? 0 : hx < 11.4 ? 1 : hx < 15.6 ? 2 : 3
+      const fa = UP + [-0.22, -0.14, -0.02, 0.24][fi]
+      hair(hx, hy, fa + (rnd() - 0.5) * 0.6, 1.1 + rnd() * 1.0, wBase * 0.85, tone, (rnd() - 0.5) * 0.8)
+    } else if (hy < 21.4) {
+      /* пясть: веер вверх от центра */
+      hair(hx, hy, UP + (hx - 12) * 0.12 + (rnd() - 0.5) * 0.5, 2.0 + rnd() * 1.6, wBase, tone, (rnd() - 0.5) * 1.0)
+    } else {
+      /* запястье: уверенный поток вверх */
+      hair(hx, hy, UP + (hx - 12) * 0.08 + (rnd() - 0.5) * 0.44, 2.2 + rnd() * 1.6, wBase, tone, (rnd() - 0.5) * 0.8)
+    }
+  }
+  /* Остевые волоски куницы: редкие длинные на запястье — «дикая» шубка */
+  for (let i = 0; i < 22; i++) {
+    const [hx, hy] = rndInSil()
+    if (hy < 19) continue
+    const tone = rnd() < 0.5 ? light + 'B8' : p.furShade + 'A8'
+    hair(hx, hy, UP + (hx - 12) * 0.05 + (rnd() - 0.5) * 0.2, 4.2 + rnd() * 2.0, 0.12 + rnd() * 0.08, tone, (rnd() - 0.5) * 0.9)
+  }
+
+  /* Глубина: щели между пальцами, тень под пястьем, вес запястья */
+  softSpot(c, x(8.4), y(11.2), 1.0 * k, p.furShade + '7C')
+  softSpot(c, x(12.6), y(10.2), 1.0 * k, p.furShade + '7C')
+  softSpot(c, x(16.4), y(11.4), 0.95 * k, p.furShade + '74')
+  softSpot(c, x(8.8), y(13.8), 1.15 * k, p.furShade + '70')
+  softSpot(c, x(12.4), y(12.8), 1.15 * k, p.furShade + '70')
+  softSpot(c, x(16.0), y(13.9), 1.15 * k, p.furShade + '70')
+  softSpot(c, x(14.6), y(18.6), 5.5 * k, p.furShade + '72')
+  softSpot(c, x(13.6), y(26.2), 5 * k, p.furShade + '66')
+  /* Контровой свет: мягкие светлые пятна вдоль верхне-левого края —
+     без stroke() по пути из кружков: он рисовал швы между ними */
+  softSpot(c, x(7.6), y(10.8), 3.0 * k, light + '66')
+  softSpot(c, x(6.4), y(15.8), 2.6 * k, light + '5A')
+  softSpot(c, x(9.4), y(7.8), 2.0 * k, light + '66')
   /* Пятнистый окрас (леопард) */
   if (p.spots) {
     const dots: Array<[number, number, number]> = [
@@ -967,21 +1096,28 @@ export function makeSmoothPawSprite(pal: Partial<PawPalette> = {}): Sprite {
     }
   }
 
-  /* Подушечка-сердечко: две мочки + большая долька, тень и блик */
-  c.fillStyle = p.pad
+  /* Подушечка-сердечко: ОДИН непрерывный градиент на весь профиль —
+     заливка общей фигуры без колец на стыках мочек */
+  const padPath = new Path2D()
   for (const [px, py, pr] of [
     [10.1, 15.4, 1.65],
     [13.9, 15.4, 1.65],
     [12.0, 17.2, 3.0],
   ] as Array<[number, number, number]>) {
-    c.beginPath()
-    c.arc(x(px), y(py), pr * k, 0, Math.PI * 2)
-    c.fill()
+    padPath.moveTo(x(px + pr), y(py))
+    padPath.arc(x(px), y(py), pr * k, 0, Math.PI * 2)
   }
-  softSpot(c, x(13.4), y(18.6), 2.0 * k, p.furShade + 'A0')
-  softSpot(c, x(10.6), y(14.9), 1.3 * k, '#FFFFFF' + '78')
+  const padGrad = c.createRadialGradient(x(10.8), y(15.2), 0.3 * k, x(12.0), y(17.0), 3.8 * k)
+  padGrad.addColorStop(0, '#FFFFFF' + '70')
+  padGrad.addColorStop(0.3, p.pad)
+  padGrad.addColorStop(0.7, p.pad + 'B4')
+  padGrad.addColorStop(1, p.furShade + '00')
+  c.fillStyle = padGrad
+  c.fill(padPath)
+  softSpot(c, x(12.3), y(19.9), 2.4 * k, p.furShade + '4C')
 
-  /* «Бобышки»: 4 светлые капли в середине пальцев (не на кончиках) */
+  /* «Бобышки»: 4 объёмные капли в середине пальцев — светлый верх,
+     розоватый низ (как у живой кошки), микро-тень под каждой */
   const beans: Array<[number, number, number]> = [
     [5.7, 10.0, 0.72],
     [9.3, 7.6, 0.75],
@@ -989,24 +1125,82 @@ export function makeSmoothPawSprite(pal: Partial<PawPalette> = {}): Sprite {
     [18.0, 9.2, 0.72],
   ]
   for (const [bx, by, br] of beans) {
-    c.fillStyle = p.beans
+    softSpot(c, x(bx), y(by + 0.15), br * 1.3 * k, p.furShade + '44')
+    const beanGrad = c.createRadialGradient(
+      x(bx - 0.18),
+      y(by - 0.22),
+      0.04 * k,
+      x(bx),
+      y(by),
+      br * 1.2 * k,
+    )
+    beanGrad.addColorStop(0, '#FFFFFF' + 'E6')
+    beanGrad.addColorStop(0.3, '#FFFFFF' + '5E')
+    beanGrad.addColorStop(0.52, p.beans)
+    beanGrad.addColorStop(0.85, p.beans + '8C')
+    beanGrad.addColorStop(1, p.pad + '00')
+    c.fillStyle = beanGrad
     c.beginPath()
-    c.arc(x(bx), y(by), br * k, 0, Math.PI * 2)
+    c.arc(x(bx), y(by), br * 1.08 * k, 0, Math.PI * 2)
     c.fill()
-    softSpot(c, x(bx + 0.3), y(by + 0.35), 0.55 * k, p.furShade + '8C')
-    softSpot(c, x(bx - 0.3), y(by - 0.4), 0.45 * k, '#FFFFFF' + 'B8')
   }
 
-  /* Блики на коготках */
-  for (const [cx2, cy2] of [
-    [4.55, 6.3],
-    [8.8, 3.95],
-    [13.6, 3.4],
-    [18.85, 5.85],
-  ]) {
-    softSpot(c, x(cx2), y(cy2), 0.45 * k, '#FFF6EC' + 'E0')
+  /* Коготки: серповидные, корень уходит под кончик пальца,
+     изгиб наружу — когти куницы, приготовившейся к прыжку */
+  const clawDefs: Array<{ tip: [number, number, number]; to: [number, number]; bend: number }> = [
+    { tip: [5.5, 9.3, 1.5], to: [4.5, 6.3], bend: -0.34 },
+    { tip: [9.3, 6.9, 1.6], to: [8.85, 3.85], bend: -0.12 },
+    { tip: [13.7, 6.3, 1.7], to: [13.85, 3.3], bend: 0.12 },
+    { tip: [18.1, 8.5, 1.5], to: [19.3, 5.8], bend: 0.34 },
+  ]
+  for (const { tip, to, bend } of clawDefs) {
+    const [tx2, ty2, tr2] = tip
+    const dx2 = to[0] - tx2
+    const dy2 = to[1] - ty2
+    const L2 = Math.hypot(dx2, dy2) || 1
+    const ux2 = dx2 / L2
+    const uy2 = dy2 / L2
+    const rx2 = tx2 + ux2 * tr2 * 0.62
+    const ry2 = ty2 + uy2 * tr2 * 0.62
+    sickle(rx2, ry2, to[0], to[1], 0.52, bend, p.claw)
+    /* корень чуть темнее — коготь выходит из-под меха */
+    softSpot(c, x(rx2), y(ry2), 0.8 * k, p.edge + '66')
+    /* блик у острия */
+    softSpot(c, x(to[0] - ux2 * 0.4), y(to[1] - uy2 * 0.4), 0.5 * k, '#FFF6EC' + 'D2')
   }
   c.restore()
+
+  /* Пухлые клочья поверх контура: рвут силуэт — живой мех, не «тапок» */
+  const TUFTS: Array<[number, number, number]> = [
+    /* запястье: бока и низ */
+    [7.3, 22.8, -2.1],
+    [6.3, 24.9, -2.85],
+    [6.7, 27.1, 3.05],
+    [8.4, 29.1, 2.45],
+    [16.9, 23.0, -1.05],
+    [17.9, 25.2, -0.2],
+    [17.4, 27.5, 0.45],
+    [15.7, 29.3, 1.05],
+    /* пясть: бока */
+    [6.9, 16.4, -2.5],
+    [6.3, 18.6, -3.05],
+    [17.3, 16.6, -0.6],
+    [17.9, 18.9, 0.05],
+    /* перепонки и макушка пястья между пальцами */
+    [7.5, 12.3, -1.9],
+    [11.1, 11.2, -1.62],
+    [15.1, 12.5, -1.3],
+    [9.0, 10.4, -1.8],
+    [13.1, 10.0, -1.48],
+    [16.4, 11.3, -1.1],
+  ]
+  for (const [tux, tuy, tua] of TUFTS) {
+    const ang = tua + (rnd() - 0.5) * 0.3
+    const tone = rnd() < 0.62 ? p.fur : rnd() < 0.55 ? light + 'D8' : p.furShade + 'D0'
+    hair(tux, tuy, ang, 1.1 + rnd() * 0.9, 0.2 + rnd() * 0.1, tone, (rnd() - 0.5) * 0.5)
+    hair(tux, tuy, ang + (rnd() - 0.5) * 0.5, 0.7 + rnd() * 0.5, 0.14, p.fur + 'F0', (rnd() - 0.5) * 0.4)
+  }
+  /* Внутренняя линия контура уже наложена в начале (кольцо без швов) */
 
   /* Волшебный колпак: гладкий конус с кантом и бликом — сидит на среднем пальце */
   if (p.hat) {
