@@ -44,62 +44,137 @@ import type { TranslateFn } from '@/lib/game/i18n'
 
 /* ══════════════ Жёсткие рамки баланса (гейм-дизайн) ══════════════ */
 
-/** Сколько секунд идёт нарезка */
-const SLICE_SECONDS = 7
-/** Пул HP бонусной цели: столько тиков урона она выдерживает.
-    Пул большой (56 тиков ≈ 6+ секунд усердной работы): нарезка больше
-    не кончается через пару свайпов — режь ВСЕ 7 секунд.
-    Реальный диапазон: обычный игрок ~300–400, потолок ≈ 1000+ —
-    выше только при очень больших усилиях (точное ведение по бегущей,
-    сжимающейся цели) */
-const POPCORN_HP = 56
-/** Цель «сдувается» по мере урона: к последнему тику радиус — 52%
-    от исходного. Меньше цель → труднее цеплять свайпами: скилл решает,
-    очки перестают быть одинаковыми у всех (было: 380–400 у каждого) */
-const SHRINK_MIN = 0.52
-/** Цель медленно ПЛАВАЕТ вокруг точки покоя (доля радиуса, эллипс):
-    свайп по неподвижной мишени — это фарм, по бегущей — мастерство */
-const DRIFT_AMP = 0.08
-const DRIFT_SPEED = 0.85
-/** Хитбокс на 15% больше спрайта — «задел» даже при лёгком промахе */
-const HITBOX_MUL = 1.15
+/** Сколько секунд идёт нарезка. Запрос игрока (0.0.31): было 7 — стало 5:
+    окно короче → тиков меньше → до старого потолка добирают только
+    самые быстрые лапки. Компенсация: база очков чуть выше (5 вместо 4) */
+const SLICE_SECONDS = 5
 /** Серия живёт, пока между тиками меньше этого (сброс комбо по ТЗ) */
 const COMBO_GAP = 1.5
 /** Антидребезг: минимальная пауза между тиками одного свайпа */
 const TICK_COOLDOWN = 0.055
-/** Очки за базовый тик урона */
-const BASE_POINTS = 4
 /** Крит: случайный шанс (не зависит от точности) */
 const CRIT_CHANCE = 0.12
 const CRIT_BONUS = 10
-/** Финальный бонус за ВЗРЫВ (уложился до конца таймера) — весомая
-    награда за то, что успел «сдуть» цель до конца времени */
-const BURST_BONUS = 80
-/** Каждые столько тиков серии множитель растёт на +1 */
-const MULT_STEP = 5
-/** Потолок множителя комбо */
-const MAX_MULT = 4
 const INTRO_SECONDS = 1.15
 const BURST_SECONDS = 1.5
+/* ── ТРИ СОРТА большой попкорнины нарезки (запрос игрока, 0.0.31) ──
+   Каждая нарезка случайно достаётся один из трёх сортов глазури:
+   • КАРАМЕЛЬНАЯ (белая, обычная, 60%) — как было: потолок ≈ 1000,
+     но теперь за 5 секунд — до него ещё надо успеть;
+   • ВИШНЁВАЯ (красная, 29%) — жёстче: база очков выше, комбо растёт
+     быстрее (до ×10), цель мельче и вертлявее — потолок ≈ 2500;
+   • ВИНОГРАДНАЯ (фиолетовая, 11%, самая редкая) — комбо УДВАИВАЕТСЯ
+     каждые 5 тиков: ×1→×2→×4→×8→×16, идеальная нарезка ≈ 5000.
+   Чем реже сорт — тем жирнее приз и тем труднее его взять */
+type SliceKind = 'caramel' | 'cherry' | 'grape'
+
+export type { SliceKind }
+
+interface SliceVariant {
+  /** Шанс выпадения (сумма трёх = 1) */
+  chance: number
+  /** Очки за базовый тик урона */
+  base: number
+  /** Пул HP: тиков урона до взрыва */
+  hp: number
+  /** Тиков серии на одну ступень множителя */
+  multStep: number
+  /** Потолок множителя комбо */
+  maxMult: number
+  /** У винограда множитель УДВАИВАЕТСЯ за ступень: ×1→×2→×4→×8→×16 */
+  doubleStep: boolean
+  /** Цель «сдувается» с уроном: минимальная доля исходного радиуса */
+  shrinkMin: number
+  /** Плавание цели: амплитуда и скорость (доли радиуса) */
+  driftAmp: number
+  driftSpeed: number
+  /** Хитбокс: на столько шире спрайта (1.15 = +15%) */
+  hitboxMul: number
+  /** Бонус за ВЗРЫВ (уложился до конца таймера) */
+  burst: number
+  /** Пороги звёзд результата: 1★ / 2★ / 3★ */
+  stars: [number, number, number]
+  /* Палитра сорта: имя, доли-пузыри, зёрнышки, ореол, трещины, кольцо */
+  name: string
+  lobeHi: string
+  lobeMid: string
+  lobeLo: string
+  lobeEdge: string
+  kernelHi: string
+  kernelLo: string
+  kernelEdge: string
+  /** RGB-триплет «r, g, b» для rgba()-ореола и вспышки */
+  glow: string
+  crack: string
+  ring: string
+}
+
+const SLICE_VARIANTS: Record<SliceKind, SliceVariant> = {
+  caramel: {
+    chance: 0.6, base: 5, hp: 56, multStep: 5, maxMult: 4, doubleStep: false,
+    shrinkMin: 0.52, driftAmp: 0.08, driftSpeed: 0.85, hitboxMul: 1.15,
+    burst: 80, stars: [300, 600, 900],
+    name: '#FFC93C', lobeHi: '#FFFEFA', lobeMid: '#FFF4D8', lobeLo: '#F7D678',
+    lobeEdge: '#E0A83C', kernelHi: '#FFDF7E', kernelLo: '#F0B93C',
+    kernelEdge: '#D9A441', glow: '255, 214, 92', crack: '#C98A2B', ring: '255, 214, 92',
+  },
+  cherry: {
+    chance: 0.29, base: 7, hp: 66, multStep: 4, maxMult: 10, doubleStep: false,
+    shrinkMin: 0.46, driftAmp: 0.11, driftSpeed: 1.15, hitboxMul: 1.08,
+    burst: 120, stars: [500, 1300, 2200],
+    name: '#FF7A5E', lobeHi: '#FFF5F2', lobeMid: '#FFC9BC', lobeLo: '#F0755F',
+    lobeEdge: '#C43D2F', kernelHi: '#FFE08A', kernelLo: '#EDA93C',
+    kernelEdge: '#C98A2B', glow: '255, 122, 94', crack: '#A83226', ring: '255, 122, 94',
+  },
+  grape: {
+    chance: 0.11, base: 10, hp: 84, multStep: 5, maxMult: 16, doubleStep: true,
+    shrinkMin: 0.42, driftAmp: 0.14, driftSpeed: 1.45, hitboxMul: 1.02,
+    burst: 200, stars: [1200, 3000, 4400],
+    name: '#C98AFF', lobeHi: '#F8F0FC', lobeMid: '#DFB9F2', lobeLo: '#A566CB',
+    lobeEdge: '#7A3D99', kernelHi: '#E9D2FF', kernelLo: '#B27FD8',
+    kernelEdge: '#8A55AB', glow: '201, 138, 255', crack: '#6B3487', ring: '201, 138, 255',
+  },
+}
+
+/** Взвешенный ролл сорта нарезки (карамель 60% · вишня 29% · виноград 11%) */
+function rollSliceKind(): SliceKind {
+  const r = Math.random()
+  let acc = 0
+  for (const k of Object.keys(SLICE_VARIANTS) as SliceKind[]) {
+    acc += SLICE_VARIANTS[k].chance
+    if (r < acc) return k
+  }
+  return 'caramel'
+}
+
+/** Ключ перевода и цвет имени сорта — для интро и карточки результата */
+const KIND_KEY: Record<SliceKind, string> = {
+  caramel: 'slicer.kindCaramel',
+  cherry: 'slicer.kindCherry',
+  grape: 'slicer.kindGrape',
+}
+const KIND_COLOR: Record<SliceKind, string> = {
+  caramel: '#E8A93C',
+  cherry: '#D95A45',
+  grape: '#9A5FC0',
+}
+
 /* ── Награды в стиле Fruit Ninja ──
    Золотые зёрна-бонусы пролетают через экран дважды за нарезку: срез
    даёт жирные очки и МОНЕТКИ (обычные тики монеток не дают). Итог
    нарезки конвертируется в карманные монетки + оценка звёздами. */
 /** Сколько золотых зёрен за одну нарезку */
 const GOLDEN_COUNT = 2
-/** Очки и монетки за срез одного золотого */
+/** Очки и монетки за срез одного золотого (экономика 0.0.31: монеток 8) */
 const GOLDEN_POINTS = 50
-const GOLDEN_COINS = 10
+const GOLDEN_COINS = 8
 /** Радиус золотого в долях радиуса попкорна */
 const GOLDEN_R = 0.17
-/** Моменты спавна золотых (секунды от начала нарезки) */
-const GOLDEN_SPAWN_AT = [1.4, 4.2]
-/** Пороги звёзд результата: 300 — уверенный обычный прогон, 600 — сильный,
-    900 — почти идеальные 7 секунд (потолок нарезки ≈ 1000–1100) */
-const STAR_CUTS = [300, 600, 900]
-/** Конверсия очков нарезки в монетки (1🪙 за каждые 12 очков, мин. 5) */
-const COINS_PER_POINT = 1 / 12
-const MIN_SLICER_COINS = 5
+/** Моменты спавна золотых (секунды от начала нарезки) — под 5-секундное окно */
+const GOLDEN_SPAWN_AT = [1.2, 3.5]
+/** Конверсия очков нарезки в монетки (экономика 0.0.31: 1🪙 за 18 очков, мин. 3) */
+const COINS_PER_POINT = 1 / 18
+const MIN_SLICER_COINS = 3
 
 /* ══════════════ Типы и вспомогательная математика ══════════════ */
 
@@ -194,20 +269,36 @@ interface SlicerProps {
   t: TranslateFn
   /** Номер пройденного уровня (для плашки «УРОВЕНЬ N») */
   level: number
-  /** Итог: бонусные очки уходят в счёт забега, монетки — в кошелёк */
-  onDone: (total: number, rewards?: { coins?: number }) => void
+  /** Итог: бонусные очки уходят в счёт забега, монетки — в кошелёк.
+      meta отдаёт сорт нарезки — ачивки «нарезать вишню/виноград» */
+  onDone: (
+    total: number,
+    rewards?: { coins?: number },
+    meta?: { kind?: SliceKind },
+  ) => void
 }
 
 export function PopcornSlicer({ t, level, onDone }: SlicerProps) {
   const canvasRef = useRef<HTMLCanvasElement>(null)
   const wrapRef = useRef<HTMLDivElement>(null)
   const [stage, setStage] = useState<Stage>('intro')
+  /* Сорт этой нарезки: ролл один раз при монтаже (?sliceKind= — DEV-фикс для QA) */
+  const [kind] = useState<SliceKind>(() => {
+    try {
+      const q = new URLSearchParams(window.location.search).get('sliceKind')
+      if (q === 'caramel' || q === 'cherry' || q === 'grape') return q
+    } catch {
+      /* нет window — обычный ролл */
+    }
+    return rollSliceKind()
+  })
   const [result, setResult] = useState<{
     total: number
     swipes: number
     maxMult: number
     coins: number
     stars: number
+    kind: SliceKind
   } | null>(null)
 
   /* Строки и колбэк — через ref, чтобы игровой цикл не перезапускался */
@@ -222,6 +313,8 @@ export function PopcornSlicer({ t, level, onDone }: SlicerProps) {
 
   /* ════ Игровое состояние: один мутабельный объект в ref ════ */
   const gRef = useRef<{
+    /** Сорт этой нарезки (карамель/вишня/виноград): правила и палитра */
+    kind: SliceKind
     stage: Stage
     stageT: number
     W: number
@@ -274,6 +367,7 @@ export function PopcornSlicer({ t, level, onDone }: SlicerProps) {
     if (!ctx) return
 
     const g = (gRef.current ??= {
+      kind,
       stage: 'intro' as Stage,
       stageT: 0,
       W: 0,
@@ -282,7 +376,7 @@ export function PopcornSlicer({ t, level, onDone }: SlicerProps) {
       cx: 0,
       cy: 0,
       R: 80,
-      hp: POPCORN_HP,
+      hp: SLICE_VARIANTS[kind].hp,
       ticks: 0,
       total: 0,
       combo: 0,
@@ -318,7 +412,7 @@ export function PopcornSlicer({ t, level, onDone }: SlicerProps) {
 
     /* DEV-отладка: состояние слайсера из консоли (window.__slicerDbg()) */
     ;(window as unknown as { __slicerDbg?: () => string; __slicerG?: unknown }).__slicerDbg = () =>
-      `stage=${g.stage} stageT=${g.stageT.toFixed(2)} timeLeft=${g.timeLeft.toFixed(2)} hp=${g.hp} ticks=${g.ticks} total=${g.total} R=${g.R.toFixed(1)} cx=${g.cx} cy=${g.cy} u=${g.u} lobes=${g.lobes.length} kernels=${g.kernels.length} ridges=${g.ridges.length} cracks=${g.cracks.length} chunks=${g.chunks.length} halves=${g.halves.length} floats=${g.floats.length} W=${g.W} H=${g.H} down=${g.down}`
+      `kind=${g.kind} stage=${g.stage} stageT=${g.stageT.toFixed(2)} timeLeft=${g.timeLeft.toFixed(2)} hp=${g.hp} ticks=${g.ticks} total=${g.total} mult=${g.mult} R=${g.R.toFixed(1)} cx=${g.cx} cy=${g.cy} u=${g.u} W=${g.W} H=${g.H} down=${g.down}`
     ;(window as unknown as { __slicerDbg?: () => string; __slicerG?: unknown }).__slicerG = g
 
     /* ── Геометрия гигантской кукурузины: генерируется один раз.
@@ -397,11 +491,16 @@ export function PopcornSlicer({ t, level, onDone }: SlicerProps) {
     const ro = new ResizeObserver(resize)
     ro.observe(wrap)
 
-    /** Текущий радиус цели: сжимается по мере урона (1 → SHRINK_MIN).
+    /** Параметры текущего сорта (карамель/вишня/виноград) */
+    const VR = (): SliceVariant => SLICE_VARIANTS[g.kind]
+
+    /** Текущий радиус цели: сжимается по мере урона (1 → shrinkMin сорта).
         Главный скилл-гейт нарезки: сдуваешь HP — цель мельчает, и
-        цеплять её свайпами всё труднее */
-    const curR = (): number =>
-      g.R * (1 - (1 - SHRINK_MIN) * Math.min(1, g.ticks / POPCORN_HP))
+        цеплять её свайпами всё труднее (у вишни и винограда — сильнее) */
+    const curR = (): number => {
+      const V = VR()
+      return g.R * (1 - (1 - V.shrinkMin) * Math.min(1, g.ticks / V.hp))
+    }
 
     /* ── Спавн кусочков при тике урона ── */
     const spawnChunks = (x: number, y: number, n: number, kernel: boolean): void => {
@@ -424,18 +523,24 @@ export function PopcornSlicer({ t, level, onDone }: SlicerProps) {
       if (g.chunks.length > 90) g.chunks.splice(0, g.chunks.length - 90)
     }
 
-    /* ── Тик урона: комбо, множитель, крит, очки ── */
+    /* ── Тик урона: комбо, множитель сорта, крит, очки ── */
     const tick = (hx: number, hy: number, now: number): void => {
+      const V = VR()
       g.combo = now - g.lastTickAt <= COMBO_GAP ? g.combo + 1 : 1
       g.lastTickAt = now
-      const mult = Math.min(MAX_MULT, 1 + Math.floor((g.combo - 1) / MULT_STEP))
+      /* Множитель сорта: у карамели/вишни +1 за ступень (у вишни потолок выше),
+          у винограда УДВОЕНИЕ за ступень: ×1→×2→×4→×8→×16 */
+      const step = Math.floor((g.combo - 1) / V.multStep)
+      const mult = V.doubleStep
+        ? Math.min(V.maxMult, 2 ** step)
+        : Math.min(V.maxMult, 1 + step)
       if (mult > g.mult) {
         g.mult = mult
         g.comboPopT = now
         if (mult > g.maxMult) g.maxMult = mult
       }
       const crit = Math.random() < CRIT_CHANCE
-      const gained = BASE_POINTS * g.mult + (crit ? CRIT_BONUS : 0)
+      const gained = V.base * g.mult + (crit ? CRIT_BONUS : 0)
       g.total += gained
       g.ticks++
       g.hp--
@@ -483,6 +588,7 @@ export function PopcornSlicer({ t, level, onDone }: SlicerProps) {
     /* ── ВЗРЫВ: половинки разлетаются с импульсом, зёрна скачут ── */
     const doBurst = (now: number, exploded: boolean): void => {
       if (g.stage !== 'slice') return
+      const V = VR()
       const bx = g.cx + g.ox
       const by = g.cy + g.oy
       g.stage = 'burst'
@@ -490,13 +596,13 @@ export function PopcornSlicer({ t, level, onDone }: SlicerProps) {
       g.exploded = exploded
       g.burstFlash = 0.5
       if (exploded) {
-        g.total += BURST_BONUS
+        g.total += V.burst
         const S = tRef.current
         g.floats.push({
           x: bx,
           y: by - curR() * 0.4,
           vy: -60 * g.u,
-          text: S('slicer.burst', { n: BURST_BONUS }),
+          text: S('slicer.burst', { n: V.burst }),
           crit: true,
           t: 0,
         })
@@ -581,7 +687,7 @@ export function PopcornSlicer({ t, level, onDone }: SlicerProps) {
         g.stage === 'slice' &&
         enough &&
         cooled &&
-        segCircleNear(ax, ay, p.x, p.y, g.cx + g.ox, g.cy + g.oy, curR() * HITBOX_MUL)
+        segCircleNear(ax, ay, p.x, p.y, g.cx + g.ox, g.cy + g.oy, curR() * VR().hitboxMul)
       ) {
         const mx = (ax + p.x) / 2
         const my = (ay + p.y) / 2
@@ -603,16 +709,17 @@ export function PopcornSlicer({ t, level, onDone }: SlicerProps) {
 
     /* ════ Рисование ════ */
 
-    /** Гигантский попкорн: белые пузыри-доли, жёлтые зёрнышки, пух, трещины */
+    /** Гигантский попкорн сорта: пузыри-доли, зёрнышки, пух, трещины */
     const drawPopcorn = (cx: number, cy: number, R: number, now: number, damage: number): void => {
       const u = g.u
+      const V = VR()
       ctx.save()
       ctx.translate(cx, cy)
-      /* Мягкий жёлтый ореол под кукурузиной — она «светится» теплом */
+      /* Мягкий цветной ореол под кукурузиной — она «светится» сортовым теплом */
       const glow = ctx.createRadialGradient(0, 0, R * 0.2, 0, 0, R * 1.55)
-      glow.addColorStop(0, 'rgba(255, 214, 92, 0.4)')
-      glow.addColorStop(0.65, 'rgba(255, 214, 92, 0.12)')
-      glow.addColorStop(1, 'rgba(255, 214, 92, 0)')
+      glow.addColorStop(0, `rgba(${V.glow}, 0.4)`)
+      glow.addColorStop(0.65, `rgba(${V.glow}, 0.12)`)
+      glow.addColorStop(1, `rgba(${V.glow}, 0)`)
       ctx.fillStyle = glow
       ctx.beginPath()
       ctx.arc(0, 0, R * 1.55, 0, Math.PI * 2)
@@ -626,19 +733,19 @@ export function PopcornSlicer({ t, level, onDone }: SlicerProps) {
       const w = g.wobble
       ctx.rotate(Math.sin(now * 0.9) * 0.025 + w * (Math.sin(now * 40) * 0.05))
       ctx.scale(1 + w * 0.07, 1 - w * 0.07)
-      /* Жёлтые зёрнышки выглядывают между белыми пузырями (рисуем первыми — они «внутри») */
+      /* Зёрнышки выглядывают между пузырями сорта (рисуем первыми — они «внутри») */
       for (const k of g.kernels) {
         const kx = k.ox * R
         const ky = k.oy * R
         const kr = k.r * R
         const kg = ctx.createRadialGradient(kx, ky, kr * 0.15, kx, ky, kr)
-        kg.addColorStop(0, '#FFDF7E')
-        kg.addColorStop(1, '#F0B93C')
+        kg.addColorStop(0, V.kernelHi)
+        kg.addColorStop(1, V.kernelLo)
         ctx.fillStyle = kg
         ctx.beginPath()
         ctx.arc(kx, ky, kr, 0, Math.PI * 2)
         ctx.fill()
-        ctx.strokeStyle = '#D9A441'
+        ctx.strokeStyle = V.kernelEdge
         ctx.lineWidth = Math.max(1, 1.6 * u)
         ctx.stroke()
       }
@@ -655,14 +762,14 @@ export function PopcornSlicer({ t, level, onDone }: SlicerProps) {
           ly,
           lr,
         )
-        lg.addColorStop(0, '#FFFEFA')
-        lg.addColorStop(0.55, '#FFF4D8')
-        lg.addColorStop(1, '#F7D678')
+        lg.addColorStop(0, V.lobeHi)
+        lg.addColorStop(0.55, V.lobeMid)
+        lg.addColorStop(1, V.lobeLo)
         ctx.fillStyle = lg
         ctx.beginPath()
         ctx.arc(lx, ly, lr, 0, Math.PI * 2)
         ctx.fill()
-        ctx.strokeStyle = '#E0A83C'
+        ctx.strokeStyle = V.lobeEdge
         ctx.lineWidth = Math.max(1.5, 2.2 * u)
         ctx.stroke()
       }
@@ -676,7 +783,7 @@ export function PopcornSlicer({ t, level, onDone }: SlicerProps) {
       }
       /* Трещины: по мере урона их всё больше */
       const nC = Math.floor(damage * g.cracks.length)
-      ctx.strokeStyle = '#C98A2B'
+      ctx.strokeStyle = V.crack
       ctx.lineWidth = Math.max(1.5, 2.4 * u)
       for (let i = 0; i < nC; i++) {
         const pts = g.cracks[i]
@@ -724,24 +831,25 @@ export function PopcornSlicer({ t, level, onDone }: SlicerProps) {
 
     const drawChunk = (c: Chunk): void => {
       const alpha = c.t > c.ttl - 0.25 ? Math.max(0, (c.ttl - c.t) / 0.25) : 1
+      const V = VR()
       ctx.save()
       ctx.globalAlpha = alpha
       ctx.translate(c.x, c.y)
       ctx.rotate(c.rot)
       const grad = ctx.createRadialGradient(-c.r * 0.3, -c.r * 0.3, c.r * 0.1, 0, 0, c.r)
       if (c.kernel) {
-        grad.addColorStop(0, '#FFDF7E')
-        grad.addColorStop(1, '#F0B93C')
+        grad.addColorStop(0, V.kernelHi)
+        grad.addColorStop(1, V.kernelLo)
       } else {
-        grad.addColorStop(0, '#FFFEFA')
-        grad.addColorStop(1, '#F7D678')
+        grad.addColorStop(0, V.lobeHi)
+        grad.addColorStop(1, V.lobeLo)
       }
       ctx.fillStyle = grad
       ctx.beginPath()
       ctx.arc(0, 0, c.r, 0, Math.PI * 2)
       ctx.fill()
       if (!c.kernel) {
-        ctx.strokeStyle = '#E0A83C'
+        ctx.strokeStyle = V.lobeEdge
         ctx.lineWidth = Math.max(1, 1.4 * g.u)
         ctx.stroke()
       }
@@ -798,10 +906,12 @@ export function PopcornSlicer({ t, level, onDone }: SlicerProps) {
         setStage('slice')
       } else if (g.stage === 'slice') {
         g.timeLeft -= dt
-        /* Плавание цели: центр медленно гуляет по эллипсу вокруг точки покоя —
-            свайп по неподвижной мишени фармил бы очки, по бегущей — требует внимания */
-        g.ox = Math.sin(now * DRIFT_SPEED) * DRIFT_AMP * g.R
-        g.oy = Math.cos(now * DRIFT_SPEED * 0.8) * DRIFT_AMP * g.R * 0.7
+        /* Плавание цели: центр гуляет по эллипсу вокруг точки покоя —
+            скорость и амплитуда у СОРТА: виноград вертится заметно резче.
+            Свайп по неподвижной мишени фармил бы очки, по бегущей — требует внимания */
+        const V = VR()
+        g.ox = Math.sin(now * V.driftSpeed) * V.driftAmp * g.R
+        g.oy = Math.cos(now * V.driftSpeed * 0.8) * V.driftAmp * g.R * 0.7
         /* Сброс комбо: больше COMBO_GAP без нарезки — серия сгорела */
         if (g.mult > 1 && now - g.lastTickAt > COMBO_GAP) {
           g.combo = 0
@@ -841,11 +951,14 @@ export function PopcornSlicer({ t, level, onDone }: SlicerProps) {
           total: g.total,
           swipes: g.ticks,
           maxMult: g.maxMult,
-          /* Награды Fruit Ninja: конверсия очков в монетки (мин. 5) + золото по 10 */
+          /* Награды Fruit Ninja: конверсия очков в монетки (мин. 3) + золото по 8 */
           coins:
             g.goldCoins + Math.max(MIN_SLICER_COINS, Math.round(g.total * COINS_PER_POINT)),
-          stars:
-            g.total >= STAR_CUTS[2] ? 3 : g.total >= STAR_CUTS[1] ? 2 : g.total >= STAR_CUTS[0] ? 1 : 0,
+          stars: (() => {
+            const st = VR().stars
+            return g.total >= st[2] ? 3 : g.total >= st[1] ? 2 : g.total >= st[0] ? 1 : 0
+          })(),
+          kind: g.kind,
         })
       }
 
@@ -904,7 +1017,7 @@ export function PopcornSlicer({ t, level, onDone }: SlicerProps) {
         for (const h of g.halves) drawHalf(h, now)
       } else {
         const bob = Math.sin(now * 1.6) * 4 * u
-        drawPopcorn(g.cx + g.ox, g.cy + g.oy + bob, curR(), now, g.ticks / POPCORN_HP)
+        drawPopcorn(g.cx + g.ox, g.cy + g.oy + bob, curR(), now, g.ticks / VR().hp)
       }
       for (const c of g.chunks) drawChunk(c)
 
@@ -1007,12 +1120,12 @@ export function PopcornSlicer({ t, level, onDone }: SlicerProps) {
         ctx.globalAlpha = 1
       }
 
-      /* Вспышка взрыва */
+      /* Вспышка взрыва (кольцо в цвете сорта) */
       if (g.burstFlash > 0) {
         ctx.fillStyle = `rgba(255, 244, 214, ${Math.min(0.75, g.burstFlash)})`
         ctx.fillRect(0, 0, g.W, g.H)
         const ringK = 1 - Math.min(1, g.burstFlash / 0.5)
-        ctx.strokeStyle = `rgba(255, 214, 92, ${0.7 * (1 - ringK)})`
+        ctx.strokeStyle = `rgba(${VR().ring}, ${0.7 * (1 - ringK)})`
         ctx.lineWidth = Math.max(3, 8 * u)
         ctx.beginPath()
         ctx.arc(g.cx, g.cy, g.R * (0.8 + ringK * 2.4), 0, Math.PI * 2)
@@ -1021,10 +1134,12 @@ export function PopcornSlicer({ t, level, onDone }: SlicerProps) {
 
       /* ════ HUD (канвас, без React-перерисовок) ════ */
       if (g.stage === 'intro') {
-        /* Заставка: большой заголовок + подсказка */
+        /* Заставка: заголовок + ИМЯ СОРТА в его цвете + подсказка */
         const k = Math.min(1, g.stageT / 0.35)
+        const V = VR()
         ctx.globalAlpha = k
         outlineText(S('slicer.title'), g.cx, g.cy - g.R * 1.7, 26 * u * (0.7 + 0.3 * k), '#FFC93C')
+        outlineText(S(KIND_KEY[g.kind]), g.cx, g.cy - g.R * 1.7 + 24 * u, 19 * u * (0.7 + 0.3 * k), V.name)
         const hint = S('slicer.hint')
         ctx.font = `600 ${Math.round(13 * u)}px system-ui, sans-serif`
         ctx.textAlign = 'center'
@@ -1065,7 +1180,7 @@ export function PopcornSlicer({ t, level, onDone }: SlicerProps) {
         outlineText(`+${g.total}`, g.W - 14 * u, 26 * u, 26 * u, '#FFC93C', 'right')
         /* Уровень: левый верхний угол */
         outlineText(`🍿${level}`, 14 * u, 26 * u, 20 * u, '#FFF4D8', 'left')
-        /* Комбо: пружинная плашка над кукурузиной (центр с плаванием, радиус сжат) */
+        /* Комбо: пружинная плашка над кукурузиной в цвете сорта */
         if (g.stage === 'slice' && g.mult >= 2) {
           const pop = Math.max(0, 1 - (now - g.comboPopT) / 0.3)
           const size = (20 + pop * 10) * u
@@ -1074,7 +1189,7 @@ export function PopcornSlicer({ t, level, onDone }: SlicerProps) {
             g.cx + g.ox,
             g.cy + g.oy - curR() * 1.28,
             size,
-            pop > 0.5 ? '#FFDF7E' : '#FFC93C',
+            pop > 0.5 ? '#FFF4D8' : VR().name,
           )
         }
         /* Полоска HP кукурузины (как у голубя-воришки) */
@@ -1089,7 +1204,7 @@ export function PopcornSlicer({ t, level, onDone }: SlicerProps) {
           ctx.fillStyle = '#3A2410'
           roundRect(bx, by, bw, bh, 4 * u)
           ctx.fill()
-          const frac = Math.max(0, g.hp / POPCORN_HP)
+          const frac = Math.max(0, g.hp / VR().hp)
           ctx.fillStyle = frac > 0.5 ? '#7ED957' : frac > 0.25 ? '#FFC93C' : '#E5342E'
           roundRect(bx, by, bw * frac, bh, 4 * u)
           ctx.fill()
@@ -1175,6 +1290,13 @@ export function PopcornSlicer({ t, level, onDone }: SlicerProps) {
             <h2 className="mt-1 font-pixel text-base font-bold text-[#B33A26] sm:text-lg">
               {t('slicer.resultTitle')}
             </h2>
+            {/* Сорт этой нарезки — цветной подписью */}
+            <p
+              className="mt-0.5 font-pixel text-xs font-bold tracking-wide"
+              style={{ color: KIND_COLOR[result.kind] }}
+            >
+              {t(KIND_KEY[result.kind])}
+            </p>
             <p className="mt-1 font-pixel text-2xl font-bold text-[#3f6b28] tabular-nums">
               +{result.total}
             </p>
@@ -1195,7 +1317,7 @@ export function PopcornSlicer({ t, level, onDone }: SlicerProps) {
               aria-label={t('slicer.take')}
               onClick={() => {
                 audio.play('chest')
-                onDoneRef.current(result.total, { coins: result.coins })
+                onDoneRef.current(result.total, { coins: result.coins }, { kind: result.kind })
               }}
               className="mt-3 min-h-11 w-full rounded-xl border-2 border-[#8a5330] bg-[#f3e2c8] px-4 py-2.5 font-pixel text-sm font-bold text-[#8a5330] transition hover:bg-[#eed7b4] active:scale-[0.98]"
             >

@@ -71,7 +71,7 @@ import {
   makeMineSprite,
   MINE_VARIANTS,
 } from '@/lib/game/sprites'
-import { PopcornSlicer } from '@/components/game/popcorn-slicer'
+import { PopcornSlicer, type SliceKind } from '@/components/game/popcorn-slicer'
 import {
   POSTER_COUNT,
   POSTER_EVERY,
@@ -277,9 +277,10 @@ const STORE_EVENT = 'popcorn-store-update'
 const XP_KEY = 'popcorn-xp'
 /** Суммарный опыт за всё время — растит уровень котика (не тратится) */
 const TOTAL_KEY = 'popcorn-totalxp'
-/** Курс опыта: 10 очков попкорна = 1 🍿 (v0.0.22 — древо больше не заполняется
-    за один забег: рекорд 200 000 очков — это ~2 000 🍿 и ~12 уровней котика) */
-const XP_PER_SCORE = 10
+/** Курс опыта: 15 очков попкорна = 1 🍿 (0.0.31 — было 10: экономика строже,
+    запрос «меньше опыта, меньше попкорна за всё». Вместе с урезанными очками
+    забега доход попкорна в сумме ~втрое скромнее) */
+const XP_PER_SCORE = 15
 
 /* Разовая миграция: старые запасы опыта делятся на 10 под новый курс
    (банк лапок и стаж котика), чтобы экономика совпала с новыми ценами */
@@ -3633,6 +3634,9 @@ export function PopcornGame() {
   const [feverCoins, setFeverCoins] = useState<number | null>(null)
   /** Сколько счётчиков забега уже учтено в пожизненной статистике (ачивки) */
   const prevRunRef = useRef({ grains: 0, golden: 0, pigeons: 0, nipples: 0, mines: 0, saves: 0 })
+  /** Большие попкорнины/босс за забег: дельты для пожизненных счётчиков и ачивок */
+  const prevBigRef = useRef({ big: 0, caramel: 0, cherry: 0, grape: 0 })
+  const prevBossKillsRef = useRef(0)
   /** БОЛЬШАЯ ПОПКОРНИНА: сколько монеток за неё уже выдано в этом забеге */
   const bigCoinsPaidRef = useRef(0)
   /** Монетки за победы над боссами, уже выданные в этом забеге */
@@ -4191,6 +4195,10 @@ export function PopcornGame() {
     if (L.bonus >= 10) cand.push('bonus10')
     if (L.bonus >= 25) cand.push('bonus25')
     if (L.perfects >= 10) cand.push('perfect10')
+    /* НОВЫЕ МЕХАНИКИ 0.0.31: босс «МАЛЫШ», большие попкорнины, сорта нарезки */
+    if (L.bigGrape >= 5) cand.push('bigGrape5')
+    if (L.bossKills >= 5) cand.push('boss5life')
+    if (L.sliceCaramel > 0 && L.sliceCherry > 0 && L.sliceGrape > 0) cand.push('sliceAll3')
     if (L.runs >= 10) cand.push('runs10')
     if (L.runs >= 25) cand.push('runs25')
     if (L.runs >= 50) cand.push('runs50')
@@ -4243,19 +4251,18 @@ export function PopcornGame() {
   /** Награда за пройденный этап: опыт стажа котика + горсть монеток.
       Если уровень персонажа вырос — праздничный тост.
       Древо («Стаж», «Монетный дождь») умножает обе награды.
-      Монетки растут с уровнем (+30/уровень) — иначе геймплей
-      стагнирует против кликера и путешествий.
-      Опыт — по курсу 10 очков = 1 🍿: 10 + уровень за этап */
+      ЭКОНОМИКА 0.0.31 (запрос «все цены поднять, все очки уменьшить»):
+      монетки скромнее (+10/уровень вместо +30), опыт — 6 + уровень за этап */
   const awardStage = useCallback(
     (lvl: number) => {
       const before = charLevel(getTotalXp())
-      /* Награда за этап — с нулями: монетки ×10, опыт по курсу 1/10 очков
+      /* Награда за этап: монетки ×10 с нулями, опыт — стаж котика.
          Артефакт «Котоакадемия» добавляет +25% к опыту-стажу,
          «Копилка-хрюшка» — +25% к монеткам этапа (бережёт каждую монетку) */
       const tr = treeRef.current
-      addTotalXp(Math.round((10 + lvl) * (1 + (tr.xpAdd ?? 0)) * marketRef.current.xpGift))
+      addTotalXp(Math.round((6 + lvl) * (1 + (tr.xpAdd ?? 0)) * marketRef.current.xpGift))
       addCoins(
-        Math.round((120 + (lvl - 1) * 30) * (1 + (tr.coinsAdd ?? 0)) * marketRef.current.coinGift),
+        Math.round((40 + (lvl - 1) * 10) * (1 + (tr.coinsAdd ?? 0)) * marketRef.current.coinGift),
       )
       const after = charLevel(getTotalXp())
       if (after > before) {
@@ -4278,19 +4285,20 @@ export function PopcornGame() {
     (offers: PerkDef[], lvl: number): Array<ChestExtra | null> => {
       const gift = 1 + (treeRef.current.giftAdd ?? 0)
       const lvlScale = 1 + Math.max(0, lvl - 1) * 0.05
-      /* Монетки — с нулями (×10), опыт — по курсу 1/10 очков (округление до 5) */
+      /* Монетки — с нулями (×10), опыт — по курсу 1/10 очков (округление до 5)
+         ЭКОНОМИКА 0.0.31: суммы вдвое скромнее */
       const round10 = (n: number) => Math.max(10, Math.round((n * gift * lvlScale) / 10) * 10)
       const round5 = (n: number) => Math.max(5, Math.round((n * gift * lvlScale) / 5) * 5)
       return offers.map((p) => {
         /* Тяжёлое проклятье — заметная компенсация опытом */
         if (isHarshCurse(p.id)) {
-          return { kind: 'xp' as const, n: round5([60, 100, 180][Math.floor(Math.random() * 3)] ?? 60) }
+          return { kind: 'xp' as const, n: round5([30, 50, 90][Math.floor(Math.random() * 3)] ?? 30) }
         }
         if (p.curse) {
           /* Лёгкое проклятье — иногда маленький подарок */
           const r = Math.random()
-          if (r < 0.4) return { kind: 'coins' as const, n: round10([80, 120, 200][Math.floor(Math.random() * 3)] ?? 80) }
-          if (r < 0.6) return { kind: 'xp' as const, n: round5([15, 25, 40][Math.floor(Math.random() * 3)] ?? 15) }
+          if (r < 0.4) return { kind: 'coins' as const, n: round10([40, 60, 100][Math.floor(Math.random() * 3)] ?? 40) }
+          if (r < 0.6) return { kind: 'xp' as const, n: round5([8, 15, 25][Math.floor(Math.random() * 3)] ?? 8) }
           return null
         }
         /* Бонусный перк — ноль: сам перк и есть приз */
@@ -4523,6 +4531,29 @@ export function PopcornGame() {
           addLife({ mines: s.minesHit - pv.mines })
           pv.mines = s.minesHit
         }
+        /* БОЛЬШИЕ ПОПКОРНИНЫ 0.0.31: «Жирный улов», «Дегустатор»
+           (все три сорта за забег), пожизненные счётчики по сортам */
+        if (s.bigCaught > prevBigRef.current.big) announceAch(['big1'])
+        if (s.bigCaramel > 0 && s.bigCherry > 0 && s.bigGrape > 0) cand.push('bigAll')
+        addLife({
+          bigCaught: Math.max(0, s.bigCaught - prevBigRef.current.big),
+          bigCaramel: Math.max(0, s.bigCaramel - prevBigRef.current.caramel),
+          bigCherry: Math.max(0, s.bigCherry - prevBigRef.current.cherry),
+          bigGrape: Math.max(0, s.bigGrape - prevBigRef.current.grape),
+        })
+        prevBigRef.current = { big: s.bigCaught, caramel: s.bigCaramel, cherry: s.bigCherry, grape: s.bigGrape }
+        /* БОСС «МАЛЫШ» 0.0.31: «Малыш повержен», «Три нянки» (3 за забег),
+           «Неприкасаемый» (бой без потери сердец), пожизненный счётчик */
+        if (s.bossKills > prevBossKillsRef.current) {
+          announceAch(['boss1'])
+          if (s.bossKills >= 3) announceAch(['boss3run'])
+          if (s.bossClean) announceAch(['bossNoHit'])
+          addLife({ bossKills: s.bossKills - prevBossKillsRef.current })
+          prevBossKillsRef.current = s.bossKills
+        } else if (s.bossKills < prevBossKillsRef.current) {
+          /* Новый забег: счётчики сбросились */
+          prevBossKillsRef.current = s.bossKills
+        }
         if ((Number(window.localStorage.getItem(XP_KEY) ?? 0) || 0) >= 10000) cand.push('rich10k')
         announceAch(cand)
         checkLifeAch()
@@ -4616,9 +4647,10 @@ export function PopcornGame() {
         }
         layoutRef.current()
         /* Монетки за успех: чем больше очков — тем щедрее награда.
+           ЭКОНОМИКА 0.0.31: курс gained/4 вместо /3, минимум 50.
            Артефакт «Копилка-хрюшка» добавляет +25% */
         if (r.success) {
-          const coins = Math.max(100, Math.round((r.gained / 3) * marketRef.current.coinGift))
+          const coins = Math.max(50, Math.round((r.gained / 4) * marketRef.current.coinGift))
           addCoins(coins)
           setFeverCoins(coins)
           window.setTimeout(() => setFeverCoins(null), 3200)
@@ -4892,6 +4924,9 @@ export function PopcornGame() {
     /* Сердечные счётчики нового забега */
     prevHeartsRef.current = -1 // первый же HUD-тик проставит актуальное
     heartFreeStreakRef.current = 0
+    /* Счётчики больших попкорнин и босса нового забега */
+    prevBigRef.current = { big: 0, caramel: 0, cherry: 0, grape: 0 }
+    prevBossKillsRef.current = 0
     setPerk(startPerk)
     lockOrientation(settingsRef.current.orientation)
     setPhase('playing')
@@ -4979,12 +5014,28 @@ export function PopcornGame() {
   }, [])
 
   /** Нарезка закончена: бонусные очки уходят в счёт забега, монетки —
-      в кошелёк (награды в стиле Fruit Ninja) → сундучок с перком */
-  const handleSlicerDone = useCallback((total: number, rewards?: { coins?: number }) => {
-    if (rewards?.coins && rewards.coins > 0) addCoins(rewards.coins)
-    engineRef.current?.addBonus(total)
-    setPhase('chest')
-  }, [])
+      в кошелёк (награды в стиле Fruit Ninja) → сундучок с перком.
+      0.0.31: ачивки нарезки — пороги очков, сорта вишня/виноград,
+      пожизненное «Полное меню» */
+  const handleSlicerDone = useCallback(
+    (total: number, rewards?: { coins?: number }, meta?: { kind?: SliceKind }) => {
+      if (rewards?.coins && rewards.coins > 0) addCoins(rewards.coins)
+      engineRef.current?.addBonus(total)
+      const cand: AchId[] = []
+      if (total >= 1000) cand.push('slice1k')
+      if (total >= 2500) cand.push('slice2k5')
+      if (meta?.kind === 'cherry' && total >= 2500) cand.push('sliceCherry')
+      if (meta?.kind === 'grape' && total >= 4500) cand.push('sliceGrape')
+      /* Сорт в пожизненный счётчик — три сорта хотя бы по разу = «Полное меню» */
+      if (meta?.kind === 'caramel') addLife({ sliceCaramel: 1 })
+      else if (meta?.kind === 'cherry') addLife({ sliceCherry: 1 })
+      else if (meta?.kind === 'grape') addLife({ sliceGrape: 1 })
+      announceAch(cand)
+      checkLifeAch()
+      setPhase('chest')
+    },
+    [announceAch, checkLifeAch],
+  )
 
   /** Плакат закрыт: 'normal' → бонус-нарезка; 'fever' → сразу Лихорадка.
       Оба пути снимают паузу сами (startLevel/startFever делают paused=false),

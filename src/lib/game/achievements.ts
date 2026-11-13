@@ -111,6 +111,18 @@ export type AchId =
   | 'perfect10'
   | 'scoreLife100k'
   | 'scoreLife1m'
+  | 'big1'
+  | 'bigAll'
+  | 'bigGrape5'
+  | 'boss1'
+  | 'boss3run'
+  | 'bossNoHit'
+  | 'boss5life'
+  | 'slice1k'
+  | 'slice2k5'
+  | 'sliceCherry'
+  | 'sliceGrape'
+  | 'sliceAll3'
 
 export interface AchDef {
   id: AchId
@@ -245,6 +257,19 @@ export const ACHIEVEMENTS: AchDef[] = [
   { id: 'perfect10', name: 'Без сучка', desc: '10 уровней без мин и краж за всё время', icon: '🧹' },
   { id: 'scoreLife100k', name: 'Счётчик очков', desc: 'Заработать 100000 очков за всё время', icon: '🧮' },
   { id: 'scoreLife1m', name: 'Миллион попкорна', desc: 'Заработать 1000000 очков за всё время', icon: '🌌' },
+  /* ---------- босс «МАЛЫШ» и большие попкорнины (0.0.31) ---------- */
+  { id: 'big1', name: 'Жирный улов', desc: 'Поймать большую попкорнину на поле за один забег', icon: '🎯' },
+  { id: 'bigAll', name: 'Дегустатор', desc: 'Поймать все три сорта больших попкорнин за один забег', icon: '🧺' },
+  { id: 'bigGrape5', name: 'Виноградный магнат', desc: 'Поймать 5 виноградных попкорнин за всё время', icon: '🍇' },
+  { id: 'boss1', name: 'Малыш повержен', desc: 'Победить босса МАЛЫША в арканоид-бою', icon: '👶' },
+  { id: 'boss3run', name: 'Три нянки', desc: 'Победить трёх малышей за один забег', icon: '🥊' },
+  { id: 'bossNoHit', name: 'Неприкасаемый', desc: 'Победить малыша, не потеряв на его уровне ни одного сердечка', icon: '⭐' },
+  { id: 'boss5life', name: 'Плюшевый громила', desc: 'Победить 5 малышей за всё время', icon: '🧸' },
+  { id: 'slice1k', name: 'Мастер нарезки', desc: 'Набрать 1000 очков за одну нарезку', icon: '🔪' },
+  { id: 'slice2k5', name: 'Гроссмейстер ножа', desc: 'Набрать 2500 очков за одну нарезку', icon: '⚔️' },
+  { id: 'sliceCherry', name: 'Вишнёвый разгром', desc: 'Нарезать ВИШНЁВУЮ попкорнину на 2500 очков', icon: '🍒' },
+  { id: 'sliceGrape', name: 'Виноградный титан', desc: 'Нарезать ВИНОГРАДНУЮ попкорнину на 4500 очков', icon: '🟣' },
+  { id: 'sliceAll3', name: 'Полное меню', desc: 'За всё время нарезать все три сорта попкорнин', icon: '🎆' },
 ]
 
 export const ACH_MAP: Record<AchId, AchDef> = Object.fromEntries(

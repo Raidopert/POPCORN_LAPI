@@ -83,6 +83,10 @@ export interface EngineStats {
   goldenOn: boolean
   /** БОЛЬШАЯ ПОПКОРНИНА: поймано за забег */
   bigCaught: number
+  /** Поймано за забег по сортам — ачивки «Дегустатор» и пожизненные */
+  bigCaramel: number
+  bigCherry: number
+  bigGrape: number
   /** Монетки, накопленные за большие попкорнины за забег (выдаёт компонент) */
   bigCoins: number
   /** БОСС: сейчас идёт бой с малышом (каждый 10-й уровень) */
@@ -91,6 +95,10 @@ export interface EngineStats {
   bossHp: number
   /** Всего жизней у малыша */
   bossMaxHp: number
+  /** Побед над малышами за забег (ачивки босса) */
+  bossKills: number
+  /** Последний бой прошёл без потери сердечек (ачивка «Неприкасаемый») */
+  bossClean: boolean
   /** Монетки, накопленные за победы над боссами за забег (выдаёт компонент) */
   bossCoins: number
 }
@@ -130,15 +138,16 @@ export interface EngineCallbacks {
 
 export type PieceKind = 'popcorn' | 'caramel' | 'butter' | 'golden' | 'corn' | 'nipple'
 
-/** Очки за зёрна: белое +10 · карамель +20 · масляное +30 · золотое +50 ·
-    соска (перк «Соски-малышки») +40.
-    Все цифры в игре с нулями — проще читать и приятнее копить */
+/** Очки за зёрна (экономика 0.0.31 — вдвое строже, запрос игрока «все очки
+    уменьшить»): белое +5 · карамель +10 · масляное +15 · золотое +25 ·
+    соска (перк «Соски-малышки») +20.
+    Цифры по-прежнему чистые — читать легко, но набивать стало вдвое труднее */
 export const KIND_POINTS: Record<Exclude<PieceKind, 'corn'>, number> = {
-  popcorn: 10,
-  caramel: 20,
-  butter: 30,
-  golden: 50,
-  nipple: 40,
+  popcorn: 5,
+  caramel: 10,
+  butter: 15,
+  golden: 25,
+  nipple: 20,
 }
 
 /** Относительный размер зерна на поле: чем ценнее — тем мельче.
@@ -158,12 +167,12 @@ const FEVER_MINE_CHANCE = 0.3
 
 /* --- БОЛЬШАЯ ПОПКОРНИНА: раз за уровень на поле появляется жирный приз.
     Живёт 5 секунд и пытается убежать — успел дотянуться: очки и монетки.
-    Три сорта глазури:
-      • КАРАМЕЛЬНАЯ (белая, обычная) — как было: плоские +1000 без комбо;
-      • ВИШНЁВАЯ (красная) — база 1250 × комбо-множитель: с бонусами
-        адекватно нарезается до ~2500, у скилловых выше — потолка нет;
-      • ВИНОГРАДНАЯ (фиолетовая, самая редкая) — база 5000 × комбо:
-        комбо доходит до ×16, улов в идеале — до 80 000.
+    Три сорта глазури (0.0.31 — экономика строже, запрос «все очки уменьшить»):
+      • КАРАМЕЛЬНАЯ (белая, обычная) — плоские +500 без комбо;
+      • ВИШНЁВАЯ (красная) — база 750 × комбо-множитель: обычный улов
+        ~750–1500, у скилловых выше — потолка нет;
+      • ВИНОГРАДНАЯ (фиолетовая, самая редкая) — база 3000 × комбо:
+        комбо доходит до ×16, улов в идеале — до 48 000.
     Не успел — укатилась. Чем глубже забег, тем выше комбо — тем жирнее приз --- */
 const BIG_LIFE = 5
 /** Скорость побега, u/с: вдогонку пальцем — но finger lag решает */
@@ -177,9 +186,9 @@ const BIG_VARIANTS: Record<
   BigKind,
   { base: number; coins: number; combo: boolean; chance: number; text: string; ring: string; crumb: string }
 > = {
-  caramel: { base: 1000, coins: 50, combo: false, chance: 0.6, text: '#FFC93C', ring: '255, 201, 60', crumb: '#FFE066' },
-  cherry: { base: 1250, coins: 100, combo: true, chance: 0.29, text: '#FF7A5E', ring: '255, 122, 94', crumb: '#FFB3A0' },
-  grape: { base: 5000, coins: 250, combo: true, chance: 0.11, text: '#C98AFF', ring: '201, 138, 255', crumb: '#E3CCFF' },
+  caramel: { base: 500, coins: 25, combo: false, chance: 0.6, text: '#FFC93C', ring: '255, 201, 60', crumb: '#FFE066' },
+  cherry: { base: 750, coins: 60, combo: true, chance: 0.29, text: '#FF7A5E', ring: '255, 122, 94', crumb: '#FFB3A0' },
+  grape: { base: 3000, coins: 120, combo: true, chance: 0.11, text: '#C98AFF', ring: '201, 138, 255', crumb: '#E3CCFF' },
 }
 
 /** Взвешенный ролл сорта призовой попкорнины */
@@ -204,9 +213,10 @@ const BOSS_BASE_HP = 3 // жизней у первого босса
 const BOSS_HP_PER_TIER = 1 // +1 жизнь за каждого следующего босса
 const BOSS_TOUCH_R = 44 // радиус «трогать ребёнка», u: касание — минус сердечко
 const BOSS_TOUCH_CD = 1.1 // «отдышка» малыша после касания — не жжёт сердца серией
-const BOSS_BONUS_BASE = 600 // очки за победу над первым боссом
-const BOSS_BONUS_PER_TIER = 200 // + очки за каждого следующего босса
-const BOSS_COINS_BASE = 120 // монетки за победу (выдаёт компонент с множителями)
+const BOSS_BONUS_BASE = 300 // очки за победу над первым боссом (0.0.31: было 600)
+const BOSS_BONUS_PER_TIER = 100 // + очки за каждого следующего босса (было 200)
+const BOSS_COINS_BASE = 60 // монетки за победу (выдаёт компонент с множителями)
+const BOSS_COINS_PER_TIER = 20 // + монетки за каждого следующего (было 40)
 const BOSS_CHARGE_BASE = 3.6 // пауза между рывками малыша к корзине, с
 const BOSS_STEAL = 3 // сколько зёрен выгребает за раз (растёт с номером босса)
 /** Скорость лапки, с которой она ПИНАЕТ зерно (u/с): ниже — обычный подбор */
@@ -371,7 +381,7 @@ const PIGEON_PECK_EVERY = 2.2 // раз в сколько секунд голу�
 const PIGEON_RESPAWN = [18, 30] // диапазон возврата после прогона, секунд
 const PIGEON_HIT_CD = 0.3 // минимальная пауза между ударами лапкой — равномерная серия
 const PIGEON_HIT_R = 50 // радиус касания лапкой (в единицах u)
-const PIGEON_KO_BONUS = 50 // очки за поверженного воришку
+const PIGEON_KO_BONUS = 25 // очки за поверженного воришку (0.0.31: было 50)
 const MINE_SHOCK_SECONDS = 1 // сколько секунд лапка «опешила» после мины
 const MINE_SCORE_PENALTY = 50 // сколько очков сгорает при касании мины
 const MAX_HEARTS_BASE = 5 // сердечек в забеге (плюс апгрейды, древо и лапка)
@@ -501,10 +511,20 @@ export class PopcornEngine {
   private bigCaught = 0
   /** Монетки за большие попкорнины за забег (выдаёт компонент) */
   private bigCoinsRun = 0
+  /** Поймано за забег по сортам — ачивки «дегустатор» и пожизненные счётчики */
+  private bigCaramelRun = 0
+  private bigCherryRun = 0
+  private bigGrapeRun = 0
   /* --- БОСС «МАЛЫШ»: каждый 10-й уровень — бой в тир-арканоид --- */
   private boss: Boss | null = null
   /** Монетки за победы над боссами за забег (выдаёт компонент) */
   private bossCoinsRun = 0
+  /** Побед над малышами за забег — ачивки босса */
+  private bossKillsRun = 0
+  /** Сердечек было при появлении малыша — для «Неприкасаемого» */
+  private bossHeartsAtSpawn = 0
+  /** Последний бой прошёл без потери сердечек (0/1 — в статистику) */
+  private bossCleanLast = false
   /* --- Скорость лапки (px/с, сглаженная): быстрым махом пинаем попкорн --- */
   private pawVX = 0
   private pawVY = 0
@@ -679,6 +699,11 @@ export class PopcornEngine {
     this.shieldSaves = 0
     this.bigCaught = 0
     this.bigCoinsRun = 0
+    this.bigCaramelRun = 0
+    this.bigCherryRun = 0
+    this.bigGrapeRun = 0
+    this.bossKillsRun = 0
+    this.bossCleanLast = false
     this.bossCoinsRun = 0
     this.boss = null
     this.big = null
@@ -1308,13 +1333,16 @@ export class PopcornEngine {
   }
 
   /** Поймала лапка: очки сорта (у вишни и винограда — с комбо-множителем)
-      и монетки компоненту. Карамель — как было: плоские +1000 */
+      и монетки компоненту. Карамель — плоские +500 (0.0.31: было 1000) */
   private catchBig(): void {
     const u = this.u
     const b = this.big
     if (!b) return
     this.big = null
     this.bigCaught++
+    if (this.bigKind === 'caramel') this.bigCaramelRun++
+    else if (this.bigKind === 'cherry') this.bigCherryRun++
+    else this.bigGrapeRun++
     const v = BIG_VARIANTS[this.bigKind]
     const pts = v.combo ? Math.round(v.base * this.comboMult) : v.base
     this.bigCoinsRun += v.coins
@@ -1863,8 +1891,8 @@ export class PopcornEngine {
     /* Праздничный баннер: «УРОВЕНЬ N ПРОЙДЕН!» — игрок видит результат,
        пока салют из стаканчика сыплет конфетти (пауза до нарезки 1.15с) */
     this.banner = { text: this.L('banner.level', { n: this.lvl }) + ' ' + this.L('banner.clear'), t: 0 }
-    /* Бонус за оставшееся время: секунды ×10 — цифры с нулями, как и зёрна */
-    const bonus = Math.ceil(this.timeLeft) * 10
+    /* Бонус за оставшееся время: секунды ×5 (0.0.31: было ×10 — экономика строже) */
+    const bonus = Math.ceil(this.timeLeft) * 5
     this.score += bonus
     /* За пройденный уровень возвращается +1 сердечко (древо «Лапка-целитель» — больше) */
     this.hearts = Math.min(this.maxHearts, this.hearts + 1 + (this.tree.healPlus ?? 0))
@@ -2312,6 +2340,9 @@ export class PopcornEngine {
   private spawnBoss(): void {
     const u = this.u
     const maxHp = this.bossMaxHp()
+    /* Запоминаем запас сердец на момент появления — ачивка «Неприкасаемый»
+        сравнит его с запасом на момент победы */
+    this.bossHeartsAtSpawn = this.hearts
     this.boss = {
       x: this.W / 2,
       y: -80 * u,
@@ -2588,7 +2619,11 @@ export class PopcornEngine {
       const tier = Math.max(1, Math.floor(this.lvl / BOSS_EVERY))
       const bonus = BOSS_BONUS_BASE + (tier - 1) * BOSS_BONUS_PER_TIER
       this.score += bonus
-      this.bossCoinsRun += BOSS_COINS_BASE + (tier - 1) * 40
+      this.bossCoinsRun += BOSS_COINS_BASE + (tier - 1) * BOSS_COINS_PER_TIER
+      /* Ачивки босса: счёт побед за забег и «без царапин» — сердечек при
+          победе не меньше, чем было при появлении малыша */
+      this.bossKillsRun++
+      this.bossCleanLast = this.hearts >= this.bossHeartsAtSpawn
       this.texts.push({
         x: b.x,
         y: b.y - 50 * u,
@@ -2705,7 +2740,7 @@ export class PopcornEngine {
       : this.feverAfter >= 0
         ? this.lastFeverGained
         : 0
-    const key = `${this.score}|${this.lvl}|${this.quota}|${this.collected}|${this.carried.length}|${sec}|${this.paused}|${this.streak}|${this.goldenCount}|${this.pigeonsRun}|${fever}|${feverGained}|${this.wave}|${this.shieldLeft}|${this.runGrains}|${this.runNipples}|${this.minesHit}|${this.shieldSaves}|${this.hearts}|${this.maxHearts}|${this.bigCaught}|${this.bigCoinsRun}|${this.boss ? `${this.boss.hp}/${this.boss.maxHp}` : '-'}|${this.bossCoinsRun}`
+    const key = `${this.score}|${this.lvl}|${this.quota}|${this.collected}|${this.carried.length}|${sec}|${this.paused}|${this.streak}|${this.goldenCount}|${this.pigeonsRun}|${fever}|${feverGained}|${this.wave}|${this.shieldLeft}|${this.runGrains}|${this.runNipples}|${this.minesHit}|${this.shieldSaves}|${this.hearts}|${this.maxHearts}|${this.bigCaught}|${this.bigCaramelRun}|${this.bigCherryRun}|${this.bigGrapeRun}|${this.bossCoinsRun}|${this.bossKillsRun}|${this.bossCleanLast ? 1 : 0}|${this.boss ? `${this.boss.hp}/${this.boss.maxHp}` : '-'}`
     if (!force && key === this.lastStatsKey) return
     this.lastStatsKey = key
     this.cb.onStats({
@@ -2736,6 +2771,11 @@ export class PopcornEngine {
       goldenOn: this.pieces.some((p) => p.kind === 'golden'),
       bigCaught: this.bigCaught,
       bigCoins: this.bigCoinsRun,
+      bigCaramel: this.bigCaramelRun,
+      bigCherry: this.bigCherryRun,
+      bigGrape: this.bigGrapeRun,
+      bossKills: this.bossKillsRun,
+      bossClean: this.bossCleanLast,
       boss: !!this.boss,
       bossHp: this.boss?.hp ?? 0,
       bossMaxHp: this.boss?.maxHp ?? 0,

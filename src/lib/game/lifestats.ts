@@ -35,6 +35,18 @@ export interface LifeStats {
   perfects: number
   /** Суммарный счёт за все забеги (только положительные дельты) */
   score: number
+  /** Больших попкорнин поймано за всё время (поле) */
+  bigCaught: number
+  /** Из них по сортам — ачивка «Полное меню» нарезки и «Виноградный магнат» */
+  bigCaramel: number
+  bigCherry: number
+  bigGrape: number
+  /** Побед над боссом МАЛЫШЕМ за всё время */
+  bossKills: number
+  /** Нарезок по сортам за всё время — ачивка «Полное меню» */
+  sliceCaramel: number
+  sliceCherry: number
+  sliceGrape: number
 }
 
 export const LIFE_KEY = 'popcorn-lifestats'
@@ -53,6 +65,14 @@ const DEFAULT_LIFE: LifeStats = {
   visits: 0,
   perfects: 0,
   score: 0,
+  bigCaught: 0,
+  bigCaramel: 0,
+  bigCherry: 0,
+  bigGrape: 0,
+  bossKills: 0,
+  sliceCaramel: 0,
+  sliceCherry: 0,
+  sliceGrape: 0,
 }
 
 /** Живой объект в памяти — единый источник между кадрами */
