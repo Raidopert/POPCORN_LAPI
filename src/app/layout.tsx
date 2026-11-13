@@ -23,6 +23,7 @@ const pixelSans = Handjet({
 });
 
 export const metadata: Metadata = {
+  metadataBase: new URL("https://popcorn-lapi.vercel.app"),
   title: "POPCORN PAWS — 8-битный рогалик-аркада",
   description:
     "Рогалик-аркада: собирай попкорн лапкой куницы в стаканчик, выполняй норму уровня и открывай сундучки со случайными перками — бонусы и проклятья! 8-битная музыка ускоряется к концу уровня. Играй бесплатно в браузере на смартфоне и ПК.",
@@ -43,8 +44,27 @@ export const metadata: Metadata = {
   },
   openGraph: {
     title: "POPCORN PAWS — 8-битный рогалик-аркада",
-    description: "Собери попкорн лапкой куницы и не трогай кукурузу-ловушку!",
+    description:
+      "Собирай попкорн лапкой куницы, уворачивайся от мин-кукурузы и ставь рекорды. Играй бесплатно прямо в браузере!",
+    url: "https://popcorn-lapi.vercel.app",
+    siteName: "POPCORN PAWS",
+    locale: "ru_RU",
     type: "website",
+    images: [
+      {
+        url: "/og-image.png",
+        width: 1344,
+        height: 768,
+        alt: "POPCORN PAWS — куница со стаканчиком попкорна и мина-кукуруза",
+      },
+    ],
+  },
+  twitter: {
+    card: "summary_large_image",
+    title: "POPCORN PAWS — 8-битный рогалик-аркада",
+    description:
+      "Собирай попкорн лапкой куницы, уворачивайся от мин-кукурузы и ставь рекорды. Играй бесплатно прямо в браузере!",
+    images: ["/og-image.png"],
   },
 };
 
