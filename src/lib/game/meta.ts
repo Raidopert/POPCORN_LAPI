@@ -63,6 +63,19 @@ export function migrateXpBank(): void {
   if (xpMigrated || typeof window === 'undefined') return
   xpMigrated = true
   try {
+    /* --- разовая миграция v0.0.27: экономика стала строже — цены апгрейдов
+        ×3 и крутее кривая уровня. Старые запасы (заработанные ещё в мягкой
+        экономике) делим на 2.5 — купленное остаётся, но прогрессия снова
+        ощущается --- */
+    const MIG2_KEY = 'popcorn-xp-mig25'
+    if (window.localStorage.getItem(MIG2_KEY) !== '1') {
+      window.localStorage.setItem(MIG2_KEY, '1')
+      for (const key of [TOTAL_KEY, XP_BANK_KEY]) {
+        const v = Math.max(0, Math.floor(Number(window.localStorage.getItem(key)) || 0))
+        window.localStorage.setItem(key, String(Math.floor(v / 2.5)))
+      }
+      window.dispatchEvent(new Event(STORE_EVENT))
+    }
     if (window.localStorage.getItem(XP_MIG_KEY) === '1') return
     window.localStorage.setItem(XP_MIG_KEY, '1')
     for (const key of [TOTAL_KEY, XP_BANK_KEY]) {
@@ -86,13 +99,13 @@ export function addTotalXp(delta: number): void {
   writeNum(TOTAL_KEY, readNum(TOTAL_KEY) + delta)
 }
 
-/** Опыт, нужный для перехода с уровня на следующий: 800, 860, 970, 1280…
-    Прогрессирующая кривая 800 + 60×(l−1)^1.5: ранние уровни быстрые,
-    глубокие — медленные. Полное древо (~90 уровней) — путь на недели,
-    а не один удачный забег: рекорд 200 000 очков ≈ 14 уровней. */
+/** Опыт, нужный для перехода с уровня на следующий: 1100, 1190, 1331…
+    v0.0.27 — кривая круче: 1100 + 90×(l−1)^1.6. Полное древо (~89 очков)
+    — путь на недели регулярных забегов, а не один удачный вечер:
+    на 89-й уровень нужно ≈ 4 000 000 суммарного опыта */
 export function needForLevel(level: number): number {
   const l = Math.max(1, Math.floor(level))
-  return 800 + Math.round(60 * Math.pow(l - 1, 1.5))
+  return 1100 + Math.round(90 * Math.pow(l - 1, 1.6))
 }
 
 /** Уровень котика по суммарному опыту (без потолка) */

@@ -19,11 +19,37 @@
 /** Идентификатор путешествия */
 export type TripId = 't10' | 't30' | 't60' | 't180' | 't360' | 't720'
 /** Идентификатор ботинок куницы */
-export type BootsId = 'none' | 'sapozhki' | 'krest' | 'sluzh' | 'leopard'
+export type BootsId =
+  | 'none'
+  | 'sapozhki'
+  | 'krest'
+  | 'valenki'
+  | 'sluzh'
+  | 'leopard'
+  | 'meteor'
+  | 'lunnie'
 /** Идентификатор шляпки куницы */
-export type HatId = 'none' | 'straw' | 'cap' | 'crown' | 'superleo'
+export type HatId =
+  | 'none'
+  | 'straw'
+  | 'cap'
+  | 'beret'
+  | 'wizard'
+  | 'crown'
+  | 'star'
+  | 'superleo'
+  | 'astronaut'
 /** Идентификатор сумочки куницы */
-export type BagId = 'none' | 'packet' | 'tote' | 'baguette' | 'leobag'
+export type BagId =
+  | 'none'
+  | 'packet'
+  | 'meshok'
+  | 'tote'
+  | 'ryukzak'
+  | 'baguette'
+  | 'shkatulka'
+  | 'leobag'
+  | 'kosmos'
 
 /** Активное путешествие (оффлайн: таймер от реальных часов) */
 export interface MartenTrip {
@@ -149,8 +175,11 @@ export const BOOTS: ReadonlyArray<{
   { id: 'none', price: 0, gemMul: 1, xpMul: 1, timeMul: 1 },
   { id: 'sapozhki', price: 90, gemMul: 1.15, xpMul: 1.15, timeMul: 0.95 },
   { id: 'krest', price: 280, gemMul: 1.3, xpMul: 1.3, timeMul: 0.9 },
-  { id: 'sluzh', price: 800, gemMul: 1.55, xpMul: 1.55, timeMul: 0.82 },
-  { id: 'leopard', price: 2200, gemMul: 2, xpMul: 2, timeMul: 0.75 },
+  { id: 'valenki', price: 620, gemMul: 1.4, xpMul: 1.4, timeMul: 0.92 },
+  { id: 'sluzh', price: 1600, gemMul: 1.55, xpMul: 1.55, timeMul: 0.82 },
+  { id: 'leopard', price: 4200, gemMul: 2, xpMul: 2, timeMul: 0.75 },
+  { id: 'meteor', price: 7500, gemMul: 2.4, xpMul: 2.4, timeMul: 0.68 },
+  { id: 'lunnie', price: 14000, gemMul: 3, xpMul: 3, timeMul: 0.6 },
 ]
 
 export const BOOTS_MAP: Record<BootsId, (typeof BOOTS)[number]> = BOOTS.reduce(
@@ -162,7 +191,14 @@ export const BOOTS_MAP: Record<BootsId, (typeof BOOTS)[number]> = BOOTS.reduce(
 )
 
 export const isBootsId = (v: unknown): v is BootsId =>
-  v === 'none' || v === 'sapozhki' || v === 'krest' || v === 'sluzh' || v === 'leopard'
+  v === 'none' ||
+  v === 'sapozhki' ||
+  v === 'krest' ||
+  v === 'valenki' ||
+  v === 'sluzh' ||
+  v === 'leopard' ||
+  v === 'meteor' ||
+  v === 'lunnie'
 
 /* ════════════════ Шляпки путешественницы (лавка) ════════════════ */
 
@@ -182,8 +218,12 @@ export const HATS: ReadonlyArray<{
   { id: 'none', price: 0, clickXp: 0, gemMul: 1, xpMul: 1, timeMul: 1 },
   { id: 'straw', price: 160, clickXp: 1, gemMul: 1.05, xpMul: 1.25, timeMul: 1 },
   { id: 'cap', price: 480, clickXp: 2, gemMul: 1.1, xpMul: 1.5, timeMul: 0.97 },
-  { id: 'crown', price: 1500, clickXp: 4, gemMul: 1.2, xpMul: 2, timeMul: 0.94 },
-  { id: 'superleo', price: 4200, clickXp: 9, gemMul: 1.35, xpMul: 2.5, timeMul: 0.9 },
+  { id: 'beret', price: 700, clickXp: 3, gemMul: 1.08, xpMul: 1.35, timeMul: 1 },
+  { id: 'wizard', price: 2200, clickXp: 6, gemMul: 1.22, xpMul: 1.75, timeMul: 0.96 },
+  { id: 'crown', price: 3000, clickXp: 4, gemMul: 1.2, xpMul: 2, timeMul: 0.94 },
+  { id: 'star', price: 6500, clickXp: 10, gemMul: 1.4, xpMul: 2.2, timeMul: 0.92 },
+  { id: 'superleo', price: 9000, clickXp: 9, gemMul: 1.35, xpMul: 2.5, timeMul: 0.9 },
+  { id: 'astronaut', price: 13000, clickXp: 15, gemMul: 1.55, xpMul: 3.2, timeMul: 0.85 },
 ]
 
 export const HATS_MAP: Record<HatId, (typeof HATS)[number]> = HATS.reduce(
@@ -195,7 +235,15 @@ export const HATS_MAP: Record<HatId, (typeof HATS)[number]> = HATS.reduce(
 )
 
 export const isHatId = (v: unknown): v is HatId =>
-  v === 'none' || v === 'straw' || v === 'cap' || v === 'crown' || v === 'superleo'
+  v === 'none' ||
+  v === 'straw' ||
+  v === 'cap' ||
+  v === 'beret' ||
+  v === 'wizard' ||
+  v === 'crown' ||
+  v === 'star' ||
+  v === 'superleo' ||
+  v === 'astronaut'
 
 /* ════════════════ Сумочки путешественницы (лавка) ════════════════ */
 
@@ -213,9 +261,13 @@ export const BAGS: ReadonlyArray<{
 }> = [
   { id: 'none', price: 0, coins: 0, grains: 0, gemAdd: 0 },
   { id: 'packet', price: 130, coins: 4, grains: 30, gemAdd: 0 },
-  { id: 'tote', price: 420, coins: 10, grains: 80, gemAdd: 0 },
-  { id: 'baguette', price: 1200, coins: 24, grains: 180, gemAdd: 0 },
-  { id: 'leobag', price: 3400, coins: 55, grains: 420, gemAdd: 1.05 },
+  { id: 'meshok', price: 650, coins: 7, grains: 55, gemAdd: 0 },
+  { id: 'tote', price: 900, coins: 10, grains: 80, gemAdd: 0 },
+  { id: 'ryukzak', price: 1900, coins: 20, grains: 160, gemAdd: 0 },
+  { id: 'baguette', price: 2600, coins: 24, grains: 180, gemAdd: 0 },
+  { id: 'shkatulka', price: 4800, coins: 42, grains: 330, gemAdd: 1.06 },
+  { id: 'leobag', price: 7000, coins: 55, grains: 420, gemAdd: 1.05 },
+  { id: 'kosmos', price: 11000, coins: 85, grains: 660, gemAdd: 1.15 },
 ]
 
 export const BAGS_MAP: Record<BagId, (typeof BAGS)[number]> = BAGS.reduce(
@@ -227,7 +279,15 @@ export const BAGS_MAP: Record<BagId, (typeof BAGS)[number]> = BAGS.reduce(
 )
 
 export const isBagId = (v: unknown): v is BagId =>
-  v === 'none' || v === 'packet' || v === 'tote' || v === 'baguette' || v === 'leobag'
+  v === 'none' ||
+  v === 'packet' ||
+  v === 'meshok' ||
+  v === 'tote' ||
+  v === 'ryukzak' ||
+  v === 'baguette' ||
+  v === 'shkatulka' ||
+  v === 'leobag' ||
+  v === 'kosmos'
 
 /** Снаряжение куницы одним пакетом */
 export interface MartenGear {

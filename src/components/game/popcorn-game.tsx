@@ -1031,22 +1031,33 @@ const BOOTS_ICON: Record<BootsId, string> = {
   none: '🐾',
   sapozhki: '🥿',
   krest: '🥾',
+  valenki: '🧶',
   sluzh: '👠',
   leopard: '🐆',
+  meteor: '🚀',
+  lunnie: '🌙',
 }
 const HAT_ICON: Record<HatId, string> = {
   none: '🐾',
   straw: '👒',
   cap: '🧢',
+  beret: '🎨',
+  wizard: '🔮',
   crown: '👑',
+  star: '🌟',
   superleo: '🎩',
+  astronaut: '🪐',
 }
 const BAG_ICON: Record<BagId, string> = {
   none: '🐾',
   packet: '🛍️',
+  meshok: '🧺',
   tote: '👝',
+  ryukzak: '🎒',
   baguette: '👜',
+  shkatulka: '🎁',
   leobag: '👛',
+  kosmos: '🧳',
 }
 
 /** Общая строка «эффектов снаряжения»: 💎+15% · 🐾+15% · ⏱−5% · 👆+4 · 🪙+10 · 🌾+80 */
@@ -1092,7 +1103,7 @@ function MShopOverlay({
           ]),
           nameKey: `boots.${d.id}.name`,
           descKey: `boots.${d.id}.desc`,
-          premium: d.id === 'leopard',
+          premium: d.id === 'leopard' || d.id === 'meteor' || d.id === 'lunnie',
         }))
       : tab === 'hats'
         ? HATS.map((d) => ({
@@ -1109,7 +1120,7 @@ function MShopOverlay({
             ]),
             nameKey: `hat.${d.id}.name`,
             descKey: `hat.${d.id}.desc`,
-            premium: d.id === 'superleo',
+            premium: d.id === 'superleo' || d.id === 'astronaut',
           }))
         : BAGS.map((d) => ({
             id: d.id,
@@ -1124,7 +1135,7 @@ function MShopOverlay({
             ]),
             nameKey: `bag.${d.id}.name`,
             descKey: `bag.${d.id}.desc`,
-            premium: d.id === 'leobag',
+            premium: d.id === 'leobag' || d.id === 'kosmos',
           }))
 
   const handleBuy =

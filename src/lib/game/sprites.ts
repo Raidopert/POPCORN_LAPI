@@ -261,8 +261,8 @@ export interface PawPalette {
   edge: string
   /** Светлая шерсть (блик слева); по умолчанию — цвет подушечки */
   furLight?: string
-  /** Три пальца разного цвета (радужная лапка) */
-  fingers?: [string, string, string]
+  /** Три/четыре пальца разного цвета (радужная, неоновая) */
+  fingers?: [string, string, string, string]
   /** Пятнышки по шерсти (леопардовая лапка) */
   spots?: string
   /** Волшебный колпак поверх среднего пальца (призрачная шапка) */
@@ -728,7 +728,12 @@ export function makeSmoothNippleSprite(): Sprite {
   return { canvas, w: 14, h: 14, smooth: true }
 }
 
-/* ---------- Лапка куницы: гладкая, с мехом-градиентами и коготками ---------- */
+/* ---------- Лапка куницы: гладкая, с мехом-градиентами и коготками.
+   v0.0.27 — новая анатомия вместо «плюшевого тапка»: 4 тонких пальца
+   дугой (средний длиннее — как у настоящей куницы), серповидные
+   коготки, узкое запястье с меховой бахромой, подушечка-сердечко.
+   Милота — из округлых «бобышек» и бахромы, натурность — из
+   асимметрии пальцев и острых коготков ---------- */
 
 export function makeSmoothPawSprite(pal: Partial<PawPalette> = {}): Sprite {
   const p: PawPalette = { ...PAW_DEFAULT, ...pal }
@@ -742,26 +747,46 @@ export function makeSmoothPawSprite(pal: Partial<PawPalette> = {}): Sprite {
   const x = (v: number): number => v * k
   const y = (v: number): number => v * k
 
-  /* Силуэт: запястье + пясть + пальцы + перепонки + коготки */
+  /* Силуэт: запястье + бахрома + пясть + перепонки + 4 вытянутых пальца + коготки */
   const FUR: Array<[number, number, number]> = [
-    [12, 24.5, 5.6],
-    [12, 27.6, 5.0],
-    [8.4, 22.2, 3.0],
-    [15.6, 22.2, 3.0],
-    [6.6, 25.4, 1.8],
-    [17.4, 25.4, 1.8],
-    [12, 29.4, 3.7],
-    [12, 15.5, 6.0],
-    [6.4, 8.2, 3.0],
-    [12, 6.0, 3.2],
-    [17.6, 8.2, 3.0],
-    [8.8, 11.0, 2.3],
-    [15.2, 11.0, 2.3],
+    /* запястье: узкая колонна, меховые клочья по бокам */
+    [12, 24.4, 4.4],
+    [12, 27.4, 4.2],
+    [12, 29.5, 3.3],
+    [7.6, 23.0, 1.5],
+    [16.6, 23.4, 1.6],
+    [8.9, 26.6, 1.25],
+    [15.5, 27.0, 1.3],
+    [6.5, 25.7, 1.0],
+    [17.7, 26.1, 1.05],
+    /* пясть */
+    [12, 16.2, 5.3],
+    [8.4, 17.9, 2.3],
+    [15.6, 17.9, 2.3],
+    /* пушистые перепонки между пальцами — ниже, чтобы не зливали щели */
+    [7.9, 13.2, 1.5],
+    [11.5, 12.2, 1.6],
+    [15.3, 13.4, 1.5],
+    /* боковые клочья на пястье — рвут «плюшевый» контур */
+    [6.6, 15.2, 0.9],
+    [17.4, 15.4, 0.9],
+    [7.0, 19.6, 1.0],
+    [17.0, 19.8, 1.0],
+    /* 4 пальца: по два кружка каждый — тонкие, дугой, средний длиннее */
+    [5.7, 11.0, 1.7],
+    [5.5, 9.3, 1.5],
+    [9.4, 8.8, 1.8],
+    [9.3, 6.9, 1.6],
+    [13.5, 8.4, 1.85],
+    [13.7, 6.3, 1.7],
+    [17.6, 10.1, 1.7],
+    [18.1, 8.5, 1.5],
   ]
   const CLAWS: Array<[number, number, number]> = [
-    [6.4, 4.4, 1.15],
-    [12, 2.4, 1.2],
-    [17.6, 4.4, 1.15],
+    [4.7, 6.6, 0.8],
+    [8.95, 4.25, 0.85],
+    [13.75, 3.7, 0.9],
+    [19.0, 6.15, 0.8],
   ]
   const silhouette = circlesPath([...FUR, ...CLAWS], k)
 
@@ -772,26 +797,39 @@ export function makeSmoothPawSprite(pal: Partial<PawPalette> = {}): Sprite {
   c.fillStyle = p.fur
   c.fill(silhouette)
 
-  /* Объём меха: свет сверху-слева, тень справа-снизу — в клипе силуэта */
+  /* Коготки: тёмные серповидные, торчат из-за кончиков пальцев */
+  for (const [cx1, cy1, cr1] of CLAWS) {
+    c.fillStyle = p.claw
+    c.beginPath()
+    c.arc(x(cx1), y(cy1), cr1 * k, 0, Math.PI * 2)
+    c.fill()
+  }
+
+  /* Объём меха: свет сверху-слева, тень справа — в клипе силуэта */
   c.save()
   c.clip(silhouette)
-  softSpot(c, x(8.6), y(13.6), 7 * k, light + 'B0')
-  softSpot(c, x(10.6), y(8.4), 3.2 * k, light + 'C8')
-  softSpot(c, x(15.8), y(18.6), 6.6 * k, p.furShade + 'A8')
-  softSpot(c, x(14.4), y(26.2), 5.6 * k, p.furShade + '90')
-  softSpot(c, x(19.6), y(10.8), 2.8 * k, p.furShade + 'B0')
-  softSpot(c, x(9), y(12.6), 1.4 * k, p.furShade + '80')
-  softSpot(c, x(15.2), y(12.6), 1.4 * k, p.furShade + '80')
+  softSpot(c, x(9.2), y(13.4), 6 * k, light + 'B0')
+  softSpot(c, x(9.8), y(7.4), 2.8 * k, light + 'C8')
+  softSpot(c, x(15.4), y(18.2), 6 * k, p.furShade + 'A8')
+  softSpot(c, x(14.2), y(26.0), 5 * k, p.furShade + '90')
+  softSpot(c, x(19.0), y(10.6), 2.4 * k, p.furShade + 'B0')
+  /* складки меха у перепонок + глубокие щели между пальцами */
+  softSpot(c, x(7.5), y(10.6), 1.1 * k, p.furShade + 'C0')
+  softSpot(c, x(11.4), y(9.6), 1.15 * k, p.furShade + 'C0')
+  softSpot(c, x(15.6), y(10.8), 1.1 * k, p.furShade + 'C0')
+  softSpot(c, x(8.8), y(13.4), 1.3 * k, p.furShade + '80')
+  softSpot(c, x(12.4), y(12.5), 1.3 * k, p.furShade + '80')
+  softSpot(c, x(16.0), y(13.6), 1.3 * k, p.furShade + '80')
   /* Пятнистый окрас (леопард) */
   if (p.spots) {
     const dots: Array<[number, number, number]> = [
-      [8.0, 12.6, 1.25],
-      [15.8, 15.6, 1.3],
-      [9.6, 21.4, 1.1],
-      [14.6, 20.8, 1.1],
-      [12.0, 10.6, 0.9],
-      [16.4, 25.6, 1.1],
-      [7.6, 17.0, 1.0],
+      [8.6, 13.0, 1.15],
+      [15.2, 15.8, 1.2],
+      [9.6, 21.6, 1.05],
+      [14.4, 21.0, 1.05],
+      [12.0, 11.8, 0.85],
+      [16.0, 25.4, 1.0],
+      [7.6, 17.6, 0.95],
     ]
     c.fillStyle = p.spots
     for (const [dx, dy, dr] of dots) {
@@ -800,57 +838,68 @@ export function makeSmoothPawSprite(pal: Partial<PawPalette> = {}): Sprite {
       c.fill()
     }
   }
-  /* Радужные пальцы — поверх меха, «бобышки» вернутся ниже */
+  /* Радужные/неоновые пальцы — перекрашиваем все 4, «бобышки» вернутся ниже */
   if (p.fingers) {
-    c.fillStyle = p.fingers[0]
-    c.beginPath()
-    c.arc(x(6.4), y(8.2), 3 * k, 0, Math.PI * 2)
-    c.fill()
-    c.fillStyle = p.fingers[1]
-    c.beginPath()
-    c.arc(x(12), y(6.0), 3.2 * k, 0, Math.PI * 2)
-    c.fill()
-    c.fillStyle = p.fingers[2]
-    c.beginPath()
-    c.arc(x(17.6), y(8.2), 3 * k, 0, Math.PI * 2)
-    c.fill()
+    const toes: Array<[number, number, number, string]> = [
+      [5.7, 11.0, 1.7, p.fingers[0]],
+      [5.5, 9.3, 1.5, p.fingers[0]],
+      [9.4, 8.8, 1.8, p.fingers[1]],
+      [9.3, 6.9, 1.6, p.fingers[1]],
+      [13.5, 8.4, 1.85, p.fingers[2]],
+      [13.7, 6.3, 1.7, p.fingers[2]],
+      [17.6, 10.1, 1.7, p.fingers[3]],
+      [18.1, 8.5, 1.5, p.fingers[3]],
+    ]
+    for (const [tx, ty, tr, col] of toes) {
+      c.fillStyle = col
+      c.beginPath()
+      c.arc(x(tx), y(ty), tr * k, 0, Math.PI * 2)
+      c.fill()
+    }
   }
 
-  /* Подушечка: объёмная, с бликом и тенью */
-  const padC = { cx: x(12), cy: y(16.4), r: 3.8 * k }
+  /* Подушечка-сердечко: две мочки + большая долька, тень и блик */
   c.fillStyle = p.pad
-  c.beginPath()
-  c.arc(padC.cx, padC.cy, padC.r, 0, Math.PI * 2)
-  c.fill()
-  softSpot(c, x(13.6), y(18.2), 2.2 * k, p.furShade + 'A0')
-  softSpot(c, x(10.4), y(14.9), 1.6 * k, '#FFFFFF' + '78')
+  for (const [px, py, pr] of [
+    [10.1, 15.4, 1.65],
+    [13.9, 15.4, 1.65],
+    [12.0, 17.2, 3.0],
+  ] as Array<[number, number, number]>) {
+    c.beginPath()
+    c.arc(x(px), y(py), pr * k, 0, Math.PI * 2)
+    c.fill()
+  }
+  softSpot(c, x(13.4), y(18.6), 2.0 * k, p.furShade + 'A0')
+  softSpot(c, x(10.6), y(14.9), 1.3 * k, '#FFFFFF' + '78')
 
-  /* «Бобышки» на пальцах: светлая капля + тень + блик */
+  /* «Бобышки»: 4 светлые капли в середине пальцев (не на кончиках) */
   const beans: Array<[number, number, number]> = [
-    [6.6, 8.0, 1.5],
-    [12, 5.8, 1.6],
-    [17.4, 8.0, 1.5],
+    [5.7, 10.0, 0.72],
+    [9.3, 7.6, 0.75],
+    [13.7, 7.1, 0.78],
+    [18.0, 9.2, 0.72],
   ]
   for (const [bx, by, br] of beans) {
     c.fillStyle = p.beans
     c.beginPath()
     c.arc(x(bx), y(by), br * k, 0, Math.PI * 2)
     c.fill()
-    softSpot(c, x(bx + 0.35), y(by + 0.4), 0.9 * k, p.furShade + '8C')
-    softSpot(c, x(bx - 0.4), y(by - 0.45), 0.7 * k, '#FFFFFF' + 'B8')
+    softSpot(c, x(bx + 0.3), y(by + 0.35), 0.55 * k, p.furShade + '8C')
+    softSpot(c, x(bx - 0.3), y(by - 0.4), 0.45 * k, '#FFFFFF' + 'B8')
   }
 
   /* Блики на коготках */
   for (const [cx2, cy2] of [
-    [6.0, 4.0],
-    [11.6, 2.0],
-    [17.2, 4.0],
+    [4.55, 6.3],
+    [8.8, 3.95],
+    [13.6, 3.4],
+    [18.85, 5.85],
   ]) {
-    softSpot(c, x(cx2), y(cy2), 0.7 * k, '#FFF6EC' + 'E0')
+    softSpot(c, x(cx2), y(cy2), 0.45 * k, '#FFF6EC' + 'E0')
   }
   c.restore()
 
-  /* Волшебный колпак: гладкий конус с кантом и бликом */
+  /* Волшебный колпак: гладкий конус с кантом и бликом — сидит на среднем пальце */
   if (p.hat) {
     const hatMain = '#8AA0D8'
     const hatDark = '#66739F'
@@ -860,23 +909,23 @@ export function makeSmoothPawSprite(pal: Partial<PawPalette> = {}): Sprite {
     c.lineJoin = 'round'
     c.fillStyle = hatDark
     c.beginPath()
-    c.ellipse(x(12), y(5.0), x(5.1), y(1.0), 0, 0, Math.PI * 2)
+    c.ellipse(x(13.2), y(4.9), x(4.6), y(0.95), 0, 0, Math.PI * 2)
     c.fill()
     c.stroke()
-    const grad = c.createLinearGradient(x(8), 0, x(16), 0)
+    const grad = c.createLinearGradient(x(9), 0, x(17), 0)
     grad.addColorStop(0, hatMain)
     grad.addColorStop(0.55, hatMain)
     grad.addColorStop(1, hatDark)
     c.fillStyle = grad
     c.beginPath()
-    c.moveTo(x(12), y(0.4))
-    c.bezierCurveTo(x(10.8), y(1.4), x(9.4), y(2.4), x(7.6), y(4.1))
-    c.lineTo(x(16.4), y(4.1))
-    c.bezierCurveTo(x(14.6), y(2.4), x(13.2), y(1.4), x(12), y(0.4))
+    c.moveTo(x(13.2), y(0.4))
+    c.bezierCurveTo(x(12.2), y(1.4), x(10.9), y(2.4), x(9.3), y(4.0))
+    c.lineTo(x(17.0), y(4.0))
+    c.bezierCurveTo(x(15.5), y(2.4), x(14.2), y(1.4), x(13.2), y(0.4))
     c.closePath()
     c.fill()
     c.stroke()
-    softSpot(c, x(11.2), y(1.6), 0.9 * k, '#F2F6FF' + 'D0')
+    softSpot(c, x(12.4), y(1.6), 0.9 * k, '#F2F6FF' + 'D0')
     c.restore()
   }
 
