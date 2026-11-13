@@ -20,6 +20,7 @@ import {
   makeCupSprite,
   makeCutePawSprite,
   PAW_STYLE_COUNT,
+  PAW_DEFAULT_STYLE,
   makeSparkleSprite,
   makeMineSprite,
   makePigeonSprite,
@@ -606,7 +607,7 @@ export class PopcornEngine {
   /** Постоянные улучшения из магазина лапок (действуют весь забег и все забеги) */
   private pawBonus: PawBonus = {}
   /** v0.0.35 «примерка»: текущий стиль отрисовки лапки (0..PAW_STYLE_COUNT-1) */
-  private pawStyle = 0
+  private pawStyle = PAW_DEFAULT_STYLE
   /** Текущий скин из магазина — палитра сохраняется при смене стиля */
   private pawSkinId: PawId = DEFAULT_PAW
   private wave = 1
@@ -793,7 +794,7 @@ export class PopcornEngine {
       mines: [0, 1, 2, 3].map((k) => makeMineSprite(k, false)),
       minesCB: [0, 1, 2, 3].map((k) => makeMineSprite(k, true)),
       cup: makeCupSprite(),
-      paw: makeCutePawSprite(0),
+      paw: makeCutePawSprite(PAW_DEFAULT_STYLE),
       sparkle: makeSparkleSprite(),
       pigeon0: makePigeonSprite(false),
       pigeon1: makePigeonSprite(true),

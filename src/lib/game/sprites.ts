@@ -1248,6 +1248,9 @@ export function makeSmoothPawSprite(pal: Partial<PawPalette> = {}): Sprite {
 
 export const PAW_STYLE_COUNT = 4
 
+/** Стиль, выбранный игроком в примерке: «ОХОТНИЦА» (0.0.35) */
+export const PAW_DEFAULT_STYLE = 3
+
 /** Зона кремового «нагрудника»: ладонь+запястье (куница) или кончики пальцев */
 type BellyZone = 'palm' | 'fingers' | null
 
