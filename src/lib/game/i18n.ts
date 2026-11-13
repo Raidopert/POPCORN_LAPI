@@ -1721,9 +1721,9 @@ export const T: Record<string, Row> = {
   'perk.doublepoints.name': ['Двойной улов', 'Double Catch', 'Doppelfang', 'Doble Captura'],
   'perk.doublepoints.desc': [
     'Все очки удваиваются! Но и норма попкорна на уровень +30%.',
-    'All points doubled! But the level quota is +30%.',
-    'Alle Punkte doppelt! Aber die Quote +30%.',
-    '¡Puntos ×2! Pero la cuota del nivel es +30%.',
+    'All points doubled! But the level goal is +30%.',
+    'Alle Punkte doppelt! Aber das Ziel +30%.',
+    '¡Puntos ×2! Pero la meta del nivel es +30%.',
   ],
   'perk.bigpaw.name': ['Лапа великана', 'Giant Paw', 'Riesenpfote', 'Patitón'],
   'perk.bigpaw.desc': [
@@ -1763,9 +1763,9 @@ export const T: Record<string, Row> = {
   'perk.milky.name': ['Соски-малышки', 'Baby Pacifiers', 'Baby-Schnuller', 'Chupetes Bebé'],
   'perk.milky.desc': [
     'Все обычные зёрна заменены на соски 🍼: каждая +40 очков, но и норма подросла на 20%!',
-    'All regular kernels become pacifiers 🍼: +40 each, but the quota grew 20%!',
-    'Alle normalen Körner werden Schnuller 🍼: +40 pro Stück, aber die Quote wächst um 20%!',
-    '¡Los granos normales se vuelven chupetes 🍼: +40 cada uno, pero la cuota crece 20%!',
+    'All regular kernels become pacifiers 🍼: +40 each, but the goal grew 20%!',
+    'Alle normalen Körner werden Schnuller 🍼: +40 pro Stück, aber das Ziel wächst um 20%!',
+    '¡Los granos normales se vuelven chupetes 🍼: +40 cada uno, pero la meta crece 20%!',
   ],
   'perk.nightshift.name': ['Ночная смена', 'Night Shift', 'Nachtschicht', 'Turno Nocturno'],
   'perk.nightshift.desc': [
@@ -1840,9 +1840,9 @@ export const T: Record<string, Row> = {
   'chest.openN': ['Открыть сундучок {{n}}', 'Open chest {{n}}', 'Truhe {{n}} öffnen', 'Abrir cofre {{n}}'],
   'chest.quotaInfo': [
     'Уровень {{n}}: норма {{q}} 🍿 за {{s}} сек',
-    'Level {{n}}: quota {{q}} 🍿 in {{s}} sec',
-    'Level {{n}}: Quote {{q}} 🍿 in {{s}} Sek',
-    'Nivel {{n}}: cuota {{q}} 🍿 en {{s}} seg',
+    'Level {{n}}: goal {{q}} 🍿 in {{s}} sec',
+    'Level {{n}}: Ziel {{q}} 🍿 in {{s}} Sek',
+    'Nivel {{n}}: meta {{q}} 🍿 en {{s}} seg',
   ],
   'chest.next': [
     'ДАЛЬШЕ: УРОВЕНЬ {{n}} ▶',
@@ -1940,9 +1940,9 @@ export const T: Record<string, Row> = {
   'poster.3.title': ['ПЛАН ВЫПОЛНЕН!', 'PLAN FULFILLED!', 'PLAN ERFÜLLT!', '¡PLAN CUMPLIDO!'],
   'poster.3.sub': [
     'норма перевыполнена — впереди новые рубежи',
-    'quota exceeded — new heights ahead',
+    'goal exceeded — new heights ahead',
     'Norm übertroffen — neue Ziele voraus',
-    'cuota superada: nuevas metas por delante',
+    'meta superada: nuevas alturas por delante',
   ],
   'poster.4.title': ['К НОВЫМ ВЫСОТАМ!', 'TO NEW HEIGHTS!', 'ZU NEUEN HÖHEN!', '¡A NUEVAS ALTURAS!'],
   'poster.4.sub': [
@@ -1983,9 +1983,9 @@ export const T: Record<string, Row> = {
   'pause.title': ['ПАУЗА', 'PAUSED', 'PAUSE', 'PAUSA'],
   'pause.info': [
     'Уровень {{l}} · Счёт: {{s}} · Норма {{c}}/{{q}}',
-    'Level {{l}} · Score: {{s}} · Quota {{c}}/{{q}}',
-    'Level {{l}} · Punkte: {{s}} · Quote {{c}}/{{q}}',
-    'Nivel {{l}} · Puntos: {{s}} · Cuota {{c}}/{{q}}',
+    'Level {{l}} · Score: {{s}} · Goal {{c}}/{{q}}',
+    'Level {{l}} · Punkte: {{s}} · Ziel {{c}}/{{q}}',
+    'Nivel {{l}} · Puntos: {{s}} · Meta {{c}}/{{q}}',
   ],
   'pause.resume': ['▶ ПРОДОЛЖИТЬ', '▶ RESUME', '▶ WEITER', '▶ CONTINUAR'],
   'hud.pause': ['Пауза', 'Pause', 'Pause', 'Pausa'],
@@ -2001,7 +2001,7 @@ export const T: Record<string, Row> = {
   'hud.hearts': ['Сердечки: {{n}} из {{m}}', 'Hearts: {{n}} of {{m}}', 'Herzen: {{n}} von {{m}}', 'Corazones: {{n}} de {{m}}'],
 
   /* ---------- конец игры ---------- */
-  'over.title': ['КВОТА ПРОВАЛЕНА!', 'QUOTA FAILED!', 'QUOTE VERPASST!', '¡CUOTA FALLIDA!'],
+  'over.title': ['ЦЕЛЬ ПРОВАЛЕНА!', 'GOAL FAILED!', 'ZIEL VERPASST!', '¡META FALLIDA!'],
   'over.timeup': [
     'Время вышло на {{n}} уровне',
     'Time ran out on level {{n}}',
@@ -2162,9 +2162,9 @@ export const T: Record<string, Row> = {
   /* 7 коротких пунктов — все цифры сверены с движком (engine.ts) */
   'rules.r1': [
     'Веди лапку пальцем (на ПК — мышкой): собирай зёрна и сдавай их в стаканчик. Набери норму за 60 секунд!',
-    'Drag the paw with your finger (mouse on PC): grab kernels and deliver them to the cup. Meet the quota within 60 seconds!',
-    'Führe die Pfote mit dem Finger (am PC mit der Maus): sammle Körner und liefere sie im Becher. Erreiche die Quote in 60 Sekunden!',
-    'Mueve la patita con el dedo (ratón en PC): recoge granos y entrégalos en el vaso. ¡Cumple la cuota en 60 segundos!',
+    'Drag the paw with your finger (mouse on PC): grab kernels and deliver them to the cup. Reach the goal within 60 seconds!',
+    'Führe die Pfote mit dem Finger (am PC mit der Maus): sammle Körner und liefere sie im Becher. Erreiche das Ziel in 60 Sekunden!',
+    'Mueve la patita con el dedo (ratón en PC): recoge granos y entrégalos en el vaso. ¡Cumple la meta en 60 segundos!',
   ],
   'rules.r2': [
     'Цена зёрен: белое +10 · карамель +20 · масляное +30 · золотое +50',
@@ -2204,9 +2204,9 @@ export const T: Record<string, Row> = {
   ],
   'rules.r8': [
     'Куница NANA рассыпала попкорн: чем она взрослее, тем больше норма и зёрен в волне — но и мин больше. Кликай по ней и растите вместе!',
-    'NANA the marten scattered popcorn: the older she gets, the bigger the quota and the waves — and more mines. Tap her and grow together!',
-    'NANA hat Popcorn verstreut: Je älter sie wird, desto größer sind Quote und Wellen — und mehr Minen. Tipp sie an und wächst zusammen!',
-    'NANA derramó palomitas: cuanto mayor es, mayor la cuota y las oleadas — y más minas. ¡Tócala y crezcan juntos!',
+    'NANA the marten scattered popcorn: the older she gets, the bigger the goal and the waves — and more mines. Tap her and grow together!',
+    'NANA hat Popcorn verstreut: Je älter sie wird, desto größer sind Ziel und Wellen — und mehr Minen. Tipp sie an und wächst zusammen!',
+    'NANA derramó palomitas: cuanto mayor es, mayor la meta y las oleadas — y más minas. ¡Tócala y crezcan juntos!',
   ],
 
   /* ---------- создатели ---------- */
@@ -2286,9 +2286,9 @@ export const T: Record<string, Row> = {
   ],
   'marten.messHint': [
     'Разгром NANA: она рассыпала попкорн — чем она взрослее, тем больше норма и зёрен в волне (до ×2), но и мин больше (до +3). Растёт от кликера, путешествий и забегов!',
-    'NANA’s mess: she scattered the popcorn — the older she gets, the bigger the quota and waves (up to ×2), but also more mines (up to +3). She grows from the clicker, trips and runs!',
-    'NANAs Chaos: sie hat Popcorn verstreut — je älter sie wird, desto größer sind Quote und Wellen (bis ×2), aber auch mehr Minen (bis +3). Sie wächst durch Klicker, Reisen und Läufe!',
-    'Desorden de NANA: derramó palomitas — cuanto mayor es, mayor la cuota y las oleadas (hasta ×2), pero también más minas (hasta +3). ¡Crece con el clicador, los viajes y las partidas!',
+    'NANA’s mess: she scattered the popcorn — the older she gets, the bigger the goal and waves (up to ×2), but also more mines (up to +3). She grows from the clicker, trips and runs!',
+    'NANAs Chaos: sie hat Popcorn verstreut — je älter sie wird, desto größer sind Ziel und Wellen (bis ×2), aber auch mehr Minen (bis +3). Sie wächst durch Klicker, Reisen und Läufe!',
+    'Desorden de NANA: derramó palomitas — cuanto mayor es, mayor la meta y las oleadas (hasta ×2), pero también más minas (hasta +3). ¡Crece con el clicador, los viajes y las partidas!',
   ],
   'marten.xpHint': [
     'Опыт NANA: очки в забегах, путешествия и кликер — тапай по кунице в меню! Каждый уровень: награды путешествий +2% и монетка за клик чаще (+1🪙 за 10 уровней, до 3🪙); дальние маршруты открываются на 5/8/12 уровнях.',
@@ -2630,9 +2630,9 @@ export const T: Record<string, Row> = {
   'set.diff.hard': ['Сложная', 'Hard', 'Schwer', 'Difícil'],
   'set.diffHint': [
     'лёгкая: −1 мина в волне · норма ×0.8 · +10 сек к таймеру · сложная: +1 мина · норма ×1.2 · −10 сек',
-    'easy: −1 mine per wave · quota ×0.8 · +10 sec · hard: +1 mine · quota ×1.2 · −10 sec',
-    'Leicht: −1 Mine pro Welle · Quote ×0.8 · +10 Sek. · Schwer: +1 Mine · Quote ×1.2 · −10 Sek.',
-    'fácil: −1 mina por oleada · cuota ×0.8 · +10 seg · difícil: +1 mina · cuota ×1.2 · −10 seg',
+    'easy: −1 mine per wave · goal ×0.8 · +10 sec · hard: +1 mine · goal ×1.2 · −10 sec',
+    'Leicht: −1 Mine pro Welle · Ziel ×0.8 · +10 Sek. · Schwer: +1 Mine · Ziel ×1.2 · −10 Sek.',
+    'fácil: −1 mina por oleada · meta ×0.8 · +10 seg · difícil: +1 mina · meta ×1.2 · −10 seg',
   ],
   'set.quality': ['Качество', 'Quality', 'Qualität', 'Calidad'],
   'set.quality.low': ['Низкое', 'Low', 'Niedrig', 'Baja'],
