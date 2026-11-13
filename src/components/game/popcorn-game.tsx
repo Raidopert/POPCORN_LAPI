@@ -3570,7 +3570,11 @@ export function PopcornGame() {
     seenMine: false,
     seenGolden: false,
     seenCombo: false,
-    holdUntil: 0,
+    /** ТС времени первого появления мины/золота на поле в этом шаге (0 — ещё не было) */
+    mineAt: 0,
+    goldenAt: 0,
+    /** Дедлайн пятого шага (комбо): показываем подсказку ещё 5с после триггера */
+    comboHold: 0,
     stepAt: 0,
   })
   /** Номер волны, для которой тост уже показан — не перезапускаем анимацию */
@@ -4318,8 +4322,17 @@ export function PopcornGame() {
         if (tutRef.current.active && !s.paused) {
           const T = tutRef.current
           const now = Date.now()
-          if (s.mineOn) T.seenMine = true
-          if (s.goldenOn) T.seenGolden = true
+          /* Фиксируем момент первого появления триггера на поле: шаг 3/4 живёт
+             3.5с ОТ ЭТОГО момента, а не «пока триггер на поле» — иначе мина,
+             простоявшая всю волну, растянула бы шаг на ползабега */
+          if (s.mineOn) {
+            T.seenMine = true
+            if (T.mineAt === 0) T.mineAt = now
+          }
+          if (s.goldenOn) {
+            T.seenGolden = true
+            if (T.goldenAt === 0) T.goldenAt = now
+          }
           if (s.streak >= 5) T.seenCombo = true
           let next = T.step
           switch (T.step) {
@@ -4329,32 +4342,26 @@ export function PopcornGame() {
             case 2: /* ждём первой сдачи зерна в стаканчик */
               if (s.collected > 0 || now - T.stepAt > 26000) next = 3
               break
-            case 3: /* мина: держим, пока на поле (+3.5с), иначе ждём до 12с */
-              if (s.mineOn || (T.holdUntil === 0 && T.seenMine))
-                T.holdUntil = Math.max(T.holdUntil, now + 3500)
-              if ((T.holdUntil > 0 && now >= T.holdUntil) || (T.holdUntil === 0 && now - T.stepAt > 12000))
-                next = 4
+            case 3: /* мина: 3.5с после первого появления, запасной лимит 12с */
+              if ((T.mineAt > 0 && now - T.mineAt > 3500) || now - T.stepAt > 12000) next = 4
               break
-            case 4: /* золотое зерно — аналогично */
-              if (s.goldenOn || (T.holdUntil === 0 && T.seenGolden))
-                T.holdUntil = Math.max(T.holdUntil, now + 3500)
-              if ((T.holdUntil > 0 && now >= T.holdUntil) || (T.holdUntil === 0 && now - T.stepAt > 12000))
-                next = 5
+            case 4: /* золотое зерно — так же */
+              if ((T.goldenAt > 0 && now - T.goldenAt > 3500) || now - T.stepAt > 12000) next = 5
               break
             case 5: /* комбо — фиксированные 5с после триггера */
-              if (T.holdUntil === 0 && (T.seenCombo || now - T.stepAt > 15000)) T.holdUntil = now + 5000
-              if (T.holdUntil > 0 && now >= T.holdUntil) next = 6
+              if (T.comboHold === 0 && (T.seenCombo || now - T.stepAt > 15000)) T.comboHold = now + 5000
+              if (T.comboHold > 0 && now >= T.comboHold) next = 6
               break
           }
           if (next !== T.step) {
             T.step = next
             T.stepAt = now
-            T.holdUntil = 0
-            if (next >= 3 && next <= 4) {
-              /* триггер проскакивал на прошлых шагах — короткая напоминалка */
-              const seen = next === 3 ? T.seenMine : T.seenGolden
-              if (seen) T.holdUntil = now + 4200
-            }
+            T.mineAt = 0
+            T.goldenAt = 0
+            T.comboHold = 0
+            /* триггер проскакивал на прошлых шагах — короткая напоминалка 3.5с */
+            if (next === 3 && T.seenMine) T.mineAt = now
+            if (next === 4 && T.seenGolden) T.goldenAt = now
             if (next >= 6) {
               T.active = false
               window.localStorage.setItem(TUT_DONE_KEY, '1')
@@ -4822,7 +4829,9 @@ export function PopcornGame() {
         seenMine: false,
         seenGolden: false,
         seenCombo: false,
-        holdUntil: 0,
+        mineAt: 0,
+        goldenAt: 0,
+        comboHold: 0,
         stepAt: Date.now(),
       }
       setTutStep(1)
