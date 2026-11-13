@@ -684,21 +684,37 @@ export function makeSmoothPopcornSprite(variant: PopcornVariant = 'white'): Spri
 }
 
 /* ---------- БОЛЬШАЯ ПОПКОРНИНА: редкий жирный приз на поле ----------
-   Крупное пухлое облако в карамельно-золотой глазури с блёстками:
-   читается издалека и отличается от обычных зёрен и золота. ---------- */
+   Крупное пухлое облако в глазури с блёстками: читается издалека и
+   отличается от обычных зёрен и золота. Три сорта глазури:
+   КАРАМЕЛЬНАЯ (как была), ВИШНЁВАЯ (красная) и самая редкая —
+   ВИНОГРАДНАЯ (фиолетовая). Сорт только меняет палитру. ---------- */
 
-export function makeBigPopcornSprite(): Sprite {
+export type BigKind = 'caramel' | 'cherry' | 'grape'
+
+const BIG_PALETTES: Record<
+  BigKind,
+  { body: string; shade: string; shine: string; edge: string; drizzle: string }
+> = {
+  /* карамельно-золотая классика */
+  caramel: { body: '#FFD98A', shade: '#E39B36', shine: '#FFF6DC', edge: '#A06514', drizzle: '#D88A22' },
+  /* вишнёвая глазурь: тёплый красный с ягодным отливом */
+  cherry: { body: '#FF8A78', shade: '#D0422E', shine: '#FFDCD2', edge: '#8C1F16', drizzle: '#A8261A' },
+  /* виноградная глазурь: насыщенный фиолет с сиреневыми бликами */
+  grape: { body: '#C9A0F0', shade: '#8A5CC8', shine: '#F0DCFF', edge: '#52307E', drizzle: '#6A3FA0' },
+}
+
+/** Спрайты кэшируются: сортов три, каждая 96×96 — строится один раз */
+const bigSpriteCache: Partial<Record<BigKind, Sprite>> = {}
+
+export function makeBigPopcornSprite(kind: BigKind = 'caramel'): Sprite {
+  const hit = bigSpriteCache[kind]
+  if (hit) return hit
+  const pal = BIG_PALETTES[kind]
   const S = 96
   const k = S / 30
   const canvas = mkCanvas(S, S)
   const c = canvas.getContext('2d') as CanvasRenderingContext2D | null
   if (!c) return { canvas, w: 30, h: 30, smooth: true }
-  const pal = {
-    body: '#FFD98A',
-    shade: '#E39B36',
-    shine: '#FFF6DC',
-    edge: '#A06514',
-  }
   /* Шесть пузырей: пухлое облако-кластер, заметно крупнее любого зерна */
   const blobs: Array<[number, number, number]> = [
     [15, 12.6, 7.6],
@@ -738,8 +754,8 @@ export function makeBigPopcornSprite(): Sprite {
   c.beginPath()
   c.arc(20 * k, 13.5 * k, 3.8 * k, Math.PI * 1.1, Math.PI * 1.8)
   c.stroke()
-  /* Карамельная поливка: волна через верх + капли */
-  c.strokeStyle = '#D88A22'
+  /* Поливка сорта: волна через верх + капли */
+  c.strokeStyle = pal.drizzle
   c.lineWidth = 1.7 * k
   c.beginPath()
   c.moveTo(6.2 * k, 10.4 * k)
@@ -771,7 +787,9 @@ export function makeBigPopcornSprite(): Sprite {
   c.lineTo(22.5 * k, 7.3 * k)
   c.stroke()
   c.restore()
-  return { canvas, w: 30, h: 30, smooth: true }
+  const out: Sprite = { canvas, w: 30, h: 30, smooth: true }
+  bigSpriteCache[kind] = out
+  return out
 }
 
 /* ---------- Соска: гладкий белый наконечник + розовое колечко ---------- */

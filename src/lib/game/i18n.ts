@@ -2118,10 +2118,23 @@ export const T: Record<string, Row> = {
     'Comprobando la tabla mundial…',
   ],
   'lead.offline': [
-    'Топ-10 забегов на этом устройстве · мировая таблица скоро!',
-    'Top-10 runs on this device · world board coming soon!',
-    'Top 10 auf diesem Gerät · Weltliste kommt bald!',
-    'Top-10 en este dispositivo · ¡tabla mundial pronto!',
+    'Мировая таблица недоступна — играем на этом устройстве',
+    'World board unavailable — playing on this device',
+    'Weltliste nicht erreichbar — es wird auf diesem Gerät gespielt',
+    'Tabla mundial no disponible — jugando en este dispositivo',
+  ],
+  'lead.offlineHint': [
+    'Бывает: нет сети или база просыпается. Нажми «Повторить» — мир подключится сам.',
+    'Happens: no network or the database is waking up. Tap "Retry" — the world will connect.',
+    'Kommt vor: kein Netz oder die Datenbank startet. Tippe „Nochmal“ — die Welt verbindet sich.',
+    'Pasa: sin red o la base despierta. Toca «Reintentar»: el mundo se conectará.',
+  ],
+  'lead.retry': ['ПОВТОРИТЬ', 'RETRY', 'NOCHMAL', 'REINTENTAR'],
+  'lead.myRank': [
+    '🌍 Твоё место в мире: {{n}} · рекорд {{best}}',
+    '🌍 Your world rank: {{n}} · best {{best}}',
+    '🌍 Dein Weltrang: {{n}} · Bestwert {{best}}',
+    '🌍 Tu lugar en el mundo: {{n}} · récord {{best}}',
   ],
   'lead.emptyLocal': [
     'Пока пусто — поставь первый рекорд! 🍿',
@@ -2826,7 +2839,12 @@ export const T: Record<string, Row> = {
     'MINE! FIEBER-PUNKTE VERBRANNT!',
     '¡MINA! ¡PUNTOS PERDIDOS!',
   ],
-  /* БОЛЬШАЯ ПОПКОРНИНА: объявление появления и горький промах */
+  /* БОЛЬШАЯ ПОПКОРНИНА: объявление сорта при появлении и горький промах.
+     Сорта: карамель (обычная, +1000) · вишня (комбо-приз) ·
+     виноград (самая редкая, ×комбо — жирнейший улов) */
+  'big.caramel': ['КАРАМЕЛЬНАЯ!', 'CARAMEL!', 'KARAMELL!', '¡CARAMELO!'],
+  'big.cherry': ['ВИШНЁВАЯ!', 'CHERRY!', 'KIRSCHE!', '¡CEREZA!'],
+  'big.grape': ['ВИНОГРАДНАЯ!', 'GRAPE!', 'TRAUBE!', '¡UVA!'],
   'big.spawn': [
     'БОЛЬШАЯ ПОПКОРНИНА!',
     'BIG POPCORN!',

@@ -28,6 +28,7 @@ import {
   drawSprite,
   easeOutBack,
   easeOutQuad,
+  type BigKind,
   type Sprite,
 } from './sprites'
 import { Pool } from './pool'
@@ -156,18 +157,41 @@ const FEVER_SECONDS = 3
 const FEVER_MINE_CHANCE = 0.3
 
 /* --- БОЛЬШАЯ ПОПКОРНИНА: раз за уровень на поле появляется жирный приз.
-    Живёт считанные секунды и пытается убежать — успел дотянуться:
-    +1000 очков сразу (без комбо) и монетки. Не успел — укатилась.
-    Стандартный игрок с телефона чаще всего не успевает, а у скиллового
-    потолка нет: чем глубже забег, тем больше шансов поймать --- */
-const BIG_LIFE = 2.4
-const BIG_POINTS = 1000
-const BIG_COINS = 50
+    Живёт 5 секунд и пытается убежать — успел дотянуться: очки и монетки.
+    Три сорта глазури:
+      • КАРАМЕЛЬНАЯ (белая, обычная) — как было: плоские +1000 без комбо;
+      • ВИШНЁВАЯ (красная) — база 1250 × комбо-множитель: с бонусами
+        адекватно нарезается до ~2500, у скилловых выше — потолка нет;
+      • ВИНОГРАДНАЯ (фиолетовая, самая редкая) — база 5000 × комбо:
+        комбо доходит до ×16, улов в идеале — до 80 000.
+    Не успел — укатилась. Чем глубже забег, тем выше комбо — тем жирнее приз --- */
+const BIG_LIFE = 5
 /** Скорость побега, u/с: вдогонку пальцем — но finger lag решает */
 const BIG_SPEED = 74
 /** Появляется в случайный момент между 6-й и 16-й секундой уровня */
 const BIG_AT_MIN = 6
 const BIG_AT_MAX = 16
+
+/** Сорта большой попкорнины: очки, монетки, работает ли комбо и шанс */
+const BIG_VARIANTS: Record<
+  BigKind,
+  { base: number; coins: number; combo: boolean; chance: number; text: string; ring: string; crumb: string }
+> = {
+  caramel: { base: 1000, coins: 50, combo: false, chance: 0.6, text: '#FFC93C', ring: '255, 201, 60', crumb: '#FFE066' },
+  cherry: { base: 1250, coins: 100, combo: true, chance: 0.29, text: '#FF7A5E', ring: '255, 122, 94', crumb: '#FFB3A0' },
+  grape: { base: 5000, coins: 250, combo: true, chance: 0.11, text: '#C98AFF', ring: '201, 138, 255', crumb: '#E3CCFF' },
+}
+
+/** Взвешенный ролл сорта призовой попкорнины */
+function rollBigKind(): BigKind {
+  const r = Math.random()
+  let acc = 0
+  for (const kind of Object.keys(BIG_VARIANTS) as BigKind[]) {
+    acc += BIG_VARIANTS[kind].chance
+    if (r < acc) return kind
+  }
+  return 'caramel'
+}
 
 /* --- БОСС «МАЛЫШ»: на каждом 10-м уровне в зал вламывается ребёнок.
     Он крупнее воришки-голубя, рвётся к корзине и выгребает попкорн.
@@ -467,6 +491,8 @@ export class PopcornEngine {
   private pigeonTimer = -1
   /* --- БОЛЬШАЯ ПОПКОРНИНА: раз за уровень, живёт секунды — успей дотянуться --- */
   private big: BigPiece | null = null
+  /** Текущий сорт призовой попкорнины (ролл при каждом спавне) */
+  private bigKind: BigKind = 'caramel'
   /** Секунд от начала уровня, когда появится большая попкорнина */
   private bigAt = 8
   /** Своя большая попкорнина на этом уровне уже вышла (поймана или укатилась) */
@@ -556,8 +582,8 @@ export class PopcornEngine {
     pigeon0: Sprite
     pigeon1: Sprite
     nipple: Sprite
-    /** БОЛЬШАЯ ПОПКОРНИНА: карамельно-золотое облако-приз */
-    big: Sprite
+    /** БОЛЬШАЯ ПОПКОРНИНА: пухлое облако-приз в трёх сортах глазури */
+    big: Record<BigKind, Sprite>
   }
 
   constructor(canvas: HTMLCanvasElement, cb: EngineCallbacks = {}) {
@@ -582,7 +608,11 @@ export class PopcornEngine {
       pigeon0: makePigeonSprite(false),
       pigeon1: makePigeonSprite(true),
       nipple: makeSmoothNippleSprite(),
-      big: makeBigPopcornSprite(),
+      big: {
+        caramel: makeBigPopcornSprite('caramel'),
+        cherry: makeBigPopcornSprite('cherry'),
+        grape: makeBigPopcornSprite('grape'),
+      },
     }
     this.lastTs = performance.now()
     this.raf = requestAnimationFrame(this.loop)
@@ -1227,9 +1257,13 @@ export class PopcornEngine {
     }
   }
 
-  /** Выпустить большую попкорнину: подальше от лапки, чтобы успели не все */
-  private spawnBig(): void {
+  /** Выпустить большую попкорнину: подальше от лапки, чтобы успели не все.
+      forced — сорт для QA/E2E (обычно сорт рэндомится) */
+  private spawnBig(forced?: BigKind): void {
     const u = this.u
+    /* Ролл сорта: карамель 60% · вишня 29% · виноград 11% */
+    this.bigKind = forced ?? rollBigKind()
+    const v = BIG_VARIANTS[this.bigKind]
     const mX = 52 * u
     const top = 46 + 8 * u
     const bottom = this.H - 60 * u
@@ -1258,13 +1292,13 @@ export class PopcornEngine {
       if (best > diag * 0.52) break /* уже достаточно далеко — хватит искать */
     }
     this.big = { x: bx, y: by, t: 0, dir: Math.random() * Math.PI * 2, wt: 0.5, phase: Math.random() * Math.PI * 2 }
-    /* Золотая ударная волна + объявление: реакция игрока стартует сейчас */
-    this.rings.push({ x: bx, y: by, t: 0, ttl: 0.7, color: '255, 201, 60', r0: 14 * u, r1: 110 * u })
+    /* Ударная волна в цвете сорта + объявление: реакция игрока стартует сейчас */
+    this.rings.push({ x: bx, y: by, t: 0, ttl: 0.7, color: v.ring, r0: 14 * u, r1: 110 * u })
     this.texts.push({
       x: bx,
       y: by - 48 * u,
-      text: this.L('big.spawn'),
-      color: '#FFC93C',
+      text: this.L(`big.${this.bigKind}`),
+      color: v.text,
       t: 0,
       dur: 1.5,
       size: 26 * u,
@@ -1273,23 +1307,26 @@ export class PopcornEngine {
     this.buzz([20, 30, 20])
   }
 
-  /** Поймала лапка: +1000 очков сразу (без комбо) и +50 монеток компоненту */
+  /** Поймала лапка: очки сорта (у вишни и винограда — с комбо-множителем)
+      и монетки компоненту. Карамель — как было: плоские +1000 */
   private catchBig(): void {
     const u = this.u
     const b = this.big
     if (!b) return
     this.big = null
     this.bigCaught++
-    this.bigCoinsRun += BIG_COINS
-    this.score += BIG_POINTS
+    const v = BIG_VARIANTS[this.bigKind]
+    const pts = v.combo ? Math.round(v.base * this.comboMult) : v.base
+    this.bigCoinsRun += v.coins
+    this.score += pts
     this.paw.pulse = 1
-    this.rings.push({ x: b.x, y: b.y, t: 0, ttl: 0.5, color: '255, 224, 102', r0: 12 * u, r1: 74 * u })
-    this.crumbs(b.x, b.y, '#FFE066', 14)
+    this.rings.push({ x: b.x, y: b.y, t: 0, ttl: 0.5, color: v.ring, r0: 12 * u, r1: 74 * u })
+    this.crumbs(b.x, b.y, v.crumb, 14)
     this.texts.push({
       x: b.x,
       y: b.y - 44 * u,
-      text: `+${BIG_POINTS}`,
-      color: '#FFC93C',
+      text: `+${pts}`,
+      color: v.text,
       t: 0,
       dur: 1.2,
       size: 32 * u,
@@ -1299,9 +1336,10 @@ export class PopcornEngine {
     this.buzz(35)
   }
 
-  /** QA/E2E: немедленно выпустить большую попкорнину, минуя расписание */
-  debugSpawnBig(): void {
-    if (this.phase === 'playing' && !this.big && !this.fever) this.spawnBig()
+  /** QA/E2E: немедленно выпустить большую попкорнину, минуя расписание.
+      Сорт можно задать — для проверки очков и цветов всех трёх */
+  debugSpawnBig(kind?: BigKind): void {
+    if (this.phase === 'playing' && !this.big && !this.fever) this.spawnBig(kind)
   }
 
   /** Отладка/E2E: принудительно выпустить босса на текущем уровне */
@@ -3272,11 +3310,11 @@ export class PopcornEngine {
       ctx.save()
       ctx.globalCompositeOperation = 'lighter'
       ctx.globalAlpha = 0.5 + 0.22 * Math.sin(ts * 0.006 + b.phase * 2)
-      const glowScale = (scale * this.sp.big.w * 2.4) / this.sp.goldenGlow.w
+      const glowScale = (scale * this.sp.big[this.bigKind].w * 2.4) / this.sp.goldenGlow.w
       drawSprite(ctx, this.sp.goldenGlow, b.x, y, glowScale)
       ctx.restore()
     }
-    drawSprite(ctx, this.sp.big, b.x, y, scale, {
+    drawSprite(ctx, this.sp.big[this.bigKind], b.x, y, scale, {
       rot: Math.sin(ts * 0.003 + b.phase) * 0.12,
     })
     if (this.perfTier < 1) {
@@ -3291,7 +3329,7 @@ export class PopcornEngine {
     const R = 15 * scale + 10 * u
     ctx.save()
     ctx.globalAlpha = 0.85
-    ctx.strokeStyle = urgent ? '#FF5A4E' : '#FFC93C'
+    ctx.strokeStyle = urgent ? '#FF5A4E' : BIG_VARIANTS[this.bigKind].text
     ctx.lineWidth = Math.max(2, 3.2 * u)
     ctx.lineCap = 'round'
     ctx.beginPath()

@@ -1853,21 +1853,26 @@ function LeadersOverlay({
   const [world, setWorld] = useState<{
     status: 'loading' | 'on' | 'off'
     rows: OnlineLeader[]
+    /** Место игрока по личному рекорду в мировом топе (если уже играл) */
+    me?: { rank: number; best: number }
   }>({ status: 'loading', rows: [] })
   const [tab, setTab] = useState<'world' | 'local'>('world')
+  /** Номер попытки подключения: кнопка «Повторить» перезапускает fetch */
+  const [attempt, setAttempt] = useState(0)
 
   useEffect(() => {
     let alive = true
-    fetch('/api/leaders')
+    fetch(`/api/leaders?device=${encodeURIComponent(getDeviceId())}`, { cache: 'no-store' })
       .then((r) => r.json())
       .then(
         (d: {
           online?: boolean
           leaders?: OnlineLeader[]
+          me?: { rank: number; best: number }
         }) => {
           if (!alive) return
           if (d?.online && Array.isArray(d.leaders)) {
-            setWorld({ status: 'on', rows: d.leaders })
+            setWorld({ status: 'on', rows: d.leaders, me: d.me })
             setTab('world')
           } else {
             setWorld({ status: 'off', rows: [] })
@@ -1883,7 +1888,7 @@ function LeadersOverlay({
     return () => {
       alive = false
     }
-  }, [])
+  }, [attempt])
 
   return (
     <motion.div
@@ -1927,9 +1932,26 @@ function LeadersOverlay({
             ))}
           </div>
         ) : (
-          <p className="mt-1 font-ui text-xs font-medium text-[#8a5330]">
-            {world.status === 'loading' ? t('lead.checking') : t('lead.offline')}
-          </p>
+          <div className="mt-1.5 rounded-xl border-2 border-dashed border-[#d9b98c] bg-[#fdf3e0] px-3 py-2">
+            <p className="font-ui text-xs font-medium text-[#8a5330]">
+              {world.status === 'loading' ? t('lead.checking') : t('lead.offline')}
+            </p>
+            {world.status === 'off' && (
+              <>
+                <p className="mt-1 font-ui text-[11px] leading-snug text-[#a97c50]">{t('lead.offlineHint')}</p>
+                <button
+                  type="button"
+                  onClick={() => {
+                    setWorld({ status: 'loading', rows: [] })
+                    setAttempt((a) => a + 1)
+                  }}
+                  className="mt-1.5 rounded-lg border-2 border-[#E24B3B] px-3 py-1 font-pixel text-[11px] font-bold text-[#B33A26] transition hover:bg-[#E24B3B] hover:text-white active:translate-y-px"
+                >
+                  {t('lead.retry')}
+                </button>
+              </>
+            )}
+          </div>
         )}
 
         {/* Мировая статистика теперь живёт отдельно — в НАСТРОЙКАХ */}
@@ -1978,9 +2000,16 @@ function LeadersOverlay({
               })}
             </ol>
           )
-        ) : world.rows.length === 0 ? (
-          <p className="mt-4 font-ui text-sm font-medium text-[#5C3A1E]">{t('lead.emptyWorld')}</p>
         ) : (
+          <>
+            {typeof world.me?.rank === 'number' && world.me.rank > 0 && (
+              <p className="mt-2 rounded-xl bg-[#eaf6e6] px-3 py-1.5 font-pixel text-[11px] font-bold text-[#3f6b28]">
+                {t('lead.myRank', { n: `#${world.me.rank}`, best: world.me.best })}
+              </p>
+            )}
+            {world.rows.length === 0 ? (
+              <p className="mt-4 font-ui text-sm font-medium text-[#5C3A1E]">{t('lead.emptyWorld')}</p>
+            ) : (
           <ol className={`mt-3 max-h-[42vh] space-y-1.5 overflow-y-auto pr-1 sm:max-h-72 ${OVERLAY_SCROLL}`}>
             {world.rows.map((e, i) => {
               const mine =
@@ -2014,6 +2043,8 @@ function LeadersOverlay({
               )
             })}
           </ol>
+            )}
+          </>
         )}
         <div className="mt-3">
           <GameButton onClick={onClose}>{t('shop.close')}</GameButton>
