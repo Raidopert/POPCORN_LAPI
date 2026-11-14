@@ -165,6 +165,10 @@ export interface EngineCallbacks {
   onFeverEnd?(r: FeverResult): void
   /** Поймана подарочная коробка 🎁 (ачивки, пожизненный счётчик, тост) */
   onGift?(kind: GiftKind): void
+  /** Начался босс-уровень: покажи карточку-инструкцию «как победить».
+      Геймплей заморожен (introHold), пока компонент не вызовет
+      dismissBossIntro() после кнопки «В БОЙ!» */
+  onBossIntro?(level: number, kind: BossKind): void
 }
 
 export type PieceKind = 'popcorn' | 'caramel' | 'butter' | 'golden' | 'corn' | 'nipple'
@@ -896,6 +900,9 @@ export class PopcornEngine {
   private giftsRun = 0
   /** «Парящая лапка»: сколько секунд ещё мины под лапкой не срабатывают */
   private hoverLeft = 0
+  /** ИНТРО БОССА: геймплей заморожен, пока игрок читает инструкцию
+      (не путать с paused — это отдельная пауза, кнопка паузы не влияет) */
+  private introHold = false
 
   private cupScale = 5
   private cupH = 0
@@ -1237,6 +1244,10 @@ export class PopcornEngine {
       this.paw.tx = this.paw.x
       this.paw.ty = this.paw.y
       this.spawnBoss()
+      /* ИНТРО БОССА: замораживаем геймплей и просим компонент показать
+         карточку «как победить» — каждый босс встречает своей инструкцией */
+      this.introHold = true
+      this.cb.onBossIntro?.(level, bossKindForTier(bossTierForLevel(level)))
     }
     audio.play('wave')
     this.spawnWave()
@@ -1394,6 +1405,17 @@ export class PopcornEngine {
     this.emitStats(true)
   }
 
+  /** Инструкция босса прочитана («В БОЙ!»): отпускаем геймплей и показываем
+      баннер уровня, который ждал под интро-карточкой */
+  dismissBossIntro(): void {
+    if (!this.introHold) return
+    this.introHold = false
+    this.banner = { text: this.L('banner.level', { n: this.lvl }), t: 0 }
+    this.lastSec = Math.ceil(this.timeLeft)
+    audio.play('wave')
+    this.emitStats(true)
+  }
+
   /** «Конец игры»: мгновенно свернуть забег и вернуться в меню (без экрана результатов).
       Опыт при этом НЕ сгорает — компонент начисляет очки в банк по ходу забега. */
   abort(): void {
@@ -1408,6 +1430,7 @@ export class PopcornEngine {
     this.fever = null
     this.feverAfter = -1
     this.feverResume = null
+    this.introHold = false
     this.gift = null
     this.freezeLeft = 0
     this.multLeft = 0
@@ -2468,6 +2491,7 @@ export class PopcornEngine {
     this.phase = 'ended'
     audio.stopMusic()
     this.feverResume = null // забег кончился — возобновлять нечего
+    this.introHold = false
     this.boss = null
     this.seeds = [] // летящие в экран зёрна не переживают забег
     if (reason === 'voluntary') {
@@ -4125,7 +4149,7 @@ export class PopcornEngine {
     if (this.destroyed) return
     const dt = Math.min(0.05, (ts - this.lastTs) / 1000)
     this.lastTs = ts
-    if (this.phase === 'playing' && !this.paused) {
+    if (this.phase === 'playing' && !this.paused && !this.introHold) {
       try {
         this.update(dt)
       } catch (err) {

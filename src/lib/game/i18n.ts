@@ -2343,6 +2343,42 @@ export const T: Record<string, Row> = {
   'gift.sweep': ['🧨 ПОДАРОК: МИНЫ ПОДОРВАНЫ!', '🧨 GIFT: MINES SWEPT!', '🧨 GESCHENK: MINEN GESPRENGT!', '🧨 REGALO: ¡MINAS EXPLOTADAS!'],
   'gift.mult': ['🎁 ПОДАРОК: ОЧКИ ×{{n}}!', '🎁 GIFT: SCORE ×{{n}}!', '🎁 GESCHENK: PUNKTE ×{{n}}!', '🎁 REGALO: ¡PUNTOS ×{{n}}!'],
   'banner.gift': ['🎁 ПОДАРОК!', '🎁 GIFT!', '🎁 GESCHENK!', '🎁 ¡REGALO!'],
+
+  /* ---------- интро босса: карточка «КАК ПОБЕДИТЬ?» (0.0.42) ---------- */
+  'bossintro.title': ['КАК ПОБЕДИТЬ?', 'HOW TO BEAT IT?', 'SO SIEGT MAN!', '¿CÓMO GANAR?'],
+  'bossintro.tag': ['БОСС', 'BOSS', 'BOSS', 'JEFE'],
+  'bossintro.lvl': ['УРОВЕНЬ {{n}}', 'LEVEL {{n}}', 'LEVEL {{n}}', 'NIVEL {{n}}'],
+  'bossintro.go': ['В БОЙ!', 'FIGHT!', 'LOS!', '¡A LUCHAR!'],
+  'bossintro.kid': [
+    'Малыш несётся к корзинке — не дай схватить себя: касание минус сердечко! Толкай попкорн РЕЗКИМ МАХОМ лапки — летящее зерно бьёт его как снежком. Сбей все сердечки: наестся и отвалит!',
+    'The baby charges at your cup — don’t let him grab you: a touch costs a heart! Flick popcorn with a SHARP paw swing — flying kernels hit him like snowballs. Drain his hearts and he’ll eat up and roll away!',
+    'Das Baby rast auf den Becher zu — lass dich nicht greifen: Berührung kostet ein Herz! Schleudere Popcorn mit kurzem Pfotenschwung — fliegende Körner treffen ihn wie Schneebälle. Alle Herzen weg — er ist satt und verschwindet!',
+    '¡El bebé corre hacia la taza — no dejes que te agarre: un toque cuesta un corazón! Lanza palomitas con un golpe SECO de la patita — los granos voladores lo golpean como bolas de nieve. Quita todos sus corazones: ¡comerá y se irá!',
+  ],
+  'bossintro.marten': [
+    'Куница Лана тянет к корзинке ДЛИННЫЕ ЛАПКИ с когтями! ПЕРЕРЕЗАЙ их быстрым свайпом лапки — каждый разрез отнимает у воровки жизнь. Дотянувшийся коготь выгребает попкорн из стаканчика!',
+    'Marten NANA stretches LONG CLAWED PAWS toward your cup! SLICE them with a fast paw swipe — every cut costs the thief a life. A claw that lands scoops popcorn right out of the cup!',
+    'Marderin LANA streckt Lange Krallenpfoten zum Becher! SCHNITT sie mit schnellem Pfotenschwung — jeder Schnitt kostet die Diebin ein Leben. Eine in Reichweite gekommene Kralle klaut Popcorn aus dem Becher!',
+    '¡La marta LANA estira PATAS LARGAS con garras hacia tu taza! CORTALAS con un rápido barrido de la patita: cada corte quita una vida a la ladrona. ¡La garra que llega roba palomitas de la taza!',
+  ],
+  'bossintro.pigeon': [
+    'Мега-голубь висит над корзиной и клюёт её! Тело неуязвимо — бей лапкой точно ПО ГЛАЗАМ: их два и они мелкие. Каждый точный удар отнимает у птицы жизнь!',
+    'The mega pigeon hangs over your cup and PECKS it! The body is invulnerable — hit precisely AT THE EYES: there are two and they’re tiny. Every precise strike costs the bird a life!',
+    'Die Mega-Taube hängt über dem Becher und PICKT ihn! Der Körper ist unverwundbar — triff genau DIE AUGEN: nur zwei und winzig. Jeder Präzisionstreffer kostet den Vogel ein Leben!',
+    '¡La paloma mega cuelga sobre tu taza y la PICA! El cuerpo es invulnerable: golpea justo EN LOS OJOS: son dos y diminutos. ¡Cada golpe preciso quita una vida al pájaro!',
+  ],
+  'bossintro.gypsy': [
+    'Цыганская рука крадёт зёрна с поля и швыряет их В ТЕБЯ — уводи лапку из круга-телеграфа, попадание минус сердечко! Бей по ладони АКТИВНЫМ махом лапки: зерно ей безразлично, а шлепки отнимают жизни.',
+    'The gypsy hand steals kernels off the floor and flings them AT YOU — steer the paw out of the warning circle, a hit costs a heart! Slap the palm with an ACTIVE paw swing: kernels don’t hurt her, but your slaps do.',
+    'Die Zigeunerhand klaut Körner vom Feld und wirft sie NACH DIR — führ die Pfote aus dem Warnkreis, ein Treffer kostet ein Herz! Klatsche mit AKTIVEM Pfotenschwung auf die Handfläche: Körner stören sie nicht, aber deine Schläge schon.',
+    '¡La mano gitana roba granos del suelo y los lanza HACIA TI — saca la patita del círculo de aviso: un golpe cuesta un corazón! Dale palmadas a la palma con un barrido ACTIVO: los granos no la dañan, pero tus golpes sí.',
+  ],
+  'bossintro.lion': [
+    'Грива льва — щит: зёрна от неё отскакивают! Его РЁВ сносит лапку волной. Бей лапкой по морде, когда рёв стих — каждый удар отнимает жизнь у зверя.',
+    'The lion’s mane is a shield: kernels bounce right off! His ROAR blasts your paw away. Strike the muzzle with your paw once the roar dies down — every hit costs the beast a life.',
+    'Die Mähne des Löwen ist ein Schild: Körner prallen ab! Sein BRÜLLEN schleudert die Pfote weg. Triff die Schnauze mit der Pfote, wenn das Brüllen verstummt — jeder Treffer kostet ein Leben.',
+    '¡La melena del león es un escudo: los granos rebotan! Su RUGIDO lanza tu patita lejos. Golpea el hocico cuando el rugido cese: cada golpe quita una vida a la bestia.',
+  ],
   'hud.shields': ['Щиты от мин: {{n}}', 'Mine shields: {{n}}', 'Minenschilde: {{n}}', 'Escudos antaminas: {{n}}'],
   'hud.hearts': ['Сердечки: {{n}} из {{m}}', 'Hearts: {{n}} of {{m}}', 'Herzen: {{n}} von {{m}}', 'Corazones: {{n}} de {{m}}'],
 

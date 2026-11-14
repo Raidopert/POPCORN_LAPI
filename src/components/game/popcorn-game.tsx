@@ -30,7 +30,7 @@ import {
   Volume2,
   VolumeX,
 } from 'lucide-react'
-import { PopcornEngine, bossKindForTier, bossTierForLevel, type EngineStats } from '@/lib/game/engine'
+import { PopcornEngine, bossKindForTier, bossTierForLevel, type BossKind, type EngineStats } from '@/lib/game/engine'
 import { audio } from '@/lib/game/audio'
 import {
   TREE_NODES,
@@ -71,6 +71,7 @@ import {
   PAW_DEFAULT_STYLE,
 } from '@/lib/game/sprites'
 import { PopcornSlicer, type SliceKind } from '@/components/game/popcorn-slicer'
+import { BossIntroOverlay } from '@/components/game/boss-intro'
 import {
   POSTER_COUNT,
   POSTER_EVERY,
@@ -3698,6 +3699,9 @@ export function PopcornGame() {
     mode: 'normal' | 'fever'
     posterIdx: number
   } | null>(null)
+  /** ИНТРО БОССА (0.0.42): карточка «КАК ПОБЕДИТЬ?» перед босс-уровнем.
+      Движок держит геймплей на introHold, пока игрок не нажмёт «В БОЙ!» */
+  const [bossIntro, setBossIntro] = useState<{ level: number; kind: BossKind } | null>(null)
   const [offers, setOffers] = useState<PerkDef[]>([])
   /** Подарки в сундуках: монетки/опыт (null — только перк) */
   const [extras, setExtras] = useState<Array<ChestExtra | null>>([null, null, null])
@@ -4864,7 +4868,15 @@ export function PopcornGame() {
         announceAch(cand)
         checkLifeAch()
       },
+      onBossIntro: (level, kind) => {
+        /* Босс-уровень начался: движок держит паузу, показываем карточку
+           с портретом и инструкцией «КАК ПОБЕДИТЬ?» */
+        setBossIntro({ level, kind })
+      },
       onEnd: (r) => {
+        /* Интро босса больше не нужно: забег кончился (страховка от
+           застрявшего оверлея при QA-вызовах end() через debug-API) */
+        setBossIntro(null)
         /* Куница NANA: фиксируем время забега (уровни уже учтены по ходу) */
         growMarten(0, playSecsRef.current)
         playSecsRef.current = 0
@@ -6495,6 +6507,22 @@ export function PopcornGame() {
               best={best}
               posterIdx={posterPending.posterIdx}
               onContinue={continueFromPoster}
+            />
+          )}
+
+          {/* ИНТРО БОССА (0.0.42): карточка «КАК ПОБЕДИТЬ?» перед босс-уровнем.
+              Поверх всего (z-50); геймплей держится на паузе движка (introHold),
+              кнопка «В БОЙ!» отпускает его */}
+          {bossIntro && phase === 'playing' && (
+            <BossIntroOverlay
+              key={`bossintro-${bossIntro.level}`}
+              t={t}
+              level={bossIntro.level}
+              kind={bossIntro.kind}
+              onGo={() => {
+                setBossIntro(null)
+                engineRef.current?.dismissBossIntro()
+              }}
             />
           )}
 

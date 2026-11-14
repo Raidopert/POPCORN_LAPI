@@ -526,6 +526,173 @@ export function makeGiftSprite(): Sprite {
   return renderGrid(g)
 }
 
+/* ============ Портреты боссов (интро-инструкция перед босс-уровнем) ============ */
+
+/** Вид босса для портрета: те же id, что и BossKind в движке
+    (дублируем тип, чтобы не тянуть циклический импорт) */
+export type BossPortraitKind = 'kid' | 'lion' | 'marten' | 'pigeon' | 'gypsy'
+
+/** Пиксельный портрет босса для карточки-инструкции: МАЛЫШ (младенец),
+    КУНИЦА ЛАНА, МЕГА-ГОЛУБЬ, ЦЫГАНСКАЯ РУКА и ЛЕВ (в запасе).
+    Рисуется крупно в оверлее с imageSmoothingEnabled=false — честный 8-бит. */
+export function makeBossPortraitSprite(kind: BossPortraitKind): Sprite {
+  if (kind === 'kid') return makeBossKidPortrait()
+  if (kind === 'marten') return makeBossMartenPortrait()
+  if (kind === 'pigeon') return makeBossPigeonPortrait()
+  if (kind === 'gypsy') return makeBossGypsyPortrait()
+  return makeBossLionPortrait()
+}
+
+/** МАЛЫШ: розовая морда младенца, хитрая брови, соска во рту */
+function makeBossKidPortrait(): Sprite {
+  const g = createGrid(18, 18)
+  const skin = '#F8C9A0'
+  const edge = '#7A4526'
+  // Круглая голова + хохолок
+  paintCircle(g, 9, 9.6, 7.0, skin)
+  paintCircle(g, 9, 2.6, 1.7, '#B4652F')
+  tintCircle(g, 8.2, 2.2, 0.8, '#D98F52')
+  // Сердитые брови: наружные концы выше, внутренние ниже
+  g[6][4] = '#5A3A1F'
+  g[6][5] = '#5A3A1F'
+  g[7][6] = '#5A3A1F'
+  g[8][7] = '#5A3A1F'
+  g[6][13] = '#5A3A1F'
+  g[6][12] = '#5A3A1F'
+  g[7][11] = '#5A3A1F'
+  g[8][10] = '#5A3A1F'
+  // Глаза
+  paintCircle(g, 6, 10.4, 1.9, '#FFFDF4')
+  paintCircle(g, 12, 10.4, 1.9, '#FFFDF4')
+  tintCircle(g, 6.2, 10.6, 1.0, '#3A2414')
+  tintCircle(g, 11.8, 10.6, 1.0, '#3A2414')
+  // Румяные щёки
+  tintCircle(g, 3.6, 12.4, 1.7, '#F5A66B')
+  tintCircle(g, 14.4, 12.4, 1.7, '#F5A66B')
+  // Соска: розовое кольцо с белым наконечником
+  paintCircle(g, 9, 13.9, 2.5, '#FF8FB8')
+  paintCircle(g, 9, 13.9, 1.3, '#FFFDF4')
+  tintCircle(g, 10.6, 15.0, 1.1, '#D96A96')
+  outlineGrid(g, edge)
+  return renderGrid(g)
+}
+
+/** ЛАНА: рыже-бурая морда куницы, тёмная маска вора, хитрый прищур */
+function makeBossMartenPortrait(): Sprite {
+  const g = createGrid(18, 18)
+  const edge = '#4A2A12'
+  // Уши
+  paintCircle(g, 4.6, 3.8, 1.9, '#A85F28')
+  paintCircle(g, 13.4, 3.8, 1.9, '#A85F28')
+  tintCircle(g, 4.6, 3.9, 0.9, '#F5E3C4')
+  tintCircle(g, 13.4, 3.9, 0.9, '#F5E3C4')
+  // Голова
+  paintCircle(g, 9, 10.2, 6.7, '#C97A3A')
+  // Тёмная воровская маска через глаза
+  fillRect(g, 3, 7, 6, 9, '#6B421F')
+  fillRect(g, 11, 7, 14, 9, '#6B421F')
+  fillRect(g, 3, 6, 6, 6, '#8A5330')
+  fillRect(g, 11, 6, 14, 6, '#8A5330')
+  // Хитрые жёлтые глаза
+  paintCircle(g, 5.5, 8.4, 1.4, '#FFD24A')
+  paintCircle(g, 12.5, 8.4, 1.4, '#FFD24A')
+  tintCircle(g, 5.7, 8.6, 0.7, '#3A2414')
+  tintCircle(g, 12.3, 8.6, 0.7, '#3A2414')
+  // Кремовая мордочка + нос
+  paintCircle(g, 9, 13.4, 3.4, '#F5E3C4')
+  paintCircle(g, 9, 11.8, 0.9, '#3A2414')
+  g[14][9] = '#B98A5E'
+  outlineGrid(g, edge)
+  return renderGrid(g)
+}
+
+/** МЕГА-ГОЛУБЬ: сизая голова, БОЛЬШИЕ глаза с красной радужкой (слабое место!) */
+function makeBossPigeonPortrait(): Sprite {
+  const g = createGrid(18, 18)
+  const edge = '#3E4A5C'
+  // Хохолок
+  paintCircle(g, 9, 2.8, 1.7, '#7E8CA0')
+  // Голова
+  paintCircle(g, 9, 10, 6.9, '#9AA7B8')
+  tintCircle(g, 5, 13.5, 2.0, '#B8C4D4') // блик щеки
+  // Сердитые брови над глазами
+  fillRect(g, 3, 4, 7, 5, '#5C6B7E')
+  fillRect(g, 10, 4, 14, 5, '#5C6B7E')
+  // ДВА глаза с красной радужкой — единственная уязвимость
+  paintCircle(g, 5.8, 8.3, 2.5, '#FFFDF4')
+  paintCircle(g, 12.2, 8.3, 2.5, '#FFFDF4')
+  tintCircle(g, 5.8, 8.4, 1.5, '#E2543B')
+  tintCircle(g, 12.2, 8.4, 1.5, '#E2543B')
+  tintCircle(g, 5.8, 8.4, 0.6, '#2E2418')
+  tintCircle(g, 12.2, 8.4, 0.6, '#2E2418')
+  // Клюв: верх + тёмная нижняя половина
+  fillRect(g, 7, 12, 10, 13, '#F09A3E')
+  fillRect(g, 6, 14, 11, 14, '#D9822A')
+  g[15][8] = '#D9822A'
+  g[15][9] = '#D9822A'
+  outlineGrid(g, edge)
+  return renderGrid(g)
+}
+
+/** ЦЫГАНСКАЯ РУКА: раскрытая ладонь с золотыми кольцами и браслетом */
+function makeBossGypsyPortrait(): Sprite {
+  const g = createGrid(18, 18)
+  const skin = '#F8C9A0'
+  const edge = '#7A4526'
+  // Ладонь
+  paintCircle(g, 8.8, 12.2, 4.3, skin)
+  fillRect(g, 5, 9, 12, 15, skin)
+  // Большой палец сбоку
+  paintCircle(g, 13.6, 11.2, 1.9, skin)
+  // Четыре пальца: средний выше всех, мизинец короче
+  fillRect(g, 4, 5, 6, 10, skin)
+  paintCircle(g, 5, 4.4, 1.1, skin)
+  fillRect(g, 7, 3, 8, 9, skin)
+  paintCircle(g, 7.8, 2.6, 1.1, skin)
+  fillRect(g, 10, 4, 11, 10, skin)
+  paintCircle(g, 10.6, 3.8, 1.1, skin)
+  fillRect(g, 12, 6, 13, 11, skin)
+  paintCircle(g, 12.6, 5.6, 1.0, skin)
+  // Золотые кольца: с камнем на среднем, простые на соседних
+  fillRect(g, 7, 7, 8, 7, '#FFE066')
+  fillRect(g, 7, 8, 8, 8, '#D99A1B')
+  paintCircle(g, 7.9, 6.2, 1.2, '#FFE066')
+  paintCircle(g, 7.9, 6.2, 0.7, '#E2543B')
+  fillRect(g, 4, 7, 5, 7, '#FFE066')
+  fillRect(g, 4, 8, 5, 8, '#D99A1B')
+  fillRect(g, 10, 8, 11, 8, '#FFE066')
+  fillRect(g, 10, 9, 11, 9, '#D99A1B')
+  // Браслет у запястья
+  fillRect(g, 4, 15, 13, 15, '#FFE066')
+  fillRect(g, 4, 16, 13, 16, '#D99A1B')
+  outlineGrid(g, edge)
+  return renderGrid(g)
+}
+
+/** ЛЕВ (в запасе): грива-щит вокруг царской морды */
+function makeBossLionPortrait(): Sprite {
+  const g = createGrid(18, 18)
+  const edge = '#7A4526'
+  // Грива: внешний круг темнее + внутренний ярче
+  paintCircle(g, 9, 9.4, 8.0, '#D97A2E')
+  paintCircle(g, 9, 9.4, 6.4, '#E89A3C')
+  // Морда
+  paintCircle(g, 9, 9.9, 5.1, '#F8C980')
+  // Глаза + сердитые брови
+  fillRect(g, 4, 5, 6, 5, '#8A4A2E')
+  fillRect(g, 11, 5, 13, 5, '#8A4A2E')
+  paintCircle(g, 6.4, 7.6, 1.2, '#3A2414')
+  paintCircle(g, 11.6, 7.6, 1.2, '#3A2414')
+  // Мордочка: нос-треугольник и усы
+  paintCircle(g, 9, 12.6, 3.0, '#FFF3D6')
+  fillRect(g, 8, 10, 10, 11, '#8A4A2E')
+  fillRect(g, 8, 12, 10, 12, '#C98F6A')
+  g[13][4] = '#8A4A2E'
+  g[13][13] = '#8A4A2E'
+  outlineGrid(g, edge)
+  return renderGrid(g)
+}
+
 /* ================= Соска 🍼 (перк «Соски-малышки») ================= */
 
 /** Детская соска: розовое кольцо-держатель + белый круглый наконечник.
