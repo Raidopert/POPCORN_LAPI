@@ -2344,6 +2344,14 @@ export const T: Record<string, Row> = {
   'gift.mult': ['🎁 ПОДАРОК: ОЧКИ ×{{n}}!', '🎁 GIFT: SCORE ×{{n}}!', '🎁 GESCHENK: PUNKTE ×{{n}}!', '🎁 REGALO: ¡PUNTOS ×{{n}}!'],
   'banner.gift': ['🎁 ПОДАРОК!', '🎁 GIFT!', '🎁 GESCHENK!', '🎁 ¡REGALO!'],
 
+  /* ---------- v0.0.43: ОНЛИФАНСИЙ — босс-лев пугает с краю поля ---------- */
+  'cameo.caption': [
+    'ОНЛИФАНСИЙ НАБЛЮДАЕТ…',
+    'ONLYFANSIUS IS WATCHING…',
+    'ONLYFANSIUS SIEHT ZU…',
+    'ONLYFANSIUS TE OBSERVA…',
+  ],
+
   /* ---------- интро босса: карточка «КАК ПОБЕДИТЬ?» (0.0.42) ---------- */
   'bossintro.title': ['КАК ПОБЕДИТЬ?', 'HOW TO BEAT IT?', 'SO SIEGT MAN!', '¿CÓMO GANAR?'],
   'bossintro.tag': ['БОСС', 'BOSS', 'BOSS', 'JEFE'],
@@ -2374,10 +2382,10 @@ export const T: Record<string, Row> = {
     '¡La mano gitana roba granos del suelo y los lanza HACIA TI — saca la patita del círculo de aviso: un golpe cuesta un corazón! Dale palmadas a la palma con un barrido ACTIVO: los granos no la dañan, pero tus golpes sí.',
   ],
   'bossintro.lion': [
-    'Грива льва — щит: зёрна от неё отскакивают! Его РЁВ сносит лапку волной. Бей лапкой по морде, когда рёв стих — каждый удар отнимает жизнь у зверя.',
-    'The lion’s mane is a shield: kernels bounce right off! His ROAR blasts your paw away. Strike the muzzle with your paw once the roar dies down — every hit costs the beast a life.',
-    'Die Mähne des Löwen ist ein Schild: Körner prallen ab! Sein BRÜLLEN schleudert die Pfote weg. Triff die Schnauze mit der Pfote, wenn das Brüllen verstummt — jeder Treffer kostet ein Leben.',
-    '¡La melena del león es un escudo: los granos rebotan! Su RUGIDO lanza tu patita lejos. Golpea el hocico cuando el rugido cese: cada golpe quita una vida a la bestia.',
+    'ОНЛИФАНСИЙ — царь-лев с гривой-щитом: зёрна от неё отскакивают! Его РЁВ сносит лапку волной. Бей лапкой по морде, когда рёв стих — каждый удар отнимает жизнь у зверя.',
+    'ONLYFANSIUS is the lion king with a mane-shield: kernels bounce right off! His ROAR blasts your paw away. Strike the muzzle with your paw once the roar dies down — every hit costs the beast a life.',
+    'ONLYFANSIUS ist der Löwenkönig mit Mähneschild: Körner prallen ab! Sein BRÜLLEN schleudert die Pfote weg. Triff die Schnauze mit der Pfote, wenn das Brüllen verstummt — jeder Treffer kostet ein Leben.',
+    'ONLYFANSIUS es el rey león con melena-escudo: ¡los granos rebotan! Su RUGIDO lanza tu patita lejos. Golpea el hocico cuando el rugido cese: cada golpe quita una vida a la bestia.',
   ],
   'hud.shields': ['Щиты от мин: {{n}}', 'Mine shields: {{n}}', 'Minenschilde: {{n}}', 'Escudos antaminas: {{n}}'],
   'hud.hearts': ['Сердечки: {{n}} из {{m}}', 'Hearts: {{n}} of {{m}}', 'Herzen: {{n}} von {{m}}', 'Corazones: {{n}} de {{m}}'],
@@ -3214,7 +3222,7 @@ export const T: Record<string, Row> = {
   ],
   'hud.boss': ['МАЛЫШ', 'KID', 'KNIRPS', 'PEQUE'],
   /* ---------- v0.0.33: ЛЬВ и КУНИЦА ЛАНА — боссы чередуются каждые 10 уровней ---------- */
-  'banner.bossLion': ['🦁 ЛЬВ ИДЁТ!', '🦁 THE LION ATTACKS!', '🦁 DER LÖWE!', '¡🦁 EL LEÓN!'],
+  'banner.bossLion': ['🦁 ОНЛИФАНСИЙ ИДЁТ!', '🦁 ONLYFANSIUS ATTACKS!', '🦁 ONLYFANSIUS KOMMT!', '¡🦁 ONLYFANSIUS ATACA!'],
   'banner.bossMarten': ['🦡 КУНИЦА ЛАНА!', '🦡 LANA THE MARTEN!', '🦡 MARDER LANA!', '🦡 LA MARTA LANA!'],
   'txt.bossWarnLion': [
     'В РЁВЕ ГРИВА-ЩИТ: ЗЁРНА ОТСКОЧАТ — БЕЙ ПОСЛЕ!',
@@ -3287,11 +3295,18 @@ export const T: Record<string, Row> = {
   ],
   /* Ачивки боссов 0.0.33+: раньше показывался сырой ключ — теперь все 4 языка */
   'ach.lion1.name': ['Царь попкорна', 'Popcorn King', 'Popcorn-König', 'Rey del Palomitas'],
+  'ach.onlyWitness.name': ['Свидетель', 'The Witness', 'Der Zeuge', 'El Testigo'],
+  'ach.onlyWitness.desc': [
+    'Онлифансий высунул гигантскую когтистую лапу на уровнях 7/13/18 — и ты не запаниковал!',
+    'OnlyFansius thrust his giant clawed paw in at levels 7/13/18 — and you kept your cool!',
+    'OnlyFansius schob seine Riesenpranke bei Level 7/13/18 herein — und du bliebst cool!',
+    'OnlyFansius metió su pata gigante con garras en los niveles 7/13/18 — ¡y no te acobardaste!',
+  ],
   'ach.lion1.desc': [
-    'Победить ЛЬВА: грива-щит отбивает зёрна — бей после рёва!',
-    'Defeat the LION: his mane deflects kernels — strike after the roar!',
-    'Den LÖWEN besiegen: Die Mähne wehrt Körner ab — triff nach dem Brüllen!',
-    'Vencer al LEÓN: su meléna rebota granos: ¡ataca tras el rugido!',
+    'Победить ОНЛИФАНСИЯ: грива-щит отбивает зёрна — бей после рёва!',
+    'Defeat ONLYFANSIUS: his mane deflects kernels — strike after the roar!',
+    'ONLYFANSIUS besiegen: Die Mähne wehrt Körner ab — triff nach dem Brüllen!',
+    'Vencer a ONLYFANSIUS: su meléna rebota granos: ¡ataca tras el rugido!',
   ],
   'ach.marten1.name': ['Лана поймана', 'Lana Caught', 'Lana Gefangen', 'Lana Atrapada'],
   'ach.marten1.desc': [
@@ -3313,9 +3328,9 @@ export const T: Record<string, Row> = {
   'txt.pawCut': ['РЕЗ!', 'SLICE!', 'SCHNITT!', '¡CORTE!'],
   'txt.lanaDodge': ['УВЕРНУЛАСЬ!', 'TOO SLICK!', 'ZU FLINK!', '¡ESCURRIDIZA!'],
   'txt.lootBack': ['ОБРАТНО!', 'GIVEN BACK!', 'ZURÜCK!', '¡DEVUELTO!'],
-  'txt.bossDownLion': ['ЛЬВ ПОВЕРЖЕН! +{{n}}', 'LION DEFEATED! +{{n}}', 'LÖWE BESIEGT! +{{n}}', '¡LEÓN DERROTADO! +{{n}}'],
+  'txt.bossDownLion': ['ОНЛИФАНСИЙ ПОВЕРЖЕН! +{{n}}', 'ONLYFANSIUS DEFEATED! +{{n}}', 'ONLYFANSIUS BESIEGT! +{{n}}', '¡ONLYFANSIUS DERROTADO! +{{n}}'],
   'txt.bossDownMarten': ['ЛАНА ПОЙМАНА! +{{n}}', 'LANA CAUGHT! +{{n}}', 'LANA GEFANGEN! +{{n}}', '¡LANA ATRAPADA! +{{n}}'],
-  'hud.bossLion': ['ЛЬВ', 'LION', 'LÖWE', 'LEÓN'],
+  'hud.bossLion': ['ОНЛИФАНСИЙ', 'ONLYFANSIUS', 'ONLYFANSIUS', 'ONLYFANSIUS'],
   'hud.bossMarten': ['ЛАНА', 'LANA', 'LANA', 'LANA'],
   'hud.bossPigeon': ['ГОЛУБЬ', 'PIGEON', 'TAUBE', 'PALOMA'],
   'hud.bossGypsy': ['РУКА', 'HAND', 'HAND', 'MANO'],

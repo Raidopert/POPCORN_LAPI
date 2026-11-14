@@ -165,6 +165,8 @@ export interface EngineCallbacks {
   onFeverEnd?(r: FeverResult): void
   /** Поймана подарочная коробка 🎁 (ачивки, пожизненный счётчик, тост) */
   onGift?(kind: GiftKind): void
+  /** ОНЛИФАНСИЙ высунул гигантскую лапу с краю поля (0.0.43): ачивка-свидетель */
+  onLionScare?(): void
   /** Начался босс-уровень: покажи карточку-инструкцию «как победить».
       Геймплей заморожен (introHold), пока компонент не вызовет
       dismissBossIntro() после кнопки «В БОЙ!» */
@@ -320,6 +322,20 @@ const BOSS_ATTACK_CUT_BY_KIND: Record<BossKind, number> = { kid: 0, lion: 0.4, m
 const LION_ROAR_EVERY = 5.2
 const LION_ROAR_DUR = 0.9
 const LION_ROAR_PUSH = 520
+
+/* --- v0.0.43: ОНЛИФАНСИЙ — босс-лев «в запасе» заранее пугает с краю.
+    На уровнях 7, 13, 18 (обычных, не боссовых) в случайный момент этапа
+    С ЛЕВОГО ИЛИ ПРАВОГО КРАЯ внезапно въезжает ОГРОМНАЯ КОГТИСТАЯ ЛАПА.
+    Стоит 2 секунды: достаточно огромная, чтобы смутить и напугать игрока,
+    но процессу не мешает — зёрна под ней целы и собираемы, таймер идёт,
+    сердца не отнимаются. Потом так же неспешно уезжает --- */
+const LION_CAMEO_LEVELS = new Set([7, 13, 18])
+const LION_CAMEO_AT_MIN = 7 // самая ранняя задержка от старта этапа, с
+const LION_CAMEO_AT_MAX = 16 // самая поздняя, с
+const LION_CAMEO_WARN = 0.6 // грохот и пыль у края до появления, с
+const LION_CAMEO_IN = 0.32 // стремительный въезд лапы, с
+const LION_CAMEO_HOLD = 2 // сколько секунд лапа давит на поле (по ТЗ)
+const LION_CAMEO_OUT = 0.55 // неспешный отъезд, с
 /** Лана: дэш-бег в бродяжничестве — юркая воровка */
 const MARTEN_DASH_STEP = 0.8 // длина рывка (с)
 const MARTEN_DASH_SPEED = 195 // скорость рывка (u/с) — вдвое быстрее малыша
@@ -898,6 +914,18 @@ export class PopcornEngine {
   private mineSweep = false
   /** Подарочных коробок поймано за забег (пожизненный счётчик ведёт компонент) */
   private giftsRun = 0
+  /* --- ОНЛИФАНСИЙ (0.0.43): гигантская лапа с краю поля на уровнях 7/13/18.
+      Публичное поле — видно в отладке через window.__popcornEngine --- */
+  lionCameo: {
+    /** Отсчёт до появления (фаза idle), с */
+    timer: number
+    /** idle — ждём · warn — грохот у края · in — въезд · hold — давит · out — уезжает */
+    phase: 'idle' | 'warn' | 'in' | 'hold' | 'out'
+    /** Время в текущей фазе, с */
+    phaseT: number
+    /** Борт: −1 слева, 1 справа */
+    side: -1 | 1
+  } | null = null
   /** «Парящая лапка»: сколько секунд ещё мины под лапкой не срабатывают */
   private hoverLeft = 0
   /** ИНТРО БОССА: геймплей заморожен, пока игрок читает инструкцию
@@ -1069,6 +1097,7 @@ export class PopcornEngine {
     this.bossCleanLast = false
     this.bossCoinsRun = 0
     this.boss = null
+    this.lionCameo = null // Онлифансий не переносится между забегами
     this.pawKnockX = 0
     this.pawKnockY = 0
     this.big = null
@@ -1199,6 +1228,17 @@ export class PopcornEngine {
       const hi = Math.max(lo + 1, BIG_AT_MAX - early)
       this.bigAt = lo + Math.random() * (hi - lo)
     }
+    /* ОНЛИФАНСИЙ: на 7/13/18 в случайный момент этапа — лапа с краю поля.
+        Одна за этап; на боссовых уровнях не появляется (там и так жарко) */
+    this.lionCameo =
+      LION_CAMEO_LEVELS.has(level) && level % BOSS_EVERY !== 0
+        ? {
+            timer: LION_CAMEO_AT_MIN + Math.random() * (LION_CAMEO_AT_MAX - LION_CAMEO_AT_MIN),
+            phase: 'idle' as const,
+            phaseT: 0,
+            side: (Math.random() < 0.5 ? -1 : 1) as -1 | 1,
+          }
+        : null
     /* Босс и скорость лапки с прошлого уровня не выживают */
     this.boss = null
     this.seeds = []
@@ -1282,6 +1322,8 @@ export class PopcornEngine {
     this.pigeonTimer = -1
     /* Большая попкорнина не выживает на лихорадке: поле очищается */
     this.big = null
+    /* Онлифансий не пугает на лихорадке: лапа исчезает, страх отменяется */
+    this.lionCameo = null
     this.seeds = [] // боссов на лихорадке нет и зёрен-снарядов тоже
     this.waveDelay = -1
     this.pendingClear = -1
@@ -1992,6 +2034,9 @@ export class PopcornEngine {
     // ПОДАРОЧНАЯ КОРОБКА: появление, жизнь на поле, сбор лапкой
     this.updateGift(dt)
 
+    // ОНЛИФАНСИЙ: грохот, въезд, 2 секунды страха, отъезд — без коллизий
+    this.updateLionCameo(dt)
+
     // Радиус подбора зависит от перка лапки, скина и древа (геттер grabR)
     const grabR = this.grabR
 
@@ -2491,6 +2536,7 @@ export class PopcornEngine {
     this.phase = 'ended'
     audio.stopMusic()
     this.feverResume = null // забег кончился — возобновлять нечего
+    this.lionCameo = null // лапа Онлифансия не переживает конец забега
     this.introHold = false
     this.boss = null
     this.seeds = [] // летящие в экран зёрна не переживают забег
@@ -3166,7 +3212,7 @@ export class PopcornEngine {
           b.roar = LION_ROAR_DUR
           b.vx = 0
           b.vy = 0
-          audio.play('fever')
+          audio.play('roar')
           this.doShake(5)
           this.buzz([20, 60, 120])
           this.texts.push({
@@ -4319,6 +4365,171 @@ export class PopcornEngine {
     this.cb.onGift?.(kind)
   }
 
+  /* ================= ОНЛИФАНСИЙ — лапа с краю поля (0.0.43) ================= */
+
+  /** Обновление лапы Онлифансия: грохот → стремительный въезд → 2 секунды
+      страха → неспешный отъезд. Чистый спектакль: ни одной коллизии —
+      зёрна под лапой целы, таймер идёт, сердца не трогаются */
+  private updateLionCameo(dt: number): void {
+    const c = this.lionCameo
+    if (!c) return
+    /* Спектакль только в живом обычном этапе: на лихорадке/боссу/финальной
+        нарезке лапа замирает и ждёт своего часа */
+    if (this.phase !== 'playing' || this.fever || this.boss || this.pendingClear >= 0) return
+    const u = this.u
+    c.phaseT += dt
+    if (c.phase === 'idle') {
+      c.timer -= dt
+      if (c.timer <= 0) {
+        c.phase = 'warn'
+        c.phaseT = 0
+        audio.play('rumble')
+        this.doShake(3)
+      }
+    } else if (c.phase === 'warn') {
+      /* Пыль у края: оттуда сейчас вылетит лапа — последние полсекунды паники */
+      if (Math.random() < dt * 14) {
+        this.crumbs(c.side < 0 ? 8 * u : this.W - 8 * u, this.H * (0.3 + Math.random() * 0.35), '#C9A15E', 3)
+      }
+      if (c.phaseT >= LION_CAMEO_WARN) {
+        c.phase = 'in'
+        c.phaseT = 0
+        audio.play('roar')
+        this.doShake(9)
+        this.buzz([30, 80, 160, 60])
+        this.banner = { text: this.L('cameo.caption'), t: 0 }
+        this.cb.onLionScare?.()
+      }
+    } else if (c.phase === 'in') {
+      if (c.phaseT >= LION_CAMEO_IN) {
+        c.phase = 'hold'
+        c.phaseT = 0
+      }
+    } else if (c.phase === 'hold') {
+      if (c.phaseT >= LION_CAMEO_HOLD) {
+        c.phase = 'out'
+        c.phaseT = 0
+        audio.play('rumble')
+      }
+    } else if (c.phase === 'out') {
+      if (c.phaseT >= LION_CAMEO_OUT) {
+        this.lionCameo = null
+      }
+    }
+  }
+
+  /** Рисование гигантской когтистой лапы Онлифансия (въезд/давление/отъезд).
+      Рисуем поверх поля ПОСЛЕ лапки игрока — накрывает всё, но не мешает:
+      под ней зёрна собираются как ни в чём не бывало */
+  private drawLionCameo(): void {
+    const c = this.lionCameo
+    if (!c || c.phase === 'idle' || c.phase === 'warn') return
+    const { ctx } = this
+    const u = this.u
+    const min = Math.min(this.W, this.H)
+    const R = min * 0.17 // радиус ладони — просто огромная
+    const reach = R * 2.05 // насколько глубоко лапа забирается в поле
+    /* Прогресс въезда/отъезда: въезд резкий (ease-out), отъезд ленивый (ease-in) */
+    let p = 1
+    if (c.phase === 'in') {
+      const t = Math.min(1, c.phaseT / LION_CAMEO_IN)
+      p = 1 - Math.pow(1 - t, 3)
+    } else if (c.phase === 'out') {
+      const t = Math.min(1, c.phaseT / LION_CAMEO_OUT)
+      p = 1 - t * t
+    }
+    const cx = c.side < 0 ? reach * p : this.W - reach * p
+    const sway = c.phase === 'hold' ? Math.sin(c.phaseT * 4.2) : 0
+    const cy = this.H * 0.46 + sway * R * 0.05
+    const tilt = (c.side < 0 ? 1 : -1) * (0.12 + sway * 0.018)
+
+    /* Тень на полу: тяжёлая лапа давит сверху — пол ощущается */
+    ctx.fillStyle = 'rgba(0, 0, 0, 0.13)'
+    ctx.beginPath()
+    ctx.ellipse(cx, cy + R * 1.45, R * 1.15, R * 0.26, 0, 0, Math.PI * 2)
+    ctx.fill()
+
+    ctx.save()
+    ctx.translate(cx, cy)
+    ctx.rotate(tilt)
+    if (c.side > 0) ctx.scale(-1, 1) // справа — зеркалим: когти смотрят в поле
+
+    /* ПРЕДПЛЕЧЬЕ: мощный столб шерсти от края поля до ладони. Границы
+        экрана обрезают конец руки — кажется, что она тянется из-за кулис */
+    const armW = R * 1.42
+    ctx.fillStyle = '#E9A23B'
+    ctx.fillRect(-R * 3.3, -armW / 2, R * 3.3, armW)
+    ctx.fillStyle = '#D08A2E' // нижняя грань руки — объём
+    ctx.fillRect(-R * 3.3, armW / 2 - armW * 0.3, R * 3.3, armW * 0.3)
+    /* Меховая рюша по краям руки — грива Онлифансия доходит и до лапы */
+    ctx.fillStyle = '#B35A1F'
+    for (let i = 0; i < 6; i++) {
+      const fx = -R * 2.9 + i * R * 0.48
+      const up = i % 2 === 0
+      ctx.beginPath()
+      ctx.moveTo(fx, up ? -armW / 2 : armW / 2)
+      ctx.lineTo(fx + R * 0.24, up ? -armW / 2 - R * 0.3 : armW / 2 + R * 0.3)
+      ctx.lineTo(fx + R * 0.48, up ? -armW / 2 : armW / 2)
+      ctx.closePath()
+      ctx.fill()
+    }
+
+    /* ЛАДОНЬ: огромная, с контуром — читается даже на ярком поле */
+    ctx.fillStyle = '#E9A23B'
+    ctx.strokeStyle = '#5C2E0E'
+    ctx.lineWidth = Math.max(3, R * 0.055)
+    ctx.beginPath()
+    ctx.arc(0, 0, R, 0, Math.PI * 2)
+    ctx.fill()
+    ctx.stroke()
+    /* Объём ладони: тень снизу, блик сверху */
+    ctx.fillStyle = '#D08A2E'
+    ctx.beginPath()
+    ctx.arc(0, R * 0.3, R * 0.62, 0, Math.PI * 2)
+    ctx.fill()
+    ctx.fillStyle = '#F0B45A'
+    ctx.beginPath()
+    ctx.arc(-R * 0.3, -R * 0.34, R * 0.42, 0, Math.PI * 2)
+    ctx.fill()
+
+    /* ПОДУШЕЧКИ ПАЛЬЦЕВ: четыре мясистых бугра на переднем крае лапы */
+    const toes: Array<[number, number, number]> = [
+      [R * 0.72, -R * 0.74, R * 0.34],
+      [R * 0.94, -R * 0.26, R * 0.36],
+      [R * 0.94, R * 0.26, R * 0.36],
+      [R * 0.72, R * 0.74, R * 0.34],
+    ]
+    ctx.fillStyle = '#F0B45A'
+    for (const [tx, ty, tr] of toes) {
+      ctx.beginPath()
+      ctx.arc(tx, ty, tr, 0, Math.PI * 2)
+      ctx.fill()
+      ctx.stroke()
+    }
+
+    /* КОГТИ: длинные белые серпы с тёмным контуром — та самая «когтистость» */
+    ctx.fillStyle = '#FFF7E0'
+    ctx.lineWidth = Math.max(2, R * 0.045)
+    for (const [tx, ty, tr] of toes) {
+      const bx = tx + tr * 0.55
+      ctx.beginPath()
+      ctx.moveTo(bx, ty - tr * 0.52)
+      ctx.quadraticCurveTo(bx + R * 0.72, ty - tr * 0.3, bx + R * 0.95, ty + tr * 0.1)
+      ctx.quadraticCurveTo(bx + R * 0.5, ty + tr * 0.34, bx, ty + tr * 0.52)
+      ctx.closePath()
+      ctx.fill()
+      ctx.stroke()
+    }
+    ctx.restore()
+
+    /* Мороз по краям — лапа на экране: лёгкое затемнение добавляет давления,
+        но не выдаёт себя за урон (красная вспышка — только потеря сердца) */
+    if (c.phase === 'hold') {
+      ctx.fillStyle = 'rgba(24, 10, 4, 0.09)'
+      ctx.fillRect(0, 0, this.W, this.H)
+    }
+  }
+
   private emitStats(force: boolean): void {
     if (!this.cb.onStats) return
     /* Троттлинг: HUD не нужен 60 раз в секунду — 7 Гц хватает глаз,
@@ -4498,6 +4709,9 @@ export class PopcornEngine {
       ctx.globalAlpha = 1
     }
     this.drawPaw(ts)
+    /* ОНЛИФАНСИЙ: гигантская лапа с краю — поверх поля и лапки игрока,
+        но ПОД баннером, чтобы подпись читалась сквозь спектакль */
+    this.drawLionCameo()
     /* Лихорадка: тёплая золотая дымка на фоне */
     if (this.fever) this.drawFeverFx()
     /* Туман рисуем ДО надписей: баннер «ВОЛНА N» и всплывающие тексты

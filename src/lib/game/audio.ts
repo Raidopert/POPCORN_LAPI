@@ -23,6 +23,8 @@ export type SfxName =
   | 'plopGold'
   | 'fever'
   | 'coin'
+  | 'roar'
+  | 'rumble'
 
 const NOTE_OFFSETS: Record<string, number> = {
   C: 0,
@@ -415,6 +417,19 @@ class ChipTuneAudio {
         // Звенящая монетка лихорадки
         this.tone('square', noteFreq('B6'), t, 0.05, 0.15, bus)
         this.tone('square', noteFreq('E7'), t + 0.05, 0.09, 0.15, bus)
+        break
+      case 'roar':
+        /* Рёв Онлифансия: низкий пилообразный стон вниз, второй слой ниже
+            и шумовое рычание — страшно, но по-аркадному смешно */
+        this.tone('sawtooth', 190, t, 0.5, 0.32, bus, 66)
+        this.tone('sawtooth', 96, t + 0.03, 0.62, 0.24, bus, 40)
+        this.noise(t + 0.02, 0.55, 0.2, 'lowpass', 640, bus)
+        this.tone('triangle', 55, t + 0.3, 0.42, 0.3, bus, 30)
+        break
+      case 'rumble':
+        /* Глухой грохот приближающейся лапы: земля дрожит заранее */
+        this.tone('triangle', 70, t, 0.5, 0.32, bus, 42)
+        this.noise(t, 0.46, 0.16, 'lowpass', 280, bus)
         break
     }
   }
