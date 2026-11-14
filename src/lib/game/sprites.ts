@@ -488,6 +488,44 @@ export function makeChestSprite(open = false): Sprite {
   return renderGrid(g)
 }
 
+/* ================= Подарочная коробка 🎁 (случайный бонус в забеге) ================= */
+
+/** Маленькая подарочная коробка: красный корпус, жёлтая лента крестом и
+    бант сверху. Появляется на поле раз в ~10 секунд, живёт 9 секунд —
+    поймал лапкой: фриз таймера / подрыв всех мин / множитель очков. */
+export function makeGiftSprite(): Sprite {
+  const g = createGrid(14, 15)
+  const box = '#E23B3B' // красный корпус
+  const boxLight = '#F26B5E' // блик слева
+  const boxDark = '#A82626' // тень справа
+  const ribbon = '#FFE066' // жёлтая лента
+  const ribbonDark = '#D99A1B'
+  const bow = '#FFC93C' // бант
+  const bowLight = '#FFE9A0'
+  const edge = '#5A1A12'
+
+  // Бант: два «уха» и узелок
+  paintCircle(g, 4.2, 2.4, 2.0, bow)
+  paintCircle(g, 9.8, 2.4, 2.0, bow)
+  tintCircle(g, 3.4, 1.8, 0.9, bowLight)
+  tintCircle(g, 9.0, 1.8, 0.9, bowLight)
+  fillRect(g, 6, 3, 7, 4, ribbonDark) // узелок
+
+  // Корпус коробки
+  fillRect(g, 2, 5, 11, 13, box)
+  fillRect(g, 2, 5, 4, 13, boxLight) // блик слева
+  fillRect(g, 10, 5, 11, 13, boxDark) // тень справа
+
+  // Лента крестом
+  fillRect(g, 6, 5, 7, 13, ribbon)
+  fillRect(g, 2, 8, 11, 9, ribbon)
+  // Вертикальная лента продолжается вверх к банту
+  fillRect(g, 6, 3, 7, 4, ribbon)
+
+  outlineGrid(g, edge)
+  return renderGrid(g)
+}
+
 /* ================= Соска 🍼 (перк «Соски-малышки») ================= */
 
 /** Детская соска: розовое кольцо-держатель + белый круглый наконечник.

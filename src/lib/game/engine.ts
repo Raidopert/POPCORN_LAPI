@@ -12,6 +12,7 @@ import {
   quotaFor,
   perkScoreMult,
   bgPerkFor,
+  HOVER_BASE_SECONDS,
   type PerkId,
 } from './perks'
 import { PAW_MAP, DEFAULT_PAW, type PawBonus, type PawId } from './paws'
@@ -27,6 +28,7 @@ import {
   makeGlowSprite,
   makeSmoothNippleSprite,
   makeBigPopcornSprite,
+  makeGiftSprite,
   drawSprite,
   easeOutBack,
   easeOutQuad,
@@ -112,6 +114,14 @@ export interface EngineStats {
   bossCoins: number
   /** Монетки за сданные ЗОЛОТЫЕ зёрна за забег («Золотая сдача», выдаёт компонент) */
   goldCoins: number
+  /** ПОДАРОК «Фриз»: сколько секунд таймер ещё заморожен (0 — не активен) */
+  giftFreeze: number
+  /** ПОДАРОК-множитель очков: текущее значение (1 — не активен) */
+  giftMult: number
+  /** Сколько секунд ещё действует множитель очков */
+  giftMultLeft: number
+  /** Подарочных коробок поймано за забег */
+  giftsRun: number
 }
 
 export interface LevelResult {
@@ -133,6 +143,9 @@ export interface EndResult {
   reason: 'time' | 'hearts' | 'ransacked' | 'voluntary'
 }
 
+/** Что лежит в подарочной коробке (0.0.41) */
+export type GiftKind = 'freeze' | 'sweep' | 'mult2' | 'mult5' | 'mult10'
+
 /** Итог «Лихорадки»: gained — заработанные очки (0, если схватил мину) */
 export interface FeverResult {
   gained: number
@@ -150,6 +163,8 @@ export interface EngineCallbacks {
   onLevelComplete?(r: LevelResult): void
   onEnd?(r: EndResult): void
   onFeverEnd?(r: FeverResult): void
+  /** Поймана подарочная коробка 🎁 (ачивки, пожизненный счётчик, тост) */
+  onGift?(kind: GiftKind): void
 }
 
 export type PieceKind = 'popcorn' | 'caramel' | 'butter' | 'golden' | 'corn' | 'nipple'
@@ -183,6 +198,24 @@ const FEVER_MINE_CHANCE = 0.3
 /** Компенсация этапу, прерванному ВНЕЗАПНОЙ лихорадкой: к остатку таймера
     добавляем +3 сек — перерыв на бонус не должен съедать время этапа */
 const FEVER_RESUME_BONUS = 3
+
+/* --- ПОДАРОЧНЫЕ КОРОБКИ (0.0.41): маленький приз прямо во время забега.
+    Появляются случайно на обычных уровнях, ловятся лапкой:
+    ❄ ФРИЗ — таймер этапа стоит 7 сек;
+    🧨 ЗАЧИСТКА — все мины взрываются безвредно, до конца этапа новых нет;
+    🎁 МНОЖИТЕЛЬ ОЧКОВ ×2 / ×5 / ×10 на ограниченное время. --- */
+/** Сколько секунд коробка живёт на поле (последние 2.5 мигает) */
+const GIFT_LIFE = 9
+/** Интервал между коробками (сек): базовый + разброс */
+const GIFT_EVERY_MIN = 9
+const GIFT_EVERY_MAX = 15
+/** Первая коробка на уровне — побыстрее, чтобы механику было видно */
+const GIFT_FIRST_MIN = 5
+const GIFT_FIRST_MAX = 9
+/** Фриз таймера из коробки (сек) */
+const GIFT_FREEZE_SECONDS = 7
+/** Длительность множителей очков: значение → секунды */
+const GIFT_MULT_DUR: Record<number, number> = { 2: 15, 5: 8, 10: 4 }
 
 /* --- БОЛЬШАЯ ПОПКОРНИНА: раз за уровень на поле появляется жирный приз.
     Живёт 5 секунд и пытается убежать — успел дотянуться: очки и монетки.
@@ -848,6 +881,21 @@ export class PopcornEngine {
     collected: number
     shieldLeft: number
   } | null = null
+  /* --- ПОДАРОЧНЫЕ КОРОБКИ (0.0.41): приз прямо во время забега --- */
+  private gift: { x: number; y: number; t: number; kind: GiftKind; phase: number } | null = null
+  /** Отсчёт до появления следующей коробки (сек) */
+  private giftTimer = 7
+  /** «Фриз»: сколько секунд таймер этапа заморожен */
+  private freezeLeft = 0
+  /** Множитель очков из коробки: сколько секунд ещё действует и его значение */
+  private multLeft = 0
+  private multValue = 1
+  /** Коробка-зачистка сработала: до конца этапа мины не спавнятся */
+  private mineSweep = false
+  /** Подарочных коробок поймано за забег (пожизненный счётчик ведёт компонент) */
+  private giftsRun = 0
+  /** «Парящая лапка»: сколько секунд ещё мины под лапкой не срабатывают */
+  private hoverLeft = 0
 
   private cupScale = 5
   private cupH = 0
@@ -888,6 +936,8 @@ export class PopcornEngine {
     pigeon0: Sprite
     pigeon1: Sprite
     nipple: Sprite
+    /** ПОДАРОЧНАЯ КОРОБКА: красная с жёлтой лентой и бантом */
+    gift: Sprite
     /** БОЛЬШАЯ ПОПКОРНИНА: пухлое облако-приз в трёх сортах глазури */
     big: Record<BigKind, Sprite>
   }
@@ -914,6 +964,7 @@ export class PopcornEngine {
       pigeon0: makePigeonSprite(false),
       pigeon1: makePigeonSprite(true),
       nipple: makeSmoothNippleSprite(),
+      gift: makeGiftSprite(),
       big: {
         caramel: makeBigPopcornSprite('caramel'),
         cherry: makeBigPopcornSprite('cherry'),
@@ -996,6 +1047,7 @@ export class PopcornEngine {
     this.runNipples = 0
     this.minesHit = 0
     this.shieldSaves = 0
+    this.giftsRun = 0
     this.bigCaught = 0
     this.bigCoinsRun = 0
     this.bigCaramelRun = 0
@@ -1096,6 +1148,16 @@ export class PopcornEngine {
     this.feverResume = null
     this.starT = 0
     this.stun = 0
+    /* ПОДАРОЧНЫЕ КОРОБКИ: на новом уровне всё с нуля; «Парящая лапка»
+       начинает парить сразу, если перк взят в сундучке */
+    this.gift = null
+    this.giftTimer = GIFT_FIRST_MIN + Math.random() * (GIFT_FIRST_MAX - GIFT_FIRST_MIN)
+    this.freezeLeft = 0
+    this.multLeft = 0
+    this.multValue = 1
+    this.mineSweep = false
+    this.hoverLeft =
+      this.perk === 'hover' ? HOVER_BASE_SECONDS + (this.tree.hoverPlus ?? 0) : 0
     this.pieces = []
     this.carried = []
     this.flying = []
@@ -1218,6 +1280,11 @@ export class PopcornEngine {
     this.cupGlow = 0
     this.shakeT = 0
     this.shakeAmp = 0
+    /* На лихорадке подарков нет (и фриз не имеет смысла — свой таймер);
+       множитель очков сохраняется — приятная синергия */
+    this.gift = null
+    this.giftTimer = -1
+    this.freezeLeft = 0
     this.banner = { text: this.L('banner.fever'), t: 0 }
     this.lastSec = Math.ceil(this.timeLeft)
     audio.setIntensity(3)
@@ -1311,6 +1378,12 @@ export class PopcornEngine {
     this.audioStage = -1 // музыка пересинхронизируется сама в ближайший кадр
     this.banner = { text: this.L('txt.feverResume', { n: FEVER_RESUME_BONUS }), t: 0 }
     audio.play('wave')
+    /* Подарки снова работают на возобновлённом этапе; «Парящая лапка»
+       получает свежий запас парения — этап ведь продолжается */
+    this.gift = null
+    this.giftTimer = GIFT_FIRST_MIN + Math.random() * (GIFT_FIRST_MAX - GIFT_FIRST_MIN)
+    this.hoverLeft =
+      this.perk === 'hover' ? HOVER_BASE_SECONDS + (this.tree.hoverPlus ?? 0) : 0
     this.spawnWave()
     this.emitStats(true)
   }
@@ -1335,6 +1408,10 @@ export class PopcornEngine {
     this.fever = null
     this.feverAfter = -1
     this.feverResume = null
+    this.gift = null
+    this.freezeLeft = 0
+    this.multLeft = 0
+    this.multValue = 1
     this.seeds = []
     this.banner = { text: '', t: 99 }
     this.shakeT = 0
@@ -1833,7 +1910,17 @@ export class PopcornEngine {
       this.pawPrevX = prevX
       this.pawPrevY = prevY
       const spd = 14 * (this.pawBonus.speed ?? 1) * (1 + (this.tree.speedAdd ?? 0))
-      const k = 1 - Math.exp(-dt * (this.perk === 'slowpaw' ? spd * 0.46 : spd))
+      /* Ступени медленной лапки: чем выше ступень, тем медленнее follow —
+         и тем щедрее награда очками (см. perkScoreMult) */
+      const slowFactor =
+        this.perk === 'slowpaw'
+          ? 0.46
+          : this.perk === 'slowpaw2'
+            ? 0.3
+            : this.perk === 'slowpaw3'
+              ? 0.22
+              : 1
+      const k = 1 - Math.exp(-dt * spd * slowFactor)
       this.paw.x += (this.paw.tx - this.paw.x) * k
       this.paw.y += (this.paw.ty - this.paw.y) * k
       /* РЁВ ЛЬВА: лапку сносит волной от зверя — импульс затухает быстро */
@@ -1879,6 +1966,9 @@ export class PopcornEngine {
     // БОЛЬШАЯ ПОПКОРНИНА: побег, обратный отсчёт и выход на поле по расписанию
     this.updateBig(dt)
 
+    // ПОДАРОЧНАЯ КОРОБКА: появление, жизнь на поле, сбор лапкой
+    this.updateGift(dt)
+
     // Радиус подбора зависит от перка лапки, скина и древа (геттер grabR)
     const grabR = this.grabR
 
@@ -1907,6 +1997,9 @@ export class PopcornEngine {
         continue
       }
       if (p.kind === 'corn') {
+        /* «Парящая лапка»: пока действует парение, мины под лапкой
+           не срабатывают — проплываем над ними как ни в чём не бывало */
+        if (this.hoverLeft > 0) continue
         // Кукуруза-мина: чем толще мина, тем шире радиус задевания
         if (d < 38 * u * (0.7 + 0.3 * this.cornScale)) {
           this.pieces.splice(i, 1)
@@ -2034,7 +2127,11 @@ export class PopcornEngine {
         this.streak++
         const cm = this.comboMult
         const mult =
-          perkScoreMult(this.perk) * cm * (1 + (this.tree.grainMult01 ?? 0))
+          perkScoreMult(this.perk) *
+          cm *
+          (1 + (this.tree.grainMult01 ?? 0)) *
+          /* Множитель из подарочной коробки ×2/×5/×10 */
+          (this.multLeft > 0 ? this.multValue : 1)
         const sum = base * mult
         this.collected += this.carried.length
         this.carried.forEach((c, i) => {
@@ -2211,7 +2308,18 @@ export class PopcornEngine {
     }
 
     // Таймер («Черепаший час» тикает на четверть медленнее)
-    this.timeLeft -= dt * (this.perk === 'slowmo' ? 0.75 : 1)
+    /* ПОДАРОК-множитель и «Парящая лапка» тикают вниз;
+       «Фриз» морозит таймер этапа — время как будто остановилось */
+    if (this.multLeft > 0) {
+      this.multLeft = Math.max(0, this.multLeft - dt)
+      if (this.multLeft <= 0) this.multValue = 1
+    }
+    if (this.hoverLeft > 0) this.hoverLeft = Math.max(0, this.hoverLeft - dt)
+    if (this.freezeLeft > 0) {
+      this.freezeLeft = Math.max(0, this.freezeLeft - dt)
+    } else {
+      this.timeLeft -= dt * (this.perk === 'slowmo' ? 0.75 : 1)
+    }
     const sec = Math.max(0, Math.ceil(this.timeLeft))
     if (sec !== this.lastSec) {
       this.lastSec = sec
@@ -4080,6 +4188,113 @@ export class PopcornEngine {
   /** Момент последнего обновления HUD-статистики (троттлинг emitStats) */
   private lastStatsEmit = 0
 
+  /* ================= ПОДАРОЧНЫЕ КОРОБКИ (0.0.41) ================= */
+
+  /** Обновление подарочной коробки: появление по таймеру, жизнь на поле,
+      сбор лапкой. На лихорадке и босс-боях подарки не появляются */
+  private updateGift(dt: number): void {
+    if (this.phase !== 'playing') return
+    const u = this.u
+    if (this.gift) {
+      this.gift.t += dt
+      if (this.gift.t >= GIFT_LIFE) {
+        this.gift = null
+        this.giftTimer = this.nextGiftDelay()
+        return
+      }
+      /* Сбор: лапке достаточно коснуться коробки (радиус чуть шире подбора) */
+      const d = Math.hypot(this.paw.x - this.gift.x, this.paw.y - this.gift.y)
+      if (this.stun <= 0 && d < this.grabR + 14 * u) {
+        const g = this.gift
+        this.gift = null
+        this.giftTimer = this.nextGiftDelay()
+        this.collectGift(g.kind, g.x, g.y)
+      }
+      return
+    }
+    if (this.fever || this.boss || this.pendingClear >= 0 || this.feverAfter >= 0) return
+    this.giftTimer -= dt
+    if (this.giftTimer <= 0) this.spawnGift()
+  }
+
+  /** Пауза до следующей коробки: древо «Праздничный кот» укорачивает */
+  private nextGiftDelay(): number {
+    const base = GIFT_EVERY_MIN + Math.random() * (GIFT_EVERY_MAX - GIFT_EVERY_MIN)
+    return Math.max(3, base * (1 - Math.min(0.5, this.tree.giftFreq01 ?? 0)))
+  }
+
+  /** Появить коробку в свободном месте поля (не на мине/зерне, не на корзинке) */
+  private spawnGift(): void {
+    const u = this.u
+    const mX = 46 * u
+    const top = 46 + 4 * u
+    const bottom = this.H - 52 * u
+    let x = this.W / 2
+    let y = this.H / 2
+    for (let tries = 0; tries < 40; tries++) {
+      x = mX + Math.random() * (this.W - mX * 2)
+      y = top + Math.random() * Math.max(10, bottom - top)
+      if (Math.hypot(x - this.cup.x, y - this.cup.y) <= 135 * u) continue
+      let blocked = false
+      for (const p of this.pieces) {
+        if (Math.hypot(x - p.x, y - p.y) < 34 * u) {
+          blocked = true
+          break
+        }
+      }
+      if (blocked) continue
+      break
+    }
+    const r = Math.random()
+    const kind: GiftKind =
+      r < 0.3 ? 'freeze' : r < 0.55 ? 'sweep' : r < 0.75 ? 'mult2' : r < 0.9 ? 'mult5' : 'mult10'
+    this.gift = { x, y, t: 0, kind, phase: Math.random() * Math.PI * 2 }
+    audio.play('golden')
+  }
+
+  /** Открыть подарок: ❄ фриз / 🧨 подрыв всех мин / ×2 ×5 ×10 к очкам */
+  private collectGift(kind: GiftKind, x: number, y: number): void {
+    const u = this.u
+    this.giftsRun++
+    this.confettiBurst(x, y, 18)
+    this.crumbs(x, y, '#FFE066', 10)
+    audio.play('record')
+    this.buzz([30, 40, 60])
+    if (kind === 'freeze') {
+      this.freezeLeft = GIFT_FREEZE_SECONDS
+      this.banner = { text: this.L('gift.freeze', { n: GIFT_FREEZE_SECONDS }), t: 0 }
+    } else if (kind === 'sweep') {
+      /* Подрыв всех мин на поле: искры в небо, но без вреда. И до конца
+         этапа — ни одной новой мины: волны становятся чистыми */
+      for (let i = this.pieces.length - 1; i >= 0; i--) {
+        const p = this.pieces[i]
+        if (p.kind !== 'corn') continue
+        this.pieces.splice(i, 1)
+        this.rings.push({
+          x: p.x,
+          y: p.y,
+          t: 0,
+          ttl: 0.5,
+          color: '255, 200, 90',
+          r0: 10 * u,
+          r1: 58 * u,
+        })
+        this.crumbs(p.x, p.y, '#FFC93C', 6)
+      }
+      this.cornPerWave = 0
+      this.mineSweep = true
+      this.doShake(5)
+      this.banner = { text: this.L('gift.sweep'), t: 0 }
+    } else {
+      const v = kind === 'mult10' ? 10 : kind === 'mult5' ? 5 : 2
+      this.multValue = v
+      this.multLeft = GIFT_MULT_DUR[v] ?? 8
+      this.banner = { text: this.L('gift.mult', { n: v }), t: 0 }
+    }
+    this.emitStats(true)
+    this.cb.onGift?.(kind)
+  }
+
   private emitStats(force: boolean): void {
     if (!this.cb.onStats) return
     /* Троттлинг: HUD не нужен 60 раз в секунду — 7 Гц хватает глаз,
@@ -4094,7 +4309,7 @@ export class PopcornEngine {
       : this.feverAfter >= 0
         ? this.lastFeverGained
         : 0
-    const key = `${this.score}|${this.lvl}|${this.quota}|${this.collected}|${this.carried.length}|${sec}|${this.paused}|${this.streak}|${this.goldenCount}|${this.pigeonsRun}|${fever}|${feverGained}|${this.wave}|${this.shieldLeft}|${this.runGrains}|${this.runNipples}|${this.minesHit}|${this.shieldSaves}|${this.hearts}|${this.maxHearts}|${this.bigCaught}|${this.bigCaramelRun}|${this.bigCherryRun}|${this.bigGrapeRun}|${this.bossCoinsRun}|${this.goldCoinsRun}|${this.bossKillsRun}|${this.bossKidKillsRun}|${this.bossLionKillsRun}|${this.bossMartenKillsRun}|${this.bossPigeonKillsRun}|${this.bossGypsyKillsRun}|${this.bossCleanLast ? 1 : 0}|${this.boss ? `${this.boss.hp}/${this.boss.maxHp}` : '-'}`
+    const key = `${this.score}|${this.lvl}|${this.quota}|${this.collected}|${this.carried.length}|${sec}|${this.paused}|${this.streak}|${this.goldenCount}|${this.pigeonsRun}|${fever}|${feverGained}|${this.wave}|${this.shieldLeft}|${this.runGrains}|${this.runNipples}|${this.minesHit}|${this.shieldSaves}|${this.hearts}|${this.maxHearts}|${this.bigCaught}|${this.bigCaramelRun}|${this.bigCherryRun}|${this.bigGrapeRun}|${this.bossCoinsRun}|${this.goldCoinsRun}|${this.bossKillsRun}|${this.bossKidKillsRun}|${this.bossLionKillsRun}|${this.bossMartenKillsRun}|${this.bossPigeonKillsRun}|${this.bossGypsyKillsRun}|${this.bossCleanLast ? 1 : 0}|${this.boss ? `${this.boss.hp}/${this.boss.maxHp}` : '-'}|${Math.ceil(this.freezeLeft)}|${this.multLeft > 0 ? this.multValue : 0}|${Math.ceil(this.multLeft)}|${this.giftsRun}`
     if (!force && key === this.lastStatsKey) return
     this.lastStatsKey = key
     this.cb.onStats({
@@ -4140,6 +4355,10 @@ export class PopcornEngine {
       bossMaxHp: this.boss?.maxHp ?? 0,
       bossCoins: this.bossCoinsRun,
       goldCoins: this.goldCoinsRun,
+      giftFreeze: Math.ceil(this.freezeLeft),
+      giftMult: this.multLeft > 0 ? this.multValue : 1,
+      giftMultLeft: Math.ceil(this.multLeft),
+      giftsRun: this.giftsRun,
     })
   }
 
@@ -4178,14 +4397,11 @@ export class PopcornEngine {
     ctx.clearRect(0, 0, this.W, this.H)
     if (this.phase === 'idle') return
 
-    /* Фоновые перки: полностью перекрываем комнату (чёрная тьма, белое пекло
-        или весь пол в попкорне). Заливка — в самом канвасе: не создаёт
-        лишних DOM-слоёв и честно переворачивается вместе с миром */
+    /* Фоновые перки: полностью перекрываем комнату (белое пекло или весь
+        пол в попкорне). Заливка — в самом канвасе: не создаёт лишних
+        DOM-слоёв. (Перки-тьма удалены в 0.0.41 — игроки их не любили) */
     const bg = bgPerkFor(this.perk)
-    if (bg === 'nightshift') {
-      ctx.fillStyle = '#0A0502'
-      ctx.fillRect(0, 0, this.W, this.H)
-    } else if (bg === 'whiteout') {
+    if (bg === 'whiteout') {
       ctx.fillStyle = '#F5F1E4'
       ctx.fillRect(0, 0, this.W, this.H)
     } else if (bg === 'popcornfall') {
@@ -4227,6 +4443,15 @@ export class PopcornEngine {
 
     this.drawCup(ts)
     this.drawPieces(ts)
+    /* ПОДАРОЧНАЯ КОРОБКА поверх зёрен; морозная дымка — пока действует фриз */
+    this.drawGift(ts)
+    if (this.freezeLeft > 0) {
+      ctx.fillStyle = 'rgba(120, 190, 255, 0.08)'
+      ctx.fillRect(0, 0, this.W, this.H)
+      ctx.strokeStyle = 'rgba(150, 205, 255, 0.4)'
+      ctx.lineWidth = 6 * this.u
+      ctx.strokeRect(3 * this.u, 3 * this.u, this.W - 6 * this.u, this.H - 6 * this.u)
+    }
     if (this.pigeon && this.phase === 'playing') this.drawPigeon(ts)
     if (this.boss && this.phase === 'playing') this.drawBoss()
     // Зёрна, летящие В ЭКРАН: растут по подлёту, у цели — круг-телеграф
@@ -5253,7 +5478,6 @@ export class PopcornEngine {
         ctx.font = `700 ${Math.round(15 * u)}px system-ui, sans-serif`
         ctx.textAlign = 'center'
         ctx.textBaseline = 'middle'
-        this.applyUpright(ctx, p.x, y - 16 * u)
         ctx.lineWidth = 3 * u
         ctx.strokeStyle = 'rgba(18, 39, 92, 0.95)'
         ctx.strokeText('!', p.x, y - 16 * u)
@@ -5463,8 +5687,6 @@ export class PopcornEngine {
       ctx.font = `600 ${t.size}px "Handjet", system-ui, sans-serif`
       ctx.textAlign = 'center'
       ctx.textBaseline = 'middle'
-      /* Даже в зеркальном мире и на боку всплывающие тексты читаются прямо */
-      this.applyUpright(ctx, t.x, y)
       ctx.lineWidth = Math.max(3, t.size * 0.16)
       ctx.strokeStyle = 'rgba(46, 18, 6, 0.9)'
       ctx.strokeText(t.text, t.x, y)
@@ -5496,8 +5718,6 @@ export class PopcornEngine {
     ctx.font = `700 ${size}px "Handjet", system-ui, sans-serif`
     ctx.textAlign = 'center'
     ctx.textBaseline = 'middle'
-    /* Надпись читается прямо даже в зеркальном мире и на боку */
-    this.applyUpright(ctx, this.W / 2, y)
     ctx.lineWidth = Math.max(4, size * 0.18)
     ctx.strokeStyle = 'rgba(46, 18, 6, 0.95)'
     ctx.strokeText(this.L('banner.fever'), this.W / 2, y)
@@ -5515,22 +5735,31 @@ export class PopcornEngine {
     ctx.restore()
   }
 
-  /** Компенсация трансформаций экрана (зеркало/повороты): локально обращаем
-      трансформацию вокруг точки надписи — буквы всегда читаются прямо */
-  private applyUpright(ctx: CanvasRenderingContext2D, x: number, y: number): void {
-    if (this.perk === 'mirror') {
-      ctx.translate(x, y)
-      ctx.scale(-1, 1)
-      ctx.translate(-x, -y)
-    } else if (this.perk === 'rot180') {
-      ctx.translate(x, y)
-      ctx.rotate(Math.PI)
-      ctx.translate(-x, -y)
-    } else if (this.perk === 'rot90') {
-      ctx.translate(x, y)
-      ctx.rotate(-Math.PI / 2)
-      ctx.translate(-x, -y)
+  /** Подарочная коробка: покачивается, пульсирует ореолом, мигает перед
+      исчезновением — успей дотянуться лапкой! */
+  private drawGift(ts: number): void {
+    if (!this.gift) return
+    const { ctx } = this
+    const u = this.u
+    const g = this.gift
+    const bob = Math.sin(ts * 0.003 + g.phase) * 3 * u
+    const y = g.y + bob
+    const left = GIFT_LIFE - g.t
+    /* Последние 2.5 секунды коробка мигает — пора успеть! */
+    const blink = left < 2.5 ? 0.45 + 0.55 * Math.abs(Math.sin(ts * 0.012)) : 1
+    ctx.save()
+    if (this.perfTier < 2) {
+      const pulse = 0.5 + 0.5 * Math.sin(ts * 0.005 + g.phase)
+      ctx.globalAlpha = blink * (0.25 + 0.2 * pulse)
+      ctx.strokeStyle = '#FFE066'
+      ctx.lineWidth = Math.max(1.5, 2.2 * u)
+      ctx.beginPath()
+      ctx.arc(g.x, y, (20 + 3 * pulse) * u, 0, Math.PI * 2)
+      ctx.stroke()
     }
+    ctx.globalAlpha = blink
+    drawSprite(ctx, this.sp.gift, g.x, y, 3.2 * u)
+    ctx.restore()
   }
 
   private drawBanner(): void {
@@ -5545,8 +5774,6 @@ export class PopcornEngine {
     ctx.font = `700 ${size}px "Handjet", system-ui, sans-serif`
     ctx.textAlign = 'center'
     ctx.textBaseline = 'middle'
-    /* Даже в зеркальном мире и на боку надписи баннера читаются прямо */
-    this.applyUpright(ctx, this.W / 2, this.H * 0.3)
     ctx.lineWidth = Math.max(4, size * 0.18)
     ctx.strokeStyle = 'rgba(46, 18, 6, 0.9)'
     ctx.strokeText(this.banner.text, this.W / 2, this.H * 0.3)

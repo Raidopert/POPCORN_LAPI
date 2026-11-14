@@ -27,6 +27,8 @@ export interface LifeStats {
   bonus: number
   /** Сосок 🍼 поймано (перк «Соски-малышки») */
   nipples: number
+  /** Подарочных коробок 🎁 поймано за всё время (0.0.41) */
+  gifts: number
   /** Чистых секунд в игре (только геймплей, паузы не считаются) */
   secs: number
   /** Сколько раз открывали сайт на этом устройстве */
@@ -69,6 +71,7 @@ const DEFAULT_LIFE: LifeStats = {
   curse: 0,
   bonus: 0,
   nipples: 0,
+  gifts: 0,
   secs: 0,
   visits: 0,
   perfects: 0,

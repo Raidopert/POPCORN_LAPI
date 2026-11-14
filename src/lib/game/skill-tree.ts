@@ -15,16 +15,18 @@
  *                          «Долгая лихорадка» (+1 сек);
  *     Ярус 4 — вершины: «Шахтёр» (−1 мина в волне), «Крепкий нос» (шок от
  *              мины короче), «Комбо-тренер» (комбо растёт быстрее), «Стаж»
- *              (+10% опыта котика), «Щит» (1–4 щита от мин) и «Щедрость»
- *              (+25% ценность подарков из сундучков);
+ *              (+10% опыта котика), «Щит» (1–4 щита от мин), «Щедрость»
+ *              (+25% ценность подарков из сундучков) и «Лёгкое крыло»
+ *              (перк «Парящая лапка» держится дольше);
  *     Ярус 5 — сердечная ветка: «Плюшевое сердце» (+1 максимум сердец) и
  *              «Лапка-целитель» (+1 сердце за пройденный уровень сверх обычного);
  *     Ярус 6 — верхушка для ветеранов: «Мега-урожай», «Поле чудес»,
- *              «Сверхмагнит», «Золотопад», «Монетный ливень» и
- *              «Огненный вихрь» — мощные продолжения основных веток.
+ *              «Сверхмагнит», «Золотопад», «Монетный ливень»,
+ *              «Огненный вихрь» и «Сверхпроворство» (ещё быстрее лапка) —
+ *              мощные продолжения основных веток.
  *
  *  🎖 Очки древа: по 1 очку за каждый уровень котика (опыт за всё время).
- *    Узел открывается, только если куплен его родитель. Всего в дереве 89 очков
+ *    Узел открывается, только если куплен его родитель. Всего в дереве 98 очков
  *    — при новом курсе опыта (10 очков = 1 🍿) полное древо — путь на недели.
  *
  * Хранится в localStorage ('popcorn-tree' → {id: куплено раз}),
@@ -44,12 +46,14 @@ export type TreeId =
   | 'coins'
   | 'feverluck'
   | 'fevertime'
+  | 'giftluck'
   | 'miner'
   | 'stun'
   | 'combo'
   | 'xpboost'
   | 'shield'
   | 'double'
+  | 'hoverwing'
   | 'heartmax'
   | 'healer'
   | 'biggrain'
@@ -58,6 +62,7 @@ export type TreeId =
   | 'goldrain'
   | 'coins2'
   | 'fevertime2'
+  | 'swift2'
 
 export interface TreeNodeDef {
   id: TreeId
@@ -84,11 +89,13 @@ export const TREE_NODES: TreeNodeDef[] = [
   { id: 'guard', tier: 3, reqLevel: 5, maxLevel: 2, parent: 'swift', icon: '🐾' },
   { id: 'goldluck', tier: 3, reqLevel: 4, maxLevel: 4, parent: 'cap', icon: '✨' },
   { id: 'coins', tier: 3, reqLevel: 5, maxLevel: 5, parent: 'cap', icon: '🪙' },
+  { id: 'giftluck', tier: 3, reqLevel: 6, maxLevel: 3, parent: 'cap', icon: '🎁' },
   { id: 'feverluck', tier: 3, reqLevel: 4, maxLevel: 3, parent: 'seeds', icon: '🔥' },
   { id: 'fevertime', tier: 3, reqLevel: 5, maxLevel: 3, parent: 'seeds', icon: '⏱️' },
   /* ярус 4 — вершины */
   { id: 'miner', tier: 4, reqLevel: 7, maxLevel: 3, parent: 'magnet', icon: '⛏️' },
   { id: 'stun', tier: 4, reqLevel: 8, maxLevel: 3, parent: 'guard', icon: '💪' },
+  { id: 'hoverwing', tier: 4, reqLevel: 9, maxLevel: 3, parent: 'guard', icon: '🎈' },
   { id: 'combo', tier: 4, reqLevel: 7, maxLevel: 1, parent: 'goldluck', icon: '🎯' },
   { id: 'xpboost', tier: 4, reqLevel: 8, maxLevel: 5, parent: 'coins', icon: '🎖' },
   { id: 'shield', tier: 4, reqLevel: 7, maxLevel: 4, parent: 'feverluck', icon: '🛡️' },
@@ -103,6 +110,7 @@ export const TREE_NODES: TreeNodeDef[] = [
   { id: 'goldrain', tier: 6, reqLevel: 16, maxLevel: 3, parent: 'goldluck', icon: '🌟' },
   { id: 'coins2', tier: 6, reqLevel: 17, maxLevel: 3, parent: 'coins', icon: '💰' },
   { id: 'fevertime2', tier: 6, reqLevel: 18, maxLevel: 2, parent: 'fevertime', icon: '🌋' },
+  { id: 'swift2', tier: 6, reqLevel: 16, maxLevel: 3, parent: 'swift', icon: '🌪' },
 ]
 
 export const TREE_MAP = Object.fromEntries(TREE_NODES.map((n) => [n.id, n])) as Record<
@@ -110,7 +118,7 @@ export const TREE_MAP = Object.fromEntries(TREE_NODES.map((n) => [n.id, n])) as 
   TreeNodeDef
 >
 
-/** Всего очков в полном древе — сумма maxLevel всех узлов (89) */
+/** Всего очков в полном древе — сумма maxLevel всех узлов (98) */
 export const TREE_TOTAL_POINTS: number = TREE_NODES.reduce((s, n) => s + n.maxLevel, 0)
 
 export type TreeState = Partial<Record<TreeId, number>>
@@ -200,6 +208,10 @@ export interface TreeBonus {
   grains: number
   /** «Фарт лихорадки»: шанс 0.05×ур, что сдача зерна запустит внезапную ЛИХОРАДКУ */
   feverLuck: number
+  /** «Праздничный кот»: подарочные коробки появляются на 12%×ур чаще */
+  giftFreq01: number
+  /** «Лёгкое крыло»: парение над минами (перк «Парящая лапка») дольше на 1.5с×ур */
+  hoverPlus: number
   /** «Щит»: столько мин за забег прощается без штрафа */
   shields: number
   /** «Золотая жила»: +10% к шансу золотого зерна за уровень */
@@ -265,6 +277,8 @@ const ZERO_BONUS: TreeBonus = {
   carry: 0,
   grains: 0,
   feverLuck: 0,
+  giftFreq01: 0,
+  hoverPlus: 0,
   shields: 0,
   goldAdd: 0,
   grabR01: 0,
@@ -300,11 +314,14 @@ export function treeBonuses(state: TreeState): TreeBonus {
   return {
     /* «Урожай» + «Мега-урожай» (ярус 6): до 14×5% + 4×4% = 86% очков сверху */
     grainMult01: 0.05 * (state.harvest ?? 0) + 0.04 * (state.biggrain ?? 0),
-    speedAdd: 0.05 * (state.swift ?? 0),
+    /* «Проворство» + «Сверхпроворство» (ярус 6): до 20% + 18% скорости */
+    speedAdd: 0.05 * (state.swift ?? 0) + 0.06 * (state.swift2 ?? 0),
     carry: capGain(state.cap ?? 0),
     /* «Засев» + «Поле чудес» (ярус 6): до 10 + 9 = +19 зёрен в волне */
     grains: 2 * (state.seeds ?? 0) + 3 * (state.seeds2 ?? 0),
     feverLuck: 0.05 * (state.feverluck ?? 0),
+    giftFreq01: 0.12 * (state.giftluck ?? 0),
+    hoverPlus: 1.5 * (state.hoverwing ?? 0),
     shields: state.shield ?? 0,
     /* «Золотая жила» + «Золотопад» (ярус 6) */
     goldAdd: 0.1 * (state.goldluck ?? 0) + 0.08 * (state.goldrain ?? 0),
@@ -351,6 +368,8 @@ export function mergeBonuses(tree: TreeBonus, extra: Partial<TreeBonus>): TreeBo
     carry: tree.carry,
     grains: tree.grains + (extra.grains ?? 0),
     feverLuck: tree.feverLuck + (extra.feverLuck ?? 0),
+    giftFreq01: tree.giftFreq01 + (extra.giftFreq01 ?? 0),
+    hoverPlus: tree.hoverPlus + (extra.hoverPlus ?? 0),
     shields: tree.shields + (extra.shields ?? 0),
     goldAdd: tree.goldAdd + (extra.goldAdd ?? 0),
     grabR01: tree.grabR01 + (extra.grabR01 ?? 0),

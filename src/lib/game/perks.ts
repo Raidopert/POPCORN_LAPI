@@ -2,14 +2,19 @@
  * Рогалик-перки «POPCORN PAWS».
  * Между уровнями игрок открывает один из трёх сундучков и получает
  * случайный перк, действующий весь следующий уровень.
+ *
+ * v0.0.41: перки, ИНВЕРТИРУЮЩИЕ управление (переворот экрана rot180/rot90,
+ * зеркало) и режим «нет света» (Ночная смена) УДАЛЕНЫ — игроки их не любят.
+ * Вместо них — ступени медленной лапки (сложность с наградой очков) и
+ * «Парящая лапка» (мины не срабатывают первые секунды уровня).
  */
 
 export type PerkId =
-  | 'rot180'
-  | 'rot90'
-  | 'mirror'
   | 'grayscale'
   | 'slowpaw'
+  | 'slowpaw2'
+  | 'slowpaw3'
+  | 'hover'
   | 'smallpaw'
   | 'shaky'
   | 'cornrain'
@@ -24,7 +29,6 @@ export type PerkId =
   | 'secondcup'
   | 'slowmo'
   | 'milky'
-  | 'nightshift'
   | 'whiteout'
   | 'popcornfall'
   | 'neon'
@@ -43,27 +47,6 @@ export interface PerkDef {
 export const PERKS: PerkDef[] = [
   /* ---------- проклятья ---------- */
   {
-    id: 'rot180',
-    name: 'Вверх тормашками',
-    desc: 'Экран переворачивается на 180°, и лапка теперь идёт в противоположную сторону от пальца!',
-    icon: '🔄',
-    curse: true,
-  },
-  {
-    id: 'rot90',
-    name: 'Всё на боку!',
-    desc: 'Экран ложится набок, а лапка двигается «наоборот» — двойная путаница!',
-    icon: '🔃',
-    curse: true,
-  },
-  {
-    id: 'mirror',
-    name: 'Зеркальный мир',
-    desc: 'Мир отражён по горизонтали: тянешь лапку вправо — она уходит влево!',
-    icon: '🪞',
-    curse: true,
-  },
-  {
     id: 'grayscale',
     name: 'Чёрно-белое кино',
     desc: 'Мир теряет краски. Ищи попкорн среди серых теней, как в старом фильме!',
@@ -73,8 +56,22 @@ export const PERKS: PerkDef[] = [
   {
     id: 'slowpaw',
     name: 'Тяжёлая лапа',
-    desc: 'Лапка налила свинца: тянется к цели в два раза медленнее.',
+    desc: 'Лапка налила свинца: тянется к цели в два раза медленнее. Награда за терпение — очки ×1.35!',
     icon: '🐾',
+    curse: true,
+  },
+  {
+    id: 'slowpaw2',
+    name: 'Каменная лапа',
+    desc: 'Лапка окаменела: тянется к цели втрое медленнее. Сложно, но за то очки ×1.8!',
+    icon: '🗿',
+    curse: true,
+  },
+  {
+    id: 'slowpaw3',
+    name: 'Лапа-валун',
+    desc: 'Едва ползёт — в 4 раза медленнее. Испытание для мастеров: очки ×2.5!',
+    icon: '🪨',
     curse: true,
   },
   {
@@ -113,6 +110,13 @@ export const PERKS: PerkDef[] = [
     curse: true,
   },
   /* ---------- бонусы ---------- */
+  {
+    id: 'hover',
+    name: 'Парящая лапка',
+    desc: 'Лапка парит над минами: первые 8 секунд уровня мины не взрываются под ней!',
+    icon: '🎈',
+    curse: false,
+  },
   {
     id: 'magnet',
     name: 'Магнитная лапа',
@@ -177,13 +181,6 @@ export const PERKS: PerkDef[] = [
     curse: false,
   },
   {
-    id: 'nightshift',
-    name: 'Ночная смена',
-    desc: 'Полная тьма: фон гаснет до чёрного, зёрна светятся как звёзды. +20% очков!',
-    icon: '🌙',
-    curse: false,
-  },
-  {
     id: 'whiteout',
     name: 'Засвет',
     desc: 'Белое пекло: фон выжигает все краски, белые зёрна почти невидимы! +25% очков.',
@@ -226,16 +223,14 @@ export const PERK_MAP: Record<PerkId, PerkDef> = Object.fromEntries(
 
 /* ============ «злость» перков → адекватные призы сундучков ============ */
 
-/** Жёсткие проклятья: целиком переворачивают, перекрашивают или засыпают
-    экран — играть с ними труднее всего, поэтому сундучок с таким перком
-    обязан компенсировать игрока опытом 🍿 (зеркало, чёрная комната и т.п.) */
+/** Жёсткие проклятья: целиком перекрашивают, засыпают или сильно
+    замедляют игру — играть с ними труднее всего, поэтому сундучок с таким
+    перком обязан компенсировать игрока опытом 🍿 (туман, каменная лапа и т.п.) */
 const HARSH_CURSES: readonly PerkId[] = [
-  'rot180',
-  'rot90',
-  'mirror',
   'grayscale',
+  'slowpaw2',
+  'slowpaw3',
   'fog',
-  'nightshift',
   'whiteout',
   'popcornfall',
   'neon',
@@ -288,25 +283,29 @@ export function quotaFor(level: number, double = false): number {
   return double ? Math.round(q * 1.3) : q
 }
 
-/* ================= трансформации экрана ================= */
+/* ================= трансформации экрана =================
 
-export type ScreenTransform = 'none' | 'rot90' | 'rot180' | 'mirror'
+   v0.0.41: перки-трансформации (переворот экрана, зеркало) УДАЛЕНЫ —
+   инвертированное управление не нравится игрокам. Тип и функция
+   остаются для совместимости, но трансформация теперь всегда «none». */
 
-/** Перки, визуально преобразующие весь экран */
-export function transformFor(perk: PerkId | null): ScreenTransform {
-  if (perk === 'rot90') return 'rot90'
-  if (perk === 'rot180') return 'rot180'
-  if (perk === 'mirror') return 'mirror'
+export type ScreenTransform = 'none'
+
+/** Перки, визуально преобразующие весь экран (с 0.0.41 — никого) */
+export function transformFor(_perk: PerkId | null): ScreenTransform {
   return 'none'
 }
 
 /** Множитель очков уровня от перка (сверх комбо и древа).
-    Фоновые перки сложнее обычной игры — за это платим очками. */
+    Сложные перки платят очками: ступени медленной лапки — тем больше,
+    чем медленнее лапка; фоновые проклятья — за плохую видимость. */
 export function perkScoreMult(perk: PerkId | null): number {
   if (perk === 'doublepoints') return 2
+  if (perk === 'slowpaw3') return 2.5
+  if (perk === 'slowpaw2') return 1.8
+  if (perk === 'slowpaw') return 1.35
   if (perk === 'popcornfall') return 1.4
   if (perk === 'whiteout') return 1.25
-  if (perk === 'nightshift') return 1.2
   return 1
 }
 
@@ -318,10 +317,15 @@ export function perkCanvasFilter(perk: PerkId | null): string {
   return ''
 }
 
-/** Фоновый перк: чем залить игровое поле вместо комнаты (в движке) */
-export type BgPerk = 'nightshift' | 'whiteout' | 'popcornfall' | null
+/** Фоновый перк: чем залить игровое поле вместо комнаты (в движке).
+    «Ночная смена» (полная тьма) удалена в 0.0.41 — игроки её не любят. */
+export type BgPerk = 'whiteout' | 'popcornfall' | null
 
 export function bgPerkFor(perk: PerkId | null): BgPerk {
-  if (perk === 'nightshift' || perk === 'whiteout' || perk === 'popcornfall') return perk
+  if (perk === 'whiteout' || perk === 'popcornfall') return perk
   return null
 }
+
+/** Длительность парения над минами (перк «Парящая лапка»), сек.
+    Древо «Лёгкое крыло» продлевает (hoverPlus) */
+export const HOVER_BASE_SECONDS = 8

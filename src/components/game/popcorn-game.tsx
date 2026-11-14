@@ -59,10 +59,8 @@ import {
   perkCanvasFilter,
   quotaFor,
   rollPerkOffer,
-  transformFor,
   type PerkDef,
   type PerkId,
-  type ScreenTransform,
 } from '@/lib/game/perks'
 import {
   makeChestSprite,
@@ -264,14 +262,15 @@ interface InstallPromptEvent extends Event {
   userChoice: Promise<{ outcome: 'accepted' | 'dismissed' }>
 }
 
-/** Перк → ачивка «сыграть с этим перком» (новые механики 0.0.9) */
+/** Перк → ачивка «сыграть с этим перком» (новые механики 0.0.9; 0.0.41 —
+    «Ночная смена» удалена, добавлено «Парящая лапка») */
 const PERK_ACH: Partial<Record<PerkId, AchId>> = {
-  nightshift: 'bgBlack',
   whiteout: 'bgWhite',
   popcornfall: 'bgPopcorn',
   rainbow: 'rainbowrun',
   neon: 'neonrun',
   pigeonfeast: 'pigeonfeast',
+  hover: 'hover1',
 }
 
 const BEST_KEY = 'popcorn-best'
@@ -2308,35 +2307,40 @@ function InstallOverlay({
 }
 
 /** Позиции узлов древа на SVG-сетке (в процентах контейнера):
-    корень → 3 ветки → 6 детей → 6 вершин → сердца → верхушка (6 ярусов, 24 узла).
-    Ярусы уплотнены: нижний ряд с именами не вылезает за контейнер */
+    корень → 3 ветки → 7 детей → 7 вершин → сердца → верхушка (6 ярусов, 27 узлов).
+    Ярусы уплотнены: нижний ряд с именами не вылезает за контейнер.
+    v0.0.41: «Праздничный кот» (подарки чаще), «Лёгкое крыло» (парение дольше),
+    «Сверхпроворство» (буст лапки для облегчения) */
 const TREE_POS: Record<TreeId, { x: number; y: number }> = {
   harvest: { x: 50, y: 4 },
   swift: { x: 20, y: 16 },
   cap: { x: 50, y: 16 },
   seeds: { x: 80, y: 16 },
-  magnet: { x: 8.5, y: 34 },
-  guard: { x: 25, y: 34 },
-  goldluck: { x: 41.5, y: 34 },
-  coins: { x: 58, y: 34 },
-  feverluck: { x: 74.5, y: 34 },
-  fevertime: { x: 91.5, y: 34 },
-  miner: { x: 8.5, y: 54 },
-  stun: { x: 25, y: 54 },
-  combo: { x: 41.5, y: 54 },
-  xpboost: { x: 58, y: 54 },
-  shield: { x: 74.5, y: 54 },
-  double: { x: 91.5, y: 54 },
+  magnet: { x: 7.5, y: 34 },
+  guard: { x: 21.7, y: 34 },
+  goldluck: { x: 35.8, y: 34 },
+  coins: { x: 50, y: 34 },
+  giftluck: { x: 64.2, y: 34 },
+  feverluck: { x: 78.3, y: 34 },
+  fevertime: { x: 92.5, y: 34 },
+  miner: { x: 7.5, y: 54 },
+  stun: { x: 21.7, y: 54 },
+  hoverwing: { x: 35.8, y: 54 },
+  combo: { x: 50, y: 54 },
+  xpboost: { x: 64.2, y: 54 },
+  shield: { x: 78.3, y: 54 },
+  double: { x: 92.5, y: 54 },
   /* ярус 5 — сердечная ветка */
   heartmax: { x: 66.5, y: 72 },
   healer: { x: 83, y: 72 },
   /* ярус 6 — верхушка для ветеранов */
-  magnet2: { x: 8.5, y: 88 },
-  biggrain: { x: 25, y: 88 },
-  goldrain: { x: 41.5, y: 88 },
-  coins2: { x: 58, y: 88 },
-  seeds2: { x: 74.5, y: 88 },
-  fevertime2: { x: 91.5, y: 88 },
+  magnet2: { x: 7.5, y: 88 },
+  swift2: { x: 21.7, y: 88 },
+  biggrain: { x: 35.8, y: 88 },
+  goldrain: { x: 50, y: 88 },
+  coins2: { x: 64.2, y: 88 },
+  seeds2: { x: 78.3, y: 88 },
+  fevertime2: { x: 92.5, y: 88 },
 }
 
 /** Ветви дерева строятся из родителей: каждый узел ведёт от своего предка */
@@ -2364,8 +2368,13 @@ function treeEffectN(id: TreeId, lvl: number): number {
   if (id === 'coins') return 10 * L
   if (id === 'feverluck') return 5 * L
   if (id === 'fevertime') return L
+  if (id === 'giftluck') return 12 * L
   if (id === 'miner') return L
   if (id === 'stun') return Math.round(0.3 * L * 10) / 10
+  if (id === 'hoverwing') {
+    /* 1.5с за уровень; округляем до 0.5 для читаемой подсказки */
+    return Math.round(1.5 * L * 2) / 2
+  }
   if (id === 'xpboost') return 10 * L
   if (id === 'shield') return L
   if (id === 'double') return 25 * L
@@ -2378,6 +2387,7 @@ function treeEffectN(id: TreeId, lvl: number): number {
   if (id === 'goldrain') return 8 * L
   if (id === 'coins2') return 15 * L
   if (id === 'fevertime2') return 2 * L
+  if (id === 'swift2') return 6 * L
   return 1 // комбо
 }
 
@@ -2483,7 +2493,7 @@ function TreeOverlay({
           )}
         </div>
 
-        {/* Сетка-дерево: SVG-ветки под узлами (6 ярусов, 24 узла) */}
+        {/* Сетка-дерево: SVG-ветки под узлами (6 ярусов, 27 узлов) */}
         <div className="relative mx-auto h-[640px] w-full max-w-[430px]">
           <svg
             aria-hidden
@@ -3580,7 +3590,6 @@ export function PopcornGame() {
   /** Кэш рамки игрового поля: getBoundingClientRect дорогой на каждый move */
   const rectRef = useRef<DOMRect | null>(null)
   const mutedRef = useRef(false)
-  const transformRef = useRef<ScreenTransform>('none')
   const layoutRef = useRef<() => void>(() => {})
   const devRef = useRef<{
     fast: boolean
@@ -3669,6 +3678,10 @@ export function PopcornGame() {
     bossClean: false,
     bossCoins: 0,
     goldCoins: 0,
+    giftFreeze: 0,
+    giftMult: 1,
+    giftMultLeft: 0,
+    giftsRun: 0,
   })
   const [bestRaw, storeBest] = useStoredValue(BEST_KEY, '0')
   const [mutedRaw, storeMuted] = useStoredValue(MUTE_KEY, '0')
@@ -3854,7 +3867,7 @@ export function PopcornGame() {
   /* Функция перевода текущего языка */
   const t = useMemo(() => tFor(settings.lang), [settings.lang])
 
-  /* Скрытые dev-параметры URL: ?fast=1 (короткая норма), ?perk=rot180 (гарантированный перк),
+  /* Скрытые dev-параметры URL: ?fast=1 (короткая норма), ?perk=hover (гарантированный перк),
      ?fever=1 (лихорадка после каждого уровня — для проверки),
      ?poster=1 (плакатная перебивка после КАЖДОГО уровня — для проверки),
      ?mine=N (вариант звезды-мины 1..4 + полоса сравнения в углу),
@@ -4232,7 +4245,9 @@ export function PopcornGame() {
     }
   }, [])
 
-  /* Раскладка холста с учётом трансформации перка (ротация/зеркало) */
+  /* Раскладка холста: канвас всегда занимает контейнер целиком.
+     (Перки-трансформации — поворот экрана, зеркало — удалены в 0.0.41:
+     инвертированное управление не нравилось игрокам) */
   const applyLayout = useCallback(() => {
     const main = mainRef.current
     const canvas = canvasRef.current
@@ -4240,23 +4255,12 @@ export function PopcornGame() {
     const cw = main.clientWidth
     const ch = main.clientHeight
     if (cw === 0 || ch === 0) return
-    const tr = transformRef.current
-    const rot90 = tr === 'rot90'
-    const gw = rot90 ? ch : cw
-    const gh = rot90 ? cw : ch
-    engineRef.current?.handleResize(gw, gh)
-    canvas.style.width = `${gw}px`
-    canvas.style.height = `${gh}px`
-    if (rot90) {
-      canvas.style.left = '50%'
-      canvas.style.top = '50%'
-      canvas.style.transform = 'translate(-50%, -50%) rotate(90deg)'
-    } else {
-      canvas.style.left = '0'
-      canvas.style.top = '0'
-      canvas.style.transform =
-        tr === 'rot180' ? 'rotate(180deg)' : tr === 'mirror' ? 'scaleX(-1)' : 'none'
-    }
+    engineRef.current?.handleResize(cw, ch)
+    canvas.style.width = `${cw}px`
+    canvas.style.height = `${ch}px`
+    canvas.style.left = '0'
+    canvas.style.top = '0'
+    canvas.style.transform = 'none'
   }, [])
 
   useEffect(() => {
@@ -4307,6 +4311,7 @@ export function PopcornGame() {
     if (L.curse >= 25) cand.push('curse25')
     if (L.bonus >= 10) cand.push('bonus10')
     if (L.bonus >= 25) cand.push('bonus25')
+    if (L.gifts >= 10) cand.push('gift10')
     if (L.perfects >= 10) cand.push('perfect10')
     /* НОВЫЕ МЕХАНИКИ 0.0.31: босс «МАЛЫШ», большие попкорнины, сорта нарезки */
     if (L.bigGrape >= 5) cand.push('bigGrape5')
@@ -4416,7 +4421,7 @@ export function PopcornGame() {
   )
 
   /** Приз в каждом из трёх сундуков — адекватен «злости» перка:
-      тяжёлое проклятье (зеркало, чёрная комната…) → обязательная компенсация
+      тяжёлое проклятье (туман, каменная лапа…) → обязательная компенсация
       опытом 🍿; лёгкое проклятье → изредка мелочь монетками 🪙 или опытом;
       бонусный перк сам по себе приз → сундучок пуст (0).
       Древо «Щедрость» усиливает ценность подарков, а сами награды
@@ -4792,7 +4797,6 @@ export function PopcornGame() {
         }
         if (feverNow) {
           setPerk(null)
-          transformRef.current = 'none'
           const cv = canvasRef.current
           if (cv) cv.style.filter = ''
           layoutRef.current()
@@ -4826,7 +4830,6 @@ export function PopcornGame() {
           setPerk(r.perk ?? null)
         } else {
           setPerk(null)
-          transformRef.current = 'none'
           const cv = canvasRef.current
           if (cv) {
             cv.style.filter = ''
@@ -4848,6 +4851,17 @@ export function PopcornGame() {
         announceAch(['fever1'])
         if (r.success && r.gained >= 500) announceAch(['fever500'])
         if (r.success && r.gained >= 1000) announceAch(['fever1000'])
+        checkLifeAch()
+      },
+      onGift: (kind) => {
+        /* Подарочная коробка 🎁 поймана: пожизненный счётчик + ачивки.
+           «Первый подарок» — за любой; за содержимое — своя медаль */
+        addLife({ gifts: 1 })
+        const cand: AchId[] = ['gift1']
+        if (kind === 'freeze') cand.push('giftfreeze')
+        else if (kind === 'sweep') cand.push('giftsweep')
+        else if (kind === 'mult10') cand.push('gift10x')
+        announceAch(cand)
         checkLifeAch()
       },
       onEnd: (r) => {
@@ -5007,10 +5021,7 @@ export function PopcornGame() {
     return () => ro.disconnect()
   }, [])
 
-  /* Ввод: инверсия управления для перков-трансформаций.
-     rot180/mirror — сырые координаты: CSS-зеркало переворачивает картинку,
-     и лапка на экране идёт в противоположную сторону от пальца.
-     rot90 — мир повёрнут с заменой измерений, поэтому даём развёрнутую инверсию.
+  /* Ввод: лапка следует за пальцем по всему полю.
 
      ПЕРФ: getBoundingClientRect на каждый pointermove заставлял браузер
      пересчитывать layout 60–120 раз в секунду — главная причина лагов лапки
@@ -5031,13 +5042,7 @@ export function PopcornGame() {
       }
       const sx = e.clientX - r.left
       const sy = e.clientY - r.top
-      let x = sx
-      let y = sy
-      if (transformRef.current === 'rot90') {
-        x = r.height - sy
-        y = sx
-      }
-      eng.setPointer(x, y, e.pointerType === 'touch' ? 64 : 0)
+      eng.setPointer(sx, sy, e.pointerType === 'touch' ? 64 : 0)
     }
     const onReflow = () => {
       rectRef.current = main.getBoundingClientRect()
@@ -5054,10 +5059,9 @@ export function PopcornGame() {
     }
   }, [])
 
-  /* Трансформации экрана и фильтры действуют только во время уровня */
+  /* Цветовые фильтры перков действуют только во время уровня */
   useEffect(() => {
     const onLevel = phase === 'playing' || phase === 'paused'
-    transformRef.current = onLevel ? transformFor(perk) : 'none'
     const canvas = canvasRef.current
     if (canvas) {
       canvas.style.filter = onLevel ? perkCanvasFilter(perk) : ''
@@ -5109,7 +5113,6 @@ export function PopcornGame() {
     setRunStartLevel(startLvl)
     setRunLevelUnlocks([])
     setRunXpGain(0)
-    transformRef.current = 'none'
     const canvas = canvasRef.current
     if (canvas) {
       canvas.style.filter = ''
@@ -5201,7 +5204,6 @@ export function PopcornGame() {
       audio.setMuted(mutedRef.current)
       audio.startMusic('game')
       audio.play('click')
-      transformRef.current = transformFor(perkId)
       const canvas = canvasRef.current
       if (canvas) {
         /* Цветовые перки — CSS-фильтром канваса; «Хамелеон» — анимированным классом */
@@ -5265,7 +5267,6 @@ export function PopcornGame() {
     setPosterPending(null)
     if (p.mode === 'fever') {
       setPerk(null)
-      transformRef.current = 'none'
       const cv = canvasRef.current
       if (cv) {
         cv.style.filter = ''
@@ -5300,7 +5301,6 @@ export function PopcornGame() {
     }
     setPerk(null)
     setOpenedIdx(null)
-    transformRef.current = 'none'
     const canvas = canvasRef.current
     if (canvas) {
       canvas.style.filter = ''
@@ -5606,6 +5606,20 @@ export function PopcornGame() {
             <StatPill className="animate-pulse border-amber-300/80 bg-amber-400/20 text-amber-200">
               <span className="font-pixel tabular-nums">
                 {t('hud.fever', { n: stats.feverGained })}
+              </span>
+            </StatPill>
+          )}
+          {stats.giftFreeze > 0 && (
+            <StatPill className="animate-pulse border-sky-300/80 bg-sky-400/20 text-sky-100">
+              <span className="font-pixel tabular-nums">
+                {t('hud.freeze', { n: stats.giftFreeze })}
+              </span>
+            </StatPill>
+          )}
+          {stats.giftMult > 1 && (
+            <StatPill className="animate-pulse border-fuchsia-300/80 bg-fuchsia-400/20 text-fuchsia-100">
+              <span className="font-pixel tabular-nums">
+                {t('hud.giftmult', { n: stats.giftMult, s: stats.giftMultLeft })}
               </span>
             </StatPill>
           )}

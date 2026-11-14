@@ -274,6 +274,27 @@ export const T: Record<string, Row> = {
     '+{{n}}s FIEBER',
     '+{{n}}s de FIEBRE',
   ],
+  'tree.giftluck.name': ['Праздничный кот', 'Party Cat', 'Party-Katze', 'Gato de Fiesta'],
+  'tree.giftluck.effect': [
+    'Подарки 🎁 на {{n}}% чаще',
+    'Gift boxes 🎁 {{n}}% more often',
+    'Geschenke 🎁 {{n}}% öfter',
+    'Regalos 🎁 {{n}}% más a menudo',
+  ],
+  'tree.hoverwing.name': ['Лёгкое крыло', 'Light Wing', 'Leichter Flügel', 'Ala Ligera'],
+  'tree.hoverwing.effect': [
+    'Парение над минами +{{n}} сек',
+    'Mine floating +{{n}}s',
+    'Schweben über Minen +{{n}}s',
+    'Flotar sobre minas +{{n}}s',
+  ],
+  'tree.swift2.name': ['Сверхпроворство', 'Super Agility', 'SuperBehändigkeit', 'Súper Agilidad'],
+  'tree.swift2.effect': [
+    '+{{n}}% скорости лапки',
+    '+{{n}}% paw speed',
+    '+{{n}}% Pfotentempo',
+    '+{{n}}% velocidad de patita',
+  ],
   'tree.miner.name': ['Шахтёр', 'Miner', 'Minenarbeiter', 'Minero'],
   'tree.miner.effect': [
     '−{{n}} мина в каждой волне',
@@ -1422,12 +1443,47 @@ export const T: Record<string, Row> = {
     '50 Schnuller 🍼 insgesamt',
     'Atrapa 50 chupetes 🍼 en total',
   ],
-  'ach.bgBlack.name': ['Тьма', 'Darkness', 'Dunkelheit', 'Oscuridad'],
-  'ach.bgBlack.desc': [
-    'Сыграть уровень с фоном «Ночная смена»',
-    'Play a level with the “Night Shift” background',
-    'Level mit „Nachtschicht“-Hintergrund',
-    'Nivel con el fondo “Turno Nocturno”',
+  'ach.gift1.name': ['Первый подарок', 'First Gift', 'Erstes Geschenk', 'Primer Regalo'],
+  'ach.gift1.desc': [
+    'Поймать подарочную коробку 🎁 на поле',
+    'Catch a gift box 🎁 on the field',
+    'Fange eine Geschenkbox 🎁 auf dem Feld',
+    'Atrapa una caja de regalo 🎁 en el campo',
+  ],
+  'ach.giftfreeze.name': ['Ледяная пауза', 'Icy Pause', 'Eispause', 'Pausa Helada'],
+  'ach.giftfreeze.desc': [
+    'Поймать коробку с ФРИЗОМ таймера',
+    'Catch a TIMER FREEZE box',
+    'Fange eine Box mit TIMER-STOPP',
+    'Atrapa una caja de CONGELACIÓN del tiempo',
+  ],
+  'ach.giftsweep.name': ['Чистый пол', 'Clean Floor', 'Reiner Boden', 'Suelo Limpio'],
+  'ach.giftsweep.desc': [
+    'Поймать коробку-зачистку: все мины взорвались безвредно',
+    'Catch a MINE SWEEP box: all mines blew up harmlessly',
+    'Fange eine Minen-Räum-Box: alle Minen Harmlos explodiert',
+    'Atrapa una caja de LIMPIEZA: todas las minas explotaron sin daño',
+  ],
+  'ach.gift10x.name': ['Десятикратный', 'Tenfold', 'Zehnfach', 'Diez Veces'],
+  'ach.gift10x.desc': [
+    'Поймать коробку с очками ×10!',
+    'Catch a ×10 points box!',
+    'Fange eine Box mit ×10 Punkten!',
+    '¡Atrapa una caja de ×10 puntos!',
+  ],
+  'ach.gift10.name': ['Праздничный кот', 'Party Cat', 'Party-Katze', 'Gato de Fiesta'],
+  'ach.gift10.desc': [
+    'Поймать 10 подарочных коробок за всё время',
+    'Catch 10 gift boxes all time',
+    '10 Geschenkboxen insgesamt',
+    'Atrapa 10 cajas de regalo en total',
+  ],
+  'ach.hover1.name': ['Лёгкое крыло', 'Light Wing', 'Leichter Flügel', 'Ala Ligera'],
+  'ach.hover1.desc': [
+    'Взять перк «Парящая лапка» и проплыть над минами',
+    'Take the “Floating Paw” perk and glide over mines',
+    'Nimm „Schwebende Pfote“ und gleite über Minen',
+    'Toma “Patita Flotante” y flota sobre las minas',
   ],
   'ach.bgWhite.name': ['Засвет', 'Whiteout', 'Weißblende', 'Blanco Total'],
   'ach.bgWhite.desc': [
@@ -1917,30 +1973,11 @@ export const T: Record<string, Row> = {
     'Corta las tres clases de palomitas en total',
   ],
 
-  /* ---------- перки ---------- */
+  /* ---------- перки ----------
+     v0.0.41: перки-перевороты (rot180/rot90), зеркало и «Ночная смена»
+     удалены — инвертированное управление и полная тьма не нравятся игрокам */
   'perk.tag.curse': ['☠ ПРОКЛЯТЬЕ', '☠ CURSE', '☠ FLUCH', '☠ MALDICIÓN'],
   'perk.tag.bonus': ['✨ БОНУС', '✨ BONUS', '✨ BONUS', '✨ PREMIO'],
-  'perk.rot180.name': ['Вверх тормашками', 'Upside Down', 'Kopfständig', 'Boca Abajo'],
-  'perk.rot180.desc': [
-    'Экран переворачивается на 180°, и лапка идёт против пальца!',
-    'The screen flips 180° — the paw moves against your finger!',
-    'Der Bildschirm dreht sich um 180° — die Pfote wandert gegen den Finger!',
-    '¡La pantalla gira 180° y la patita va al revés del dedo!',
-  ],
-  'perk.rot90.name': ['Всё на боку!', 'On Its Side!', 'Alles Quer!', '¡Todo de Lado!'],
-  'perk.rot90.desc': [
-    'Экран ложится набок, а лапка двигается «наоборот» — двойная путаница!',
-    'The screen lies on its side and the paw moves the "wrong" way — double trouble!',
-    'Der Bildschirm liegt quer, die Pfote bewegt sich "verkehrt" — doppelt wild!',
-    'La pantalla se tumba de lado y la patita va "al revés": ¡doble lío!',
-  ],
-  'perk.mirror.name': ['Зеркальный мир', 'Mirror World', 'Spiegelwelt', 'Mundo Espejo'],
-  'perk.mirror.desc': [
-    'Мир отражён по горизонтали: тянешь вправо — лапка уходит влево!',
-    'The world is mirrored: pull right, the paw goes left!',
-    'Die Welt ist gespiegelt: rechts ziehen, Pfote geht links!',
-    '¡Mundo reflejado: tiras a la derecha y la patita va a la izquierda!',
-  ],
   'perk.grayscale.name': ['Чёрно-белое кино', 'Black & White', 'Schwarzweißkino', 'Cine Blanco y Negro'],
   'perk.grayscale.desc': [
     'Мир теряет краски. Ищи попкорн среди серых теней, как в старом фильме!',
@@ -1950,10 +1987,31 @@ export const T: Record<string, Row> = {
   ],
   'perk.slowpaw.name': ['Тяжёлая лапа', 'Heavy Paw', 'Schwere Pfote', 'Patita Pesada'],
   'perk.slowpaw.desc': [
-    'Лапка налила свинца: тянется к цели в два раза медленнее.',
-    'The paw turned to lead: reaches twice as slowly.',
-    'Die Pfote ist schwer wie Blei: doppelt so langsam.',
-    'La patita se llenó de plomo: llega el doble de lenta.',
+    'Лапка налила свинца: тянется к цели вдвое медленнее. Награда за терпение — очки ×1.35!',
+    'The paw turned to lead: reaches twice as slowly. Patience pays — ×1.35 points!',
+    'Die Pfote ist schwer wie Blei: doppelt so langsam. Geduld zahlt — ×1.35 Punkte!',
+    'La patita se llenó de plomo: llega el doble de lenta. La paciencia paga: ¡×1.35 puntos!',
+  ],
+  'perk.slowpaw2.name': ['Каменная лапа', 'Stone Paw', 'Steinerne Pfote', 'Patita de Piedra'],
+  'perk.slowpaw2.desc': [
+    'Лапка окаменела: тянется к цели втрое медленнее. Сложно, но очки ×1.8!',
+    'The paw turned to stone: three times slower. Hard, but ×1.8 points!',
+    'Die Pfote ist Stein: dreimal so langsam. Schwer, aber ×1.8 Punkte!',
+    'La patita se volvió piedra: tres veces más lenta. ¡Difícil, pero ×1.8 puntos!',
+  ],
+  'perk.slowpaw3.name': ['Лапа-валун', 'Boulder Paw', 'Felsenpfote', 'Patita Roca'],
+  'perk.slowpaw3.desc': [
+    'Едва ползёт — в 4 раза медленнее. Испытание для мастеров: очки ×2.5!',
+    'It barely crawls — four times slower. A master’s trial: ×2.5 points!',
+    'Sie kriecht nur — viermal so langsam. Meisterprüfung: ×2.5 Punkte!',
+    'Apenas se arrastra: cuatro veces más lenta. ¡Prueba de maestros: ×2.5 puntos!',
+  ],
+  'perk.hover.name': ['Парящая лапка', 'Floating Paw', 'Schwebende Pfote', 'Patita Flotante'],
+  'perk.hover.desc': [
+    'Лапка парит над минами: первые 8 секунд уровня мины под ней не взрываются!',
+    'The paw floats above mines: for the first 8 seconds of a level, mines don’t explode beneath it!',
+    'Die Pfote schwebt über Minen: die ersten 8 Sekunden explodieren Minen darunter nicht!',
+    'La patita flota sobre las minas: ¡en los primeros 8 segundos no explotan bajo ella!',
   ],
   'perk.smallpaw.name': ['Мини-лапка', 'Mini Paw', 'Mini-Pfote', 'Minipatita'],
   'perk.smallpaw.desc': [
@@ -2052,13 +2110,6 @@ export const T: Record<string, Row> = {
     'All regular kernels become pacifiers 🍼: +40 each, but the goal grew 20%!',
     'Alle normalen Körner werden Schnuller 🍼: +40 pro Stück, aber das Ziel wächst um 20%!',
     '¡Los granos normales se vuelven chupetes 🍼: +40 cada uno, pero la meta crece 20%!',
-  ],
-  'perk.nightshift.name': ['Ночная смена', 'Night Shift', 'Nachtschicht', 'Turno Nocturno'],
-  'perk.nightshift.desc': [
-    'Полная тьма: фон гаснет до чёрного, зёрна светятся как звёзды. +20% очков!',
-    'Total darkness: the background goes black, kernels glow like stars. +20% points!',
-    'Völlige Dunkelheit: schwarzer Hintergrund, Körner leuchten wie Sterne. +20% Punkte!',
-    'Oscuridad total: el fondo se vuelve negro, los granos brillan como estrellas. ¡+20% puntos!',
   ],
   'perk.whiteout.name': ['Засвет', 'Whiteout', 'Weißblende', 'Blanco Total'],
   'perk.whiteout.desc': [
@@ -2286,6 +2337,12 @@ export const T: Record<string, Row> = {
   'hud.level': ['УР. {{n}}', 'LV {{n}}', 'LVL {{n}}', 'NV {{n}}'],
   'hud.bestPill': ['Рекорд', 'Best', 'Rekord', 'Récord'],
   'hud.fever': ['🔥 ЛИХОРАДКА +{{n}}', '🔥 FEVER +{{n}}', '🔥 FIEBER +{{n}}', '🔥 FIEBRE +{{n}}'],
+  'hud.freeze': ['❄ ФРИЗ {{n}} СЕК', '❄ FREEZE {{n}} SEC', '❄ STOPP {{n}} SEK', '❄ PAUSA {{n}} SEG'],
+  'hud.giftmult': ['ОЧКИ ×{{n}} · {{s}} СЕК', 'SCORE ×{{n}} · {{s}} SEC', 'PUNKTE ×{{n}} · {{s}} SEK', 'PUNTOS ×{{n}} · {{s}} SEG'],
+  'gift.freeze': ['❄ ПОДАРОК: ФРИЗ {{n}} СЕК!', '❄ GIFT: FREEZE {{n}} SEC!', '❄ GESCHENK: STOPP {{n}} SEK!', '❄ REGALO: ¡PAUSA {{n}} SEG!'],
+  'gift.sweep': ['🧨 ПОДАРОК: МИНЫ ПОДОРВАНЫ!', '🧨 GIFT: MINES SWEPT!', '🧨 GESCHENK: MINEN GESPRENGT!', '🧨 REGALO: ¡MINAS EXPLOTADAS!'],
+  'gift.mult': ['🎁 ПОДАРОК: ОЧКИ ×{{n}}!', '🎁 GIFT: SCORE ×{{n}}!', '🎁 GESCHENK: PUNKTE ×{{n}}!', '🎁 REGALO: ¡PUNTOS ×{{n}}!'],
+  'banner.gift': ['🎁 ПОДАРОК!', '🎁 GIFT!', '🎁 GESCHENK!', '🎁 ¡REGALO!'],
   'hud.shields': ['Щиты от мин: {{n}}', 'Mine shields: {{n}}', 'Minenschilde: {{n}}', 'Escudos antaminas: {{n}}'],
   'hud.hearts': ['Сердечки: {{n}} из {{m}}', 'Hearts: {{n}} of {{m}}', 'Herzen: {{n}} von {{m}}', 'Corazones: {{n}} de {{m}}'],
 
