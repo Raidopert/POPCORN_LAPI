@@ -3135,6 +3135,44 @@ export const T: Record<string, Row> = {
     'LANA STRECKT PFOTEN — SCHNEIDE SIE AB!',
     '¡LANA ESTIRA LAS PATAS: CÓRTALAS!',
   ],
+  /* v0.0.38: МЕГА-ГОЛУБЬ — третий босс (каждый 15-й уровень): клюёт корзину,
+     тело неуязвимо — бить лапкой точно по мелким глазам */
+  'banner.bossPigeon': ['🐦 МЕГА-ГОЛУБЬ!', '🐦 MEGA-PIGEON!', '🐦 MEGA-TAUBE!', '¡🐦 PALOMA MEGA!'],
+  'txt.bossWarnPigeon': [
+    'ОН ОГРОМНЫЙ И КЛЮЁТ КОРЗИНУ! БЕЙ ЛАПКОЙ ПО ГЛАЗАМ!',
+    'HUGE, AND HE PECKS THE CUP! HIT THE EYES WITH YOUR PAW!',
+    'RIESIG UND PICKT DEN BECHER! TRIFF MIT DER PFOTE DIE AUGEN!',
+    '¡ENORME Y PICOTEA EL VASO! ¡GOLPEA LOS OJOS CON LA PATA!',
+  ],
+  'txt.pigeonEyes': ['БЕЙ ПО ГЛАЗАМ!', 'AIM FOR THE EYES!', 'TRIFF DIE AUGEN!', '¡APUNTA A LOS OJOS!'],
+  'txt.bossDownPigeon': [
+    'ГОЛУБЬ ПОВЕРЖЕН! +{{n}}',
+    'PIGEON DEFEATED! +{{n}}',
+    'TAUBE BESIEGT! +{{n}}',
+    '¡PALOMA DERROTADA! +{{n}}',
+  ],
+  /* Ачивки боссов 0.0.33+: раньше показывался сырой ключ — теперь все 4 языка */
+  'ach.lion1.name': ['Царь попкорна', 'Popcorn King', 'Popcorn-König', 'Rey del Palomitas'],
+  'ach.lion1.desc': [
+    'Победить ЛЬВА: грива-щит отбивает зёрна — бей после рёва!',
+    'Defeat the LION: his mane deflects kernels — strike after the roar!',
+    'Den LÖWEN besiegen: Die Mähne wehrt Körner ab — triff nach dem Brüllen!',
+    'Vencer al LEÓN: su meléna rebota granos: ¡ataca tras el rugido!',
+  ],
+  'ach.marten1.name': ['Лана поймана', 'Lana Caught', 'Lana Gefangen', 'Lana Atrapada'],
+  'ach.marten1.desc': [
+    'Поймать воровку КУНИЦУ ЛАНУ — перерезай её лапки свайпом!',
+    'Catch LANA THE MARTEN — slice her paws with swipes!',
+    'Den Marder LANA fangen — schneide ihre Pfoten mit Swipes ab!',
+    '¡Atrapa a la marta LANA — corta sus patas con gestos!',
+  ],
+  'ach.pigeonBoss1.name': ['Голубь повержен', 'Pigeon Downed', 'Taube Erlegt', 'Paloma Derribada'],
+  'ach.pigeonBoss1.desc': [
+    'Победить МЕГА-ГОЛУБЯ: тело неуязвимо — выбей лапкой его глаза!',
+    'Defeat the MEGA-PIGEON: its body is invincible — knock out its eyes!',
+    'Die MEGA-TAUBE besiegen: Der Körper ist unverwundbar — triff die Augen!',
+    'Vence a la PALOMA MEGA: su cuerpo es invencible: ¡saca sus ojos!',
+  ],
   'txt.roar': ['Р-Р-РЁВ!', 'ROAAAR!', 'R-R-RÖHR!', '¡RRRR!'],
   'txt.deflect': ['ОТСКОК!', 'DEFLECTED!', 'ABGEPRALLT!', '¡REBOTE!'],
   'txt.lanaHit': ['ЗЕРНО В ЛОБ!', 'KERNEL HIT!', 'KORN-TREFFER!', '¡GRANO!'],
@@ -3145,6 +3183,7 @@ export const T: Record<string, Row> = {
   'txt.bossDownMarten': ['ЛАНА ПОЙМАНА! +{{n}}', 'LANA CAUGHT! +{{n}}', 'LANA GEFANGEN! +{{n}}', '¡LANA ATRAPADA! +{{n}}'],
   'hud.bossLion': ['ЛЬВ', 'LION', 'LÖWE', 'LEÓN'],
   'hud.bossMarten': ['ЛАНА', 'LANA', 'LANA', 'LANA'],
+  'hud.bossPigeon': ['ГОЛУБЬ', 'PIGEON', 'TAUBE', 'PALOMA'],
   'txt.feverWin': [
     '🔥 +{{n}} ЗА ЛИХОРАДКУ!',
     '🔥 +{{n}} FEVER BONUS!',

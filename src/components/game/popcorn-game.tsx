@@ -30,7 +30,7 @@ import {
   Volume2,
   VolumeX,
 } from 'lucide-react'
-import { PopcornEngine, bossKindForTier, type EngineStats } from '@/lib/game/engine'
+import { PopcornEngine, bossKindForTier, bossTierForLevel, type EngineStats } from '@/lib/game/engine'
 import { audio } from '@/lib/game/audio'
 import {
   TREE_NODES,
@@ -3664,6 +3664,7 @@ export function PopcornGame() {
     bossKidKills: 0,
     bossLionKills: 0,
     bossMartenKills: 0,
+    bossPigeonKills: 0,
     bossClean: false,
     bossCoins: 0,
     goldCoins: 0,
@@ -3731,6 +3732,7 @@ export function PopcornGame() {
   const prevBossKidRef = useRef(0)
   const prevBossLionRef = useRef(0)
   const prevBossMartenRef = useRef(0)
+  const prevBossPigeonRef = useRef(0)
   /** Уровень котика на старте забега — экран результатов покажет повышение.
       Дубль в состоянии для рендера + ref для колбэков движка */
   const [runStartLevel, setRunStartLevel] = useState(1)
@@ -4699,23 +4701,28 @@ export function PopcornGame() {
           const dKid = Math.max(0, s.bossKidKills - prevBossKidRef.current)
           const dLion = Math.max(0, s.bossLionKills - prevBossLionRef.current)
           const dMarten = Math.max(0, s.bossMartenKills - prevBossMartenRef.current)
+          const dPigeon = Math.max(0, s.bossPigeonKills - prevBossPigeonRef.current)
           if (dLion > 0) announceAch(['lion1'])
           if (dMarten > 0) announceAch(['marten1'])
+          if (dPigeon > 0) announceAch(['pigeonBoss1'])
           addLife({
             bossKills: s.bossKills - prevBossKillsRef.current,
             bossLionKills: dLion,
             bossMartenKills: dMarten,
+            bossPigeonKills: dPigeon,
           })
           prevBossKillsRef.current = s.bossKills
           prevBossKidRef.current = s.bossKidKills
           prevBossLionRef.current = s.bossLionKills
           prevBossMartenRef.current = s.bossMartenKills
+          prevBossPigeonRef.current = s.bossPigeonKills
         } else if (s.bossKills < prevBossKillsRef.current) {
           /* Новый забег: счётчики сбросились */
           prevBossKillsRef.current = s.bossKills
           prevBossKidRef.current = s.bossKidKills
           prevBossLionRef.current = s.bossLionKills
           prevBossMartenRef.current = s.bossMartenKills
+          prevBossPigeonRef.current = s.bossPigeonKills
         }
         /* Живой чип опыта 🍿 в панели сверху — опыт за забег виден сразу */
         if (runXpGainRef.current !== lastRunXpShownRef.current) {
@@ -5449,7 +5456,7 @@ export function PopcornGame() {
   const urgent = sec <= 10
   const onLevel = phase === 'playing' || phase === 'paused'
   /* Вид босса текущего босс-уровня: HUD показывает его имя и значок (v0.0.33) */
-  const hudBossKind = bossKindForTier(Math.max(1, Math.floor(stats.level / 10)))
+  const hudBossKind = bossKindForTier(bossTierForLevel(stats.level))
   const quotaPct = Math.min(100, (stats.collected / Math.max(1, stats.quota)) * 100)
   const chosen: PerkDef | null = openedIdx !== null ? (offers[openedIdx] ?? null) : null
   const activePerk = perk ? PERK_MAP[perk] : null
@@ -5499,14 +5506,22 @@ export function PopcornGame() {
           {stats.boss ? (
             <StatPill className="border-pink-300/60 text-pink-200">
               <span aria-hidden>
-                {hudBossKind === 'lion' ? '🦁' : hudBossKind === 'marten' ? '🦡' : '👶'}
+                {hudBossKind === 'lion'
+                  ? '🦁'
+                  : hudBossKind === 'marten'
+                    ? '🦡'
+                    : hudBossKind === 'pigeon'
+                      ? '🐦'
+                      : '👶'}
               </span>
               <span className="font-pixel">
                 {hudBossKind === 'lion'
                   ? t('hud.bossLion')
                   : hudBossKind === 'marten'
                     ? t('hud.bossMarten')
-                    : t('hud.boss')}
+                    : hudBossKind === 'pigeon'
+                      ? t('hud.bossPigeon')
+                      : t('hud.boss')}
               </span>
               <span className="flex items-center gap-px" aria-hidden>
                 {Array.from({ length: stats.bossMaxHp }).map((_, i) => (
