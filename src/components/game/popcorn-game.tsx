@@ -4819,15 +4819,21 @@ export function PopcornGame() {
         }, 1150)
       },
       onFeverEnd: (r) => {
-        /* После лихорадки — обычный уровень: сбрасываем перк и трансформации */
-        setPerk(null)
-        transformRef.current = 'none'
-        const cv = canvasRef.current
-        if (cv) {
-          cv.style.filter = ''
-          cv.classList.remove('popcorn-hue')
+        /* После лихорадки. ВНЕЗАПНАЯ (посреди этапа, «Фарт») — этап сейчас
+           продолжится с сохранённым прогрессом: возвращаем перк в HUD и
+           трансформации. Обычная (после уровня) — сбрасываем перк */
+        if (r.resumed) {
+          setPerk(r.perk ?? null)
+        } else {
+          setPerk(null)
+          transformRef.current = 'none'
+          const cv = canvasRef.current
+          if (cv) {
+            cv.style.filter = ''
+            cv.classList.remove('popcorn-hue')
+          }
+          layoutRef.current()
         }
-        layoutRef.current()
         /* Монетки за успех: чем больше очков — тем щедрее награда.
            ЭКОНОМИКА 0.0.31: курс gained/4 вместо /3, минимум 50.
            Артефакт «Копилка-хрюшка» добавляет +25% */

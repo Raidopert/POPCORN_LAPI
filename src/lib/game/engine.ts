@@ -138,6 +138,11 @@ export interface FeverResult {
   gained: number
   success: boolean
   next: number
+  /** ВНЕЗАПНАЯ лихорадка (посреди этапа, «Фарт» из древа): этап будет
+      ВОЗОБНОВЛЁН с сохранённым прогрессом, а не начат заново */
+  resumed?: boolean
+  /** Перк прерванного этапа — компонент возвращает его в HUD и трансформации */
+  perk?: PerkId | null
 }
 
 export interface EngineCallbacks {
@@ -175,6 +180,9 @@ const KIND_SCALE: Record<Exclude<PieceKind, 'corn'>, number> = {
 const FEVER_SECONDS = 3
 /** Шанс, что на лихорадке среди зёрен спрячется одна мина-штраф */
 const FEVER_MINE_CHANCE = 0.3
+/** Компенсация этапу, прерванному ВНЕЗАПНОЙ лихорадкой: к остатку таймера
+    добавляем +3 сек — перерыв на бонус не должен съедать время этапа */
+const FEVER_RESUME_BONUS = 3
 
 /* --- БОЛЬШАЯ ПОПКОРНИНА: раз за уровень на поле появляется жирный приз.
     Живёт 5 секунд и пытается убежать — успел дотянуться: очки и монетки.
@@ -829,6 +837,17 @@ export class PopcornEngine {
   private mess: MartenMess = { quota: 1, pop: 1, mines: 0 }
   /** Рулетка внезапной ЛИХОРАДКИ: победила в кадре сбора — применяем в конце кадра */
   private pendingFever = false
+  /** Снимок этапа, прерванного внезапной лихорадкой. После лихорадки этап
+      ПРОДОЛЖАЕТСЯ с тем же прогрессом нормы, перком и остатком времени
+      (+3 сек компенсации) — фикс 0.0.40: раньше этап начинался заново и
+      лихорадка не давала пройти уровень ( особенно на 1–9, где сдачи частые) */
+  private feverResume: {
+    timeLeft: number
+    perk: PerkId | null
+    quota: number
+    collected: number
+    shieldLeft: number
+  } | null = null
 
   private cupScale = 5
   private cupH = 0
@@ -997,6 +1016,7 @@ export class PopcornEngine {
     this.lifeUsed = false
     this.fever = null
     this.feverAfter = -1
+    this.feverResume = null
     /* Сердечки: максимум зависит от апгрейдов, древа и лапки; в новом забеге запас полон */
     this.maxHearts = Math.min(
       9,
@@ -1073,6 +1093,7 @@ export class PopcornEngine {
     this.fever = null
     this.feverMine = false
     this.feverAfter = -1
+    this.feverResume = null
     this.starT = 0
     this.stun = 0
     this.pieces = []
@@ -1253,7 +1274,45 @@ export class PopcornEngine {
       this.crumbs(this.paw.x, this.paw.y, '#E5342E', 9)
     }
     this.emitStats(true)
-    this.cb.onFeverEnd?.({ gained: success ? f.gained : 0, success, next: f.next })
+    this.cb.onFeverEnd?.({
+      gained: success ? f.gained : 0,
+      success,
+      next: f.next,
+      resumed: this.feverResume !== null,
+      perk: this.feverResume ? this.feverResume.perk : null,
+    })
+  }
+
+  /** Продолжение этапа после ВНЕЗАПНОЙ лихорадки: прогресс нормы, перк и
+      остаток таймера сохранены (+3 сек компенсации), поле пересыпано заново.
+      Фикс 0.0.40: раньше startLevel() начинал этап с нуля — лихорадка
+      сбрасывала его по несколько раз и не давала пройти */
+  private resumeLevelAfterFever(): void {
+    const snap = this.feverResume
+    this.feverResume = null
+    if (!snap) return
+    this.phase = 'playing'
+    this.paused = false
+    this.perk = snap.perk
+    this.quota = snap.quota
+    this.collected = snap.collected
+    this.shieldLeft = snap.shieldLeft
+    /* Остаток времени этапа + компенсация за перерыв; duration = timeLeft,
+       чтобы полоса таймера после возобновления была полной */
+    this.timeLeft = snap.timeLeft + FEVER_RESUME_BONUS
+    this.duration = this.timeLeft
+    this.pendingClear = -1
+    this.waveDelay = -1
+    this.stun = 0
+    this.pieces = [] // остатки лихорадочного поля не переживают возобновление
+    this.carried = []
+    this.flying = []
+    this.lastSec = Math.ceil(this.timeLeft)
+    this.audioStage = -1 // музыка пересинхронизируется сама в ближайший кадр
+    this.banner = { text: this.L('txt.feverResume', { n: FEVER_RESUME_BONUS }), t: 0 }
+    audio.play('wave')
+    this.spawnWave()
+    this.emitStats(true)
   }
 
   setPaused(p: boolean): void {
@@ -1275,6 +1334,7 @@ export class PopcornEngine {
     this.pigeon = null
     this.fever = null
     this.feverAfter = -1
+    this.feverResume = null
     this.seeds = []
     this.banner = { text: '', t: 99 }
     this.shakeT = 0
@@ -1718,6 +1778,13 @@ export class PopcornEngine {
       this.feverAfter -= dt
       if (this.feverAfter <= 0) {
         this.feverAfter = -1
+        /* ВНЕЗАПНАЯ лихорадка: этап ПРОДОЛЖАЕТСЯ с сохранённым прогрессом
+           и временем (+3 сек), а не начинается заново (фикс 0.0.40).
+           Обычная (после уровня) — как раньше: сразу следующий уровень */
+        if (this.feverResume) {
+          this.resumeLevelAfterFever()
+          return
+        }
         this.startLevel(this.feverNextLvl, null)
         return
       }
@@ -1734,6 +1801,15 @@ export class PopcornEngine {
         this.pendingClear < 0 &&
         this.phase === 'playing'
       ) {
+        /* Фикс 0.0.40: снимаем состояние этапа ДО лихорадки — после неё
+           этап продолжится с тем же прогрессом, а не начнётся заново */
+        this.feverResume = {
+          timeLeft: this.timeLeft,
+          perk: this.perk,
+          quota: this.quota,
+          collected: this.collected,
+          shieldLeft: this.shieldLeft,
+        }
         this.startFever(this.lvl)
         return
       }
@@ -2283,6 +2359,7 @@ export class PopcornEngine {
     this.endReason = reason
     this.phase = 'ended'
     audio.stopMusic()
+    this.feverResume = null // забег кончился — возобновлять нечего
     this.boss = null
     this.seeds = [] // летящие в экран зёрна не переживают забег
     if (reason === 'voluntary') {
