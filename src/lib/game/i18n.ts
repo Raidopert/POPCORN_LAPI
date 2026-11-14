@@ -3151,6 +3151,47 @@ export const T: Record<string, Row> = {
     'TAUBE BESIEGT! +{{n}}',
     '¡PALOMA DERROTADA! +{{n}}',
   ],
+  /* v0.0.39: ЦЫГАНСКАЯ РУКА — четвёртый босс (каждый 20-й уровень): сгребает
+     рассыпанные зёрна с поля и кидает их В ЭКРАН — минус сердечко и стан лапки.
+     Саму руку шлёпать лапкой — это и есть урон */
+  'banner.bossGypsy': ['💍 ЦЫГАНСКАЯ РУКА!', '💍 GYPSY HAND!', '💍 ZIGEUNERHAND!', '¡💍 MANO GITANA!'],
+  'txt.bossWarnGypsy': [
+    'ОНА КРАДЁТ ЗЁРНА С ПОЛА И КИДАЕТ ИХ В ЭКРАН! ШЛЁПАЙ ЛАПКОЙ ПО РУКЕ!',
+    'SHE STEALS KERNELS OFF THE FLOOR AND THROWS THEM AT YOU! SLAP THE HAND!',
+    'SIE STIEHLT KÖRNER UND WIRFT SIE AUF DICH! KLATSCH DIE HAND WEG!',
+    '¡ROBA GRANOS DEL SUELO Y TE LOS TIRA! ¡DALE UNA MANOTEADA!',
+  ],
+  'txt.gypsySlap': [
+    'ЗЕРНО НЕ БЕРЁТ — ШЛЁПАЙ ЛАПКОЙ!',
+    "KERNELS DON'T HURT IT — SLAP IT!",
+    'KÖRNER NÜTZEN NICHT — KLATSCHEN!',
+    '¡LOS GRANOS NO LE HACEN NADA: ¡MANOTAZO!',
+  ],
+  'txt.gypsyHit': [
+    'ЗЕРНО В ЛАПКУ! ОГЛОХЛА!',
+    'KERNEL HIT YOUR PAW! DAZED!',
+    'KORN IN DER PFOTE! TAUB!',
+    '¡GRANO EN LA PATA! ¡ATURDIDA!',
+  ],
+  'txt.gypsySleeve': [
+    'БРОСОК ИЗ РУКАВА!',
+    'THROWN FROM HER SLEEVE!',
+    'WURF AUS DEM ÄRMEL!',
+    '¡TIRO DESDE LA MANGA!',
+  ],
+  'txt.bossDownGypsy': [
+    'РУКА ПОБЕЖДЕНА! +{{n}}',
+    'HAND DEFEATED! +{{n}}',
+    'HAND BESIEGT! +{{n}}',
+    '¡MANO DERROTADA! +{{n}}',
+  ],
+  'ach.gypsyBoss1.name': ['Рука повержена', 'Hand Downed', 'Hand Besiegt', 'Mano Derribada'],
+  'ach.gypsyBoss1.desc': [
+    'Победить ЦЫГАНСКУЮ РУКУ: крадёт зёрна и кидает их в тебя — шлёпай её лапкой!',
+    'Defeat the GYPSY HAND: she steals kernels and hurls them at you — slap her!',
+    'Die ZIGEUNERHAND besiegen: Sie stiehlt Körner — klatsch sie weg!',
+    'Vence a la MANO GITANA: roba granos y te los tira: ¡manotéala!',
+  ],
   /* Ачивки боссов 0.0.33+: раньше показывался сырой ключ — теперь все 4 языка */
   'ach.lion1.name': ['Царь попкорна', 'Popcorn King', 'Popcorn-König', 'Rey del Palomitas'],
   'ach.lion1.desc': [
@@ -3184,6 +3225,7 @@ export const T: Record<string, Row> = {
   'hud.bossLion': ['ЛЬВ', 'LION', 'LÖWE', 'LEÓN'],
   'hud.bossMarten': ['ЛАНА', 'LANA', 'LANA', 'LANA'],
   'hud.bossPigeon': ['ГОЛУБЬ', 'PIGEON', 'TAUBE', 'PALOMA'],
+  'hud.bossGypsy': ['РУКА', 'HAND', 'HAND', 'MANO'],
   'txt.feverWin': [
     '🔥 +{{n}} ЗА ЛИХОРАДКУ!',
     '🔥 +{{n}} FEVER BONUS!',

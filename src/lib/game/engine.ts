@@ -99,11 +99,13 @@ export interface EngineStats {
   bossMaxHp: number
   /** Побед над боссами за забег (ачивки босса) */
   bossKills: number
-  /** Из них по видам: МАЛЫШ / ЛЬВ (в запасе) / КУНИЦА ЛАНА / МЕГА-ГОЛУБЬ */
+  /** Побед по видам за забег: МАЛЫШ / ЛЬВ (в запасе) / КУНИЦА ЛАНА / МЕГА-ГОЛУБЬ /
+      ЦЫГАНСКАЯ РУКА */
   bossKidKills: number
   bossLionKills: number
   bossMartenKills: number
   bossPigeonKills: number
+  bossGypsyKills: number
   /** Последний бой прошёл без потери сердечек (ачивка «Неприкасаемый») */
   bossClean: boolean
   /** Монетки, накопленные за победы над боссами за забег (выдаёт компонент) */
@@ -241,7 +243,7 @@ const FLING_FRICTION = 3.4
     Дотянувшийся коготь выгребает попкорн из корзинки и уносит добычу.
     Зерном Лану не достать — она отбивает его лапкой. ЛЬВ пока в запасе
     («без львов пока что») — код гривы-щита сохранился, вернём позже --- */
-export type BossKind = 'kid' | 'lion' | 'marten' | 'pigeon'
+export type BossKind = 'kid' | 'lion' | 'marten' | 'pigeon' | 'gypsy'
 
 /** Номер босса (тир) для уровня: боссы выходят каждые BOSS_EVERY уровней.
     Экспортируется — HUD показывает имя/иконку текущего босса */
@@ -249,24 +251,26 @@ export function bossTierForLevel(lvl: number): number {
   return Math.max(1, Math.floor(lvl / BOSS_EVERY))
 }
 
-/** Вид босса по его номеру: ротация из трёх — МАЛЫШ → ЛАНА → МЕГА-ГОЛУБЬ.
+/** Вид босса по его номеру: ротация из четырёх — МАЛЫШ → ЛАНА → МЕГА-ГОЛУБЬ →
+    ЦЫГАНСКАЯ РУКА (v0.0.39: уровни 5/10/15/20, дальше по кругу).
     ЛЬВ в запасе (код гривы-щита сохранён, вернём позже).
     Экспортируется — HUD показывает имя/иконку текущего босса */
 export function bossKindForTier(tier: number): BossKind {
-  const i = (tier - 1) % 3
-  return i === 0 ? 'kid' : i === 1 ? 'marten' : 'pigeon'
+  const i = (tier - 1) % 4
+  return i === 0 ? 'kid' : i === 1 ? 'marten' : i === 2 ? 'pigeon' : 'gypsy'
 }
 
-/** +1 жизнь у льва: грива держит удар; голубю −1: глаза мелкие, каждый выстрел в точку */
-const BOSS_HP_BY_KIND: Record<BossKind, number> = { kid: 0, lion: 1, marten: 0, pigeon: -1 }
-/** Радиус попадания пнутым зерном (u): у голубя зерно просто отскакивает */
-const BOSS_HIT_R_BY_KIND: Record<BossKind, number> = { kid: 48, lion: 56, marten: 38, pigeon: 58 }
-/** Сколько зёрен выгребает за раз сверх базы: Лана и голубь — чемпионы воровства */
-const BOSS_STEAL_BY_KIND: Record<BossKind, number> = { kid: 0, lion: 0, marten: 2, pigeon: 1 }
-/** Множитель скорости рывка к корзине: голубь пикирует */
-const BOSS_CHARGE_MULT_BY_KIND: Record<BossKind, number> = { kid: 1, lion: 1.15, marten: 1.3, pigeon: 1.25 }
-/** Сокращение паузы перед рывком (с): голубь не даёт заскучать */
-const BOSS_ATTACK_CUT_BY_KIND: Record<BossKind, number> = { kid: 0, lion: 0.4, marten: 0.8, pigeon: 0.5 }
+/** +1 жизнь у льва: грива держит удар; голубю и цыганке −1: цель мелкая/юркая */
+const BOSS_HP_BY_KIND: Record<BossKind, number> = { kid: 0, lion: 1, marten: 0, pigeon: -1, gypsy: -1 }
+/** Радиус попадания пнутым зерном (u): у голубя и цыганки зерно просто отскакивает */
+const BOSS_HIT_R_BY_KIND: Record<BossKind, number> = { kid: 48, lion: 56, marten: 38, pigeon: 58, gypsy: 46 }
+/** Сколько зёрен выгребает за раз сверх базы: Лана и голубь — чемпионы воровства,
+    цыганка сгребает с ПОЛЯ, у неё свой лимит (GYPSY_GRAB_MAX) */
+const BOSS_STEAL_BY_KIND: Record<BossKind, number> = { kid: 0, lion: 0, marten: 2, pigeon: 1, gypsy: 0 }
+/** Множитель скорости рывка к корзине: голубь пикирует, цыганка ныряет к зёрнам */
+const BOSS_CHARGE_MULT_BY_KIND: Record<BossKind, number> = { kid: 1, lion: 1.15, marten: 1.3, pigeon: 1.25, gypsy: 1.1 }
+/** Сокращение паузы перед рывком (с): голубь и цыганка не дают заскучать */
+const BOSS_ATTACK_CUT_BY_KIND: Record<BossKind, number> = { kid: 0, lion: 0.4, marten: 0.8, pigeon: 0.5, gypsy: 0.6 }
 /** Львиный рокт: пауза между роктами (с), длина (с) и сила отброса лапки */
 const LION_ROAR_EVERY = 5.2
 const LION_ROAR_DUR = 0.9
@@ -296,6 +300,23 @@ const PIGEON_BOSS_HIT_CD = 0.35 // пауза между попаданиями 
 const PIGEON_BOSS_IN_SPEED = 340 // скорость влёта в зал (u/с)
 const PIGEON_BOSS_HOVER_DX = 130 // якорь парения сбоку от стаканчика (u)
 const PIGEON_BOSS_HOVER_DY = 250 // якорь парения над стаканчиком (u)
+
+/* --- ЦЫГАНСКАЯ РУКА v0.0.39: четвёртый босс (уровень 20, 35, 50…) ---
+    Огромная женская рука в золотых кольцах тянется в зал с потолка,
+    СГРЕБАЕТ рассыпанные по полу зёрна и ШВЫРЯЕТ их В ЭКРАН игрока:
+    зерно летит НА КАМЕРУ, растёт и шлёпает — минус сердечко и лапка
+    на секунду оглохла (стан, как от мины). Сама рука — мишень для
+    ЛАПКИ: шлёпай по ладони, зерно ей безразлично — отскакивает */
+const GYPSY_R = 46 // базовый радиус ладони (u)
+const GYPSY_SLAP_R = 40 // радиус шлепка лапкой по ладони (u): большая, но юркая
+const GYPSY_SLAP_MIN_SPEED = 150 // лапка должна ДВИГАТЬСЯ: припаркованная не бьёт (u/с)
+const GYPSY_HIT_CD = 0.5 // пауза между шлепками (с)
+const GYPSY_GRAB_R = 80 // радиус сгребания рассыпанных зёрен (u)
+const GYPSY_GRAB_MAX = 3 // сколько зёрен уносит за один сгреб
+const GYPSY_SEED_DUR = 1.25 // сколько секунд летит зерно в экран (с)
+const GYPSY_SEED_POP_R = 56 // радиус шлепка зерном по экрану в точке прилёта (u)
+const GYPSY_THROW_CD = 0.55 // пауза между бросками в очереди (с)
+const GYPSY_DIVE_SPEED = 300 // скорость нырка к зёрнам (u/с)
 
 interface FieldPiece {
   x: number
@@ -396,10 +417,11 @@ interface Pigeon {
   downed: boolean
 }
 
-/** БОСС: малыш, воровка Лана или МЕГА-ГОЛУБЬ. Малыша и льва трогать лапкой
-    НЕЛЬЗЯ — сердечко слетит. Малыша побеждаем зерном, пнутым лапкой,
-    Лану — ПЕРЕРЕЗАЯ её длинные лапки свайпом, а голубю выбиваем ГЛАЗА:
-    тело птицы неуязвимо, бьём лапкой точно в мелкие глаза */
+/** БОСС: малыш, воровка Лана, МЕГА-ГОЛУБЬ или ЦЫГАНСКАЯ РУКА. Малыша и льва
+    трогать лапкой НЕЛЬЗЯ — сердечко слетит. Малыша побеждаем зерном, пнутым
+    лапкой, Лану — ПЕРЕРЕЗАЯ её длинные лапки свайпом, голубю выбиваем ГЛАЗА,
+    а цыганку ШЛЁПАЕМ лапкой по ладони — она крадёт зёрна с поля и кидает
+    их в экран игрока */
 interface Boss {
   x: number
   y: number
@@ -407,12 +429,12 @@ interface Boss {
   vy: number
   hp: number
   maxHp: number
-  /** Вид босса: малыш / лев с гривой-щитом / воровка Лана / мега-голубь */
+  /** Вид босса: малыш / лев с гривой-щитом / воровка Лана / мега-голубь / цыганская рука */
   kind: BossKind
-  /** 'in' — является · 'wander' — бродит/парит · 'charge' — рвётся к корзине ·
-      'swat' — гребёт/клюёт из корзины · 'hurt' — отшатнулся после попадания ·
-      'roar' — лев роктует (щит!) · 'flee' — побеждён, уходит */
-  state: 'in' | 'wander' | 'charge' | 'swat' | 'hurt' | 'roar' | 'flee'
+  /** 'in' — является · 'wander' — бродит/парит · 'charge' — рвётся к корзине/зёрнам ·
+      'swat' — гребёт/клюёт/сгребает · 'throw' — цыганка швыряет зёрна в экран ·
+      'hurt' — отшатнулся после попадания · 'roar' — лев роктует (щит!) · 'flee' — побеждён, уходит */
+  state: 'in' | 'wander' | 'charge' | 'swat' | 'throw' | 'hurt' | 'roar' | 'flee'
   stateT: number
   /** Пауза до рывка к корзине */
   atkT: number
@@ -436,9 +458,30 @@ interface Boss {
   /* --- МЕГА-ГОЛУБЬ: борт влёта и якорь парения над корзиной --- */
   /** борт, с которого прилетел: −1 слева, 1 справа (остальным — 1) */
   side: 1 | -1
-  /** якорь парения над стаканчиком (у остальных не используется) */
+  /** якорь парения над стаканчиком (у остальных не используется);
+      ЦЫГАНКА: цель нырка за зёрнами, потом точка зависания для бросков */
   hx: number
   hy: number
+  /* --- ЦЫГАНКА: сколько зёрен в кулаке после сгреба (−1 — очередь пуста) --- */
+  loot: number
+}
+
+/** ЗЕРНО В ЭКРАН (v0.0.39): цыганская рука швыряет украденное зерно НА
+    ИГРОКА. Оно летит к цели (зафиксирована в момент броска — там, где
+    была лапка), РАСТЁТ по мере подлёта — «летит на камеру». У цели
+    проявляется круг-телеграф: успей увести лапку, иначе шлепок о экран —
+    минус сердечко и временный стан лапки */
+interface GypsySeed {
+  /** Точка вылета (ладонь) и цель (лапка в момент броска) */
+  sx: number
+  sy: number
+  tx: number
+  ty: number
+  /** Возраст полёта (с) */
+  t: number
+  /** Вращение в полёте */
+  rot: number
+  spin: number
 }
 
 /** ЛАПКА ЛАНЫ: длинная рука с когтями тянется от её тела к корзинке.
@@ -723,6 +766,8 @@ export class PopcornEngine {
   private bigGrapeRun = 0
   /* --- БОССЫ v0.0.34: МАЛЫШ и КУНИЦА ЛАНА — чередуются каждые 10 уровней --- */
   private boss: Boss | null = null
+  /* --- ЗЁРНА В ЭКРАН (v0.0.39): броски цыганской руки — растут в полёте --- */
+  private seeds: GypsySeed[] = []
   /** Монетки за победы над боссами за забег (выдаёт компонент) */
   private bossCoinsRun = 0
   /** Побед над боссами (любого вида) за забег — ачивки босса */
@@ -732,6 +777,7 @@ export class PopcornEngine {
   private bossLionKillsRun = 0
   private bossMartenKillsRun = 0
   private bossPigeonKillsRun = 0
+  private bossGypsyKillsRun = 0
   /** Позиция лапки в прошлом кадре — свайп-сегмент для РЕЗА лапок Ланы */
   private pawPrevX = 0
   private pawPrevY = 0
@@ -941,6 +987,7 @@ export class PopcornEngine {
     this.bossLionKillsRun = 0
     this.bossMartenKillsRun = 0
     this.bossPigeonKillsRun = 0
+    this.bossGypsyKillsRun = 0
     this.bossCleanLast = false
     this.bossCoinsRun = 0
     this.boss = null
@@ -1064,6 +1111,7 @@ export class PopcornEngine {
     }
     /* Босс и скорость лапки с прошлого уровня не выживают */
     this.boss = null
+    this.seeds = []
     this.pawVX = 0
     this.pawVY = 0
     /* Ачивка «Чистая работа»: считаем шоки и кражи за уровень; и потери сердец */
@@ -1140,6 +1188,7 @@ export class PopcornEngine {
     this.pigeonTimer = -1
     /* Большая попкорнина не выживает на лихорадке: поле очищается */
     this.big = null
+    this.seeds = [] // боссов на лихорадке нет и зёрен-снарядов тоже
     this.waveDelay = -1
     this.pendingClear = -1
     this.stun = 0
@@ -1226,6 +1275,7 @@ export class PopcornEngine {
     this.pigeon = null
     this.fever = null
     this.feverAfter = -1
+    this.seeds = []
     this.banner = { text: '', t: 99 }
     this.shakeT = 0
     this.shakeAmp = 0
@@ -1747,6 +1797,9 @@ export class PopcornEngine {
     // Летящий попкорн (пнутый лапкой): полёт, отскоки, попадания в босса
     this.updateThrownPieces(dt)
 
+    // Зёрна цыганки, летящие В ЭКРАН: растут в подлёте — шлепают по лапке
+    this.updateGypsySeeds(dt)
+
     // БОЛЬШАЯ ПОПКОРНИНА: побег, обратный отсчёт и выход на поле по расписанию
     this.updateBig(dt)
 
@@ -2230,6 +2283,8 @@ export class PopcornEngine {
     this.endReason = reason
     this.phase = 'ended'
     audio.stopMusic()
+    this.boss = null
+    this.seeds = [] // летящие в экран зёрна не переживают забег
     if (reason === 'voluntary') {
       /* Победный финал по воле игрока: радостный джингл вместо траурного гудка */
       audio.play('levelwin')
@@ -2241,9 +2296,9 @@ export class PopcornEngine {
     this.cb.onEnd?.({ score: Math.floor(this.score), level: this.lvl, reason })
   }
 
-  /** Потеря сердечка: мина, повторный клюв голубя или касание босса-малыша.
-      Ноль — поражение */
-  private loseHeart(where: 'mine' | 'pigeon' | 'boss'): void {
+  /** Потеря сердечка: мина, повторный клюв голубя, касание босса-малыша или
+      шлепок зерном цыганки о экран. Ноль — поражение */
+  private loseHeart(where: 'mine' | 'pigeon' | 'boss' | 'gypsy'): void {
     if (this.phase !== 'playing' || this.hearts <= 0) return
     const u = this.u
     this.hearts--
@@ -2251,13 +2306,13 @@ export class PopcornEngine {
     const hx =
       where === 'boss'
         ? (this.boss?.x ?? this.paw.x)
-        : where === 'mine'
+        : where === 'mine' || where === 'gypsy'
           ? this.paw.x
           : this.cup.x
     const hy =
       where === 'boss'
         ? (this.boss?.y ?? this.paw.y)
-        : where === 'mine'
+        : where === 'mine' || where === 'gypsy'
           ? this.paw.y - 64 * u
           : this.cup.y - this.cupH * 1.5
     this.texts.push({
@@ -2680,6 +2735,7 @@ export class PopcornEngine {
       side,
       hx: this.cup.x - side * PIGEON_BOSS_HOVER_DX * u,
       hy: Math.max(90, this.cup.y - PIGEON_BOSS_HOVER_DY * u),
+      loot: 0,
     }
     if (kind === 'pigeon') {
       /* Птица влетает с борта на высоте парения */
@@ -2716,6 +2772,17 @@ export class PopcornEngine {
         y: this.H * 0.32,
         text: this.L('txt.bossWarnPigeon'),
         color: '#C8CFD8',
+        t: 0,
+        dur: 2.8,
+        size: 22 * u,
+      })
+    } else if (kind === 'gypsy') {
+      this.banner = { text: this.L('banner.bossGypsy'), t: 0 }
+      this.texts.push({
+        x: this.W / 2,
+        y: this.H * 0.32,
+        text: this.L('txt.bossWarnGypsy'),
+        color: '#FFC93C',
         t: 0,
         dur: 2.8,
         size: 22 * u,
@@ -2836,8 +2903,36 @@ export class PopcornEngine {
       }
       }
       /* ЛАНА сама к корзинке не рвётся — за неё тянутся лапки (ниже).
-         ГОЛУБЬ парит и ПИКИРУЕТ клюнуть по таймеру как все */
-      if (b.kind !== 'marten') {
+         ГОЛУБЬ парит и ПИКИРУЕТ клюнуть по таймеру как все,
+         ЦЫГАНКА ныряет к РАССЫПАННЫМ зёрнам на полу */
+      if (b.kind === 'gypsy') {
+        b.atkT -= dt
+        if (b.atkT <= 0) {
+          // НЫРОК ЗА ЗЁРНАМИ: цель — случайное ЛЕЖАЩЕЕ зерно на поле.
+          // Красть нечего — не ныряет: зависнет и кидает «ИЗ РУКАВА»
+          const loose = this.pieces.filter((p) => (p.vx ?? 0) === 0 && p.spawn <= 0.12)
+          if (loose.length > 0) {
+            const tgt = loose[Math.floor(Math.random() * loose.length)]
+            if (tgt) {
+              b.hx = tgt.x
+              b.hy = tgt.y
+              const d = Math.hypot(b.hx - b.x, b.hy - b.y) || 1
+              const sp = GYPSY_DIVE_SPEED * u * BOSS_CHARGE_MULT_BY_KIND[b.kind]
+              b.vx = ((b.hx - b.x) / d) * sp
+              b.vy = ((b.hy - b.y) / d) * sp
+              b.state = 'charge'
+              b.stateT = 0
+              audio.play('pigeon')
+            }
+          } else {
+            b.state = 'throw'
+            b.stateT = 0
+            b.atkT = 0.4
+            b.vx = 0
+            b.vy = 0
+          }
+        }
+      } else if (b.kind !== 'marten') {
         b.atkT -= dt
         if (b.atkT <= 0) {
           // РЫВОК К КОРЗИНЕ: каждый следующий босс злее и быстрее
@@ -2896,15 +2991,29 @@ export class PopcornEngine {
     } else if (b.state === 'charge') {
       b.x += b.vx * dt
       b.y += b.vy * dt
-      if (Math.hypot(b.x - this.cup.x, b.y - this.cup.y) < 74 * u) {
+      /* МАЛЫШ/ЛЬВ/ГОЛУБЬ добрались до корзины; ЦЫГАНКА — до точки нырка */
+      const arrived =
+        b.kind === 'gypsy'
+          ? Math.hypot(b.x - b.hx, b.y - b.hy) < 30 * u
+          : Math.hypot(b.x - this.cup.x, b.y - this.cup.y) < 74 * u
+      if (arrived) {
         b.state = 'swat'
         b.stateT = 0
         b.swing = 1
-        this.bossSwat()
+        if (b.kind === 'gypsy') this.gypsyGrab()
+        else this.bossSwat()
       }
     } else if (b.state === 'swat') {
-      // клюёт/гребёт из корзины полсекунды — потом пятится и снова бродит
-      if (b.stateT > 0.55) {
+      // клюёт/гребёт из корзины полсекунды — потом пятится и снова бродит;
+      // ЦЫГАНКА сгребает быстрее и переходит к БРОСКАМ В ЭКРАН
+      if (b.stateT > (b.kind === 'gypsy' ? 0.3 : 0.55)) {
+        if (b.kind === 'gypsy') {
+          b.state = 'throw'
+          b.stateT = 0
+          b.atkT = 0.35
+          b.vx = 0
+          b.vy = 0
+        } else {
         b.state = 'wander'
         b.stateT = 0
         b.atkT =
@@ -2919,6 +3028,52 @@ export class PopcornEngine {
         } else {
           b.vx = ((b.x - this.cup.x) / d) * 130 * u
           b.vy = ((b.y - this.cup.y) / d) * 130 * u
+        }
+        }
+      }
+    } else if (b.state === 'throw') {
+      // ЦЫГАНКА висит над местом добычи и швыряет украденные зёрна В ЭКРАН,
+      // одно за другим. Кончилась добыча — злой бросок «ИЗ РУКАВА» —
+      // и обратно к бродяжничеству
+      const hoverK = Math.min(1, dt * 2)
+      b.x += (b.hx - b.x) * hoverK
+      b.y += (b.hy - b.y) * hoverK
+      b.atkT -= dt
+      if (b.atkT <= 0) {
+        if (b.loot > 0) {
+          b.loot--
+          b.swing = 1
+          this.gypsyThrow()
+          if (b.loot === 0) {
+            b.loot = -1 // маркер: очередь пуста — после прощального замаха уходит
+            b.atkT = 0.45
+          } else {
+            b.atkT = GYPSY_THROW_CD
+          }
+        } else {
+          if (b.loot === 0) {
+            // украла ноль — всё равно не скучаем: бросок «ИЗ РУКАВА»
+            b.loot = -1
+            b.swing = 1
+            this.texts.push({
+              x: b.x,
+              y: b.y - GYPSY_R * u * 1.3,
+              text: this.L('txt.gypsySleeve'),
+              color: '#FFC93C',
+              t: 0,
+              dur: 1,
+              size: 21 * u,
+            })
+            this.gypsyThrow()
+          }
+          b.state = 'wander'
+          b.stateT = 0
+          b.vx = 0
+          b.vy = 0
+          b.atkT =
+            Math.max(2.6, BOSS_CHARGE_BASE - bossTierForLevel(this.lvl) * 0.35) +
+            Math.random() * 0.7 -
+            BOSS_ATTACK_CUT_BY_KIND[b.kind]
         }
       }
     } else if (b.state === 'hurt') {
@@ -3029,7 +3184,68 @@ export class PopcornEngine {
           audio.play('click')
         }
       }
-    } else if (b.kind !== 'pigeon' && b.invuln <= 0 && this.stun <= 0) {
+    } else if (b.kind === 'gypsy') {
+      /* ЦЫГАНСКУЮ РУКУ ШЛЁПАЕМ ЛАПКОЙ — её единственная уязвимость.
+         Касание безвредно обеим сторонам: бей смело, как в голубя.
+         Свайп-сегмент кадра или сама лапка в радиусе ладони —
+         минус жизнь воровке. Опасность — её броски (seeds ниже) */
+      const gypsyVulnerable =
+        b.state === 'wander' ||
+        b.state === 'charge' ||
+        b.state === 'swat' ||
+        b.state === 'throw' ||
+        b.state === 'hurt'
+      if (gypsyVulnerable && b.invuln <= 0 && this.stun <= 0) {
+        /* Шлепок — АКТИВНОЕ движение лапки: рука, наткнувшаяся на
+           припаркованную лапку, бесплатной жизни не отдаёт */
+        const pawSpeed = Math.hypot(this.pawVX, this.pawVY)
+        if (pawSpeed > GYPSY_SLAP_MIN_SPEED * u) {
+          const dSw = segPointDist(this.pawPrevX, this.pawPrevY, this.paw.x, this.paw.y, b.x, b.y)
+          const dPaw = Math.hypot(this.paw.x - b.x, this.paw.y - b.y)
+          if (Math.min(dSw, dPaw) < (GYPSY_SLAP_R + 3) * u) {
+            b.invuln = GYPSY_HIT_CD
+            b.hp--
+            b.flash = 1
+            b.state = 'hurt'
+            b.stateT = 0
+            const d = Math.hypot(b.x - this.paw.x, b.y - this.paw.y) || 1
+            b.vx = ((b.x - this.paw.x) / d) * 210 * u
+            b.vy = ((b.y - this.paw.y) / d) * 210 * u
+            this.rings.push({
+              x: b.x,
+              y: b.y,
+              t: 0,
+              ttl: 0.4,
+              color: '255, 201, 60',
+              r0: 8 * u,
+              r1: 48 * u,
+            })
+            this.crumbs(b.x, b.y, '#FFC93C', 8)
+            this.doShake(4)
+            this.buzz(20)
+            if (b.hp <= 0) {
+              this.bossDown()
+            } else {
+              this.texts.push({
+                x: b.x,
+                y: b.y - GYPSY_R * u * 1.25,
+                text: this.L('txt.bossHit'),
+                color: '#FFFFFF',
+                t: 0,
+                dur: 0.7,
+                size: 22 * u,
+              })
+              audio.play('shoo')
+            }
+            this.emitStats(true)
+          }
+        }
+      }
+    } else if (
+      (b.kind === 'kid' || b.kind === 'lion' || b.kind === 'marten') &&
+      b.invuln <= 0 &&
+      this.stun <= 0
+    ) {
       const dtouch = Math.hypot(this.paw.x - b.x, this.paw.y - b.y)
       if (dtouch < (BOSS_TOUCH_R + 24) * u) {
         b.invuln = BOSS_TOUCH_CD
@@ -3104,6 +3320,108 @@ export class PopcornEngine {
       })
     }
     this.emitStats(true)
+  }
+
+  /* ================= ЦЫГАНСКАЯ РУКА: кражи с поля и броски в экран ================= */
+
+  /** ЦЫГАНКА сгребает РАССЫПАННЫЕ зёрна с поля — те, что котик не успел
+      подобрать. Собранное в стаканчике ей недоступно (она с полом возится) */
+  private gypsyGrab(): void {
+    const b = this.boss
+    if (!b) return
+    const u = this.u
+    let grabbed = 0
+    for (let i = this.pieces.length - 1; i >= 0 && grabbed < GYPSY_GRAB_MAX; i--) {
+      const p = this.pieces[i]
+      if (!p || p.spawn > 0.12) continue // ещё не проявилось — красть рано
+      if (Math.hypot(p.x - b.x, p.y - b.y) > GYPSY_GRAB_R * u) continue
+      this.pieces.splice(i, 1)
+      grabbed++
+      this.crumbs(p.x, p.y, '#FFF3D6', 3)
+      audio.play('click')
+    }
+    b.loot = grabbed
+    if (grabbed > 0) {
+      this.levelStolen += grabbed // «Чистая работа»: кража есть кража
+      this.breakStreak(b.x, b.y)
+      this.cup.squash = Math.max(this.cup.squash, 0.4) // лёгкий вздрагиватель
+      this.doShake(5)
+      this.texts.push({
+        x: b.x,
+        y: b.y - GYPSY_R * u * 1.25,
+        text: this.L('txt.stole'),
+        color: '#FF6B5E',
+        t: 0,
+        dur: 1,
+        size: 24 * u,
+      })
+      this.buzz(30)
+    }
+    this.emitStats(true)
+  }
+
+  /** БРОСОК В ЭКРАН: зерно летит к ТОЧКЕ, ГДЕ СЕЙЧАС ЛАПКА (фиксируется в
+      момент броска). Полёт ~1.25с, зерно РАСТЁТ — «летит на камеру». У цели
+      проявляется круг-телеграф: успей увести лапку! */
+  private gypsyThrow(): void {
+    const b = this.boss
+    if (!b) return
+    const u = this.u
+    this.seeds.push({
+      sx: b.x + (Math.random() - 0.5) * 24 * u,
+      sy: b.y + 12 * u,
+      tx: this.paw.x,
+      ty: this.paw.y,
+      t: 0,
+      rot: Math.random() * Math.PI * 2,
+      spin: (Math.random() < 0.5 ? -1 : 1) * 9,
+    })
+    audio.play('shoo')
+    this.buzz(15)
+  }
+
+  /** Полёт зёрен в экран: растут по мере подлёта, у цели — круг-телеграф.
+      Шлепок о экран: рядом с точкой прилёта — сердечко и оглохшая лапка
+      (стан, как от мины); промах — просто треск и крошки */
+  private updateGypsySeeds(dt: number): void {
+    if (this.seeds.length === 0) return
+    const u = this.u
+    for (let i = this.seeds.length - 1; i >= 0; i--) {
+      const s = this.seeds[i]
+      if (!s) continue
+      s.t += dt
+      s.rot += s.spin * dt
+      if (s.t < GYPSY_SEED_DUR) continue
+      // ШЛЁП О ЭКРАН: попало по лапке — сердечко и стан; мимо — просто треснуло
+      const hit = Math.hypot(this.paw.x - s.tx, this.paw.y - s.ty) < (GYPSY_SEED_POP_R + 10) * u
+      this.rings.push({
+        x: s.tx,
+        y: s.ty,
+        t: 0,
+        ttl: 0.35,
+        color: '255, 107, 94',
+        r0: 10 * u,
+        r1: 52 * u,
+      })
+      this.crumbs(s.tx, s.ty, '#FFF3D6', 6)
+      this.doShake(hit ? 7 : 3)
+      if (hit) {
+        this.stun = Math.max(0.4, MINE_SHOCK_SECONDS - (this.tree.stunCut ?? 0))
+        this.levelShock++
+        this.loseHeart('gypsy')
+        this.texts.push({
+          x: this.paw.x,
+          y: this.paw.y - 46 * u,
+          text: this.L('txt.gypsyHit'),
+          color: '#FF6B8A',
+          t: 0,
+          dur: 1,
+          size: 22 * u,
+        })
+      }
+      audio.play(hit ? 'penalty' : 'click')
+      this.seeds.splice(i, 1)
+    }
   }
 
   /* ================= ЛАНА-ВОРОВКА: лапки с когтями ================= */
@@ -3358,6 +3676,35 @@ export class PopcornEngine {
     b.state = 'flee'
     b.stateT = 0
     b.paws.length = 0
+    /* Украденное цыганкой вываливается обратно на пол — успей подобрать! */
+    if (b.loot > 0) {
+      for (let k = 0; k < b.loot; k++) {
+        this.pieces.push({
+          x: b.x + (Math.random() - 0.5) * 40 * u,
+          y: b.y + (Math.random() - 0.5) * 40 * u,
+          rot: Math.random() * Math.PI * 2,
+          kind: 'popcorn',
+          phase: Math.random() * Math.PI * 2,
+          spawn: 0,
+          spin: (Math.random() < 0.5 ? -1 : 1) * 6,
+          dA: 0,
+          vx: (Math.random() - 0.5) * 200 * u,
+          vy: -(100 + Math.random() * 150) * u,
+        })
+      }
+      b.loot = 0
+      this.texts.push({
+        x: b.x,
+        y: b.y + 40 * u,
+        text: this.L('txt.lootBack'),
+        color: '#FFF3D6',
+        t: 0,
+        dur: 0.9,
+        size: 21 * u,
+      })
+    }
+    /* Летящие в экран зёрна при победе растворяются — не бьют по уставшему */
+    this.seeds.length = 0
     const tier = Math.max(1, Math.floor(this.lvl / BOSS_EVERY))
     const bonus = BOSS_BONUS_BASE + (tier - 1) * BOSS_BONUS_PER_TIER
     this.score += bonus
@@ -3371,6 +3718,7 @@ export class PopcornEngine {
     if (b.kind === 'kid') this.bossKidKillsRun++
     else if (b.kind === 'lion') this.bossLionKillsRun++
     else if (b.kind === 'pigeon') this.bossPigeonKillsRun++
+    else if (b.kind === 'gypsy') this.bossGypsyKillsRun++
     else this.bossMartenKillsRun++
     this.bossCleanLast = this.hearts >= this.bossHeartsAtSpawn
     const downKey =
@@ -3380,7 +3728,9 @@ export class PopcornEngine {
           ? 'txt.bossDownMarten'
           : b.kind === 'pigeon'
             ? 'txt.bossDownPigeon'
-            : 'txt.bossDown'
+            : b.kind === 'gypsy'
+              ? 'txt.bossDownGypsy'
+              : 'txt.bossDown'
     this.texts.push({
       x: b.x,
       y: b.y - 50 * u,
@@ -3459,6 +3809,28 @@ export class PopcornEngine {
                 size: 20 * u,
               })
               this.crumbs(p.x, p.y, '#E8E4DC', 5)
+              audio.play('click')
+            }
+          }
+          continue
+        }
+        if (b.kind === 'gypsy') {
+          /* Зерно по цыганке НЕ БЕРЁТ — её ШЛЁПАЕТ только лапка */
+          if (Math.hypot(p.x - b.x, p.y - b.y) < hitR) {
+            p.vx = -vx * 0.6 + (Math.random() - 0.5) * 110 * u
+            p.vy = -vy * 0.6 + (Math.random() - 0.5) * 110 * u
+            if (b.deflectCd <= 0) {
+              b.deflectCd = 0.9
+              this.texts.push({
+                x: b.x,
+                y: b.y - GYPSY_R * u * 1.3,
+                text: this.L('txt.gypsySlap'),
+                color: '#FFC93C',
+                t: 0,
+                dur: 0.9,
+                size: 20 * u,
+              })
+              this.crumbs(p.x, p.y, '#FFF3D6', 5)
               audio.play('click')
             }
           }
@@ -3645,7 +4017,7 @@ export class PopcornEngine {
       : this.feverAfter >= 0
         ? this.lastFeverGained
         : 0
-    const key = `${this.score}|${this.lvl}|${this.quota}|${this.collected}|${this.carried.length}|${sec}|${this.paused}|${this.streak}|${this.goldenCount}|${this.pigeonsRun}|${fever}|${feverGained}|${this.wave}|${this.shieldLeft}|${this.runGrains}|${this.runNipples}|${this.minesHit}|${this.shieldSaves}|${this.hearts}|${this.maxHearts}|${this.bigCaught}|${this.bigCaramelRun}|${this.bigCherryRun}|${this.bigGrapeRun}|${this.bossCoinsRun}|${this.goldCoinsRun}|${this.bossKillsRun}|${this.bossKidKillsRun}|${this.bossLionKillsRun}|${this.bossMartenKillsRun}|${this.bossPigeonKillsRun}|${this.bossCleanLast ? 1 : 0}|${this.boss ? `${this.boss.hp}/${this.boss.maxHp}` : '-'}`
+    const key = `${this.score}|${this.lvl}|${this.quota}|${this.collected}|${this.carried.length}|${sec}|${this.paused}|${this.streak}|${this.goldenCount}|${this.pigeonsRun}|${fever}|${feverGained}|${this.wave}|${this.shieldLeft}|${this.runGrains}|${this.runNipples}|${this.minesHit}|${this.shieldSaves}|${this.hearts}|${this.maxHearts}|${this.bigCaught}|${this.bigCaramelRun}|${this.bigCherryRun}|${this.bigGrapeRun}|${this.bossCoinsRun}|${this.goldCoinsRun}|${this.bossKillsRun}|${this.bossKidKillsRun}|${this.bossLionKillsRun}|${this.bossMartenKillsRun}|${this.bossPigeonKillsRun}|${this.bossGypsyKillsRun}|${this.bossCleanLast ? 1 : 0}|${this.boss ? `${this.boss.hp}/${this.boss.maxHp}` : '-'}`
     if (!force && key === this.lastStatsKey) return
     this.lastStatsKey = key
     this.cb.onStats({
@@ -3684,6 +4056,7 @@ export class PopcornEngine {
       bossLionKills: this.bossLionKillsRun,
       bossMartenKills: this.bossMartenKillsRun,
       bossPigeonKills: this.bossPigeonKillsRun,
+      bossGypsyKills: this.bossGypsyKillsRun,
       bossClean: this.bossCleanLast,
       boss: !!this.boss,
       bossHp: this.boss?.hp ?? 0,
@@ -3779,6 +4152,8 @@ export class PopcornEngine {
     this.drawPieces(ts)
     if (this.pigeon && this.phase === 'playing') this.drawPigeon(ts)
     if (this.boss && this.phase === 'playing') this.drawBoss()
+    // Зёрна, летящие В ЭКРАН: растут по подлёту, у цели — круг-телеграф
+    if (this.seeds.length > 0) this.drawGypsySeeds(ts)
     /* ЛАНА: длинные лапки с когтями — поверх босса и корзинки */
     if (this.boss && this.boss.paws.length > 0) this.drawLanaPaws()
     this.drawFlying()
@@ -4238,6 +4613,115 @@ export class PopcornEngine {
       ctx.closePath()
       ctx.fill()
       ctx.restore()
+    } else if (b.kind === 'gypsy') {
+      /* ═══════ ЦЫГАНСКАЯ РУКА: огромная ладонь в кольцах (v0.0.39) ═══════
+         Тянется с потолка, сгребает рассыпанные зёрна и швыряет их В ЭКРАН.
+         Сама рука — мишень: шлёпай лапкой по ладони! */
+      const skin = '#C98A5E'
+      const skinHi = '#DCA579'
+      const skinLo = '#A96F44'
+      const gold = '#FFC93C'
+      const goldLo = '#E8A81C'
+      // предплечье: лента от потолка к ладони, слегка изгибается
+      ctx.strokeStyle = skin
+      ctx.lineWidth = R * 0.78
+      ctx.lineCap = 'round'
+      ctx.beginPath()
+      ctx.moveTo(wob * 10 * u, -R * 2.7)
+      ctx.quadraticCurveTo(R * 0.16, -R * 1.5, 0, -R * 0.5)
+      ctx.stroke()
+      ctx.strokeStyle = skinHi
+      ctx.lineWidth = R * 0.3
+      ctx.beginPath()
+      ctx.moveTo(wob * 10 * u - R * 0.2, -R * 2.5)
+      ctx.quadraticCurveTo(R * 0.02, -R * 1.5, -R * 0.14, -R * 0.62)
+      ctx.stroke()
+      // пышный рукав с золотой оторочкой — из темноты кулис
+      ctx.fillStyle = '#8E3B5C'
+      ctx.beginPath()
+      ctx.ellipse(wob * 10 * u, -R * 2.55, R * 0.78, R * 0.4, 0, 0, Math.PI * 2)
+      ctx.fill()
+      ctx.strokeStyle = gold
+      ctx.lineWidth = 3.5 * u
+      ctx.beginPath()
+      ctx.ellipse(wob * 10 * u, -R * 2.3, R * 0.66, R * 0.16, 0, 0, Math.PI * 2)
+      ctx.stroke()
+      // БРАСЛЕТ из монеток на запястье — позвякивает при движениях
+      for (let i = -1; i <= 1; i++) {
+        const cxx = i * R * 0.24 + Math.sin(b.wobble * 2.2 + i) * 2.5 * u
+        const cyy = -R * 0.92
+        ctx.fillStyle = i === 0 ? gold : goldLo
+        ctx.beginPath()
+        ctx.arc(cxx, cyy, R * 0.15, 0, Math.PI * 2)
+        ctx.fill()
+        ctx.fillStyle = 'rgba(255, 255, 255, 0.75)'
+        ctx.beginPath()
+        ctx.arc(cxx - R * 0.05, cyy - R * 0.05, R * 0.045, 0, Math.PI * 2)
+        ctx.fill()
+      }
+      /* Ладонь с пальцами: при броске вся кисть делает ЗАМАХ от запястья */
+      const throwA = b.swing > 0 ? Math.sin(Math.min(1, b.swing) * Math.PI) * 0.42 : 0
+      ctx.save()
+      ctx.translate(0, -R * 0.55)
+      ctx.rotate(throwA)
+      ctx.translate(0, R * 0.55)
+      // ЛАДОНЬ: пухлая, с большим пальцем сбоку
+      ctx.fillStyle = skin
+      ctx.beginPath()
+      ctx.ellipse(0, 0, R * 0.72, R * 0.6, 0, 0, Math.PI * 2)
+      ctx.fill()
+      // большой палец врозь с ноготком
+      ctx.save()
+      ctx.rotate(-0.55)
+      ctx.fillStyle = skin
+      ctx.beginPath()
+      ctx.ellipse(-R * 0.78, R * 0.12, R * 0.34, R * 0.17, 0, 0, Math.PI * 2)
+      ctx.fill()
+      ctx.fillStyle = '#D8485E'
+      ctx.beginPath()
+      ctx.ellipse(-R * 1.08, R * 0.16, R * 0.1, R * 0.08, 0, 0, Math.PI * 2)
+      ctx.fill()
+      ctx.restore()
+      // четыре пальца ВНИЗ — веером, на кончиках красные ноготки
+      const gypFingers = [-0.4, -0.14, 0.14, 0.42]
+      for (let i = 0; i < gypFingers.length; i++) {
+        const fx = (gypFingers[i] ?? 0) * R
+        const fl = R * (0.52 + (i === 1 || i === 2 ? 0.16 : 0)) // средние длиннее
+        ctx.strokeStyle = skin
+        ctx.lineWidth = R * 0.23
+        ctx.lineCap = 'round'
+        ctx.beginPath()
+        ctx.moveTo(fx, R * 0.32)
+        ctx.quadraticCurveTo(fx + Math.sin(b.wobble * 1.8 + i) * 4 * u, R * 0.62, fx, R * 0.32 + fl)
+        ctx.stroke()
+        ctx.fillStyle = '#D8485E'
+        ctx.beginPath()
+        ctx.ellipse(fx, R * 0.34 + fl, R * 0.085, R * 0.1, 0, 0, Math.PI * 2)
+        ctx.fill()
+        // КОЛЬЦА: на среднем и безымянном — золото с камнем
+        if (i === 1 || i === 2) {
+          const ry = R * 0.5
+          ctx.strokeStyle = gold
+          ctx.lineWidth = 4.5 * u
+          ctx.beginPath()
+          ctx.ellipse(fx, ry, R * 0.16, R * 0.1, 0, 0, Math.PI * 2)
+          ctx.stroke()
+          ctx.fillStyle = i === 1 ? '#E5342E' : '#3E9C6B'
+          ctx.beginPath()
+          ctx.arc(fx, ry - R * 0.1, R * 0.075, 0, Math.PI * 2)
+          ctx.fill()
+        }
+      }
+      // линии ладони — рука оживает
+      ctx.strokeStyle = skinLo
+      ctx.lineWidth = 2 * u
+      ctx.beginPath()
+      ctx.arc(R * 0.1, R * 0.05, R * 0.3, Math.PI * 1.15, Math.PI * 1.75)
+      ctx.stroke()
+      ctx.beginPath()
+      ctx.arc(R * 0.05, R * 0.12, R * 0.2, Math.PI * 1.1, Math.PI * 1.8)
+      ctx.stroke()
+      ctx.restore()
     } else {
       /* ═══════ МАЛЫШ: как был — комбинезончик и хохолок ═══════ */
       // ножки-коротышки: шаркают вразнобой
@@ -4364,6 +4848,44 @@ export class PopcornEngine {
         ctx.strokeStyle = '#FFFFFF'
         ctx.lineWidth = Math.max(1.5, 1.5 * u)
         ctx.strokeRect(bx - 2 * u, by - 2 * u, bw + 4 * u, bh + 4 * u)
+        ctx.restore()
+      }
+    }
+  }
+
+  /** ЗЁРНА В ЭКРАН: растущая попкорнинка летит к цели + пульсирующий
+      круг-телеграф у точки прилёта — успей увести лапку! */
+  private drawGypsySeeds(ts: number): void {
+    const { ctx } = this
+    const u = this.u
+    for (const s of this.seeds) {
+      const p = Math.min(1, s.t / GYPSY_SEED_DUR)
+      const x = s.sx + (s.tx - s.sx) * p
+      const y = s.sy + (s.ty - s.sy) * p
+      // ТЕЛЕГРАФ: круг у цели проявляется по мере подлёта
+      ctx.save()
+      ctx.globalAlpha = 0.16 + 0.3 * p + 0.08 * Math.sin(ts * 0.02)
+      ctx.strokeStyle = '#FF6B5E'
+      ctx.lineWidth = Math.max(1.5, 2.5 * u)
+      ctx.setLineDash([7 * u, 6 * u])
+      ctx.beginPath()
+      ctx.arc(s.tx, s.ty, GYPSY_SEED_POP_R * u * (0.55 + 0.45 * p), 0, Math.PI * 2)
+      ctx.stroke()
+      ctx.restore()
+      // САМО ЗЕРНО: растёт с ускорением — «летит НА КАМЕРУ»
+      const grow = 0.5 + 1.9 * p * p
+      drawSprite(ctx, this.sp.popcorn, x, y, 2.6 * this.popScale * u * grow, {
+        rot: s.rot,
+      })
+      // блик по краю — объём
+      if (this.perfTier < 1) {
+        ctx.save()
+        ctx.globalAlpha = 0.5 + 0.5 * p
+        ctx.strokeStyle = '#FFFFFF'
+        ctx.lineWidth = Math.max(1, 1.6 * u)
+        ctx.beginPath()
+        ctx.arc(x, y, (10 + 16 * grow) * u * this.popScale, Math.PI * 0.9, Math.PI * 1.6)
+        ctx.stroke()
         ctx.restore()
       }
     }

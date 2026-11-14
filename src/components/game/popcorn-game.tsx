@@ -3665,6 +3665,7 @@ export function PopcornGame() {
     bossLionKills: 0,
     bossMartenKills: 0,
     bossPigeonKills: 0,
+    bossGypsyKills: 0,
     bossClean: false,
     bossCoins: 0,
     goldCoins: 0,
@@ -3733,6 +3734,7 @@ export function PopcornGame() {
   const prevBossLionRef = useRef(0)
   const prevBossMartenRef = useRef(0)
   const prevBossPigeonRef = useRef(0)
+  const prevBossGypsyRef = useRef(0)
   /** Уровень котика на старте забега — экран результатов покажет повышение.
       Дубль в состоянии для рендера + ref для колбэков движка */
   const [runStartLevel, setRunStartLevel] = useState(1)
@@ -4702,20 +4704,24 @@ export function PopcornGame() {
           const dLion = Math.max(0, s.bossLionKills - prevBossLionRef.current)
           const dMarten = Math.max(0, s.bossMartenKills - prevBossMartenRef.current)
           const dPigeon = Math.max(0, s.bossPigeonKills - prevBossPigeonRef.current)
+          const dGypsy = Math.max(0, s.bossGypsyKills - prevBossGypsyRef.current)
           if (dLion > 0) announceAch(['lion1'])
           if (dMarten > 0) announceAch(['marten1'])
           if (dPigeon > 0) announceAch(['pigeonBoss1'])
+          if (dGypsy > 0) announceAch(['gypsyBoss1'])
           addLife({
             bossKills: s.bossKills - prevBossKillsRef.current,
             bossLionKills: dLion,
             bossMartenKills: dMarten,
             bossPigeonKills: dPigeon,
+            bossGypsyKills: dGypsy,
           })
           prevBossKillsRef.current = s.bossKills
           prevBossKidRef.current = s.bossKidKills
           prevBossLionRef.current = s.bossLionKills
           prevBossMartenRef.current = s.bossMartenKills
           prevBossPigeonRef.current = s.bossPigeonKills
+          prevBossGypsyRef.current = s.bossGypsyKills
         } else if (s.bossKills < prevBossKillsRef.current) {
           /* Новый забег: счётчики сбросились */
           prevBossKillsRef.current = s.bossKills
@@ -4723,6 +4729,7 @@ export function PopcornGame() {
           prevBossLionRef.current = s.bossLionKills
           prevBossMartenRef.current = s.bossMartenKills
           prevBossPigeonRef.current = s.bossPigeonKills
+          prevBossGypsyRef.current = s.bossGypsyKills
         }
         /* Живой чип опыта 🍿 в панели сверху — опыт за забег виден сразу */
         if (runXpGainRef.current !== lastRunXpShownRef.current) {
@@ -5131,6 +5138,8 @@ export function PopcornGame() {
     prevBossKidRef.current = 0
     prevBossLionRef.current = 0
     prevBossMartenRef.current = 0
+    prevBossPigeonRef.current = 0
+    prevBossGypsyRef.current = 0
     setPerk(startPerk)
     lockOrientation(settingsRef.current.orientation)
     setPhase('playing')
@@ -5512,7 +5521,9 @@ export function PopcornGame() {
                     ? '🦡'
                     : hudBossKind === 'pigeon'
                       ? '🐦'
-                      : '👶'}
+                      : hudBossKind === 'gypsy'
+                        ? '💅'
+                        : '👶'}
               </span>
               <span className="font-pixel">
                 {hudBossKind === 'lion'
@@ -5521,7 +5532,9 @@ export function PopcornGame() {
                     ? t('hud.bossMarten')
                     : hudBossKind === 'pigeon'
                       ? t('hud.bossPigeon')
-                      : t('hud.boss')}
+                      : hudBossKind === 'gypsy'
+                        ? t('hud.bossGypsy')
+                        : t('hud.boss')}
               </span>
               <span className="flex items-center gap-px" aria-hidden>
                 {Array.from({ length: stats.bossMaxHp }).map((_, i) => (
