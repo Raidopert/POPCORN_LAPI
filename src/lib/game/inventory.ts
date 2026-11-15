@@ -123,6 +123,65 @@ export const RARITY_COLOR: Record<Rarity, { border: string; text: string; bg: st
   legendary: { border: 'border-[#C979F0]', text: 'text-[#9A4ED6]', bg: 'bg-[#f6ecff]' },
 }
 
+/* ════════════════ Коготки из нарезки (0.0.57) ════════════════ */
+
+/** Цвета коготков: морозный / солнечный / сумеречный / пантера */
+export type ClawId = 'claw-frost' | 'claw-sun' | 'claw-dusk' | 'claw-panther'
+
+export interface ClawDef {
+  id: ClawId
+  rarity: Rarity
+  /** Путь к мини-рисунку в public/inventory */
+  icon: string
+  /** Цена продажи в монетках 🪙 */
+  sell: number
+  /** Вес в рулетке когтей (пантера — самая редкая) */
+  weight: number
+}
+
+/**
+ * Коготки (0.0.57) выпадают из ГИГАНТСКОЙ попкорнины бонус-нарезки:
+ *  - МОРОЗНЫЙ (сине-голубой) → воришки-голуби медленнее на 25%;
+ *  - СОЛНЕЧНЫЙ (бело-золотой) → +15% опыта (сундучки и этапы);
+ *  - СУМЕРЕЧНЫЙ (фиолетовый) → «девятая жизнь» дважды за забег;
+ *  - КОГОТЬ СУПЕР-ПАНТЕРЫ (леопардовый, 5%) → мины безвредны
+ *    на первых 10 этапах забега.
+ * Слоты лапки закреплены за цветом: 4 квадратика под артефактами.
+ */
+export const CLAW_DEFS: ReadonlyArray<ClawDef> = [
+  { id: 'claw-frost', rarity: 'common', icon: '/inventory/claw-frost.png', sell: 40, weight: 50 },
+  { id: 'claw-sun', rarity: 'rare', icon: '/inventory/claw-sun.png', sell: 120, weight: 30 },
+  { id: 'claw-dusk', rarity: 'epic', icon: '/inventory/claw-dusk.png', sell: 300, weight: 15 },
+  { id: 'claw-panther', rarity: 'legendary', icon: '/inventory/claw-panther.png', sell: 1000, weight: 5 },
+]
+
+export const CLAW_MAP: Record<ClawId, ClawDef> = CLAW_DEFS.reduce(
+  (acc, d) => {
+    acc[d.id] = d
+    return acc
+  },
+  {} as Record<ClawId, ClawDef>,
+)
+
+export const isClawId = (v: unknown): v is ClawId =>
+  typeof v === 'string' && v in CLAW_MAP
+
+/** Шанс коготка из одной нарезки (0.0.57, выбор игрока: щедрый вариант) */
+export const CLAW_DROP_CHANCE = 0.55
+
+const clawWeightTotal = CLAW_DEFS.reduce((s, d) => s + d.weight, 0)
+
+/** Рулетка нарезки: null — коготок не выпал, иначе его определение */
+export function rollClawDef(): ClawDef | null {
+  if (Math.random() >= CLAW_DROP_CHANCE) return null
+  let r = Math.random() * clawWeightTotal
+  for (const d of CLAW_DEFS) {
+    r -= d.weight
+    if (r <= 0) return d
+  }
+  return CLAW_DEFS[0]
+}
+
 /* ════════════════ Состояние ════════════════ */
 
 /** Экземпляр предмета на складе (uid — чтобы продавать/надевать поштучно) */
@@ -133,15 +192,27 @@ export interface InvItem {
   ts: number
 }
 
+/** Экземпляр коготка на складе (0.0.57) */
+export interface ClawItem {
+  uid: string
+  id: ClawId
+  /** Время дропа (мс) — для NEW-подсветки */
+  ts: number
+}
+
 export interface InventoryState {
   /** Склад: до 36 ячеек на страницу, 72 со второй страницей */
   items: InvItem[]
+  /** Коготки на складе (0.0.57) — та же сетка, свой список */
+  claws: ClawItem[]
   /** Надетый ошейник (uid из items) */
   collar: string | null
   /** Надетый браслет (uid из items) */
   bracelet: string | null
   /** Надетый венец (uid из items) */
   crown: string | null
+  /** Надетые коготки: слот закреплён за цветом (0.0.57) */
+  clawSlots: Partial<Record<ClawId, string>>
   /** Надетые артефакты ЛАВКИ (0.0.54) — бонус действует, пока надет */
   arts: ArtifactId[]
   /** Вторая страница склада куплена (0.0.54) */
@@ -168,9 +239,11 @@ export const PAGE2_PRICE = 2000
 
 export const DEFAULT_INVENTORY: InventoryState = {
   items: [],
+  claws: [],
   collar: null,
   bracelet: null,
   crown: null,
+  clawSlots: {},
   arts: [],
   page2: false,
   lastOpened: 0,
@@ -205,6 +278,23 @@ export function loadInventory(): InventoryState {
     const uids = new Set(items.map((i) => i.uid))
     const eq = (v: unknown): string | null =>
       typeof v === 'string' && uids.has(v) ? v : null
+    /* 0.0.57: коготки — мягкая миграция старых сейвов */
+    const claws: ClawItem[] = []
+    if (Array.isArray(o.claws)) {
+      for (const it of o.claws.slice(0, INV_MAX)) {
+        const rec = it as Record<string, unknown>
+        if (isClawId(rec.id) && typeof rec.uid === 'string') {
+          claws.push({ uid: rec.uid, id: rec.id, ts: Math.max(0, Number(rec.ts) || 0) })
+        }
+      }
+    }
+    const clawUids = new Set(claws.map((c) => c.uid))
+    const clawSlots: Partial<Record<ClawId, string>> = {}
+    if (o.clawSlots && typeof o.clawSlots === 'object') {
+      for (const [k, v] of Object.entries(o.clawSlots as Record<string, unknown>)) {
+        if (isClawId(k) && typeof v === 'string' && clawUids.has(v)) clawSlots[k] = v
+      }
+    }
     /* 0.0.54 миграция: у старых сейвов артефакты ЛАВКИ действовали сразу после
        покупки — надеваем все купленные, чтобы бонусы не пропали */
     const arts = Array.isArray(o.arts)
@@ -217,9 +307,11 @@ export function loadInventory(): InventoryState {
     for (const it of items) everSet.add(it.id)
     return {
       items,
+      claws,
       collar: eq(o.collar),
       bracelet: eq(o.bracelet),
       crown: eq(o.crown),
+      clawSlots,
       arts,
       page2: o.page2 === true,
       lastOpened: Math.max(0, Math.floor(Number(o.lastOpened) || 0)),
@@ -264,12 +356,15 @@ const newUid = (): string => `i${Date.now().toString(36)}${Math.floor(Math.rando
 /* ════════════════ NEW-подсветка ════════════════ */
 
 /** Предмет ещё не видели в инвентаре (дроп после последнего открытия) */
-export const isNewItem = (item: InvItem, lastOpened: number): boolean =>
+export const isNewItem = (item: { ts: number }, lastOpened: number): boolean =>
   item.ts > 0 && item.ts > lastOpened
 
-/** Сколько новинок ждёт на складе — бейдж на кнопке ИНВЕНТАРЬ */
+/** Сколько новинок ждёт на складе — бейдж на кнопке ИНВЕНТАРЬ (0.0.57: и коготки) */
 export function countNewItems(state: InventoryState = getInventorySnapshot()): number {
-  return state.items.reduce((n, it) => n + (isNewItem(it, state.lastOpened) ? 1 : 0), 0)
+  return (
+    state.items.reduce((n, it) => n + (isNewItem(it, state.lastOpened) ? 1 : 0), 0) +
+    state.claws.reduce((n, it) => n + (isNewItem(it, state.lastOpened) ? 1 : 0), 0)
+  )
 }
 
 /** Открыли инвентарь: всё, что было на складе, — уже видели */
@@ -304,11 +399,15 @@ export function rollInvDef(): InvDef {
   return INV_DEFS[0]
 }
 
+/** Склад полон? Коготки лежат в тех же ячейках (0.0.57) */
+export const storageFull = (s: InventoryState): boolean =>
+  s.items.length + s.claws.length >= storageCap(s)
+
 /** Уронить предмет сундучка на склад. Если склад полон — автопродажа */
 export function dropInvItem(): DropResult {
   const def = rollInvDef()
   const cur = getInventorySnapshot()
-  if (cur.items.length >= storageCap(cur)) {
+  if (storageFull(cur)) {
     return { def, stored: false, coins: def.sell }
   }
   const item: InvItem = { uid: newUid(), id: def.id, ts: Date.now() }
@@ -318,18 +417,31 @@ export function dropInvItem(): DropResult {
   return { def, stored: true, coins: 0 }
 }
 
-/** Продать предмет со склада: возвращает монетки (0 — не найден) */
+/** Продать предмет или коготок со склада: возвращает монетки (0 — не найден) */
 export function sellInvItem(uid: string): number {
   const cur = getInventorySnapshot()
   const item = cur.items.find((i) => i.uid === uid)
-  if (!item) return 0
-  const coins = INV_MAP[item.id].sell
+  if (item) {
+    const coins = INV_MAP[item.id].sell
+    saveInventory({
+      ...cur,
+      items: cur.items.filter((i) => i.uid !== uid),
+      collar: cur.collar === uid ? null : cur.collar,
+      bracelet: cur.bracelet === uid ? null : cur.bracelet,
+      crown: cur.crown === uid ? null : cur.crown,
+      sold: cur.sold + 1,
+    })
+    return coins
+  }
+  const claw = cur.claws.find((i) => i.uid === uid)
+  if (!claw) return 0
+  const coins = CLAW_MAP[claw.id].sell
+  const slots = { ...cur.clawSlots }
+  if (slots[claw.id] === uid) delete slots[claw.id]
   saveInventory({
     ...cur,
-    items: cur.items.filter((i) => i.uid !== uid),
-    collar: cur.collar === uid ? null : cur.collar,
-    bracelet: cur.bracelet === uid ? null : cur.bracelet,
-    crown: cur.crown === uid ? null : cur.crown,
+    claws: cur.claws.filter((i) => i.uid !== uid),
+    clawSlots: slots,
     sold: cur.sold + 1,
   })
   return coins
@@ -441,6 +553,81 @@ export function buyPage2(): boolean {
   if (cur.page2) return false
   saveInventory({ ...cur, page2: true })
   return true
+}
+
+/* ════════════════ Коготки: склад, слоты, бонусы (0.0.57) ════════════════ */
+
+/** Результат падения коготка: положен на склад ИЛИ склад полон (автопродажа) */
+export interface ClawDropResult {
+  def: ClawDef
+  stored: boolean
+  /** Монетки при автопродаже (0, если коготок хранится) */
+  coins: number
+}
+
+/** Уронить коготок из нарезки на склад. Если склад полон — автопродажа */
+export function addClawToStorage(def: ClawDef): ClawDropResult {
+  const cur = getInventorySnapshot()
+  if (storageFull(cur)) {
+    return { def, stored: false, coins: def.sell }
+  }
+  const item: ClawItem = { uid: newUid(), id: def.id, ts: Date.now() }
+  saveInventory({ ...cur, claws: [...cur.claws, item] })
+  return { def, stored: true, coins: 0 }
+}
+
+/** Коготок сейчас в своём слоте? (uid жив и лежит на складе) */
+export function clawEquipped(state: InventoryState, id: ClawId): boolean {
+  const uid = state.clawSlots[id]
+  return !!uid && state.claws.some((c) => c.uid === uid)
+}
+
+/** Надеть коготок по uid в слот своего цвета */
+export function equipClaw(uid: string): boolean {
+  const cur = getInventorySnapshot()
+  const claw = cur.claws.find((i) => i.uid === uid)
+  if (!claw) return false
+  saveInventory({ ...cur, clawSlots: { ...cur.clawSlots, [claw.id]: uid } })
+  return true
+}
+
+/** Снять коготок со слота */
+export function unequipClaw(id: ClawId): boolean {
+  const cur = getInventorySnapshot()
+  if (!cur.clawSlots[id]) return false
+  const slots = { ...cur.clawSlots }
+  delete slots[id]
+  saveInventory({ ...cur, clawSlots: slots })
+  return true
+}
+
+export interface ClawBonuses {
+  /** Замедление воришек-голубей (0..0.6) — морозный коготок */
+  pigeonSlow: number
+  /** Множитель опыта — солнечный коготок */
+  xpMult: number
+  /** «Девятая жизнь» дважды за забег — сумеречный коготок */
+  revives: number
+  /** Этапов иммунитета к минам с начала забега — коготь пантеры */
+  mineImmuneStages: number
+}
+
+export const ZERO_CLAW_BONUS: ClawBonuses = {
+  pigeonSlow: 0,
+  xpMult: 1,
+  revives: 0,
+  mineImmuneStages: 0,
+}
+
+/** Бонусы надетых коготков (0.0.57) */
+export function clawBonuses(state: InventoryState = getInventorySnapshot()): ClawBonuses {
+  const on = (id: ClawId): boolean => clawEquipped(state, id)
+  return {
+    pigeonSlow: on('claw-frost') ? 0.25 : 0,
+    xpMult: on('claw-sun') ? 1.15 : 1,
+    revives: on('claw-dusk') ? 2 : 0,
+    mineImmuneStages: on('claw-panther') ? 10 : 0,
+  }
 }
 
 /* ════════════════ Ачивки инвентаря ════════════════ */

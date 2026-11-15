@@ -784,6 +784,8 @@ export class PopcornEngine {
   private collected = 0
   /** Постоянные улучшения из магазина лапок (действуют весь забег и все забеги) */
   private pawBonus: PawBonus = {}
+  /** Коготки на лапке (0.0.57): замедление воришек, вторые шансы, броня от мин */
+  private clawBonus: { pigeonSlow?: number; revives?: number; mineImmuneStages?: number } = {}
   /** v0.0.35 «примерка»: текущий стиль отрисовки лапки (0..PAW_STYLE_COUNT-1) */
   private pawStyle = PAW_DEFAULT_STYLE
   /** Текущий скин из магазина — палитра сохраняется при смене стиля */
@@ -898,8 +900,9 @@ export class PopcornEngine {
   private heartLost = 0
   /** Почему закончился забег */
   private endReason: EndResult['reason'] = 'time'
-  /* --- «Девятая жизнь»: второй шанс уже использован в этом забеге? --- */
-  private lifeUsed = false
+  /* --- «Девятая жизнь»: сколько вторых шансов осталось в этом забеге.
+      0.0.57: сумеречный коготок даёт два, апгрейд — один (0 без обоих) --- */
+  private revivesLeft = 0
   /* --- «Лихорадка»: рандомный бонусный уровень на 3 секунды --- */
   private fever: { gained: number; startScore: number; next: number; coinT: number } | null = null
   private feverMine = false
@@ -1082,6 +1085,15 @@ export class PopcornEngine {
     this.mess = m
   }
 
+  /** Коготки на лапке (0.0.57): бонусы действуют, пока предмет надет.
+      revives: сколько вторых шансов в забеге (2 — сумеречный коготок;
+      1 — купленная «девятая жизнь»; 0 — ничего не надето/не куплено).
+      Надетый посреди забега коготок добавляет шансы, не убирая уже данные */
+  setClawBonuses(b: { pigeonSlow?: number; revives?: number; mineImmuneStages?: number }): void {
+    this.clawBonus = b
+    this.revivesLeft = Math.max(this.revivesLeft, Math.floor(b.revives ?? 0))
+  }
+
   /** Настройки из меню: сложность, качество, тряска, вибрация, дальтоник, голубь */
   setOptions(o: Partial<EngineOptions>): void {
     this.opts = { ...this.opts, ...o }
@@ -1134,7 +1146,7 @@ export class PopcornEngine {
     this.pawKnockX = 0
     this.pawKnockY = 0
     this.big = null
-    this.lifeUsed = false
+    this.revivesLeft = Math.floor(this.clawBonus.revives ?? 0)
     this.fever = null
     this.feverAfter = -1
     this.feverResume = null
@@ -1534,11 +1546,12 @@ export class PopcornEngine {
     return true
   }
 
-  /** «Девятая жизнь»: один раз за забег продолжить проваленный уровень (+15 секунд).
+  /** «Девятая жизнь»: продолжить проваленный уровень (+15 секунд).
+      0.0.57: шансов может быть два (сумеречный коготок).
       Возвращает true, если второй шанс сработал. */
   revive(): boolean {
-    if (this.phase !== 'ended' || this.lifeUsed) return false
-    this.lifeUsed = true
+    if (this.phase !== 'ended' || this.revivesLeft <= 0) return false
+    this.revivesLeft--
     this.phase = 'playing'
     this.paused = false
     this.stun = 0
@@ -1555,9 +1568,9 @@ export class PopcornEngine {
     return true
   }
 
-  /** Использован ли второй шанс в текущем забеге */
-  get lifeSpent(): boolean {
-    return this.lifeUsed
+  /** Сколько вторых шансов осталось в текущем забеге */
+  get revivesRemaining(): number {
+    return this.revivesLeft
   }
 
   /** Координаты в системе игрового поля (трансформации экрана считает компонент) */
@@ -2121,7 +2134,23 @@ export class PopcornEngine {
             r0: 10 * u,
             r1: 64 * u * (0.7 + 0.3 * this.cornScale),
           })
-          if (this.fever) {
+          const clawImmune =
+            (this.clawBonus.mineImmuneStages ?? 0) > 0 &&
+            this.lvl <= (this.clawBonus.mineImmuneStages ?? 0)
+          if (clawImmune) {
+            // «Коготь Супер-пантеры» (0.0.57): первые этапы забега мины безвредны
+            this.texts.push({
+              x: this.paw.x,
+              y: this.paw.y - 34 * u,
+              text: this.L('txt.panther'),
+              color: '#FCE1A8',
+              t: 0,
+              dur: 0.9,
+              size: 22 * u,
+            })
+            this.crumbs(p.x, p.y, '#FCE1A8', 7)
+            audio.play('click')
+          } else if (this.fever) {
             // Мина на лихорадке: весь накопленный там бонус сгорает!
             this.feverEnd(false)
             return
@@ -3176,7 +3205,10 @@ export class PopcornEngine {
       // ЛАНА бегает вдвое быстрее и мелькает короткими рывками-дэшами
       if (b.vx === 0 && b.vy === 0) {
         const a = Math.random() * Math.PI * 2
-        const sp = (b.kind === 'marten' ? MARTEN_DASH_SPEED : 62) * u
+        const sp =
+          b.kind === 'marten'
+            ? MARTEN_DASH_SPEED * u
+            : 62 * (1 - Math.min(0.6, this.clawBonus.pigeonSlow ?? 0)) * u
         b.vx = Math.cos(a) * sp
         b.vy = Math.sin(a) * sp * 0.72
       }

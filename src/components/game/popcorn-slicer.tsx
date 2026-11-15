@@ -276,9 +276,11 @@ interface SlicerProps {
     rewards?: { coins?: number },
     meta?: { kind?: SliceKind },
   ) => void
+  /** Иконка выпавшего коготка (0.0.57): вылетает при взрыве попкорна */
+  dropClaw?: string | null
 }
 
-export function PopcornSlicer({ t, level, onDone }: SlicerProps) {
+export function PopcornSlicer({ t, level, onDone, dropClaw = null }: SlicerProps) {
   const canvasRef = useRef<HTMLCanvasElement>(null)
   const wrapRef = useRef<HTMLDivElement>(null)
   const [stage, setStage] = useState<Stage>('intro')
@@ -1269,6 +1271,52 @@ export function PopcornSlicer({ t, level, onDone }: SlicerProps) {
         className="absolute inset-0 touch-none"
         onContextMenu={(e) => e.preventDefault()}
       />
+
+      {/* Коготок из взорванной попкорнины (0.0.57): вылетает с искрами
+          к верхнему углу, пока открыта карточка результата */}
+      {dropClaw && stage === 'results' && (
+        <div className="pointer-events-none absolute inset-0 z-30" aria-hidden>
+          {[
+            { x: -46, y: -34, d: 0 },
+            { x: 52, y: -18, d: 0.08 },
+            { x: -20, y: 46, d: 0.16 },
+            { x: 34, y: 40, d: 0.24 },
+            { x: 60, y: 8, d: 0.12 },
+            { x: -58, y: 6, d: 0.2 },
+          ].map((s, i) => (
+            <motion.span
+              key={`spark-${i}`}
+              className="absolute left-1/2 top-1/2 h-1.5 w-1.5 rounded-full bg-amber-300"
+              initial={{ x: s.x, y: s.y, scale: 0, opacity: 0 }}
+              animate={{ scale: [0, 1.6, 0], opacity: [0, 1, 0] }}
+              transition={{ duration: 0.55, delay: s.d, ease: 'easeOut' }}
+            />
+          ))}
+          <motion.img
+            src={dropClaw}
+            alt=""
+            draggable={false}
+            className="absolute left-1/2 top-1/2 h-16 w-16 rounded-xl border-2 border-[#e3cba4] object-cover shadow-lg"
+            initial={{ x: '-50%', y: '-50%', scale: 0, rotate: -30, opacity: 0 }}
+            animate={{
+              x: ['-50%', '-50%', '10%', '16%'],
+              y: ['-50%', '-50%', '-120%', '-130%'],
+              scale: [0, 1.3, 1, 1],
+              rotate: [-30, 12, -6, -6],
+              opacity: [0, 1, 1, 1],
+            }}
+            transition={{ duration: 1.05, times: [0, 0.3, 0.85, 1], ease: 'easeOut' }}
+          />
+          <motion.span
+            className="absolute left-1/2 top-[16%] -translate-x-1/2 whitespace-nowrap rounded-full bg-[#5C3A1E]/90 px-2.5 py-1 font-pixel text-[9px] font-bold text-[#FFF3DC] sm:text-[10px]"
+            initial={{ opacity: 0, y: 8 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ delay: 0.5, duration: 0.3 }}
+          >
+            {t('claw.slice')}
+          </motion.span>
+        </div>
+      )}
 
       {/* Карточка результата: появляется после взрыва */}
       {stage === 'results' && result && (

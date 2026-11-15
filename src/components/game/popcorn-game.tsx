@@ -96,30 +96,43 @@ import {
   INV_MAP,
   PAGE2_PRICE,
   RARITY_COLOR,
+  CLAW_DEFS,
+  CLAW_MAP,
+  addClawToStorage,
   buyPage2,
+  clawBonuses,
   dropInvItem,
   equipArtifactInv,
+  equipClaw,
   equipInvItem,
   getInventorySnapshot,
   inventoryBonuses,
+  isClawId,
   lootAllHad,
   legendaryEquipped,
   markInventoryOpened,
   recycleInfo,
   recycleInvItem,
+  rollClawDef,
   sellInvItem,
   storageCap,
   subscribeInventory,
   unequipArtifactInv,
+  unequipClaw,
   unequipInvSlot,
   isNewItem,
   countNewItems,
   equippedArtifacts,
+  type ClawBonuses,
+  type ClawDef,
+  type ClawDropResult,
+  type ClawId,
   type DropResult,
   type InventoryState,
   type InvBonuses,
   type InvDef,
   type InvItem,
+  type InvItemId,
   type ItemKind,
   type Rarity,
 } from '@/lib/game/inventory'
@@ -1774,6 +1787,28 @@ const INV_SLOT_ORDER: ReadonlyArray<{ kind: ItemKind; labelKey: string }> = [
   { kind: 'collar', labelKey: 'inv.slot.collar' },
 ]
 
+/* 0.0.57: единый вид содержимого склада — лут из сундучков или коготок из нарезки */
+type AnyItemId = InvItemId | ClawId
+interface AnyDefView {
+  id: AnyItemId
+  rarity: Rarity
+  icon: string
+  sell: number
+  kind?: ItemKind
+  isClaw: boolean
+}
+const anyDef = (id: AnyItemId): AnyDefView =>
+  isClawId(id)
+    ? { id, rarity: CLAW_MAP[id].rarity, icon: CLAW_MAP[id].icon, sell: CLAW_MAP[id].sell, isClaw: true }
+    : {
+        id,
+        rarity: INV_MAP[id].rarity,
+        icon: INV_MAP[id].icon,
+        sell: INV_MAP[id].sell,
+        kind: INV_MAP[id].kind,
+        isClaw: false,
+      }
+
 function InventoryOverlay({
   inv,
   ownedArts,
@@ -1784,6 +1819,8 @@ function InventoryOverlay({
   onRecycle,
   onEquipArt,
   onUnequipArt,
+  onEquipClaw,
+  onUnequipClaw,
   onBuyPage2,
   onClose,
 }: {
@@ -1797,6 +1834,9 @@ function InventoryOverlay({
   onRecycle: (uid: string) => { ok: boolean; next?: InvDef }
   onEquipArt: (id: ArtifactId) => boolean
   onUnequipArt: (id: ArtifactId) => boolean
+  /** Коготки (0.0.57): надеть в слот своего цвета / снять */
+  onEquipClaw: (uid: string) => boolean
+  onUnequipClaw: (id: ClawId) => boolean
   onBuyPage2: () => boolean
   onClose: () => void
 }) {
@@ -1822,21 +1862,31 @@ function InventoryOverlay({
     markInventoryOpened()
   }, [])
 
-  /* Склад: редкое сверху — легендарки не теряются в куче бус */
+  /* Склад: редкое сверху — легендарки не теряются в куче бус.
+      0.0.57: коготки лежат в тех же ячейках и сортируются вместе с лутом */
   const sorted = useMemo(() => {
     const rank: Record<Rarity, number> = { legendary: 0, epic: 1, rare: 2, common: 3 }
-    return [...inv.items].sort((a, b) => rank[INV_MAP[a.id].rarity] - rank[INV_MAP[b.id].rarity])
-  }, [inv.items])
+    return [...inv.items, ...inv.claws].sort(
+      (a, b) => rank[anyDef(a.id).rarity] - rank[anyDef(b.id).rarity],
+    )
+  }, [inv.items, inv.claws])
 
   /* Пустая вторая страница после продажи — мягкий возврат на первую */
   const showPage = page > 0 && page * INV_CAPACITY >= sorted.length ? 0 : page
   const pageItems = sorted.slice(showPage * INV_CAPACITY, showPage * INV_CAPACITY + INV_CAPACITY)
 
-  const sel = selUid ? (inv.items.find((i) => i.uid === selUid) ?? null) : null
-  const selDef = sel ? INV_MAP[sel.id] : null
-  const selEquipped = sel ? sel.uid === inv.collar || sel.uid === inv.bracelet || sel.uid === inv.crown : false
+  const sel = selUid
+    ? (inv.items.find((i) => i.uid === selUid) ?? inv.claws.find((i) => i.uid === selUid) ?? null)
+    : null
+  const selDef = sel ? anyDef(sel.id) : null
+  const selClawId = sel && isClawId(sel.id) ? sel.id : null
+  const selEquipped = sel
+    ? selClawId
+      ? inv.clawSlots[selClawId] === sel.uid
+      : sel.uid === inv.collar || sel.uid === inv.bracelet || sel.uid === inv.crown
+    : false
   const selIsNew = sel ? isNewItem(sel, inv.lastOpened) : false
-  const selRec = sel ? recycleInfo(inv, sel.uid) : null
+  const selRec = sel && !selClawId ? recycleInfo(inv, sel.uid) : null
 
   const pick = (uid: string | null): void => {
     setSelUid(uid)
@@ -2003,6 +2053,69 @@ function InventoryOverlay({
           </div>
         </div>
 
+        {/* Коготки нарезки (0.0.57): 4 слота, каждый закреплён за своим цветом.
+            Тап по пустому — надеть первый такой коготок со склада, по занятому — снять */}
+        <div className="mt-2">
+          <span className="block px-0.5 font-pixel text-[11px] font-bold text-[#5C3A1E]">
+            {t('inv.claws')}
+          </span>
+          <div className="mt-1 grid grid-cols-4 gap-1">
+            {CLAW_DEFS.map((cd) => {
+              const uid = inv.clawSlots[cd.id]
+              const on = !!uid && inv.claws.some((c) => c.uid === uid)
+              const rc = RARITY_COLOR[cd.rarity]
+              const slotKey = `claw.slot.${cd.id.slice(5)}`
+              return (
+                <button
+                  key={cd.id}
+                  type="button"
+                  onClick={() => {
+                    if (on) {
+                      if (onUnequipClaw(cd.id)) flash(t('inv.artOff'))
+                    } else {
+                      const claw = inv.claws.find((c) => c.id === cd.id)
+                      if (claw && onEquipClaw(claw.uid)) flash(t('inv.toast.equip'))
+                      else flash(t('claw.none'))
+                    }
+                  }}
+                  title={on ? t(`item.${cd.id}.bonus`) : t(slotKey)}
+                  aria-label={
+                    on
+                      ? `${t(`item.${cd.id}.name`)} — ${t('inv.unequip')}`
+                      : `${t(slotKey)}: ${t('inv.emptySlot')}`
+                  }
+                  className={`flex flex-col items-center gap-0.5 rounded-lg border-2 px-1 py-1 transition active:scale-95 ${
+                    on
+                      ? `${rc.border} bg-[#FFF6E6]/95 shadow-sm`
+                      : 'border-dashed border-[#c9a97a] bg-[#FFF6E6]/80'
+                  }`}
+                >
+                  {on ? (
+                    <img
+                      src={cd.icon}
+                      alt=""
+                      aria-hidden
+                      draggable={false}
+                      className="h-7 w-7 rounded-md object-cover sm:h-8 sm:w-8"
+                    />
+                  ) : (
+                    <span aria-hidden className="text-lg leading-none opacity-40">
+                      🐾
+                    </span>
+                  )}
+                  <span
+                    className={`w-full truncate font-pixel text-[7px] font-bold leading-tight sm:text-[8px] ${
+                      on ? rc.text : 'text-[#a97c50]'
+                    }`}
+                  >
+                    {on ? t(`item.${cd.id}.name`) : t(slotKey)}
+                  </span>
+                </button>
+              )
+            })}
+          </div>
+        </div>
+
         {/* Склад: страницы 1/2 (вторая покупается) + счётчик, редкое сверху */}
         <div className="mt-2.5 flex items-center justify-between gap-1.5 px-0.5">
           <span className="font-pixel text-[11px] font-bold text-[#5C3A1E]">{t('inv.grid')}</span>
@@ -2051,7 +2164,7 @@ function InventoryOverlay({
               {inv.page2 ? '2' : '🔒'}
             </button>
             <span className="font-ui text-[10px] font-bold text-[#a97c50]">
-              {t('inv.count', { n: inv.items.length, m: storageCap(inv) })}
+              {t('inv.count', { n: inv.items.length + inv.claws.length, m: storageCap(inv) })}
             </span>
           </div>
         </div>
@@ -2067,9 +2180,12 @@ function InventoryOverlay({
                 />
               )
             }
-            const def = INV_MAP[item.id]
+            const def = anyDef(item.id)
             const rc = RARITY_COLOR[def.rarity]
-            const equipped = item.uid === inv.collar || item.uid === inv.bracelet || item.uid === inv.crown
+            const clawId = isClawId(item.id) ? item.id : null
+            const equipped = clawId
+              ? inv.clawSlots[clawId] === item.uid
+              : item.uid === inv.collar || item.uid === inv.bracelet || item.uid === inv.crown
             const fresh = isNewItem(item, inv.lastOpened)
             return (
               <button
@@ -2107,7 +2223,7 @@ function InventoryOverlay({
             )
           })}
         </div>
-        {inv.items.length === 0 && (
+        {inv.items.length === 0 && inv.claws.length === 0 && (
           <p className="mt-1.5 font-ui text-[11px] font-medium text-[#a97c50]">{t('inv.emptyGrid')}</p>
         )}
 
@@ -2157,8 +2273,12 @@ function InventoryOverlay({
                 <button
                   type="button"
                   onClick={() => {
-                    const kind = selDef.kind
-                    if (onUnequip(kind)) pick(sel.uid)
+                    if (selClawId) {
+                      if (onUnequipClaw(selClawId)) pick(sel.uid)
+                    } else {
+                      const kind = selDef.kind as ItemKind
+                      if (onUnequip(kind)) pick(sel.uid)
+                    }
                   }}
                   className="rounded-lg border-2 border-[#8a5330] bg-[#f3e2c8] px-2 py-1.5 font-ui text-[11px] font-bold text-[#8a5330] transition hover:bg-[#eed7b4] active:scale-95"
                 >
@@ -2168,7 +2288,7 @@ function InventoryOverlay({
                 <button
                   type="button"
                   onClick={() => {
-                    if (onEquip(sel.uid)) pick(sel.uid)
+                    if (selClawId ? onEquipClaw(sel.uid) : onEquip(sel.uid)) pick(sel.uid)
                   }}
                   className="rounded-lg bg-[#3f6b28] px-2 py-1.5 font-ui text-[11px] font-bold text-white shadow-[0_3px_0_#2c4d1c] transition hover:bg-[#4a7d31] active:translate-y-[2px] active:shadow-[0_1px_0_#2c4d1c]"
                 >
@@ -4290,6 +4410,10 @@ export function PopcornGame() {
   const [phase, setPhase] = useState<Phase>('start')
   /** Таймер «празднования» перед бонус-нарезкой: даём салюту програть */
   const slicerDelayRef = useRef<number | null>(null)
+  /** Коготок, выпавший из текущей нарезки (0.0.57) */
+  const [clawRoll, setClawRoll] = useState<ClawDef | null>(null)
+  /** Коготок, упавший на склад — плашка в оверлее сундучка */
+  const [clawDropped, setClawDropped] = useState<ClawDropResult | null>(null)
   /** Таймер перебивки: ждём секунду празднования, потом показываем плакат */
   const posterDelayRef = useRef<number | null>(null)
   /** Сколько плакатов уже показано в забеге: для строгой ротации 1→2→…→6→1 */
@@ -4653,10 +4777,25 @@ export function PopcornGame() {
 
   /* Множители артефактов рынка — в ref для колбэков без перезапуска эффектов */
   const marketRef = useRef<MarketBonuses>(ZERO_MARKET_BONUS)
-  /* Множители надетых предметов инвентаря (ошейник/браслет/венец) */
-  const invBonus = useMemo<InvBonuses>(() => inventoryBonuses(inv), [inv])
+  /* Множители надетых предметов инвентаря (ошейник/браслет/венец).
+      0.0.57: солнечный коготок добавляет +15% опыта поверх браслета */
+  const invBonus = useMemo<InvBonuses>(() => {
+    const base = inventoryBonuses(inv)
+    return { coins: base.coins, xp: base.xp * clawBonuses(inv).xpMult, gems: base.gems }
+  }, [inv])
   /* 0.0.54: артефакты лавки действуют, только пока надеты на лапке инвентаря */
   const eqArts = useMemo<ArtifactId[]>(() => equippedArtifacts(inv), [inv])
+  /* 0.0.57: бонусы коготков для движка — голуби, вторые шансы, броня от мин.
+      Апгрейд «девятая жизнь» даёт один шанс, сумеречный коготок — два */
+  const clawB = useMemo<ClawBonuses>(() => clawBonuses(inv), [inv])
+  useEffect(() => {
+    const ups = parseUpgrades(window.localStorage.getItem(UPG_KEY))
+    engineRef.current?.setClawBonuses({
+      pigeonSlow: clawB.pigeonSlow,
+      revives: clawB.revives > 0 ? 2 : ups.life > 0 ? 1 : 0,
+      mineImmuneStages: clawB.mineImmuneStages,
+    })
+  }, [clawB])
   /* Бейдж новинок на кнопке ИНВЕНТАРЬ (0.0.54) */
   const invNewCount = useMemo(() => countNewItems(inv), [inv])
   useEffect(() => {
@@ -4885,6 +5024,20 @@ export function PopcornGame() {
   /** Снять предмет со слота лапки */
   const handleUnequipInv = useCallback((kind: ItemKind): boolean => {
     if (!unequipInvSlot(kind)) return false
+    audio.play('click')
+    return true
+  }, [])
+
+  /** Надеть коготок в слот своего цвета (0.0.57) */
+  const handleEquipClaw = useCallback((uid: string): boolean => {
+    if (!equipClaw(uid)) return false
+    audio.play('perk')
+    return true
+  }, [])
+
+  /** Снять коготок со слота лапки (0.0.57) */
+  const handleUnequipClaw = useCallback((id: ClawId): boolean => {
+    if (!unequipClaw(id)) return false
     audio.play('click')
     return true
   }, [])
@@ -5587,6 +5740,7 @@ export function PopcornGame() {
             setExtras(rollExtras(offs, r.level))
             setOpenedIdx(null)
             setLoot(null)
+            setClawDropped(null)
             setRunLevel(r.level + 1)
           }
           /* Секунда празднования («УРОВЕНЬ ПРОЙДЕН» в канвасе), потом плакат.
@@ -5617,6 +5771,7 @@ export function PopcornGame() {
         setExtras(rollExtras(offs, r.level))
         setOpenedIdx(null)
         setLoot(null)
+        setClawDropped(null)
         setRunLevel(r.level + 1)
         /* БОНУС-НАРЕЗКА: гигантский попкорн перед сундучком — режем лапкой.
            СНАЧАЛА — секунда празднования: конфетти из стаканчика, золотая
@@ -5624,6 +5779,8 @@ export function PopcornGame() {
         if (slicerDelayRef.current !== null) window.clearTimeout(slicerDelayRef.current)
         slicerDelayRef.current = window.setTimeout(() => {
           slicerDelayRef.current = null
+          /* 0.0.57: рулетка коготка этой нарезки */
+          setClawRoll(rollClawDef())
           /* Защита: если за секунду забег кончился/вышли в меню — не выбрасываем
              на нарезку из чужого экрана */
           setPhase((p) => (p === 'playing' ? 'slicer' : p))
@@ -5781,11 +5938,11 @@ export function PopcornGame() {
           announceAch(['marathon'])
         }
         flushLife()
-        /* «Девятая жизнь»: если апгрейд куплен и ещё не потрачен — предлагаем второй шанс.
-           Победному финалу по воле игрока второй шанс не нужен — это не провал */
-        const ups = parseUpgrades(window.localStorage.getItem(UPG_KEY))
+        /* «Девятая жизнь»: шансы считаются в движке (0.0.57: апгрейд — один,
+           сумеречный коготок — два). Победному финалу по воле игрока
+           второй шанс не нужен — это не провал */
         const canRevive =
-          r.reason !== 'voluntary' && ups.life > 0 && !(engineRef.current?.lifeSpent ?? true)
+          r.reason !== 'voluntary' && (engineRef.current?.revivesRemaining ?? 0) > 0
         /* Мировая таблица: отправляем только финальный забег.
            Защита: device + HMAC-токен забега (runId выдаётся сервером при старте) */
         if (!canRevive) {
@@ -5994,6 +6151,13 @@ export function PopcornGame() {
       startPerk = bonusPool[Math.floor(Math.random() * bonusPool.length)]?.id ?? null
     }
     engineRef.current?.setPawSkin(equippedRef.current)
+    /* 0.0.57: коготки — в движок до старта забега (шансы ревайва считаются в startRun) */
+    const cb = clawBonuses(getInventorySnapshot())
+    engineRef.current?.setClawBonuses({
+      pigeonSlow: cb.pigeonSlow,
+      revives: cb.revives > 0 ? 2 : ups.life > 0 ? 1 : 0,
+      mineImmuneStages: cb.mineImmuneStages,
+    })
     engineRef.current?.startRun({ fast: devRef.current.fast, perk: startPerk })
     /* Плакаты перебивки грузим ЗАРАНЕЕ — к 5-му уровню они уже в кэше
         (иначе оверлей открывается с пустой рамкой на мобильной сети) */
@@ -6110,6 +6274,16 @@ export function PopcornGame() {
       if (total >= 2500) cand.push('slice2k5')
       if (meta?.kind === 'cherry' && total >= 2500) cand.push('sliceCherry')
       if (meta?.kind === 'grape' && total >= 4500) cand.push('sliceGrape')
+      /* КОГОТОК НАРЕЗКИ (0.0.57): кладём на склад (переполнение — автопродажа),
+         плашка в сундучке; леопардовый — медаль «Коготь Супер-пантеры» */
+      const cd = clawRoll
+      setClawRoll(null)
+      if (cd) {
+        const res = addClawToStorage(cd)
+        if (!res.stored) addCoins(res.coins)
+        setClawDropped(res)
+        if (cd.id === 'claw-panther') cand.push('clawPanther')
+      }
       /* Сорт в пожизненный счётчик — три сорта хотя бы по разу = «Полное меню» */
       if (meta?.kind === 'caramel') addLife({ sliceCaramel: 1 })
       else if (meta?.kind === 'cherry') addLife({ sliceCherry: 1 })
@@ -6118,7 +6292,7 @@ export function PopcornGame() {
       checkLifeAch()
       setPhase('chest')
     },
-    [announceAch, checkLifeAch],
+    [announceAch, checkLifeAch, clawRoll],
   )
 
   /** Плакат закрыт: 'normal' → бонус-нарезка; 'fever' → сразу Лихорадка.
@@ -6140,6 +6314,8 @@ export function PopcornGame() {
       setPhase('playing')
       return
     }
+    /* 0.0.57: рулетка коготка нарезки после плакатной перебивки */
+    setClawRoll(rollClawDef())
     setPhase('slicer')
   }, [posterPending])
 
@@ -6164,6 +6340,7 @@ export function PopcornGame() {
     }
     setPerk(null)
     setOpenedIdx(null)
+    setClawDropped(null)
     const canvas = canvasRef.current
     if (canvas) {
       canvas.style.filter = ''
@@ -7181,6 +7358,7 @@ export function PopcornGame() {
               t={t}
               level={clearInfo.level}
               onDone={handleSlicerDone}
+              dropClaw={clawRoll?.icon ?? null}
             />
           )}
 
@@ -7212,6 +7390,33 @@ export function PopcornGame() {
                   <p className="mt-0.5 font-ui text-[11px] font-medium text-[#8a5330] sm:text-xs [@media(max-height:520px)]:mt-0 [@media(max-height:520px)]:text-[9px] sm:[@media(max-height:520px)]:mt-0 sm:[@media(max-height:520px)]:text-[9px]">
                     {t('chest.bonus', { b: clearInfo.bonus, s: stats.score })}
                   </p>
+                  {/* Коготок из нарезки (0.0.57): лёг на склад или продан при переполнении */}
+                  {clawDropped && (
+                    <div
+                      className={`mx-auto mt-2 flex w-fit max-w-full items-center gap-2 rounded-xl border-2 px-2.5 py-1.5 text-left [@media(max-height:520px)]:mt-1 [@media(max-height:520px)]:py-1 ${
+                        clawDropped.stored
+                          ? `${RARITY_COLOR[clawDropped.def.rarity].border} ${RARITY_COLOR[clawDropped.def.rarity].bg}`
+                          : 'border-[#a97c50] bg-[#f3e2c8]'
+                      }`}
+                    >
+                      <img
+                        src={clawDropped.def.icon}
+                        alt=""
+                        aria-hidden
+                        draggable={false}
+                        className="h-8 w-8 shrink-0 rounded-md border border-[#e3cba4] object-cover"
+                      />
+                      <span
+                        className={`font-ui text-[11px] font-bold leading-snug ${
+                          clawDropped.stored ? RARITY_COLOR[clawDropped.def.rarity].text : 'text-[#8a5330]'
+                        }`}
+                      >
+                        {clawDropped.stored
+                          ? t('claw.toast', { name: t(`item.${clawDropped.def.id}.name`) })
+                          : t('claw.toast.full', { n: clawDropped.coins })}
+                      </span>
+                    </div>
+                  )}
                   {offers.length > 0 ? (
                     <>
                       <p className="mt-1.5 font-ui text-[11px] text-[#5C3A1E] [@media(max-height:520px)]:hidden">{t('chest.choose')}</p>
@@ -7737,6 +7942,8 @@ export function PopcornGame() {
                 onRecycle={handleRecycleInv}
                 onEquipArt={handleEquipArtInv}
                 onUnequipArt={handleUnequipArtInv}
+                onEquipClaw={handleEquipClaw}
+                onUnequipClaw={handleUnequipClaw}
                 onBuyPage2={handleBuyPage2}
                 onClose={() => setOverlay(null)}
               />

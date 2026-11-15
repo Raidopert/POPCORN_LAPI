@@ -1,5 +1,5 @@
 /**
- * Достижения «POPCORN PAWS» — 129 медалей.
+ * Достижения «POPCORN PAWS» — 130 медалей.
  * Разблокировки хранятся локально в браузере (localStorage),
  * в меню открывается «АЧИВКИ» со всеми медалями.
  *
@@ -143,6 +143,7 @@ export type AchId =
   | 'inv_sell10'
   | 'inv_legend1'
   | 'inv_recycle1'
+  | 'clawPanther'
 
 export interface AchDef {
   id: AchId
@@ -309,6 +310,7 @@ export const ACHIEVEMENTS: AchDef[] = [
   { id: 'inv_sell10', name: 'Торгаш', desc: 'Продать 10 предметов со склада за всё время', icon: '🤝' },
   { id: 'inv_legend1', name: 'Корона на лапку', desc: 'Надеть легендарный предмет на лапку NANA', icon: '👑' },
   { id: 'inv_recycle1', name: 'Переплавщик', desc: 'Сдать 3 одинаковых предмета в переплавку', icon: '♻️' },
+  { id: 'clawPanther', name: 'Коготь Супер-пантеры', desc: 'Добыть леопардовый коготок из большой попкорнины', icon: '🐆' },
 ]
 
 export const ACH_MAP: Record<AchId, AchDef> = Object.fromEntries(
