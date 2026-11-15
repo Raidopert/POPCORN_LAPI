@@ -3773,6 +3773,24 @@ export function PopcornGame() {
   /** ИНТРО БОССА (0.0.42): карточка «КАК ПОБЕДИТЬ?» перед босс-уровнем.
       Движок держит геймплей на introHold, пока игрок не нажмёт «В БОЙ!» */
   const [bossIntro, setBossIntro] = useState<{ level: number; kind: BossKind } | null>(null)
+  /** 0.0.49: зеркало bossIntro для колбэков движка — setState асинхронен,
+      а тосты, выпавшие в тот же тик, должны уходить в очередь сразу */
+  const bossIntroRef = useRef(false)
+  /** 0.0.49: зеркала тостов — нужны, чтобы при открытии босс-интро
+      перехватить ещё висящие тосты в очередь (а не потерять их) */
+  const achToastRef = useRef<{ icon: string; name: string } | null>(null)
+  const achToastTimerRef = useRef<number | null>(null)
+  const charToastRef = useRef<{ lvl: number; unlocks: string[] } | null>(null)
+  /** 0.0.49: тосты (ачивка, «котик подрос»), выпавшие во время босс-интро.
+   *  Раньше они рисовались ПОВЕРХ модальной карточки и перекрывали кнопку
+     «В БОЙ!»; теперь копятся в очереди и выходят после неё с шагом 150 мс */
+  const pendingToastsRef = useRef<Array<() => void>>([])
+  const flushPendingToasts = useCallback(() => {
+    const q = pendingToastsRef.current
+    if (q.length === 0) return
+    pendingToastsRef.current = []
+    q.forEach((fn, i) => window.setTimeout(fn, 150 * i))
+  }, [])
   const [offers, setOffers] = useState<PerkDef[]>([])
   /** Подарки в сундуках: монетки/опыт (null — только перк) */
   const [extras, setExtras] = useState<Array<ChestExtra | null>>([null, null, null])
@@ -4355,9 +4373,20 @@ export function PopcornGame() {
       const fresh = unlockMany(ids)
       if (fresh.length === 0) return
       const def = ACH_MAP[fresh[0]]
-      setAchToast({ icon: def.icon, name: t(`ach.${fresh[0]}.name`) })
-      audio.play('achieve') // 0.0.44: свой колокольчик вместо общей фанфары рекорда
-      window.setTimeout(() => setAchToast(null), 3200)
+      const show = () => {
+        const payload = { icon: def.icon, name: t(`ach.${fresh[0]}.name`) }
+        achToastRef.current = payload
+        setAchToast(payload)
+        audio.play('achieve') // 0.0.44: свой колокольчик вместо общей фанфары рекорда
+        window.clearTimeout(achToastTimerRef.current ?? undefined)
+        achToastTimerRef.current = window.setTimeout(() => {
+          achToastRef.current = null
+          setAchToast(null)
+        }, 3200)
+      }
+      /* 0.0.49: открыто босс-интро — тост в очередь до кнопки «В БОЙ!» */
+      if (bossIntroRef.current) pendingToastsRef.current.push(show)
+      else show()
     },
     [t],
   )
@@ -4446,16 +4475,24 @@ export function PopcornGame() {
     const lvlBefore = charLevel(tot)
     const lvlAfter = charLevel(tot + gain)
     if (lvlAfter > lvlBefore) {
-      setCharToast(lvlAfter)
-      audio.play('record')
-      setCharToastUnlocks(
-        unlockNamesForRange(lvlBefore, lvlAfter).map((u) => tFor(settingsRef.current.lang)(u.nameKey)),
-      )
-      window.clearTimeout(lvlToastTimerRef.current ?? undefined)
-      lvlToastTimerRef.current = window.setTimeout(() => {
-        setCharToast(null)
-        setCharToastUnlocks([])
-      }, 3400)
+      const show = () => {
+        const unlocks = unlockNamesForRange(lvlBefore, lvlAfter).map((u) =>
+          tFor(settingsRef.current.lang)(u.nameKey),
+        )
+        charToastRef.current = { lvl: lvlAfter, unlocks }
+        setCharToast(lvlAfter)
+        audio.play('record')
+        setCharToastUnlocks(unlocks)
+        window.clearTimeout(lvlToastTimerRef.current ?? undefined)
+        lvlToastTimerRef.current = window.setTimeout(() => {
+          charToastRef.current = null
+          setCharToast(null)
+          setCharToastUnlocks([])
+        }, 3400)
+      }
+      /* 0.0.49: открыто босс-интро — тост в очередь до кнопки «В БОЙ!» */
+      if (bossIntroRef.current) pendingToastsRef.current.push(show)
+      else show()
     }
     window.dispatchEvent(new Event(STORE_EVENT))
   }, [])
@@ -4478,17 +4515,24 @@ export function PopcornGame() {
       )
       const after = charLevel(getTotalXp())
       if (after > before) {
-        setCharToast(after)
-        audio.play('record')
-        /* v0.0.33: повышение уровня — это ПЛОДЫ роста: тост перечисляет,
-           какие лапки/апгрейды/артефакты открылись на новом уровне */
-        const unlocks = unlockNamesForRange(before, after).map((u) => t(u.nameKey))
-        setCharToastUnlocks(unlocks)
-        window.clearTimeout(lvlToastTimerRef.current ?? undefined)
-        lvlToastTimerRef.current = window.setTimeout(() => {
-          setCharToast(null)
-          setCharToastUnlocks([])
-        }, 3400)
+        const show = () => {
+          /* v0.0.33: повышение уровня — это ПЛОДЫ роста: тост перечисляет,
+             какие лапки/апгрейды/артефакты открылись на новом уровне */
+          const unlocks = unlockNamesForRange(before, after).map((u) => t(u.nameKey))
+          charToastRef.current = { lvl: after, unlocks }
+          setCharToast(after)
+          audio.play('record')
+          setCharToastUnlocks(unlocks)
+          window.clearTimeout(lvlToastTimerRef.current ?? undefined)
+          lvlToastTimerRef.current = window.setTimeout(() => {
+            charToastRef.current = null
+            setCharToast(null)
+            setCharToastUnlocks([])
+          }, 3400)
+        }
+        /* 0.0.49: открыто босс-интро — тост в очередь до кнопки «В БОЙ!» */
+        if (bossIntroRef.current) pendingToastsRef.current.push(show)
+        else show()
       }
       checkLifeAch()
     },
@@ -4946,12 +4990,55 @@ export function PopcornGame() {
       },
       onBossIntro: (level, kind) => {
         /* Босс-уровень начался: движок держит паузу, показываем карточку
-           с портретом и инструкцией «КАК ПОБЕДИТЬ?» */
+           с портретом и инструкцией «КАК ПОБЕДИТЬ?». 0.0.49: тосты, ещё
+           висящие с геймплея (и выпавшие в этот же тик — уровневые ачивки
+           бьют раньше колбэка интро), переезжают в очередь и показываются
+           сразу после кнопки «В БОЙ!» — раньше они рисовались поверх
+           интро и перекрывали кнопку */
+        bossIntroRef.current = true
+        if (achToastRef.current) {
+          const snap = achToastRef.current
+          achToastRef.current = null
+          pendingToastsRef.current.push(() => {
+            achToastRef.current = snap
+            setAchToast(snap)
+            audio.play('achieve')
+            window.clearTimeout(achToastTimerRef.current ?? undefined)
+            achToastTimerRef.current = window.setTimeout(() => {
+              achToastRef.current = null
+              setAchToast(null)
+            }, 3200)
+          })
+          setAchToast(null)
+          window.clearTimeout(achToastTimerRef.current ?? undefined)
+        }
+        if (charToastRef.current) {
+          const snap = charToastRef.current
+          charToastRef.current = null
+          pendingToastsRef.current.push(() => {
+            charToastRef.current = snap
+            setCharToast(snap.lvl)
+            audio.play('record')
+            setCharToastUnlocks(snap.unlocks)
+            window.clearTimeout(lvlToastTimerRef.current ?? undefined)
+            lvlToastTimerRef.current = window.setTimeout(() => {
+              charToastRef.current = null
+              setCharToast(null)
+              setCharToastUnlocks([])
+            }, 3400)
+          })
+          setCharToast(null)
+          setCharToastUnlocks([])
+          window.clearTimeout(lvlToastTimerRef.current ?? undefined)
+        }
         setBossIntro({ level, kind })
       },
       onEnd: (r) => {
         /* Интро босса больше не нужно: забег кончился (страховка от
-           застрявшего оверлея при QA-вызовах end() через debug-API) */
+           застрявшего оверлея при QA-вызовах end() через debug-API).
+           0.0.49: очередь тостов выплёскиваем на экран результата */
+        bossIntroRef.current = false
+        flushPendingToasts()
         setBossIntro(null)
         /* Куница NANA: фиксируем время забега (уровни уже учтены по ходу) */
         growMarten(0, playSecsRef.current)
@@ -6605,7 +6692,10 @@ export function PopcornGame() {
               level={bossIntro.level}
               kind={bossIntro.kind}
               onGo={() => {
+                /* 0.0.49: интро закрыто — очередь отложенных тостов выходит */
+                bossIntroRef.current = false
                 setBossIntro(null)
+                flushPendingToasts()
                 engineRef.current?.dismissBossIntro()
               }}
             />
