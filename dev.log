@@ -329,3 +329,13 @@ Import trace:
  GET /public/inventory 404 in 86ms (next.js: 8ms, application-code: 79ms)
 ✓ Compiled in 1386ms
  GET /public/inventory 404 in 55ms (next.js: 9ms, application-code: 46ms)
+ GET / 200 in 44ms (next.js: 3ms, application-code: 41ms)
+ GET /public/inventory 404 in 44ms (next.js: 5ms, application-code: 40ms)
+ GET /public/inventory 404 in 78ms (next.js: 5ms, application-code: 74ms)
+ GET /public/inventory 404 in 56ms (next.js: 6ms, application-code: 50ms)
+ GET /public/inventory 404 in 37ms (next.js: 4ms, application-code: 33ms)
+ GET /public/inventory 404 in 47ms (next.js: 6ms, application-code: 42ms)
+ GET / 200 in 56ms (next.js: 1.1ms, application-code: 55ms)
+ GET / 200 in 119ms (next.js: 0.6ms, application-code: 118ms)
+ POST /api/sessions 200 in 46ms (next.js: 0.9ms, application-code: 45ms)
+ GET /public/inventory 404 in 46ms (next.js: 6ms, application-code: 40ms)
