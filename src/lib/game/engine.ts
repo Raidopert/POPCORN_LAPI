@@ -1044,6 +1044,12 @@ export class PopcornEngine {
     this.tree = b
   }
 
+  /** QA: сколько звуковых эффектов проиграно за сессию — проверка озвучки
+      в отладке: window.__popcornEngine.sfxCount() */
+  sfxCount(): number {
+    return audio.playCount
+  }
+
   /** Связь кликера с забегом: уровень куницы растит норму, волны и мины */
   setMartenMess(m: MartenMess): void {
     this.mess = m
@@ -3996,7 +4002,7 @@ export class PopcornEngine {
       size: 26 * u,
     })
     this.confettiBurst(b.x, b.y, 26)
-    audio.play('meow')
+    audio.play('bossWin')
     this.doShake(6)
     this.emitStats(true)
   }
@@ -4319,7 +4325,7 @@ export class PopcornEngine {
     const kind: GiftKind =
       r < 0.3 ? 'freeze' : r < 0.55 ? 'sweep' : r < 0.75 ? 'mult2' : r < 0.9 ? 'mult5' : 'mult10'
     this.gift = { x, y, t: 0, kind, phase: Math.random() * Math.PI * 2 }
-    audio.play('golden')
+    audio.play('gift')
   }
 
   /** Открыть подарок: ❄ фриз / 🧨 подрыв всех мин / ×2 ×5 ×10 к очкам */
@@ -4328,10 +4334,11 @@ export class PopcornEngine {
     this.giftsRun++
     this.confettiBurst(x, y, 18)
     this.crumbs(x, y, '#FFE066', 10)
-    audio.play('record')
+    audio.play('giftOpen')
     this.buzz([30, 40, 60])
     if (kind === 'freeze') {
       this.freezeLeft = GIFT_FREEZE_SECONDS
+      audio.play('freeze')
       this.banner = { text: this.L('gift.freeze', { n: GIFT_FREEZE_SECONDS }), t: 0 }
     } else if (kind === 'sweep') {
       /* Подрыв всех мин на поле: искры в небо, но без вреда. И до конца
@@ -4353,12 +4360,14 @@ export class PopcornEngine {
       }
       this.cornPerWave = 0
       this.mineSweep = true
+      audio.play('sweep')
       this.doShake(5)
       this.banner = { text: this.L('gift.sweep'), t: 0 }
     } else {
       const v = kind === 'mult10' ? 10 : kind === 'mult5' ? 5 : 2
       this.multValue = v
       this.multLeft = GIFT_MULT_DUR[v] ?? 8
+      audio.play('mult')
       this.banner = { text: this.L('gift.mult', { n: v }), t: 0 }
     }
     this.emitStats(true)
@@ -4394,6 +4403,7 @@ export class PopcornEngine {
       if (c.phaseT >= LION_CAMEO_WARN) {
         c.phase = 'in'
         c.phaseT = 0
+        audio.play('claw') // вжух-ХЛОП: лапа влетает в поле
         audio.play('roar')
         this.doShake(9)
         this.buzz([30, 80, 160, 60])

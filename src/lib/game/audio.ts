@@ -25,6 +25,15 @@ export type SfxName =
   | 'coin'
   | 'roar'
   | 'rumble'
+  | 'gift'
+  | 'giftOpen'
+  | 'freeze'
+  | 'sweep'
+  | 'mult'
+  | 'bossIntro'
+  | 'bossWin'
+  | 'achieve'
+  | 'claw'
 
 const NOTE_OFFSETS: Record<string, number> = {
   C: 0,
@@ -112,6 +121,8 @@ class ChipTuneAudio {
   private stage = 0
   /** Какая тема играет: игровая (ускоряется) или заглавная меню */
   private mode: 'game' | 'menu' = 'game'
+  /** Сколько эффектов проиграно всего — живой индикатор для QA-проверки звука */
+  playCount = 0
 
   /** Уровень напряжённости 0–3: темп и мелодия зависят от оставшегося времени */
   setIntensity(level: number): void {
@@ -308,6 +319,7 @@ class ChipTuneAudio {
   /* ---------- звуковые эффекты ---------- */
 
   play(name: SfxName): void {
+    this.playCount++
     if (!this.ensure()) return
     const ctx = this.ctx as AudioContext
     const bus = this.sfxBus as GainNode
@@ -430,6 +442,75 @@ class ChipTuneAudio {
         /* Глухой грохот приближающейся лапы: земля дрожит заранее */
         this.tone('triangle', 70, t, 0.5, 0.32, bus, 42)
         this.noise(t, 0.46, 0.16, 'lowpass', 280, bus)
+        break
+      case 'gift':
+        /* Подарочная коробка выпрыгнула: звонкая искра-«дзинь» — заметно,
+            но не кричит: игрок ещё играет, а не слушает */
+        this.tone('triangle', noteFreq('A5'), t, 0.08, 0.16, bus)
+        this.tone('triangle', noteFreq('D6'), t + 0.07, 0.12, 0.16, bus)
+        this.noise(t, 0.05, 0.05, 'highpass', 7000, bus)
+        break
+      case 'giftOpen':
+        /* Коробка открыта: хлопок крышки + радостное арпеджио вверх */
+        this.tone('square', 300, t, 0.07, 0.2, bus, 520)
+        ;['C5', 'E5', 'G5', 'C6', 'E6'].forEach((n, i) =>
+          this.tone('square', noteFreq(n), t + 0.08 + i * 0.06, 0.09, 0.18, bus),
+        )
+        break
+      case 'freeze':
+        /* ❄ ФРИЗ: ледяное звяканье — стеклянные ноты вниз + кристаллический шум */
+        ;['E6', 'B5', 'G5', 'E5'].forEach((n, i) =>
+          this.tone('sine', noteFreq(n), t + i * 0.075, 0.16, 0.16, bus),
+        )
+        this.noise(t, 0.3, 0.08, 'highpass', 9000, bus)
+        this.tone('triangle', noteFreq('C7'), t + 0.02, 0.24, 0.1, bus)
+        break
+      case 'sweep':
+        /* 🧨 ЗАЧИСТКА МИН: серия глухих подрывов — бас + шум, весело и безвредно */
+        for (let i = 0; i < 3; i++) {
+          const tt = t + i * 0.12
+          this.tone('triangle', 150 - i * 30, tt, 0.16, 0.3, bus, 55)
+          this.noise(tt, 0.14, 0.18, 'bandpass', 700, bus)
+        }
+        this.tone('square', noteFreq('C6'), t + 0.4, 0.1, 0.14, bus)
+        break
+      case 'mult':
+        /* ×N МНОЖИТЕЛЬ: аркадный подъём — быстро вверх по трезвучию */
+        ;['C5', 'E5', 'G5', 'C6', 'E6', 'G6', 'C7'].forEach((n, i) =>
+          this.tone('square', noteFreq(n), t + i * 0.045, 0.07, 0.16, bus),
+        )
+        this.tone('triangle', noteFreq('C6'), t + 0.32, 0.2, 0.12, bus)
+        break
+      case 'bossIntro':
+        /* Босс-карточка «КАК ПОБЕДИТЬ?»: глухой барабан + низкий рог —
+            «вышел ТЫ-Ж», мрачно, но по-аркадному */
+        this.tone('sine', 90, t, 0.3, 0.4, bus, 40)
+        this.noise(t, 0.22, 0.2, 'lowpass', 500, bus)
+        ;['C4', 'G3', 'C4', 'D#4'].forEach((n, i) =>
+          this.tone('sawtooth', noteFreq(n), t + 0.24 + i * 0.16, 0.16, 0.16, bus),
+        )
+        break
+      case 'bossWin':
+        /* Победа над боссом: тёмный фанфарный ход вверх + салют-шум */
+        ;['G4', 'A#4', 'D5', 'F5', 'G5'].forEach((n, i) =>
+          this.tone('square', noteFreq(n), t + i * 0.09, 0.12, 0.2, bus),
+        )
+        this.tone('sawtooth', noteFreq('G3'), t + 0.5, 0.5, 0.16, bus)
+        this.noise(t + 0.5, 0.3, 0.08, 'highpass', 6000, bus)
+        break
+      case 'achieve':
+        /* Ачивка: колокольчик-трофей — стеклянный «динь» с призвуком октавой выше */
+        ;['A5', 'C#6', 'E6'].forEach((n, i) =>
+          this.tone('sine', noteFreq(n), t + i * 0.08, 0.22, 0.18, bus),
+        )
+        this.tone('square', noteFreq('A6'), t + 0.26, 0.3, 0.08, bus)
+        break
+      case 'claw':
+        /* Вжух-ХЛОП: когтистая лапа Онлифансия влетает в поле —
+            свист воздуха + глухой шлепок ладони об пол */
+        this.noise(t, 0.18, 0.22, 'bandpass', 1400, bus)
+        this.tone('sine', 220, t + 0.14, 0.12, 0.36, bus, 60)
+        this.noise(t + 0.14, 0.1, 0.16, 'lowpass', 420, bus)
         break
     }
   }

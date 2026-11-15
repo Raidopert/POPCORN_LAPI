@@ -472,7 +472,8 @@ const menuPop = (i: number) => ({
   transition: { delay: 0.04 + i * 0.06, type: 'spring' as const, stiffness: 340, damping: 24 },
 })
 
-/** Фон меню: падающие зёрна попкорна + дрейфующие тёплые световые пятна */
+/** Фон меню: падающие зёрна попкорна + дрейфующие тёплые световые пятна.
+    0.0.44: палитра под фиолетово-леопардовый пол — янтарь + фуксия + фиолет */
 function MenuBackdrop() {
   const kernels = useMemo(
     () =>
@@ -491,8 +492,12 @@ function MenuBackdrop() {
     <div aria-hidden className="pointer-events-none absolute inset-0 overflow-hidden">
       <div className="glow-drift absolute -left-10 top-1/4 h-56 w-56 rounded-full bg-amber-500/15 blur-3xl" />
       <div
-        className="glow-drift absolute -right-8 bottom-1/4 h-64 w-64 rounded-full bg-[#E24B3B]/10 blur-3xl"
+        className="glow-drift absolute -right-8 bottom-1/4 h-64 w-64 rounded-full bg-fuchsia-500/12 blur-3xl"
         style={{ animationDelay: '2.8s' }}
+      />
+      <div
+        className="glow-drift absolute left-1/3 top-2/3 h-44 w-44 rounded-full bg-violet-600/12 blur-3xl"
+        style={{ animationDelay: '5.1s' }}
       />
       {kernels.map((k, i) => (
         <span
@@ -518,6 +523,32 @@ function MenuBackdrop() {
           )}
         </span>
       ))}
+    </div>
+  )
+}
+
+/** Фиолетово-леопардовый 3D-пол главного меню (0.0.44): сцена ночного клуба.
+    Плоскость в перспективе (CSS .leopard-plane) гонит леопардовые розетки
+    «на зрителя», у горизонта — неоновая кромка и дымка, по полу скользят
+    прожекторы. Чистая атмосфера: pointer-events-none, на игру не влияет. */
+function LeopardFloor() {
+  return (
+    <div
+      aria-hidden
+      className="pointer-events-none absolute inset-x-0 bottom-0 z-[1] h-[40%] overflow-hidden sm:h-[44%]"
+      style={{ perspective: '30rem' }}
+    >
+      {/* Плоскость пола: наклонена и бежит пятнами на зрителя */}
+      <div className="leopard-plane" />
+      {/* Неоновая кромка горизонта: тонкая линия + мягкое свечение */}
+      <div className="absolute inset-x-0 top-0 h-px bg-gradient-to-r from-transparent via-fuchsia-300/60 to-transparent" />
+      <div className="absolute inset-x-10 top-0 h-10 -translate-y-1/2 rounded-full bg-fuchsia-500/20 blur-2xl" />
+      {/* Прожекторы: два мягких пятна медленно скользят по полу */}
+      <div className="glow-drift absolute bottom-8 left-[18%] h-24 w-44 rounded-full bg-fuchsia-400/14 blur-2xl" />
+      <div
+        className="glow-drift absolute bottom-12 right-[14%] h-20 w-40 rounded-full bg-amber-400/10 blur-2xl"
+        style={{ animationDelay: '3.6s' }}
+      />
     </div>
   )
 }
@@ -4285,7 +4316,7 @@ export function PopcornGame() {
       if (fresh.length === 0) return
       const def = ACH_MAP[fresh[0]]
       setAchToast({ icon: def.icon, name: t(`ach.${fresh[0]}.name`) })
-      audio.play('record')
+      audio.play('achieve') // 0.0.44: свой колокольчик вместо общей фанфары рекорда
       window.setTimeout(() => setAchToast(null), 3200)
     },
     [t],
@@ -5773,12 +5804,13 @@ export function PopcornGame() {
           {phase === 'start' && (
             <motion.div
               key="start"
-              className="absolute inset-0 z-30 flex items-center justify-center overflow-y-auto bg-black/60 p-4 backdrop-blur-sm"
+              className="absolute inset-0 z-30 flex items-center justify-center overflow-y-auto bg-gradient-to-b from-[#1c0e31]/90 via-[#170a29]/88 to-[#120722]/95 p-4 backdrop-blur-sm"
               initial={{ opacity: 0 }}
               animate={{ opacity: 1 }}
               exit={{ opacity: 0, pointerEvents: 'none' }}
             >
-              {/* Сочность: падающие зёрна и тёплые пятна света за карточкой */}
+              {/* Фиолетово-леопардовый 3D-пол сцены (0.0.44) + падающие зёрна за карточкой */}
+              <LeopardFloor />
               <MenuBackdrop />
               <motion.div
                 className="relative my-auto w-full max-w-sm rounded-2xl border-4 border-[#8a5330] bg-[#FFF6E6] p-4 text-center shadow-[0_18px_50px_rgba(0,0,0,0.55)] [@media(max-height:700px)]:p-3 sm:p-6"

@@ -69,9 +69,10 @@ export function BossIntroOverlay({ t, level, kind, onGo }: BossIntroProps) {
     ctx.drawImage(spr.canvas as CanvasImageSource, 0, 0, spr.w, spr.h, 0, 0, w, h)
   }, [kind])
 
-  /* Барабанная дробь перед боем: вход в босс-бой — событие */
+  /* Барабанная дробь перед боем: вход в босс-бой — событие.
+      0.0.44: свой мрачный звук вместо общего штрафа */
   useEffect(() => {
-    const tm = window.setTimeout(() => audio.play('penalty'), 260)
+    const tm = window.setTimeout(() => audio.play('bossIntro'), 260)
     return () => window.clearTimeout(tm)
   }, [])
 
