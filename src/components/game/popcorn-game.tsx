@@ -440,19 +440,28 @@ function GameButton({
   className,
   /** Пробегающий блик — для главной кнопки «ИГРАТЬ» */
   shine = false,
+  /** 0.0.45: 'violet' — леопардовая тема главного меню; 'red' — классический,
+      им пользуются все диалоги — их вид не менялся */
+  tone = 'red',
 }: {
   onClick: () => void
   children: React.ReactNode
   disabled?: boolean
   className?: string
   shine?: boolean
+  tone?: 'red' | 'violet'
 }) {
+  const tones = {
+    red: 'bg-[#E24B3B] shadow-[0_5px_0_#9c2f22] hover:bg-[#ef5a4a] active:shadow-[0_2px_0_#9c2f22]',
+    violet:
+      'bg-gradient-to-b from-[#C93BE4] to-[#9B2FC0] shadow-[0_5px_0_#631B7E] hover:from-[#D44EF0] hover:to-[#A83BD0] active:shadow-[0_2px_0_#631B7E]',
+  } as const
   return (
     <button
       type="button"
       onClick={onClick}
       disabled={disabled}
-      className={`w-full rounded-xl bg-[#E24B3B] px-6 py-3.5 font-pixel text-base text-white shadow-[0_5px_0_#9c2f22] transition-all hover:bg-[#ef5a4a] active:translate-y-[3px] active:shadow-[0_2px_0_#9c2f22] disabled:cursor-not-allowed disabled:opacity-60 sm:text-lg ${className ?? ''} ${shine ? 'relative overflow-hidden' : ''}`}
+      className={`w-full rounded-xl px-6 py-3.5 font-pixel text-base text-white transition-all active:translate-y-[3px] disabled:cursor-not-allowed disabled:opacity-60 sm:text-lg ${tones[tone]} ${className ?? ''} ${shine ? 'relative overflow-hidden' : ''}`}
     >
       {shine && (
         <span
@@ -523,32 +532,6 @@ function MenuBackdrop() {
           )}
         </span>
       ))}
-    </div>
-  )
-}
-
-/** Фиолетово-леопардовый 3D-пол главного меню (0.0.44): сцена ночного клуба.
-    Плоскость в перспективе (CSS .leopard-plane) гонит леопардовые розетки
-    «на зрителя», у горизонта — неоновая кромка и дымка, по полу скользят
-    прожекторы. Чистая атмосфера: pointer-events-none, на игру не влияет. */
-function LeopardFloor() {
-  return (
-    <div
-      aria-hidden
-      className="pointer-events-none absolute inset-x-0 bottom-0 z-[1] h-[40%] overflow-hidden sm:h-[44%]"
-      style={{ perspective: '30rem' }}
-    >
-      {/* Плоскость пола: наклонена и бежит пятнами на зрителя */}
-      <div className="leopard-plane" />
-      {/* Неоновая кромка горизонта: тонкая линия + мягкое свечение */}
-      <div className="absolute inset-x-0 top-0 h-px bg-gradient-to-r from-transparent via-fuchsia-300/60 to-transparent" />
-      <div className="absolute inset-x-10 top-0 h-10 -translate-y-1/2 rounded-full bg-fuchsia-500/20 blur-2xl" />
-      {/* Прожекторы: два мягких пятна медленно скользят по полу */}
-      <div className="glow-drift absolute bottom-8 left-[18%] h-24 w-44 rounded-full bg-fuchsia-400/14 blur-2xl" />
-      <div
-        className="glow-drift absolute bottom-12 right-[14%] h-20 w-40 rounded-full bg-amber-400/10 blur-2xl"
-        style={{ animationDelay: '3.6s' }}
-      />
     </div>
   )
 }
@@ -739,10 +722,10 @@ function MenuSmallBtn({
       type="button"
       onClick={onClick}
       title={title}
-      className={`flex items-center justify-center gap-1 rounded-xl border-2 px-1 py-2 font-pixel text-[11px] font-bold shadow-[0_3px_0_#c9a97a] transition-all hover:-translate-y-0.5 active:translate-y-[2px] active:shadow-[0_1px_0_#c9a97a] ${
+      className={`flex items-center justify-center gap-1 rounded-xl border-2 px-1 py-2 font-pixel text-[11px] font-bold shadow-[0_3px_0_#170826] transition-all hover:-translate-y-0.5 active:translate-y-[2px] active:shadow-[0_1px_0_#170826] ${
         accent
-          ? 'animate-pulse border-[#5C8A3A] bg-[#eaf3dd] text-[#3f6b28] hover:bg-[#e0efcc]'
-          : 'border-[#8a5330] bg-[#f3e2c8] text-[#8a5330] hover:bg-[#eed7b4]'
+          ? 'animate-pulse border-[#7FB069] bg-[#25411c] text-[#C7F0A8] hover:bg-[#2E5223]'
+          : 'border-[#C979F0]/80 bg-[#2E1650] text-[#EBD6FF] hover:bg-[#3A1D66]'
       }`}
     >
       {icon}
@@ -5809,16 +5792,22 @@ export function PopcornGame() {
               animate={{ opacity: 1 }}
               exit={{ opacity: 0, pointerEvents: 'none' }}
             >
-              {/* Фиолетово-леопардовый 3D-пол сцены (0.0.44) + падающие зёрна за карточкой */}
-              <LeopardFloor />
+              {/* Леопардовые обои фона (0.0.45) + падающие зёрна за карточкой */}
+              <div aria-hidden className="leopard-wall pointer-events-none absolute inset-0" />
               <MenuBackdrop />
+              {/* Карточка меню: яркая леопардовая РАМКА + фиолетовая панель с деликатным
+                  узором (0.0.45) — вместо бежевой. Кнопки те же, что и были */}
               <motion.div
-                className="relative my-auto w-full max-w-sm rounded-2xl border-4 border-[#8a5330] bg-[#FFF6E6] p-4 text-center shadow-[0_18px_50px_rgba(0,0,0,0.55)] [@media(max-height:700px)]:p-3 sm:p-6"
+                className="leopard-frame relative my-auto w-full max-w-sm rounded-[22px] p-2.5 text-center shadow-[0_18px_50px_rgba(0,0,0,0.65)] [@media(max-height:700px)]:p-1.5 sm:p-3"
                 initial={{ scale: 0.92, y: 14 }}
                 animate={{ scale: 1, y: 0 }}
                 exit={{ scale: 0.95, y: 10, opacity: 0, pointerEvents: 'none' }}
                 transition={{ type: 'spring', stiffness: 260, damping: 22 }}
               >
+                <div className="relative overflow-hidden rounded-2xl bg-gradient-to-b from-[#2A1348] via-[#231040] to-[#170826] p-4 [@media(max-height:700px)]:p-3 sm:p-6">
+                  {/* Деликатный леопардовый узор по фону панели */}
+                  <span aria-hidden className="leopard-soft pointer-events-none absolute inset-0" />
+                  <div className="relative">
                 {/* Живая куница NANA + панель управления справа (путешествия, маркет) */}
                 <motion.div {...menuPop(0)} className="relative mx-auto w-full max-w-[21rem]">
                   <div className="flex items-stretch gap-1.5">
@@ -5905,28 +5894,28 @@ export function PopcornGame() {
                     <div className="flex w-[4.25rem] shrink-0 flex-col gap-1 sm:w-20">
                       {/* Алмазы */}
                       <div
-                        className="flex items-center justify-center gap-1 rounded-xl border-2 border-[#7FB069] bg-[#eaf3dd] px-1 py-1.5"
+                        className="flex items-center justify-center gap-1 rounded-xl border-2 border-[#7FB069]/70 bg-[#233a18] px-1 py-1.5"
                         title={t('marten.diamondsHint')}
                       >
-                        <Gem className="h-3.5 w-3.5 shrink-0 text-[#3f6b28]" aria-hidden />
-                        <span className="font-pixel text-[11px] font-bold tabular-nums text-[#3f6b28]">
+                        <Gem className="h-3.5 w-3.5 shrink-0 text-[#9ED07A]" aria-hidden />
+                        <span className="font-pixel text-[11px] font-bold tabular-nums text-[#C7F0A8]">
                           {marten.diamonds}
                         </span>
                       </div>
                       {/* Уровень куницы + прогресс опыта */}
                       <div
-                        className="flex items-center justify-center gap-1 rounded-xl border-2 border-[#E24B3B] bg-[#ffe9e2] px-1 py-1.5"
+                        className="flex items-center justify-center gap-1 rounded-xl border-2 border-[#E24B3B]/70 bg-[#3d1410] px-1 py-1.5"
                         title={`${t('marten.xpHint')} ${t('marten.messHint')}`}
                         aria-label={t('marten.lvlFull', { n: martenLvl.level })}
                       >
-                        <PawPrint className="h-3.5 w-3.5 shrink-0 text-[#B33A26]" aria-hidden />
-                        <span className="font-pixel text-[11px] font-bold tabular-nums text-[#B33A26]">
+                        <PawPrint className="h-3.5 w-3.5 shrink-0 text-[#FF8A70]" aria-hidden />
+                        <span className="font-pixel text-[11px] font-bold tabular-nums text-[#FFC9B8]">
                           {martenLvl.level}
                         </span>
                       </div>
                       <span
                         aria-hidden
-                        className="mx-auto block h-1.5 w-full max-w-14 overflow-hidden rounded-full bg-[#f0d9c8]"
+                        className="mx-auto block h-1.5 w-full max-w-14 overflow-hidden rounded-full bg-[#45227a]"
                       >
                         <span
                           className="block h-full rounded-full bg-[#E24B3B] transition-all duration-700"
@@ -5942,7 +5931,7 @@ export function PopcornGame() {
                           audio.play('click')
                           setOverlay('travel')
                         }}
-                        className="flex flex-1 flex-col items-center justify-center gap-0.5 rounded-xl border-2 border-[#8a5330] bg-[#f3e2c8] px-1 py-1 text-[#8a5330] shadow-[0_3px_0_#c9a97a] transition hover:bg-[#eed7b4] active:translate-y-[2px] active:shadow-[0_1px_0_#c9a97a]"
+                        className="flex flex-1 flex-col items-center justify-center gap-0.5 rounded-xl border-2 border-[#C979F0]/80 bg-[#2E1650] px-1 py-1 text-[#EBD6FF] shadow-[0_3px_0_#170826] transition hover:bg-[#3A1D66] active:translate-y-[2px] active:shadow-[0_1px_0_#170826]"
                       >
                         <Compass className="h-4.5 w-4.5" aria-hidden />
                         <span className="font-pixel text-[8px] font-bold leading-none">
@@ -5959,7 +5948,7 @@ export function PopcornGame() {
                           }}
                           title={t('mshop.title')}
                           aria-label={t('mshop.title')}
-                          className="flex h-11 flex-col items-center justify-center gap-0.5 rounded-xl border-2 border-[#8a5330] bg-[#f3e2c8] px-0.5 py-1 text-[#8a5330] shadow-[0_3px_0_#c9a97a] transition hover:bg-[#eed7b4] active:translate-y-[2px] active:shadow-[0_1px_0_#c9a97a] sm:h-12"
+                          className="flex h-11 flex-col items-center justify-center gap-0.5 rounded-xl border-2 border-[#C979F0]/80 bg-[#2E1650] px-0.5 py-1 text-[#EBD6FF] shadow-[0_3px_0_#170826] transition hover:bg-[#3A1D66] active:translate-y-[2px] active:shadow-[0_1px_0_#170826] sm:h-12"
                         >
                           <ShoppingBag className="h-3.5 w-3.5" aria-hidden />
                           <span className="font-pixel text-[8px] font-bold leading-none">
@@ -5974,7 +5963,7 @@ export function PopcornGame() {
                           }}
                           title={t('market.title')}
                           aria-label={t('market.title')}
-                          className="relative flex h-11 flex-col items-center justify-center gap-0.5 rounded-xl border-2 border-[#3f6b28] bg-[#eaf3dd] px-0.5 py-1 text-[#3f6b28] shadow-[0_3px_0_#5C8A3A] transition hover:bg-[#e0eecb] active:translate-y-[2px] active:shadow-[0_1px_0_#5C8A3A] sm:h-12"
+                          className="relative flex h-11 flex-col items-center justify-center gap-0.5 rounded-xl border-2 border-[#7FB069]/80 bg-[#233a18] px-0.5 py-1 text-[#C7F0A8] shadow-[0_3px_0_#12200c] transition hover:bg-[#2B4A1E] active:translate-y-[2px] active:shadow-[0_1px_0_#12200c] sm:h-12"
                         >
                           <Store className="h-3.5 w-3.5" aria-hidden />
                           <span className="font-pixel text-[8px] font-bold leading-none">
@@ -6006,14 +5995,14 @@ export function PopcornGame() {
 
                   {/* Стадия и прогресс до следующего роста */}
                   <div
-                    className="mt-2 flex items-center gap-2 rounded-full bg-amber-100 px-3 py-1.5 ring-2 ring-amber-200"
+                    className="mt-2 flex items-center gap-2 rounded-full bg-[#2E1650] px-3 py-1.5 ring-2 ring-[#C979F0]/40"
                     title={t('marten.growHint')}
                   >
                     <span aria-hidden className="text-sm">🐾</span>
-                    <span className="font-ui text-[11px] font-bold text-[#8a5330]">
+                    <span className="font-ui text-[11px] font-bold text-[#EBD6FF]">
                       {t('marten.title')} · {t(`marten.st${martenStage}`)}
                     </span>
-                    <span className="ml-auto h-2 w-20 overflow-hidden rounded-full bg-[#e3cba4]">
+                    <span className="ml-auto h-2 w-20 overflow-hidden rounded-full bg-[#45227a]">
                       <span
                         className="block h-full rounded-full bg-[#E24B3B] transition-all duration-700"
                         style={{ width: `${Math.round(progressToNext(marten) * 100)}%` }}
@@ -6023,11 +6012,11 @@ export function PopcornGame() {
                   {/* Кликер-статистика: сколько кликов сделано и монеток за клик —
                       цена клика видна ДО тапа (апгрейды видны сразу) */}
                   <div
-                    className="mt-1 flex items-center gap-2 rounded-full bg-amber-50 px-3 py-1 ring-2 ring-amber-100"
+                    className="mt-1 flex items-center gap-2 rounded-full bg-[#241040] px-3 py-1 ring-2 ring-[#C979F0]/25"
                     title={t('marten.xpHint')}
                   >
                     <span aria-hidden className="text-xs">👆</span>
-                    <span className="truncate font-ui text-[10px] font-bold tabular-nums text-[#a97c50]">
+                    <span className="truncate font-ui text-[10px] font-bold tabular-nums text-[#D8B4FE]">
                       {t('marten.clickStats', { n: market.clicks, c: tapCoins })}
                     </span>
                   </div>
@@ -6054,7 +6043,7 @@ export function PopcornGame() {
                     aria-hidden
                     className="logo-glow pointer-events-none absolute -ml-20 left-1/2 top-0 h-14 w-40 rounded-full bg-amber-400/25 blur-2xl"
                   />
-                  <span aria-hidden className="text-shadow-pixel relative block text-4xl font-bold tracking-wide text-[#B33A26] sm:text-5xl">
+                  <span aria-hidden className="text-shadow-pixel relative block text-4xl font-bold tracking-wide text-[#F5E9FF] sm:text-5xl">
                     <span className="-mx-1 relative inline-block overflow-hidden px-1 align-top">
                       P<span className="pop-dot text-amber-500" style={{ animationDelay: '0s' }}>.</span>
                       O<span className="pop-dot text-amber-500" style={{ animationDelay: '0.45s' }}>.</span>
@@ -6066,7 +6055,7 @@ export function PopcornGame() {
                       />
                     </span>
                   </span>
-                  <span aria-hidden className="mt-1.5 block font-pixel text-[11px] font-bold uppercase tracking-[0.35em] text-[#8a5330] sm:text-sm">
+                  <span aria-hidden className="mt-1.5 block font-pixel text-[11px] font-bold uppercase tracking-[0.35em] text-[#D8B4FE] sm:text-sm">
                     {t('app.title')}
                   </span>
                 </motion.h1>
@@ -6075,7 +6064,7 @@ export function PopcornGame() {
                 <motion.div className="mt-2.5 flex flex-wrap items-center justify-center gap-1" {...menuPop(2)}>
                   {best > 0 && (
                     <div
-                      className="inline-flex items-center gap-1 rounded-full bg-amber-100 px-2.5 py-1 font-ui text-[11px] font-semibold text-[#8a5330] ring-2 ring-amber-200"
+                      className="inline-flex items-center gap-1 rounded-full bg-[#2E1650] px-2.5 py-1 font-ui text-[11px] font-semibold text-[#EBD6FF] ring-2 ring-[#C979F0]/40"
                       title={
                         worldStats
                           ? t('lead.stats', {
@@ -6090,20 +6079,20 @@ export function PopcornGame() {
                       {t('menu.record', { n: best })}
                     </div>
                   )}
-                  <div className="inline-flex items-center gap-1 rounded-full bg-amber-100 px-2.5 py-1 font-ui text-[11px] font-semibold text-[#8a5330] ring-2 ring-amber-200">
+                  <div className="inline-flex items-center gap-1 rounded-full bg-[#2E1650] px-2.5 py-1 font-ui text-[11px] font-semibold text-[#EBD6FF] ring-2 ring-[#C979F0]/40">
                     <Popcorn className="h-3.5 w-3.5 text-amber-500" aria-hidden />
                     {t('menu.xp', { n: xp })}
                   </div>
                   {/* Стаж котика: мета-прогресс — уровень + тонкая полоска внутри уровня */}
                   <div
-                    className="inline-flex items-center gap-1 rounded-full bg-amber-100 px-2.5 py-1 font-ui text-[11px] font-semibold text-[#8a5330] ring-2 ring-amber-200"
+                    className="inline-flex items-center gap-1 rounded-full bg-[#2E1650] px-2.5 py-1 font-ui text-[11px] font-semibold text-[#EBD6FF] ring-2 ring-[#C979F0]/40"
                     aria-label={t('menu.charLevel', { n: charInfo.level })}
                     title={t('menu.charLevelHint')}
                   >
                     {t('menu.charLevel', { n: charInfo.level })}
                     <span
                       aria-hidden
-                      className="h-1.5 w-10 min-w-4 overflow-hidden rounded-full bg-[#3a2210]"
+                      className="h-1.5 w-10 min-w-4 overflow-hidden rounded-full bg-[#45227a]"
                     >
                       <span
                         className="block h-full rounded-full bg-amber-200 transition-all duration-700"
@@ -6123,7 +6112,7 @@ export function PopcornGame() {
                       aria-hidden
                       className="play-pulse pointer-events-none absolute inset-0 rounded-xl"
                     />
-                    <GameButton onClick={startGame} shine>
+                    <GameButton onClick={startGame} shine tone="violet">
                       {t('menu.play')}
                     </GameButton>
                   </div>
@@ -6225,7 +6214,7 @@ export function PopcornGame() {
                           setOverlay('install')
                         }
                       }}
-                      className="flex w-full items-center justify-center gap-2 rounded-xl border-2 border-[#8a5330] bg-[#f3e2c8] px-4 py-2 font-pixel text-sm font-bold text-[#8a5330] transition hover:bg-[#eed7b4] active:scale-[0.98]"
+                      className="flex w-full items-center justify-center gap-2 rounded-xl border-2 border-[#C979F0]/80 bg-[#2E1650] px-4 py-2 font-pixel text-sm font-bold text-[#EBD6FF] shadow-[0_3px_0_#170826] transition hover:bg-[#3A1D66] active:translate-y-[2px] active:shadow-[0_1px_0_#170826]"
                     >
                       <Smartphone className="h-4 w-4" aria-hidden /> {t('menu.install')}
                     </button>
@@ -6235,7 +6224,7 @@ export function PopcornGame() {
                 {/* Версия сборки: правый нижний угол меню — сразу видно, что на проде */}
                 <span
                   aria-label={GAME_VERSION_LABEL}
-                  className="pointer-events-none absolute bottom-0.5 right-2 font-ui text-[9px] font-semibold lowercase tracking-wide text-[#a97c50]/60 sm:bottom-1 sm:right-2.5"
+                  className="pointer-events-none absolute bottom-0.5 right-2 font-ui text-[9px] font-semibold lowercase tracking-wide text-[#D8B4FE]/50 sm:bottom-1 sm:right-2.5"
                 >
                   {GAME_VERSION_LABEL}
                 </span>
@@ -6250,7 +6239,7 @@ export function PopcornGame() {
                       r: worldStats.runs,
                       p: worldStats.players,
                     })}
-                    className="pointer-events-none absolute bottom-0.5 left-2 font-ui text-[9px] font-semibold tracking-wide text-[#a97c50]/60 sm:bottom-1 sm:left-2.5"
+                    className="pointer-events-none absolute bottom-0.5 left-2 font-ui text-[9px] font-semibold tracking-wide text-[#D8B4FE]/50 sm:bottom-1 sm:left-2.5"
                   >
                     {t('menu.world', {
                       n: worldStats.launches,
@@ -6258,6 +6247,8 @@ export function PopcornGame() {
                     })}
                   </span>
                 )}
+                </div>
+                </div>
               </motion.div>
             </motion.div>
           )}
