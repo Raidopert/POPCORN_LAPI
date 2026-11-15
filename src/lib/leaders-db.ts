@@ -7,6 +7,13 @@
  * API честно отвечает { online: false } и игра продолжает вести
  * локальный список на устройстве.
  *
+ * Мировая таблица (0.0.47): строится из LeaderPlayer — «аккаунта» котика.
+ * Каждый котик появляется в топе РОВНО ОДИН раз, и пишется только его
+ * МАКСИМАЛЬНЫЙ рекорд (дубли забегов живут в LeaderSubmission, но в
+ * таблицу не попадают). Имя котика уникально: закрепляется через
+ * claimNick (POST /api/leaders/nick), а коллизии от офлайн-переименований
+ * и старых данных развязывает суффикс «•тег» при отображении.
+ *
  * Защита от накрутки описана в src/lib/leaderboard-guard.ts
  * (HMAC-токен забега + одноразовость + тайминги + rate-limit).
  */
@@ -55,11 +62,14 @@ const POSTGRES_DDL: readonly string[] = [
     "nick" TEXT NOT NULL DEFAULT 'Котик',
     "bestScore" INTEGER NOT NULL DEFAULT 0,
     "bestLevel" INTEGER NOT NULL DEFAULT 0,
+    "bestAt" TIMESTAMP(3),
     "runs" INTEGER NOT NULL DEFAULT 0,
     "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
     "updatedAt" TIMESTAMP(3) NOT NULL,
     CONSTRAINT "LeaderPlayer_pkey" PRIMARY KEY ("id")
   )`,
+  /* миграция уже существующей прод-таблицы (CREATE IF NOT EXISTS её не трогает) */
+  `ALTER TABLE "LeaderPlayer" ADD COLUMN IF NOT EXISTS "bestAt" TIMESTAMP(3)`,
   `CREATE UNIQUE INDEX IF NOT EXISTS "LeaderPlayer_device_key" ON "LeaderPlayer"("device")`,
   `CREATE INDEX IF NOT EXISTS "LeaderPlayer_bestScore_idx" ON "LeaderPlayer"("bestScore")`,
 
@@ -133,20 +143,51 @@ function ensureTables(): Promise<void> {
 
 /* ---------- чтение топа и статистики ---------- */
 
+/**
+ * Короткий стабильный тег устройства (4 символа base36): различает
+ * одинаковые ники в топе, не раскрывая deviceId.
+ */
+function devTag(device: string): string {
+  let h = 5381
+  for (let i = 0; i < device.length; i++) h = ((h << 5) + h + device.charCodeAt(i)) >>> 0
+  return h.toString(36).padStart(4, '0').slice(0, 4)
+}
+
+/**
+ * Мировая таблица рекордов: каждый котик — ровно одна строка,
+ * и только с его максимальным рекордом (bestScore из LeaderPlayer).
+ * Строки с bestScore = 0 (котик ещё не играл / только закрепил имя)
+ * в топ не попадают.
+ *
+ * Имена в таблице уникальны: если два устройства сошлись на одном
+ * нике (офлайн-переименование, старые данные), оба показываются
+ * с суффиксом «•тег» — строки остаются различимы и таблица честна.
+ */
 export async function fetchTopLeaders(limit = 20): Promise<OnlineLeader[] | null> {
   try {
     await ensureTables()
-    const rows = await db.leaderSubmission.findMany({
-      orderBy: [{ score: 'desc' }, { createdAt: 'asc' }],
+    const rows = await db.leaderPlayer.findMany({
+      where: { bestScore: { gt: 0 } },
+      orderBy: [{ bestScore: 'desc' }, { updatedAt: 'asc' }],
       take: limit,
-      select: { nick: true, score: true, level: true, createdAt: true },
+      select: { nick: true, bestScore: true, bestLevel: true, bestAt: true, updatedAt: true, device: true },
     })
-    return rows.map((r) => ({
-      name: r.nick,
-      score: r.score,
-      level: r.level,
-      date: r.createdAt.getTime(),
-    }))
+    /* Группируем ники без учёта регистра: коллизия → суффикс у всех носителей */
+    const dup = new Map<string, number>()
+    for (const r of rows) {
+      const k = r.nick.trim().toLowerCase()
+      dup.set(k, (dup.get(k) ?? 0) + 1)
+    }
+    return rows.map((r) => {
+      const k = r.nick.trim().toLowerCase()
+      const name = (dup.get(k) ?? 0) > 1 ? `${r.nick}•${devTag(r.device)}` : r.nick
+      return {
+        name,
+        score: r.bestScore,
+        level: r.bestLevel,
+        date: (r.bestAt ?? r.updatedAt).getTime(),
+      }
+    })
   } catch (err) {
     console.error('[leaders] fetch failed:', err)
     return null
@@ -209,6 +250,42 @@ export async function recordVisit(device: string): Promise<boolean> {
   } catch (err) {
     console.error('[leaders] recordVisit failed:', err)
     return false
+  }
+}
+
+/* ---------- аккаунт котика: уникальное имя ---------- */
+
+export interface NickClaim {
+  ok: boolean
+  /** Имя уже носит другое устройство */
+  taken?: boolean
+  /** База недоступна — клиент сохранит имя локально и сыграет офлайн */
+  offline?: boolean
+}
+
+/**
+ * Закрепить имя котика за устройством — «аккаунт» мирового топа.
+ * Имя уникально: если его уже носит ДРУГОЕ устройство — taken, и
+ * диалог ника попросит придумать другое. Своя строка создаётся даже
+ * без единого забега (bestScore: 0 — в топ такие строки не попадают:
+ * фильтр bestScore > 0 в fetchTopLeaders).
+ */
+export async function claimNick(device: string, nick: string): Promise<NickClaim> {
+  try {
+    await ensureTables()
+    const mine = await db.leaderPlayer.findUnique({ where: { device } })
+    if (mine?.nick === nick) return { ok: true }
+    const owner = await db.leaderPlayer.findFirst({ where: { nick } })
+    if (owner && owner.device !== device) return { ok: false, taken: true }
+    if (mine) {
+      await db.leaderPlayer.update({ where: { device }, data: { nick } })
+    } else {
+      await db.leaderPlayer.create({ data: { device, nick } })
+    }
+    return { ok: true }
+  } catch (err) {
+    console.error('[leaders] claimNick failed:', err)
+    return { ok: false, offline: true }
   }
 }
 
@@ -299,12 +376,22 @@ export async function submitLeaderRun(a: SubmitArgs): Promise<SubmitResult> {
         data: { runId: run.id, device: a.device, nick: a.nick, score: a.score, level: a.level },
       })
 
+      /* Аккаунт котика: хранится ТОЛЬКО максимальный рекорд (bestAt — когда
+         он поставлен; bestScore: 0-строки в топ не попадают) */
       const p = await tx.leaderPlayer.findUnique({ where: { device: a.device } })
       if (!p) {
         await tx.leaderPlayer.create({
-          data: { device: a.device, nick: a.nick, bestScore: a.score, bestLevel: a.level, runs: 1 },
+          data: {
+            device: a.device,
+            nick: a.nick,
+            bestScore: a.score,
+            bestLevel: a.level,
+            bestAt: a.score > 0 ? new Date(now) : null,
+            runs: 1,
+          },
         })
       } else {
+        const isRecord = a.score > p.bestScore && a.score > 0
         await tx.leaderPlayer.update({
           where: { device: a.device },
           data: {
@@ -312,6 +399,7 @@ export async function submitLeaderRun(a: SubmitArgs): Promise<SubmitResult> {
             runs: { increment: 1 },
             bestScore: Math.max(p.bestScore, a.score),
             bestLevel: Math.max(p.bestLevel, a.level),
+            ...(isRecord ? { bestAt: new Date(now) } : {}),
           },
         })
       }

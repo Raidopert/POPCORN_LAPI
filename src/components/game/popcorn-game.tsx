@@ -249,7 +249,8 @@ interface ChestExtra {
   n: number
 }
 
-/** Строка мировой таблицы лидеров */
+/** Строка мировой таблицы лидеров (0.0.47: один котик = одна строка, макс. рекорд;
+    date — когда рекорд поставлен) */
 interface OnlineLeader {
   name: string
   score: number
@@ -2100,6 +2101,8 @@ function LeadersOverlay({
                 {t('lead.myRank', { n: `#${world.me.rank}`, best: world.me.best })}
               </p>
             )}
+            {/* 0.0.47: топ — «один котик = одна строка», только максимальный рекорд */}
+            <p className="mt-1.5 font-ui text-[10px] font-medium text-[#a97c50]">{t('lead.unique')}</p>
             {world.rows.length === 0 ? (
               <p className="mt-4 font-ui text-sm font-medium text-[#5C3A1E]">{t('lead.emptyWorld')}</p>
             ) : (
@@ -2109,7 +2112,7 @@ function LeadersOverlay({
                 myName.trim().length > 1 && e.name.toLowerCase() === myName.trim().toLowerCase()
               return (
                 <li
-                  key={`${e.date}-${e.name}-${i}`}
+                  key={`${e.name}-${i}`}
                   className={`flex items-center gap-2 rounded-xl border-2 px-2.5 py-1.5 ${
                     mine
                       ? 'border-amber-500 bg-amber-100 ring-2 ring-amber-300'
@@ -2121,16 +2124,20 @@ function LeadersOverlay({
                   <span aria-hidden className="w-7 text-center font-pixel text-sm">
                     {i < 3 ? ['🥇', '🥈', '🥉'][i] : i + 1}
                   </span>
-                  <span className="min-w-0 flex-1 truncate text-left font-pixel text-sm font-bold text-[#5C3A1E]">
-                    {e.name}
-                    {mine && <span className="ml-1 font-ui text-[10px] text-[#B33A26]">{t('lead.you')}</span>}
+                  {/* Имя котика + уровень и дата постановки рекорда — как в локальном списке */}
+                  <span className="min-w-0 flex-1 text-left">
+                    <span className="block truncate font-pixel text-sm font-bold text-[#5C3A1E]">
+                      {e.name}
+                      {mine && <span className="ml-1 font-ui text-[10px] text-[#B33A26]">{t('lead.you')}</span>}
+                    </span>
+                    <span className="block font-ui text-[10px] text-[#8a5330]">
+                      {t('lead.lvl', { n: e.level })} ·{' '}
+                      {new Date(e.date).toLocaleDateString(LOCALES[lang])}
+                    </span>
                   </span>
                   <Popcorn className="h-4 w-4 shrink-0 text-amber-500" aria-hidden />
                   <span className="font-pixel text-base font-bold tabular-nums text-[#5C3A1E]">
                     {e.score}
-                  </span>
-                  <span className="shrink-0 font-ui text-[11px] text-[#8a5330]">
-                    {t('lead.lvl', { n: e.level })}
                   </span>
                 </li>
               )
@@ -3394,10 +3401,36 @@ function NickDialog({
   afterRun?: boolean
 }) {
   const [draft, setDraft] = useState(current)
+  const [busy, setBusy] = useState(false)
+  /** 0.0.47: имя уже носит другой котик (сервер отклонил закрепление) */
+  const [taken, setTaken] = useState(false)
   const clean = draft.trim().replace(/\s+/g, ' ')
   const valid = clean.length >= 2 && clean.length <= 24
-  const submit = () => {
-    if (valid) onDone(clean.slice(0, 24))
+  /* Имя котика — уникальный «аккаунт» мирового топа: перед сохранением
+     закрепляем его за устройством на сервере. Занятое другим котиком имя
+     не выдаётся — просим придумать своё. Нет сети — сохраняем локально,
+     сервер развяжет коллизии в таблице сам (суффикс «•тег»). */
+  const submit = async () => {
+    if (!valid || busy) return
+    const name = clean.slice(0, 24)
+    setBusy(true)
+    setTaken(false)
+    try {
+      const res = await fetch('/api/leaders/nick', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ device: getDeviceId(), name }),
+      })
+      if (res.status === 409) {
+        setTaken(true)
+        setBusy(false)
+        return
+      }
+    } catch {
+      /* офлайн: имя сохранится локально, в топе коллизии развяжутся сами */
+    }
+    setBusy(false)
+    onDone(name)
   }
   return (
     <motion.div
@@ -3433,19 +3466,23 @@ function NickDialog({
           autoComplete="off"
           maxLength={24}
           value={draft}
-          onChange={(e) => setDraft(e.target.value.slice(0, 24))}
+          onChange={(e) => {
+            setDraft(e.target.value.slice(0, 24))
+            setTaken(false)
+          }}
           onKeyDown={(e) => {
-            if (e.key === 'Enter' && valid) submit()
+            if (e.key === 'Enter' && valid) void submit()
           }}
           placeholder={t('nick.placeholder')}
           aria-label={t('nick.aria')}
           className="mt-3 w-full rounded-xl border-[3px] border-[#e3cba4] bg-white px-3 py-2.5 text-center font-pixel text-lg font-bold text-[#5C3A1E] outline-none transition placeholder:text-[#c9a97a] focus:border-amber-400"
         />
         <p className="mt-1.5 font-ui text-[11px] text-[#a97c50]">{t('nick.hint')}</p>
+        {taken && <p className="mt-1 font-ui text-[11px] font-bold text-[#B33A26]">{t('nick.taken')}</p>}
         <div className="mt-3 space-y-2">
           {valid ? (
-            <GameButton onClick={submit}>
-              {mode === 'gate' ? t('nick.confirm') : t('nick.save')}
+            <GameButton onClick={() => void submit()} disabled={busy}>
+              {busy ? '…' : mode === 'gate' ? t('nick.confirm') : t('nick.save')}
             </GameButton>
           ) : (
             <button

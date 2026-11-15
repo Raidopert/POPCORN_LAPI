@@ -23,8 +23,9 @@
 // Как устроен защищённый лидерборд (защита от накрутки):
 //   LeaderRun       — «заявка» на забег: сервер выдаёт HMAC-токен,
 //                     одноразовый, с проверкой времени жизни
-//   LeaderSubmission— финальный результат забега (один run = одна запись)
-//   LeaderPlayer    — агрегат по анонимному deviceId (рекорд, ранг)
+//   LeaderSubmission— финальный результат забега (журнал забегов для статистики)
+//   LeaderPlayer    — «аккаунт» котика: уникальный nick + МАКСИМАЛЬНЫЙ рекорд;
+//                     мировая таблица строится только отсюда (1 котик = 1 строка)
 //   LeaderStat      — мировые счётчики (launches / runs)
 // ============================================================
 
@@ -37,16 +38,23 @@ datasource db {
   url      = env("DATABASE_URL")
 }
 
-/** Игрок: анонимное устройство (deviceId из localStorage) + последний ник и рекорд */
+/**
+ * Игрок-«аккаунт» мирового лидерборда: одно устройство = один котик = одна
+ * строка в таблице рекордов. nick — уникальное имя котика (закрепляется
+ * через POST /api/leaders/nick, занятое имя другому устройству не выдаётся).
+ * bestScore/bestLevel — ТОЛЬКО максимальный рекорд котика (топ строится
+ * отсюда, дубли забегов в таблицу не попадают). bestAt — когда рекорд поставлен.
+ */
 model LeaderPlayer {
-  id        String   @id @default(cuid())
-  device    String   @unique
-  nick      String   @default("Котик")
-  bestScore Int      @default(0)
-  bestLevel Int      @default(0)
-  runs      Int      @default(0)
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
+  id        String    @id @default(cuid())
+  device    String    @unique
+  nick      String    @default("Котик")
+  bestScore Int       @default(0)
+  bestLevel Int       @default(0)
+  bestAt    DateTime?
+  runs      Int       @default(0)
+  createdAt DateTime  @default(now())
+  updatedAt DateTime  @updatedAt
 
   @@index([bestScore])
 }

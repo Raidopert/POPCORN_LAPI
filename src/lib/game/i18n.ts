@@ -431,10 +431,10 @@ export const T: Record<string, Row> = {
     '¡Primera partida lista! Deja un nombre: tu récord entrará en la tabla mundial con él. 🌍',
   ],
   'nick.edit.desc': [
-    'Новое имя появится в мировом рейтинге после следующего забега',
-    'The new name appears in the world ranking after your next run',
-    'Der neue Name erscheint nach dem nächsten Lauf in der Weltrangliste',
-    'El nuevo nombre aparecerá en el ranking mundial tras la próxima partida',
+    'Новое имя сразу появится в мировой таблице под твоим рекордом',
+    'The new name appears in the world table right away under your record',
+    'Der neue Name erscheint sofort in der Welttabelle unter deinem Rekord',
+    'El nuevo nombre aparecerá enseguida en la tabla mundial con tu récord',
   ],
   'nick.placeholder': ['Мурзик', 'Whiskers', 'Minka', 'Bigotes'],
   'nick.aria': [
@@ -460,6 +460,13 @@ export const T: Record<string, Row> = {
     'Change world board nickname',
     'Weltriste-Nickname ändern',
     'Cambiar apodo de la tabla mundial',
+  ],
+  /* 0.0.47: имена в мировом топе уникальны — занятое имя закрепить нельзя */
+  'nick.taken': [
+    'Это имя уже занял другой котик — придумай своё!',
+    'That name is taken by another cat — pick your own!',
+    'Dieser Name ist schon von einer anderen Katze belegt — such dir einen eigenen!',
+    'Ese nombre ya lo tomó otro gato: ¡elige uno tuyo!',
   ],
 
   /* ---------- туториал первого забега (Ф0-2) ---------- */
@@ -2541,6 +2548,13 @@ export const T: Record<string, Row> = {
     'The world board awaits its first record — be first! 🌍',
     'Die Weltliste wartet auf den ersten Rekord — sei dabei! 🌍',
     'La tabla mundial espera su primer récord: ¡sé el primero! 🌍',
+  ],
+  /* 0.0.47: топ — «один котик = одна строка», только максимальный рекорд */
+  'lead.unique': [
+    'Один котик — одна строка: только самый большой рекорд 🏆',
+    'One cat, one row: only their best score counts 🏆',
+    'Eine Katze, eine Zeile: nur der beste Lauf zählt 🏆',
+    'Un gato, una fila: solo cuenta su mejor puntuación 🏆',
   ],
   'lead.lvl': ['ур. {{n}}', 'lv {{n}}', 'Lvl {{n}}', 'nv {{n}}'],
   'lead.you': ['← ты!', '← you!', '← du!', '← ¡tú!'],

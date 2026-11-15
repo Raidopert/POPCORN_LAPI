@@ -4,9 +4,12 @@
  * GET  /api/leaders[?device=<deviceId>]
  *        → { online, leaders: [{ name, score, level, date }], stats?, me?: { rank, best } }
  *      Топ-20 мира + мировая статистика; при ?device= ещё и место игрока.
+ *      Таблица — из LeaderPlayer: каждый котик РОВНО ОДИН раз, только
+ *      его МАКСИМАЛЬНЫЙ рекорд (журнал забегов LeaderSubmission в топ не идёт).
  *
  * POST /api/leaders { device, name, score, level, runId, token }
- *        → { ok, rank?, best? } — зачесть завершённый забег.
+ *        → { ok, rank?, best? } — зачесть завершённый забег и обновить
+ *          максимальный рекорд котика в LeaderPlayer.
  *
  * Защита от накрутки (см. src/lib/leaderboard-guard.ts и leaders-db.ts):
  *   1) runId + HMAC-токен, выданные сервером в /api/leaders/start;
