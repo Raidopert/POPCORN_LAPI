@@ -159,12 +159,6 @@ export const T: Record<string, Row> = {
     'COMPRAR POR 1 PUNTO',
   ],
   'tree.maxed': ['МАКС', 'MAX', 'MAX', 'MÁX'],
-  'tree.needRoot': [
-    'Сначала открой «Урожай»!',
-    'Unlock “Harvest” first!',
-    'Zuerst „Ernte“ freischalten!',
-    '¡Primero desbloquea «Cosecha»!',
-  ],
   'tree.needPoints': [
     'Нет очков — проходи уровни!',
     'No points — play levels!',
@@ -392,12 +386,6 @@ export const T: Record<string, Row> = {
     '🌽 POPCORN PAWS · 8-Bit-Roguelike · mit ❤️ gemacht',
     '🌽 POPCORN PAWS · roguelike 8 bits · hecho con ❤️',
   ],
-  'img.catMenu': [
-    'Рыжий кот держит ведро с попкорном',
-    'Red cat holding a popcorn bucket',
-    'Rote Katze mit einem Popcorneimer',
-    'Gato rojo sosteniendo un cubo de palomitas',
-  ],
 
   /* ---------- ник ---------- */
   'nick.gate.title': [
@@ -455,12 +443,6 @@ export const T: Record<string, Row> = {
   ],
   'nick.cancel': ['ОТМЕНА', 'CANCEL', 'ABBRECHEN', 'CANCELAR'],
   'nick.default': ['Котик', 'Kitty', 'Kätzchen', 'Gatito'],
-  'nick.editHint': [
-    'Сменить ник для мировой таблицы',
-    'Change world board nickname',
-    'Weltriste-Nickname ändern',
-    'Cambiar apodo de la tabla mundial',
-  ],
   /* 0.0.47: имена в мировом топе уникальны — занятое имя закрепить нельзя */
   'nick.taken': [
     'Это имя уже занял другой котик — придумай своё!',
@@ -2180,7 +2162,6 @@ export const T: Record<string, Row> = {
     '👇 ¡Elige un cofre!',
   ],
   'chest.chest': ['СУНДУК', 'CHEST', 'TRUHE', 'COFRE'],
-  'chest.opened': ['ОТКРЫТ', 'OPENED', 'GEÖFFNET', 'ABIERTO'],
   'chest.openN': ['Открыть сундучок {{n}}', 'Open chest {{n}}', 'Truhe {{n}} öffnen', 'Abrir cofre {{n}}'],
   'chest.quotaInfo': [
     'Уровень {{n}}: норма {{q}} 🍿 за {{s}} сек',
@@ -2342,14 +2323,12 @@ export const T: Record<string, Row> = {
   /* ---------- HUD ---------- */
   'hud.streak': ['серия {{n}}', 'streak {{n}}', 'Serie {{n}}', 'racha {{n}}'],
   'hud.level': ['УР. {{n}}', 'LV {{n}}', 'LVL {{n}}', 'NV {{n}}'],
-  'hud.bestPill': ['Рекорд', 'Best', 'Rekord', 'Récord'],
   'hud.fever': ['🔥 ЛИХОРАДКА +{{n}}', '🔥 FEVER +{{n}}', '🔥 FIEBER +{{n}}', '🔥 FIEBRE +{{n}}'],
   'hud.freeze': ['❄ ФРИЗ {{n}} СЕК', '❄ FREEZE {{n}} SEC', '❄ STOPP {{n}} SEK', '❄ PAUSA {{n}} SEG'],
   'hud.giftmult': ['ОЧКИ ×{{n}} · {{s}} СЕК', 'SCORE ×{{n}} · {{s}} SEC', 'PUNKTE ×{{n}} · {{s}} SEK', 'PUNTOS ×{{n}} · {{s}} SEG'],
   'gift.freeze': ['❄ ПОДАРОК: ФРИЗ {{n}} СЕК!', '❄ GIFT: FREEZE {{n}} SEC!', '❄ GESCHENK: STOPP {{n}} SEK!', '❄ REGALO: ¡PAUSA {{n}} SEG!'],
   'gift.sweep': ['🧨 ПОДАРОК: МИНЫ ПОДОРВАНЫ!', '🧨 GIFT: MINES SWEPT!', '🧨 GESCHENK: MINEN GESPRENGT!', '🧨 REGALO: ¡MINAS EXPLOTADAS!'],
   'gift.mult': ['🎁 ПОДАРОК: ОЧКИ ×{{n}}!', '🎁 GIFT: SCORE ×{{n}}!', '🎁 GESCHENK: PUNKTE ×{{n}}!', '🎁 REGALO: ¡PUNTOS ×{{n}}!'],
-  'banner.gift': ['🎁 ПОДАРОК!', '🎁 GIFT!', '🎁 GESCHENK!', '🎁 ¡REGALO!'],
 
   /* ---------- v0.0.43: ОНЛИФАНСИЙ — босс-лев пугает с краю поля ---------- */
   'cameo.caption': [
@@ -2447,12 +2426,6 @@ export const T: Record<string, Row> = {
   'over.lvlBadge': ['⬆ УРОВЕНЬ!', '⬆ LEVEL UP!', '⬆ LEVEL!', '⬆ ¡NIVEL!'],
   'over.unlocked': ['Открыто: {{list}}', 'Unlocked: {{list}}', 'Freigeschaltet: {{list}}', 'Desbloqueado: {{list}}'],
   'over.lvlNext': ['до ур. {{n}}: {{left}} 🍿', 'to lvl {{n}}: {{left}} 🍿', 'bis Lvl {{n}}: {{left}} 🍿', 'al nv {{n}}: {{left}} 🍿'],
-  'over.charLevel': [
-    '🎖 Уровень котика: {{n}} — стаж растёт с каждой попыткой!',
-    '🎖 Kitty level: {{n}} — your skill grows with every attempt!',
-    '🎖 Kätzchen-Level: {{n}} — dein Können wächst mit jedem Versuch!',
-    '🎖 Nivel del gatito: {{n}} — ¡tu experiencia crece con cada intento!',
-  ],
   'over.rank': [
     '🏆 Место {{n}} в списке лидеров!',
     '🏆 Rank {{n}} on the leaderboard!',
@@ -2474,7 +2447,6 @@ export const T: Record<string, Row> = {
     '❤️ SEGUNDA OPORTUNIDAD · +15 SEG',
   ],
   'over.share': ['ПОДЕЛИТЬСЯ РЕКОРДОМ', 'SHARE RECORD', 'REKORD TEILEN', 'COMPARTIR RÉCORD'],
-  'over.menu': ['В МЕНЮ', 'MENU', 'MENÜ', 'MENÚ'],
   'share.text': [
     'Я набрал {{s}} очков (уровень {{l}}) в POPCORN PAWS! 🐱🍿',
     'I scored {{s}} points (level {{l}}) in POPCORN PAWS! 🐱🍿',
@@ -2503,12 +2475,6 @@ export const T: Record<string, Row> = {
     '🚀 Launches: {{n}} · 🎬 Runs: {{r}} · 🐱 Cats: {{p}}',
     '🚀 Starts: {{n}} · 🎬 Läufe: {{r}} · 🐱 Katzen: {{p}}',
     '🚀 Inicios: {{n}} · 🎬 Partidas: {{r}} · 🐱 Gatos: {{p}}',
-  ],
-  'menu.worldLaunches': [
-    '🚀 {{n}} запусков в мире',
-    '🚀 {{n}} launches worldwide',
-    '🚀 {{n}} Starts weltweit',
-    '🚀 {{n}} inicios en el mundo',
   ],
   'lead.world': ['🌐 МИР', '🌐 WORLD', '🌐 WELT', '🌐 MUNDO'],
   'lead.local': ['📱 МОЙ ТЕЛЕФОН', '📱 MY PHONE', '📱 MEIN HANDY', '📱 MI MÓVIL'],
@@ -2778,7 +2744,6 @@ export const T: Record<string, Row> = {
   'mshop.tabBoots': ['БОТИНКИ', 'BOOTS', 'STIEFEL', 'BOTAS'],
   'mshop.tabHats': ['ШЛЯПКИ', 'HATS', 'HÜTE', 'SOMBREROS'],
   'mshop.tabBags': ['СУМКИ', 'BAGS', 'TASCHEN', 'BOLSOS'],
-  'mshop.buy': ['Купить', 'Buy', 'Kaufen', 'Comprar'],
   'mshop.equip': ['Надеть', 'Equip', 'Anziehen', 'Poner'],
   'mshop.on': ['Надето', 'Worn', 'Angezogen', 'Puesto'],
   'mshop.bare': ['Босиком', 'Barepaw', 'Barfuß', 'Descalza'],
@@ -3200,7 +3165,6 @@ export const T: Record<string, Row> = {
   ],
   'txt.combo': ['КОМБО ×{{n}}', 'COMBO ×{{n}}', 'COMBO ×{{n}}', 'COMBO ×{{n}}'],
   'txt.pigeon': ['ЖУХ-ЖУХ! ГОЛУБЬ!', 'COO-COO! PIGEON!', 'GRU-GRU! TAUBE!', '¡BU-BU! ¡PALOMA!'],
-  'txt.shoo': ['+2 КЫШ!', '+2 SHOO!', '+2 FORT!', '+2 ¡FUERA!'],
   'txt.hit': ['ФУДЫК!', 'BONK!', 'KNUTSCH!', '¡PUM!'],
   'txt.downed': [
     'ВЗБИТ! +{{n}}',
@@ -3349,9 +3313,30 @@ export const T: Record<string, Row> = {
     'Die MEGA-TAUBE besiegen: Der Körper ist unverwundbar — triff die Augen!',
     'Vence a la PALOMA MEGA: su cuerpo es invencible: ¡saca sus ojos!',
   ],
+  /* 0.0.50: ключи для menagerie/xpRun250/xpRun750 — раньше выводились как сырые ach.xxx */
+  'ach.menagerie.name': ['Фильм про зверей', 'Animal Movie', 'Tierfilm', 'Película de Animales'],
+  'ach.menagerie.desc': [
+    'Победить МАЛЫША и КУНИЦУ ЛАНУ за один забег (Онлифансий подождёт!)',
+    'Defeat the KID boss and LANA THE MARTEN in one run (OnlyFansius will wait!)',
+    'Besiege den Knirps und den Marder LANA in einem Lauf (OnlyFansius wartet!)',
+    'Vence al Niño y a la marta LANA en una partida (¡OnlyFansius puede esperar!)',
+  ],
+  'ach.xpRun250.name': ['Опытный студент', 'Seasoned Student', 'Erfahrener Student', 'Estudiante Experto'],
+  'ach.xpRun250.desc': [
+    'Заработать 250 опыта 🍿 за один забег',
+    'Earn 250 XP 🍿 in one run',
+    '250 XP in einem Lauf verdienen',
+    'Gana 250 XP 🍿 en una partida',
+  ],
+  'ach.xpRun750.name': ['Профессор попкорна', 'Popcorn Professor', 'Popcorn-Professor', 'Profesor de Palomitas'],
+  'ach.xpRun750.desc': [
+    'Заработать 750 опыта 🍿 за один забег',
+    'Earn 750 XP 🍿 in one run',
+    '750 XP in einem Lauf verdienen',
+    'Gana 750 XP 🍿 en una partida',
+  ],
   'txt.roar': ['Р-Р-РЁВ!', 'ROAAAR!', 'R-R-RÖHR!', '¡RRRR!'],
   'txt.deflect': ['ОТСКОК!', 'DEFLECTED!', 'ABGEPRALLT!', '¡REBOTE!'],
-  'txt.lanaHit': ['ЗЕРНО В ЛОБ!', 'KERNEL HIT!', 'KORN-TREFFER!', '¡GRANO!'],
   'txt.pawCut': ['РЕЗ!', 'SLICE!', 'SCHNITT!', '¡CORTE!'],
   'txt.lanaDodge': ['УВЕРНУЛАСЬ!', 'TOO SLICK!', 'ZU FLINK!', '¡ESCURRIDIZA!'],
   'txt.lootBack': ['ОБРАТНО!', 'GIVEN BACK!', 'ZURÜCK!', '¡DEVUELTO!'],
@@ -3387,12 +3372,6 @@ export const T: Record<string, Row> = {
   'big.caramel': ['КАРАМЕЛЬНАЯ!', 'CARAMEL!', 'KARAMELL!', '¡CARAMELO!'],
   'big.cherry': ['ВИШНЁВАЯ!', 'CHERRY!', 'KIRSCHE!', '¡CEREZA!'],
   'big.grape': ['ВИНОГРАДНАЯ!', 'GRAPE!', 'TRAUBE!', '¡UVA!'],
-  'big.spawn': [
-    'БОЛЬШАЯ ПОПКОРНИНА!',
-    'BIG POPCORN!',
-    'RIESEN-POPCORN!',
-    '¡PALOMITA GIGANTE!',
-  ],
   'big.miss': ['УКАТИЛАСЬ!', 'IT GOT AWAY!', 'WEGGEROLLT!', '¡SE ESCAPÓ!'],
   'fever.coins': ['монеток', 'coins', 'Münzen', 'monedas'],
 }
