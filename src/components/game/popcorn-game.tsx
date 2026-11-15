@@ -3,6 +3,7 @@
 import { useCallback, useEffect, useMemo, useReducer, useRef, useState, useSyncExternalStore } from 'react'
 import { AnimatePresence, motion } from 'framer-motion'
 import {
+  Backpack,
   BookOpen,
   CirclePlus,
   Compass,
@@ -89,6 +90,25 @@ import {
   getTotalXp,
   migrateXpBank,
 } from '@/lib/game/meta'
+import {
+  DEFAULT_INVENTORY,
+  INV_CAPACITY,
+  INV_MAP,
+  RARITY_COLOR,
+  dropInvItem,
+  equipInvItem,
+  getInventorySnapshot,
+  inventoryBonuses,
+  sellInvItem,
+  subscribeInventory,
+  unequipInvSlot,
+  type DropResult,
+  type InventoryState,
+  type InvBonuses,
+  type InvDef,
+  type ItemKind,
+  type Rarity,
+} from '@/lib/game/inventory'
 import {
   UPGRADES,
   UPGRADE_CATS,
@@ -1661,6 +1681,299 @@ function MarketOverlay({
           type="button"
           onClick={onClose}
           className="mt-3 w-full rounded-xl border-2 border-[#8a5330] bg-[#f3e2c8] px-4 py-2 font-pixel text-sm font-bold text-[#8a5330] transition hover:bg-[#eed7b4] active:scale-[0.98]"
+        >
+          {t('shop.close')}
+        </button>
+      </motion.div>
+    </motion.div>
+  )
+}
+
+/* ---------- ИНВЕНТАРЬ (0.0.53): лапка со слотами + склад предметов 4×9 ---------- */
+
+/** Порядок слотов на лапке: венец сверху, браслет в середине, ошейник внизу */
+const INV_SLOT_ORDER: ReadonlyArray<{ kind: ItemKind; labelKey: string }> = [
+  { kind: 'crown', labelKey: 'inv.slot.crown' },
+  { kind: 'bracelet', labelKey: 'inv.slot.bracelet' },
+  { kind: 'collar', labelKey: 'inv.slot.collar' },
+]
+
+function InventoryOverlay({
+  inv,
+  t,
+  onEquip,
+  onUnequip,
+  onSell,
+  onClose,
+}: {
+  inv: InventoryState
+  t: TranslateFn
+  onEquip: (uid: string) => boolean
+  onUnequip: (kind: ItemKind) => boolean
+  onSell: (uid: string) => number
+  onClose: () => void
+}) {
+  const [selUid, setSelUid] = useState<string | null>(null)
+  /* Продажа редкого — в два тапа: первый только предупреждает */
+  const [sellArm, setSellArm] = useState(false)
+  const [note, setNote] = useState<string | null>(null)
+  const noteTimer = useRef<number | null>(null)
+  const flash = useCallback((msg: string) => {
+    setNote(msg)
+    if (noteTimer.current) window.clearTimeout(noteTimer.current)
+    noteTimer.current = window.setTimeout(() => setNote(null), 2200)
+  }, [])
+
+  /* Склад: редкое сверху — легендарки не теряются в куче бус */
+  const sorted = useMemo(() => {
+    const rank: Record<Rarity, number> = { legendary: 0, epic: 1, rare: 2, common: 3 }
+    return [...inv.items].sort((a, b) => rank[INV_MAP[a.id].rarity] - rank[INV_MAP[b.id].rarity])
+  }, [inv.items])
+
+  const sel = selUid ? (inv.items.find((i) => i.uid === selUid) ?? null) : null
+  const selDef = sel ? INV_MAP[sel.id] : null
+  const selEquipped = sel ? sel.uid === inv.collar || sel.uid === inv.bracelet || sel.uid === inv.crown : false
+
+  const pick = (uid: string | null): void => {
+    setSelUid(uid)
+    setSellArm(false)
+  }
+
+  return (
+    <motion.div
+      className="absolute inset-0 z-40 flex items-center justify-center overflow-y-auto bg-black/70 p-3 backdrop-blur-sm sm:p-4"
+      initial={{ opacity: 0 }}
+      animate={{ opacity: 1 }}
+      exit={{ opacity: 0, pointerEvents: 'none' }}
+      role="dialog"
+      aria-label={t('inv.title')}
+    >
+      <motion.div
+        className="my-auto w-full max-w-md rounded-2xl border-4 border-[#8a5330] bg-[#FFF6E6] p-3 text-center shadow-[0_18px_50px_rgba(0,0,0,0.55)] sm:p-4"
+        initial={{ scale: 0.92, y: 14 }}
+        animate={{ scale: 1, y: 0 }}
+        exit={{ scale: 0.95, opacity: 0, pointerEvents: 'none' }}
+        transition={{ type: 'spring', stiffness: 260, damping: 22 }}
+      >
+        <div aria-hidden className="text-3xl">
+          🎒
+        </div>
+        <h2 className="mt-0.5 font-pixel text-lg font-bold text-[#B33A26] sm:text-xl">{t('inv.title')}</h2>
+        <p className="mt-1 font-ui text-[11px] font-medium text-[#8a5330] sm:text-xs">{t('inv.hint')}</p>
+
+        {/* Лапка NANA: три слота надетого (венец / браслет / ошейник).
+            Тап по занятому слоту снимает предмет */}
+        <div className="relative mt-2.5 w-full overflow-hidden rounded-xl border-2 border-[#e3cba4] bg-[#f3e2c8]">
+          <img
+            src="/inventory/paw.webp"
+            alt=""
+            aria-hidden
+            draggable={false}
+            className="aspect-[512/267] w-full object-cover"
+          />
+          <span className="absolute left-2 top-1.5 rounded-full bg-black/35 px-2 py-0.5 font-pixel text-[9px] font-bold text-[#FFF3DC]">
+            {t('inv.pawTitle')}
+          </span>
+          <div className="absolute inset-x-2 bottom-2 grid grid-cols-3 gap-1.5">
+            {INV_SLOT_ORDER.map(({ kind, labelKey }) => {
+              const uid = inv[kind]
+              const item = uid ? (inv.items.find((i) => i.uid === uid) ?? null) : null
+              const def = item ? INV_MAP[item.id] : null
+              const rc = def ? RARITY_COLOR[def.rarity] : null
+              return (
+                <button
+                  key={kind}
+                  type="button"
+                  onClick={() => {
+                    if (item && def) {
+                      if (onUnequip(kind)) pick(null)
+                    }
+                  }}
+                  disabled={!item}
+                  aria-label={
+                    def
+                      ? `${t(labelKey)}: ${t(`item.${def.id}.name`)} — ${t('inv.unequip')}`
+                      : `${t(labelKey)}: ${t('inv.emptySlot')}`
+                  }
+                  title={def ? t(`item.${def.id}.bonus`) : t(labelKey)}
+                  className={`flex flex-col items-center gap-0.5 rounded-lg border-2 px-1 py-1 transition active:scale-95 ${
+                    def && rc
+                      ? `${rc.border} bg-[#FFF6E6]/95 shadow-sm`
+                      : 'border-dashed border-[#c9a97a] bg-[#FFF6E6]/80'
+                  }`}
+                >
+                  {def ? (
+                    <img
+                      src={def.icon}
+                      alt=""
+                      aria-hidden
+                      draggable={false}
+                      className="h-8 w-8 rounded-md object-cover sm:h-9 sm:w-9"
+                    />
+                  ) : (
+                    <span aria-hidden className="text-lg leading-none opacity-40">
+                      🐾
+                    </span>
+                  )}
+                  <span
+                    className={`w-full truncate font-pixel text-[7px] font-bold leading-tight sm:text-[8px] ${
+                      def && rc ? rc.text : 'text-[#a97c50]'
+                    }`}
+                  >
+                    {def ? t(`item.${def.id}.name`) : t(labelKey)}
+                  </span>
+                </button>
+              )
+            })}
+          </div>
+        </div>
+
+        {/* Склад 4×9: редкое сверху, надетое помечено колечком */}
+        <div className="mt-2.5 flex items-center justify-between px-0.5">
+          <span className="font-pixel text-[11px] font-bold text-[#5C3A1E]">{t('inv.grid')}</span>
+          <span className="font-ui text-[10px] font-bold text-[#a97c50]">
+            {t('inv.count', { n: inv.items.length })}
+          </span>
+        </div>
+        <div className="mt-1.5 grid grid-cols-9 gap-1">
+          {Array.from({ length: INV_CAPACITY }, (_, i) => {
+            const item = sorted[i] ?? null
+            if (!item) {
+              return (
+                <span
+                  key={`empty-${i}`}
+                  aria-hidden
+                  className="aspect-square rounded-md border border-dashed border-[#dcc9a5] bg-[#fdf3e0]"
+                />
+              )
+            }
+            const def = INV_MAP[item.id]
+            const rc = RARITY_COLOR[def.rarity]
+            const equipped = item.uid === inv.collar || item.uid === inv.bracelet || item.uid === inv.crown
+            return (
+              <button
+                key={item.uid}
+                type="button"
+                onClick={() => pick(selUid === item.uid ? null : item.uid)}
+                aria-label={`${t(`item.${def.id}.name`)} — ${t(`inv.rarity.${def.rarity}`)}`}
+                title={`${t(`item.${def.id}.name`)} · ${t(`item.${def.id}.bonus`)}`}
+                className={`relative aspect-square overflow-hidden rounded-md border-2 transition active:scale-95 ${rc.border} ${
+                  selUid === item.uid ? 'ring-2 ring-[#B33A26] ring-offset-1' : ''
+                } ${equipped ? 'ring-2 ring-amber-400 ring-offset-1' : ''}`}
+              >
+                <img
+                  src={def.icon}
+                  alt=""
+                  aria-hidden
+                  draggable={false}
+                  className="h-full w-full object-cover"
+                />
+                {equipped && (
+                  <span
+                    aria-hidden
+                    className="absolute right-0 top-0 rounded-bl-md bg-amber-400 px-0.5 font-pixel text-[7px] font-bold leading-[1.35] text-[#5C3A1E]"
+                  >
+                    ✓
+                  </span>
+                )}
+              </button>
+            )
+          })}
+        </div>
+        {inv.items.length === 0 && (
+          <p className="mt-1.5 font-ui text-[11px] font-medium text-[#a97c50]">{t('inv.emptyGrid')}</p>
+        )}
+
+        {/* Карточка выбранного предмета: надеть/снять + продажа */}
+        {sel && selDef && (
+          <div
+            className={`mt-2.5 rounded-xl border-2 p-2 text-left ${
+              RARITY_COLOR[selDef.rarity].border
+            } ${RARITY_COLOR[selDef.rarity].bg}`}
+          >
+            <div className="flex items-center gap-2">
+              <img
+                src={selDef.icon}
+                alt=""
+                aria-hidden
+                draggable={false}
+                className="h-10 w-10 shrink-0 rounded-lg border border-[#e3cba4] object-cover"
+              />
+              <div className="min-w-0 flex-1">
+                <div className="flex flex-wrap items-center gap-x-1.5">
+                  <span className="font-pixel text-[12px] font-bold leading-tight text-[#5C3A1E]">
+                    {t(`item.${selDef.id}.name`)}
+                  </span>
+                  <span
+                    className={`rounded-full bg-[#FFF6E6] px-1.5 py-px font-ui text-[8px] font-bold uppercase ${
+                      RARITY_COLOR[selDef.rarity].text
+                    } border ${RARITY_COLOR[selDef.rarity].border}`}
+                  >
+                    {t(`inv.rarity.${selDef.rarity}`)}
+                  </span>
+                </div>
+                <div className="mt-0.5 font-ui text-[10px] font-semibold leading-snug text-[#3f6b28]">
+                  {t(`item.${selDef.id}.bonus`)}
+                </div>
+              </div>
+            </div>
+            <div className="mt-2 grid grid-cols-2 gap-1.5">
+              {selEquipped ? (
+                <button
+                  type="button"
+                  onClick={() => {
+                    const kind = selDef.kind
+                    if (onUnequip(kind)) pick(sel.uid)
+                  }}
+                  className="rounded-lg border-2 border-[#8a5330] bg-[#f3e2c8] px-2 py-1.5 font-ui text-[11px] font-bold text-[#8a5330] transition hover:bg-[#eed7b4] active:scale-95"
+                >
+                  {t('inv.unequip')}
+                </button>
+              ) : (
+                <button
+                  type="button"
+                  onClick={() => {
+                    if (onEquip(sel.uid)) pick(sel.uid)
+                  }}
+                  className="rounded-lg bg-[#3f6b28] px-2 py-1.5 font-ui text-[11px] font-bold text-white shadow-[0_3px_0_#2c4d1c] transition hover:bg-[#4a7d31] active:translate-y-[2px] active:shadow-[0_1px_0_#2c4d1c]"
+                >
+                  {t('inv.equip')}
+                </button>
+              )}
+              <button
+                type="button"
+                onClick={() => {
+                  /* Редкое и ценное — в два тапа: первый только спрашивает */
+                  if (selDef.rarity !== 'common' && !sellArm) {
+                    setSellArm(true)
+                    return
+                  }
+                  const got = onSell(sel.uid)
+                  if (got > 0) pick(null)
+                }}
+                className={`rounded-lg px-2 py-1.5 font-ui text-[11px] font-bold transition active:scale-95 ${
+                  sellArm
+                    ? 'bg-[#B33A26] text-white shadow-[0_3px_0_#7e2a1b] hover:bg-[#c74430]'
+                    : 'bg-[#E24B3B] text-white shadow-[0_3px_0_#9c2f22] hover:bg-[#ef5a4a]'
+                }`}
+              >
+                {sellArm ? t('inv.sellSure') : `${t('inv.sell')} · ${selDef.sell} 🪙`}
+              </button>
+            </div>
+          </div>
+        )}
+
+        {/* Мини-тост действий (надето/снято/продано) */}
+        <div aria-live="polite" className="mt-1.5 min-h-[18px]">
+          {note && (
+            <p className="font-ui text-[11px] font-bold text-[#3f6b28]">{note}</p>
+          )}
+        </div>
+
+        <button
+          type="button"
+          onClick={onClose}
+          className="mt-1.5 w-full rounded-xl border-2 border-[#8a5330] bg-[#f3e2c8] px-4 py-2 font-pixel text-sm font-bold text-[#8a5330] transition hover:bg-[#eed7b4] active:scale-[0.98]"
         >
           {t('shop.close')}
         </button>
@@ -3796,6 +4109,9 @@ export function PopcornGame() {
   const [offers, setOffers] = useState<PerkDef[]>([])
   /** Подарки в сундуках: монетки/опыт (null — только перк) */
   const [extras, setExtras] = useState<Array<ChestExtra | null>>([null, null, null])
+  /* Лут сундучка (0.0.53): предмет инвентаря, выпавший при открытии
+     (null — сундучки ещё не открывались / новая партия уже отроллена) */
+  const [loot, setLoot] = useState<DropResult | null>(null)
   const [openedIdx, setOpenedIdx] = useState<number | null>(null)
   const [runLevel, setRunLevel] = useState(2)
   const [perk, setPerk] = useState<PerkId | null>(null)
@@ -3899,6 +4215,7 @@ export function PopcornGame() {
     | 'travel'
     | 'mshop'
     | 'market'
+    | 'inv'
     | null
   >(null)
   const [achToast, setAchToast] = useState<{ icon: string; name: string } | null>(null)
@@ -4044,6 +4361,8 @@ export function PopcornGame() {
   const marten = useSyncExternalStore(subscribeMarten, getMartenSnapshot, () => DEFAULT_MARTEN)
   /* ===== РЫНОК: зерновой сейф, артефакты и счётчик кликов ===== */
   const market = useSyncExternalStore(subscribeMarket, getMarketSnapshot, () => DEFAULT_MARKET)
+  /* ===== ИНВЕНТАРЬ (0.0.53): лут из сундучков и надетые предметы ===== */
+  const inv = useSyncExternalStore(subscribeInventory, getInventorySnapshot, () => DEFAULT_INVENTORY)
   const [martenCheer, setMartenCheer] = useState(false)
   const martenStage = stageOf(marten)
   /* Боевой уровень куницы (xp от очков и путешествий) + тост левелапа */
@@ -4062,11 +4381,30 @@ export function PopcornGame() {
 
   /* Множители артефактов рынка — в ref для колбэков без перезапуска эффектов */
   const marketRef = useRef<MarketBonuses>(ZERO_MARKET_BONUS)
+  /* Множители надетых предметов инвентаря (ошейник/браслет/венец) */
+  const invBonus = useMemo<InvBonuses>(() => inventoryBonuses(inv), [inv])
   useEffect(() => {
-    marketRef.current = marketBonuses(market)
-  }, [market])
+    /* 0.0.53: бонусы инвентаря вшиваем в общие множители рынка — все точки
+       выдачи наград (сундучки, попкорнины, золото, Лихорадка, этапы,
+       путешествия) автоматически получают ошейник/браслет/венец */
+    const mb = marketBonuses(market)
+    marketRef.current = {
+      ...mb,
+      coinGift: mb.coinGift * invBonus.coins,
+      xpGift: mb.xpGift * invBonus.xp,
+      gemTrip: mb.gemTrip * invBonus.gems,
+    }
+  }, [market, invBonus])
   /* Те же множители для рендера (карточки путешествий показывают итоговые награды) */
-  const marketBonus = useMemo<MarketBonuses>(() => marketBonuses(market), [market])
+  const marketBonus = useMemo<MarketBonuses>(() => {
+    const mb = marketBonuses(market)
+    return {
+      ...mb,
+      coinGift: mb.coinGift * invBonus.coins,
+      xpGift: mb.xpGift * invBonus.xp,
+      gemTrip: mb.gemTrip * invBonus.gems,
+    }
+  }, [market, invBonus])
 
   /* Сеттер банка опыта в ref: обменник рынка пишет напрямую, без зависимостей */
   const storeXpRef = useRef(storeXp)
@@ -4254,6 +4592,30 @@ export function PopcornGame() {
     } else {
       audio.play('penalty')
     }
+  }, [])
+
+  /* ===== ИНВЕНТАРЬ (0.0.53): надеть / снять / продать ===== */
+
+  /** Надеть предмет на лапку (тот же вид снимается автоматически) */
+  const handleEquipInv = useCallback((uid: string): boolean => {
+    if (!equipInvItem(uid)) return false
+    audio.play('perk')
+    return true
+  }, [])
+
+  /** Снять предмет со слота лапки */
+  const handleUnequipInv = useCallback((kind: ItemKind): boolean => {
+    if (!unequipInvSlot(kind)) return false
+    audio.play('click')
+    return true
+  }, [])
+
+  /** Продать предмет со склада: возвращает монетки за продажу */
+  const handleSellInv = useCallback((uid: string): number => {
+    const got = sellInvItem(uid)
+    if (got > 0) audio.play('coin')
+    else audio.play('penalty')
+    return got
   }, [])
 
   /* Таймер времени в игре: +1 сек, каждые 20 сек — флеш в копилку куницы */
@@ -4902,6 +5264,7 @@ export function PopcornGame() {
             setOffers(offs)
             setExtras(rollExtras(offs, r.level))
             setOpenedIdx(null)
+            setLoot(null)
             setRunLevel(r.level + 1)
           }
           /* Секунда празднования («УРОВЕНЬ ПРОЙДЕН» в канвасе), потом плакат.
@@ -4931,6 +5294,7 @@ export function PopcornGame() {
         /* Подарки зависят от того, какой перк лежит в каждом сундучке */
         setExtras(rollExtras(offs, r.level))
         setOpenedIdx(null)
+        setLoot(null)
         setRunLevel(r.level + 1)
         /* БОНУС-НАРЕЗКА: гигантский попкорн перед сундучком — режем лапкой.
            СНАЧАЛА — секунда празднования: конфетти из стаканчика, золотая
@@ -5554,6 +5918,11 @@ export function PopcornGame() {
            иначе медаль открывалась бы только на следующем событии статистики */
         checkLifeAch()
       }
+      /* ЛУТ ИНВЕНТАРЯ (0.0.53): сундучок роняет предмет — ошейник/браслет/венец.
+         Склад полон (36) — автопродажа в монетки, честно и без потери */
+      const drop = dropInvItem()
+      setLoot(drop)
+      if (!drop.stored) addCoins(drop.coins)
       window.setTimeout(() => audio.play('perk'), 380)
     },
     [extras, checkLifeAch],
@@ -6117,6 +6486,25 @@ export function PopcornGame() {
                           </span>
                         </button>
                       </div>
+                      {/* ИНВЕНТАРЬ (0.0.53): лут из сундучков и лапка со слотами.
+                          Открыт в меню, на сундучках (лут только что выпал!) и в паузе;
+                          в бою/нарезке кнопка задизейблена — не отвлекаем от игры */}
+                      <button
+                        type="button"
+                        onClick={() => {
+                          audio.play('click')
+                          setOverlay('inv')
+                        }}
+                        disabled={phase === 'playing' || phase === 'slicer' || phase === 'ended'}
+                        title={t('inv.title')}
+                        aria-label={t('inv.title')}
+                        className="relative flex h-11 shrink-0 flex-col items-center justify-center gap-0.5 rounded-xl border-2 border-[#E8B54D]/80 bg-[#4A2E0A] px-0.5 py-1 text-[#FFE9BE] shadow-[0_3px_0_#2b1a05] transition hover:bg-[#5C3A10] active:translate-y-[2px] active:shadow-[0_1px_0_#2b1a05] disabled:cursor-not-allowed disabled:opacity-40 sm:h-12"
+                      >
+                        <Backpack className="h-3.5 w-3.5" aria-hidden />
+                        <span className="font-pixel text-[8px] font-bold leading-none">
+                          {t('inv.title')}
+                        </span>
+                      </button>
                     </div>
                   </div>
 
@@ -6551,6 +6939,32 @@ export function PopcornGame() {
                                       {ex.kind === 'coins' ? `+${ex.n} 🪙` : `+${ex.n} 🍿`}
                                     </span>
                                   )}
+                                  {/* Лут инвентаря (0.0.53): предмет в открытом сундучке */}
+                                  {isOpen && loot && (
+                                    <span
+                                      className={`mt-0.5 flex max-w-full items-center justify-center gap-1 rounded-full border px-1.5 py-0.5 ${
+                                        RARITY_COLOR[loot.def.rarity].border
+                                      } ${RARITY_COLOR[loot.def.rarity].bg}`}
+                                      title={t(`item.${loot.def.id}.bonus`)}
+                                    >
+                                      <img
+                                        src={loot.def.icon}
+                                        alt=""
+                                        aria-hidden
+                                        draggable={false}
+                                        className="h-4 w-4 shrink-0 rounded-full object-cover"
+                                      />
+                                      <span
+                                        className={`truncate font-ui text-[8px] font-bold leading-tight sm:text-[9px] ${
+                                          RARITY_COLOR[loot.def.rarity].text
+                                        }`}
+                                      >
+                                        {loot.stored
+                                          ? t('inv.lootToast', { name: t(`item.${loot.def.id}.name`) })
+                                          : t('inv.toast.full', { n: loot.coins })}
+                                      </span>
+                                    </span>
+                                  )}
                                   {/* Полное описание — только у выбранного сундучка */}
                                   {isOpen && (
                                     <span className="mt-1 break-words font-ui text-[9px] font-medium leading-tight text-[#5C3A1E] sm:text-[10px] [@media(max-height:520px)]:mt-0.5">
@@ -6969,6 +7383,18 @@ export function PopcornGame() {
               onClose={() => setOverlay(null)}
             />
           )}
+          {/* ИНВЕНТАРЬ: меню, сундучки (лут только что выпал) и пауза */}
+          {(phase === 'start' || phase === 'chest' || phase === 'paused') &&
+            overlay === 'inv' && (
+              <InventoryOverlay
+                inv={inv}
+                t={t}
+                onEquip={handleEquipInv}
+                onUnequip={handleUnequipInv}
+                onSell={handleSellInv}
+                onClose={() => setOverlay(null)}
+              />
+            )}
         </AnimatePresence>
 
         {/* Ник-гейт Ф0-1: спрашиваем имя после первого забега (поверх экрана
