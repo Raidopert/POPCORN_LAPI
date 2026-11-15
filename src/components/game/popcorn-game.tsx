@@ -1335,14 +1335,14 @@ const CURRENCY_META: Record<Currency, { icon: string; hintKey: string }> = {
   grains: { icon: '🌾', hintKey: 'market.cur.grains' },
 }
 
-/** Артефактные иконки */
+/** Артефактные иконки: рисованные мини-картинки (0.0.52), лежат в public/artifacts */
 const ARTIFACT_ICON: Record<ArtifactId, string> = {
-  piggy: '🐷',
-  academy: '🎓',
-  sieve: '🧺',
-  travelmap: '🧭',
-  bell: '🔔',
-  rattle: '🪇',
+  piggy: '/artifacts/piggy.png',
+  academy: '/artifacts/academy.png',
+  sieve: '/artifacts/sieve.png',
+  travelmap: '/artifacts/travelmap.png',
+  bell: '/artifacts/bell.png',
+  rattle: '/artifacts/rattle.png',
 }
 
 function MarketOverlay({
@@ -1603,12 +1603,14 @@ function MarketOverlay({
                         : 'border-[#e3cba4] bg-[#fdf3e0]'
                   }`}
                 >
-                  <span
+                  {/* 0.0.52: рисованная мини-иконка вместо эмодзи */}
+                  <img
+                    src={ARTIFACT_ICON[def.id]}
+                    alt=""
                     aria-hidden
-                    className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg bg-[#f3e2c8] text-2xl"
-                  >
-                    {ARTIFACT_ICON[def.id]}
-                  </span>
+                    draggable={false}
+                    className="h-11 w-11 shrink-0 rounded-lg border border-[#e3cba4] bg-[#f3e2c8] object-cover"
+                  />
                   <div className="min-w-0 flex-1">
                     <div className="font-pixel text-sm font-bold leading-tight text-[#5C3A1E]">
                       {t(`artifact.${def.id}.name`)}
