@@ -2382,10 +2382,10 @@ export const T: Record<string, Row> = {
     '¡La mano gitana roba granos del suelo y los lanza HACIA TI — saca la patita del círculo de aviso: un golpe cuesta un corazón! Dale palmadas a la palma con un barrido ACTIVO: los granos no la dañan, pero tus golpes sí.',
   ],
   'bossintro.lion': [
-    'ОНЛИФАНСИЙ — царь-лев с гривой-щитом: зёрна от неё отскакивают! Его РЁВ сносит лапку волной. Бей лапкой по морде, когда рёв стих — каждый удар отнимает жизнь у зверя.',
-    'ONLYFANSIUS is the lion king with a mane-shield: kernels bounce right off! His ROAR blasts your paw away. Strike the muzzle with your paw once the roar dies down — every hit costs the beast a life.',
-    'ONLYFANSIUS ist der Löwenkönig mit Mähneschild: Körner prallen ab! Sein BRÜLLEN schleudert die Pfote weg. Triff die Schnauze mit der Pfote, wenn das Brüllen verstummt — jeder Treffer kostet ein Leben.',
-    'ONLYFANSIUS es el rey león con melena-escudo: ¡los granos rebotan! Su RUGIDO lanza tu patita lejos. Golpea el hocico cuando el rugido cese: cada golpe quita una vida a la bestia.',
+    'ОНЛИФАНСИЙ — ФИНАЛЬНЫЙ БОСС со всеми механиками! Рвётся к корзине и гребёт попкорн; РЁВ закрывает гриву-щит: зёрна отскакивают, лапку сносит волной. А ещё бьёт КОГТЯМИ СВЕРХУ — уводи лапку из круга-телеграфа! Пинай зёрна резким махом в морду: вне рёва каждый удар отнимает жизнь у зверя.',
+    'ONLYFANSIUS — the FINAL BOSS with ALL the tricks! He charges the cup and scoops popcorn; his ROAR raises a mane-shield: kernels bounce off and the blast sweeps your paw away. And he strikes CLAWS FROM ABOVE — steer the paw out of the warning circle! Flick kernels into his muzzle with a sharp swing: outside the roar every hit costs the beast a life.',
+    'ONLYFANSIUS — der ENDBOSS mit ALLEN Tricks! Er stürmt zum Becher und schaufelt Popcorn; sein BRÜLLEN hebt den Mähneschild: Körner prallen ab, die Welle schleudert die Pfote fort. Und er schlägt KRALLEN VON OBEN — führ die Pfote aus dem Warnkreis! Schleudere Körner mit kurem Schwung auf die Schnauze: außerhalb des Brüllens kostet jeder Treffer ein Leben.',
+    'ONLYFANSIUS — el JEFE FINAL con TODAS las mañas! Embiste contra la taza y atrapa palomitas; su RUGIDO levanta la melena-escudo: los granos rebotan y la onda barre tu patita. Y golpea con GARRAS DESDE ARRIBA — saca la patita del círculo de aviso! Lanza granos al hocico con un golpe seco: fuera del rugido, cada golpe quita una vida a la bestia.',
   ],
   'hud.shields': ['Щиты от мин: {{n}}', 'Mine shields: {{n}}', 'Minenschilde: {{n}}', 'Escudos antaminas: {{n}}'],
   'hud.hearts': ['Сердечки: {{n}} из {{m}}', 'Hearts: {{n}} of {{m}}', 'Herzen: {{n}} von {{m}}', 'Corazones: {{n}} de {{m}}'],
@@ -3229,6 +3229,19 @@ export const T: Record<string, Row> = {
     'IN THE ROAR HIS MANE DEFLECTS — STRIKE AFTER IT!',
     'IM BRÜLLEN WEHRT DIE MÄHNE AB — TRIFF DANACH!',
     'EN EL RUGIDO LA MELÉNA REBOTA: ¡GOLPEA DESPUÉS!',
+  ],
+  /* v0.0.46: когтистые удары Онлифансия — телеграф и шлепок сверху */
+  'txt.lionClaws': [
+    '🦁 КОГТИ СВЕРХУ!',
+    '🦁 CLAWS FROM ABOVE!',
+    '🦁 KRALLEN VON OBEN!',
+    '¡🦁 GARRAS DESDE ARRIBA!',
+  ],
+  'txt.lionSlamHit': [
+    'ЦАРАП! КОГТИ ЦАРЯ!',
+    'SCRATCHED! ROYAL CLAWS!',
+    'KRATZ! KRALLEN DES KÖNIGS!',
+    '¡GARRAÑAZO REAL!',
   ],
   'txt.bossWarnMarten': [
     'ЛАНА ТЯНЕТ ЛАПКИ К КОРЗИНКЕ — РЕЖЬ ИХ СВАЙПОМ!',

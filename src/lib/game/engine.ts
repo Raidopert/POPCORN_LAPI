@@ -266,7 +266,7 @@ function rollBigKind(): BigKind {
     только издали: в босс-бою быстрый мах лапкой ПИНАЕТ попкорнинки,
     те летят как в арканоиде и бивают малыша. У первого босса 3 жизни,
     у каждого следующего — на одну больше. Время уровня ограничено --- */
-const BOSS_EVERY = 5 // босс выходит на каждом 5-м уровне (5, 10, 15… — v0.0.38)
+const BOSS_EVERY = 4 // босс выходит на каждом 4-м уровне (4, 8, 12, 16, 20… — v0.0.46)
 const BOSS_BASE_HP = 3 // жизней у первого босса
 const BOSS_HP_PER_TIER = 1 // +1 жизнь за каждого следующего босса
 const BOSS_TOUCH_R = 44 // радиус «трогать ребёнка», u: касание — минус сердечко
@@ -298,38 +298,50 @@ export function bossTierForLevel(lvl: number): number {
   return Math.max(1, Math.floor(lvl / BOSS_EVERY))
 }
 
-/** Вид босса по его номеру: ротация из четырёх — МАЛЫШ → ЛАНА → МЕГА-ГОЛУБЬ →
-    ЦЫГАНСКАЯ РУКА (v0.0.39: уровни 5/10/15/20, дальше по кругу).
-    ЛЬВ в запасе (код гривы-щита сохранён, вернём позже).
-    Экспортируется — HUD показывает имя/иконку текущего босса */
+/** Вид босса по его номеру: v0.0.46 — ПАРАД ПЯТЕРЫХ, цикл из пяти боссов
+    каждые 4 уровня: 4 МАЛЫШ → 8 КУНИЦА ЛАНА → 12 МЕГА-ГОЛУБЬ →
+    16 ЦЫГАНСКАЯ РУКА → 20 ОНЛИФАНСИЙ (финальный босс!), 24 — снова МАЛЫШ
+    и так по кругу. Экспортируется — HUD показывает имя/иконку босса */
 export function bossKindForTier(tier: number): BossKind {
-  const i = (tier - 1) % 4
-  return i === 0 ? 'kid' : i === 1 ? 'marten' : i === 2 ? 'pigeon' : 'gypsy'
+  const i = (tier - 1) % 5
+  return i === 0 ? 'kid' : i === 1 ? 'marten' : i === 2 ? 'pigeon' : i === 3 ? 'gypsy' : 'lion'
 }
 
-/** +1 жизнь у льва: грива держит удар; голубю и цыганке −1: цель мелкая/юркая */
-const BOSS_HP_BY_KIND: Record<BossKind, number> = { kid: 0, lion: 1, marten: 0, pigeon: -1, gypsy: -1 }
-/** Радиус попадания пнутым зерном (u): у голубя и цыганки зерно просто отскакивает */
-const BOSS_HIT_R_BY_KIND: Record<BossKind, number> = { kid: 48, lion: 56, marten: 38, pigeon: 58, gypsy: 46 }
+/** +1 жизнь у льва: грива держит удар; v0.0.46 голубь стал ЖИЛИСТЫМ (+1):
+    огромный, но цель мелкая — глаза-точки; цыганке −1: она юркая */
+const BOSS_HP_BY_KIND: Record<BossKind, number> = { kid: 0, lion: 1, marten: 0, pigeon: 1, gypsy: -1 }
+/** Радиус попадания пнутым зерном (u): у голубя и цыганки зерно просто отскакивает.
+    v0.0.46: лев подрос — и хитбокс зерна подрос вместе с ним */
+const BOSS_HIT_R_BY_KIND: Record<BossKind, number> = { kid: 48, lion: 64, marten: 38, pigeon: 58, gypsy: 46 }
 /** Сколько зёрен выгребает за раз сверх базы: Лана и голубь — чемпионы воровства,
     цыганка сгребает с ПОЛЯ, у неё свой лимит (GYPSY_GRAB_MAX) */
 const BOSS_STEAL_BY_KIND: Record<BossKind, number> = { kid: 0, lion: 0, marten: 2, pigeon: 1, gypsy: 0 }
 /** Множитель скорости рывка к корзине: голубь пикирует, цыганка ныряет к зёрнам */
 const BOSS_CHARGE_MULT_BY_KIND: Record<BossKind, number> = { kid: 1, lion: 1.15, marten: 1.3, pigeon: 1.25, gypsy: 1.1 }
-/** Сокращение паузы перед рывком (с): голубь и цыганка не дают заскучать */
-const BOSS_ATTACK_CUT_BY_KIND: Record<BossKind, number> = { kid: 0, lion: 0.4, marten: 0.8, pigeon: 0.5, gypsy: 0.6 }
+/** Сокращение паузы перед рывком (с): v0.0.46 голубь злее — клюёт чаще */
+const BOSS_ATTACK_CUT_BY_KIND: Record<BossKind, number> = { kid: 0, lion: 0.4, marten: 0.8, pigeon: 0.6, gypsy: 0.6 }
 /** Львиный рокт: пауза между роктами (с), длина (с) и сила отброса лапки */
 const LION_ROAR_EVERY = 5.2
 const LION_ROAR_DUR = 0.9
 const LION_ROAR_PUSH = 520
+/* --- ОНЛИФАНСИЙ v0.0.46: ФИНАЛЬНЫЙ БОСС (уровень 20, 40, 60…) — царь-лев
+    СО ВСЕМИ МЕХАНИКАМИ: рывки к корзине с греблей (как у МАЛЫША), РЁВ с
+    гривой-щитом (зёрна отскакивают, лапка отлетает волной), а ещё он
+    ЦЕЛИТСЯ КОГТИСТОЙ ЛАПОЙ СВЕРХУ — у лапки игрока загорается круг-
+    телеграф, потом удар: не увёл лапку — минус сердечко и стан.
+    Сам он бьётся только ПНУТЫМИ ЗЕРНОМ и то ВНЕ рокта --- */
+const LION_SLAM_FIRST = 3.4 // передышка перед первым когтистым ударом, с
+const LION_SLAM_EVERY = 4.4 // пауза между ударами (с); матёрый льёт чаще
+const LION_SLAM_TELE = 1.15 // сколько секунд горит круг-телеграф, с
+const LION_SLAM_R = 64 // радиус удара когтей (u)
 
-/* --- v0.0.43: ОНЛИФАНСИЙ — босс-лев «в запасе» заранее пугает с краю.
-    На уровнях 7, 13, 18 (обычных, не боссовых) в случайный момент этапа
-    С ЛЕВОГО ИЛИ ПРАВОГО КРАЯ внезапно въезжает ОГРОМНАЯ КОГТИСТАЯ ЛАПА.
-    Стоит 2 секунды: достаточно огромная, чтобы смутить и напугать игрока,
-    но процессу не мешает — зёрна под ней целы и собираемы, таймер идёт,
-    сердца не отнимаются. Потом так же неспешно уезжает --- */
-const LION_CAMEO_LEVELS = new Set([7, 13, 18])
+/* --- v0.0.46: КАСКАД ОНЛИФАНСИЯ — разбросан МЕЖДУ БОССАМИ.
+    Посередине между боссовыми уровнями (6, 10, 14, 18, 22…) в случайный
+    момент этапа С ЛЕВОГО ИЛИ ПРАВОГО КРАЯ внезапно въезжает ОГРОМНАЯ
+    КОГТИСТАЯ ЛАПА. Стоит 2 секунды: достаточно огромная, чтобы смутить
+    и напугать игрока, но процессу не мешает — зёрна под ней целы и
+    собираемы, таймер идёт, сердца не отнимаются. Потом уезжает --- */
+const LION_CAMEO_FIRST = 6 // самый ранний каскад — сразу после МАЛЫША (4)
 const LION_CAMEO_AT_MIN = 7 // самая ранняя задержка от старта этапа, с
 const LION_CAMEO_AT_MAX = 16 // самая поздняя, с
 const LION_CAMEO_WARN = 0.6 // грохот и пыль у края до появления, с
@@ -350,13 +362,14 @@ const LANA_RETRACT = 320 // скорость отступания лапки (u/
 const LANA_STEAL = 2 // сколько зёрен выгребает коготь за раз (растёт с тиром)
 const LANA_REGROW = 1.15 // пауза между вырастаниями лапок (с)
 
-/* --- МЕГА-ГОЛУБЬ v0.0.38: третий босс в ротации (уровень 15, 30, 45…) ---
-    Огромная птица (~20% экрана) висит над корзиной и периодически ПИКИРУЕТ
+/* --- МЕГА-ГОЛУБЬ v0.0.38, усилен в v0.0.46 (уровень 12, 32, 52…): ---
+    ОГРОМНАЯ птица (~25% экрана) висит над корзиной и периодически ПИКИРУЕТ
     КЛЮВАТЬ её — каждый клюв выгребает зёрна. Тело неуязвимо (зерно тоже
-    отскакивает): побеждает только ТОЧНЫЙ удар лапкой ПО ГЛАЗАМ — их два
-    и они мелкие. Попал в глаз — птица вздрагивает и теряет жизнь */
-const PIGEON_BOSS_R = 56 // базовый радиус тела (u): с головой ~20% высоты экрана
-const PIGEON_BOSS_EYE_R = 6.5 // радиус глаза-уязвимости (u): маленькие, бей в точку
+    отскакивает): побеждает только ТОЧНЫЙ удар лапкой ПО ГЛАЗАМ — их два,
+    они СТАЛИ ЕЩЁ МЕЛЬЧЕ, а жизни у птицы прибавилось. Попал в глаз —
+    птица вздрагивает и теряет жизнь */
+const PIGEON_BOSS_R = 62 // базовый радиус тела (u): v0.0.46 — ещё огромнее
+const PIGEON_BOSS_EYE_R = 5 // радиус глаза-уязвимости (u): стало меньше — бей в точку
 const PIGEON_BOSS_HIT_CD = 0.35 // пауза между попаданиями по глазам (с)
 const PIGEON_BOSS_IN_SPEED = 340 // скорость влёта в зал (u/с)
 const PIGEON_BOSS_HOVER_DX = 130 // якорь парения сбоку от стаканчика (u)
@@ -525,6 +538,8 @@ interface Boss {
   hy: number
   /* --- ЦЫГАНКА: сколько зёрен в кулаке после сгреба (−1 — очередь пуста) --- */
   loot: number
+  /* --- ОНЛИФАНСИЙ: пауза до следующего когтистого удара сверху (с) --- */
+  slamT: number
 }
 
 /** ЗЕРНО В ЭКРАН (v0.0.39): цыганская рука швыряет украденное зерно НА
@@ -543,6 +558,16 @@ interface GypsySeed {
   /** Вращение в полёте */
   rot: number
   spin: number
+}
+
+/** КОГТИ ОНЛИФАНСИЯ (v0.0.46): лев целится в ЛАПКУ игрока — у цели горит
+    круг-телеграф, потом СВЕРХУ бьёт гигантская когтистая лапа. Успей
+    увести лапку: попал — минус сердечко и лапка на время оглохла */
+interface LionSlam {
+  x: number
+  y: number
+  /** Возраст телеграфа (с) */
+  t: number
 }
 
 /** ЛАПКА ЛАНЫ: длинная рука с когтями тянется от её тела к корзинке.
@@ -829,6 +854,8 @@ export class PopcornEngine {
   private boss: Boss | null = null
   /* --- ЗЁРНА В ЭКРАН (v0.0.39): броски цыганской руки — растут в полёте --- */
   private seeds: GypsySeed[] = []
+  /** КОГТИ ОНЛИФАНСИЯ (v0.0.46): телеграфы и удары сверху по лапке */
+  private lionSlams: LionSlam[] = []
   /** Монетки за победы над боссами за забег (выдаёт компонент) */
   private bossCoinsRun = 0
   /** Побед над боссами (любого вида) за забег — ачивки босса */
@@ -1234,10 +1261,11 @@ export class PopcornEngine {
       const hi = Math.max(lo + 1, BIG_AT_MAX - early)
       this.bigAt = lo + Math.random() * (hi - lo)
     }
-    /* ОНЛИФАНСИЙ: на 7/13/18 в случайный момент этапа — лапа с краю поля.
+    /* КАСКАД ОНЛИФАНСИЯ (v0.0.46): посередине между боссовыми уровнями
+        (6, 10, 14, 18, 22…) в случайный момент этапа — лапа с краю поля.
         Одна за этап; на боссовых уровнях не появляется (там и так жарко) */
     this.lionCameo =
-      LION_CAMEO_LEVELS.has(level) && level % BOSS_EVERY !== 0
+      level >= LION_CAMEO_FIRST && level % BOSS_EVERY === 2
         ? {
             timer: LION_CAMEO_AT_MIN + Math.random() * (LION_CAMEO_AT_MAX - LION_CAMEO_AT_MIN),
             phase: 'idle' as const,
@@ -1248,6 +1276,7 @@ export class PopcornEngine {
     /* Босс и скорость лапки с прошлого уровня не выживают */
     this.boss = null
     this.seeds = []
+    this.lionSlams = [] // когтистые удары тоже не переносятся
     this.pawVX = 0
     this.pawVY = 0
     /* Ачивка «Чистая работа»: считаем шоки и кражи за уровень; и потери сердец */
@@ -1331,6 +1360,7 @@ export class PopcornEngine {
     /* Онлифансий не пугает на лихорадке: лапа исчезает, страх отменяется */
     this.lionCameo = null
     this.seeds = [] // боссов на лихорадке нет и зёрен-снарядов тоже
+    this.lionSlams = [] // и когти Онлифансия отменяются
     this.waveDelay = -1
     this.pendingClear = -1
     this.stun = 0
@@ -1484,6 +1514,7 @@ export class PopcornEngine {
     this.multLeft = 0
     this.multValue = 1
     this.seeds = []
+    this.lionSlams = []
     this.banner = { text: '', t: 99 }
     this.shakeT = 0
     this.shakeAmp = 0
@@ -2034,6 +2065,9 @@ export class PopcornEngine {
     // Зёрна цыганки, летящие В ЭКРАН: растут в подлёте — шлепают по лапке
     this.updateGypsySeeds(dt)
 
+    // КОГТИ ОНЛИФАНСИЯ: телеграф горит, потом УДАР СВЕРХУ — уведи лапку!
+    this.updateLionSlams(dt)
+
     // БОЛЬШАЯ ПОПКОРНИНА: побег, обратный отсчёт и выход на поле по расписанию
     this.updateBig(dt)
 
@@ -2546,6 +2580,7 @@ export class PopcornEngine {
     this.introHold = false
     this.boss = null
     this.seeds = [] // летящие в экран зёрна не переживают забег
+    this.lionSlams = [] // когтистые удары — тоже
     if (reason === 'voluntary') {
       /* Победный финал по воле игрока: радостный джингл вместо траурного гудка */
       audio.play('levelwin')
@@ -2997,6 +3032,7 @@ export class PopcornEngine {
       hx: this.cup.x - side * PIGEON_BOSS_HOVER_DX * u,
       hy: Math.max(90, this.cup.y - PIGEON_BOSS_HOVER_DY * u),
       loot: 0,
+      slamT: LION_SLAM_FIRST,
     }
     if (kind === 'pigeon') {
       /* Птица влетает с борта на высоте парения */
@@ -3079,7 +3115,7 @@ export class PopcornEngine {
     const hy = b.y + bob - R * 0.5
     return [
       { x: hx + face * R * 0.14, y: hy - R * 0.05, r: PIGEON_BOSS_EYE_R * u },
-      { x: hx - face * R * 0.14, y: hy + R * 0.13, r: PIGEON_BOSS_EYE_R * 0.85 * u },
+      { x: hx - face * R * 0.14, y: hy + R * 0.13, r: PIGEON_BOSS_EYE_R * 0.8 * u },
     ]
   }
 
@@ -3231,6 +3267,24 @@ export class PopcornEngine {
             size: 26 * u,
           })
           this.crumbs(b.x, b.y, '#FFC93C', 10)
+        }
+        /* v0.0.46: КОГТИ СВЕРХУ — целится в текущее место лапки. Круг горит
+           LION_SLAM_TELE секунд, потом УДАР: не увёл лапку — сердечко и стан */
+        b.slamT -= dt
+        if (b.slamT <= 0) {
+          const tier = bossTierForLevel(this.lvl)
+          this.lionSlams.push({ x: this.paw.x, y: this.paw.y, t: 0 })
+          b.slamT = Math.max(3.2, LION_SLAM_EVERY - tier * 0.12) + Math.random() * 0.5
+          audio.play('claw')
+          this.texts.push({
+            x: b.x,
+            y: b.y - 96 * u,
+            text: this.L('txt.lionClaws'),
+            color: '#FF8FA3',
+            t: 0,
+            dur: 1.1,
+            size: 22 * u,
+          })
         }
       }
     } else if (b.state === 'roar') {
@@ -3682,6 +3736,52 @@ export class PopcornEngine {
       }
       audio.play(hit ? 'penalty' : 'click')
       this.seeds.splice(i, 1)
+    }
+  }
+
+  /* ================= ОНЛИФАНСИЙ: когтистые удары сверху ================= */
+
+  /** Когти Онлифансия (v0.0.46): пока горит телеграф — лапке пора уходить.
+      УДАР: рядом с точкой — сердечко и оглохшая лапка (стан, как от мины);
+      увела лапку — просто грозный хлопок и пыль */
+  private updateLionSlams(dt: number): void {
+    if (this.lionSlams.length === 0) return
+    const u = this.u
+    for (let i = this.lionSlams.length - 1; i >= 0; i--) {
+      const s = this.lionSlams[i]
+      if (!s) continue
+      s.t += dt
+      if (s.t < LION_SLAM_TELE) continue
+      // УДАР СВЕРХУ: попало по лапке — сердечко и стан; мимо — просто грохот
+      const hit = Math.hypot(this.paw.x - s.x, this.paw.y - s.y) < (LION_SLAM_R + 10) * u
+      this.rings.push({
+        x: s.x,
+        y: s.y,
+        t: 0,
+        ttl: 0.35,
+        color: '255, 201, 60',
+        r0: 12 * u,
+        r1: 58 * u,
+      })
+      this.crumbs(s.x, s.y, '#C9A15E', 7)
+      this.doShake(hit ? 8 : 4)
+      if (hit) {
+        this.stun = Math.max(0.4, MINE_SHOCK_SECONDS - (this.tree.stunCut ?? 0))
+        this.levelShock++
+        this.loseHeart('boss')
+        this.texts.push({
+          x: this.paw.x,
+          y: this.paw.y - 46 * u,
+          text: this.L('txt.lionSlamHit'),
+          color: '#FF8FA3',
+          t: 0,
+          dur: 1,
+          size: 22 * u,
+        })
+      }
+      audio.play(hit ? 'penalty' : 'claw')
+      this.buzz(hit ? 50 : 20)
+      this.lionSlams.splice(i, 1)
     }
   }
 
@@ -4701,6 +4801,8 @@ export class PopcornEngine {
     if (this.boss && this.phase === 'playing') this.drawBoss()
     // Зёрна, летящие В ЭКРАН: растут по подлёту, у цели — круг-телеграф
     if (this.seeds.length > 0) this.drawGypsySeeds(ts)
+    // КОГТИ ОНЛИФАНСИЯ: круг-телеграф и опускающиеся когти — поверх босса
+    if (this.lionSlams.length > 0) this.drawLionSlams()
     /* ЛАНА: длинные лапки с когтями — поверх босса и корзинки */
     if (this.boss && this.boss.paws.length > 0) this.drawLanaPaws()
     this.drawFlying()
@@ -4841,7 +4943,7 @@ export class PopcornEngine {
     const wob = Math.sin(b.wobble)
     const bob = wob * 3 * u
     const tilt = wob * 0.07
-    const R = (b.kind === 'lion' ? 52 : b.kind === 'marten' ? 40 : b.kind === 'pigeon' ? 56 : 44) * u // базовый радиус тела
+    const R = (b.kind === 'lion' ? 62 : b.kind === 'marten' ? 40 : b.kind === 'pigeon' ? 62 : 44) * u // базовый радиус тела
 
     // тень на полу — босс уже в деле
     if (b.state !== 'in') {
@@ -4850,7 +4952,7 @@ export class PopcornEngine {
       ctx.ellipse(
         b.x,
         this.cup.y + 22 * u,
-        (b.kind === 'pigeon' ? 44 : b.kind === 'marten' ? 24 : 30) * u,
+        (b.kind === 'pigeon' ? 44 : b.kind === 'marten' ? 24 : b.kind === 'lion' ? 40 : 30) * u,
         7 * u,
         0,
         0,
@@ -4864,8 +4966,18 @@ export class PopcornEngine {
     ctx.rotate(tilt)
 
     if (b.kind === 'lion') {
-      /* ═══════ ЛЬВ: царь-зверь с гривой-щитом (v0.0.33) ═══════ */
+      /* ═══════ ЛЬВ: царь-зверь с гривой-щитом (v0.0.33), v0.0.46 —
+         ФИНАЛЬНЫЙ БОСС: подрос, окутан мрачной аурой, глаза ГОРЯТ ═══════ */
       const roarPulse = b.roar > 0 ? 1 + 0.16 * Math.sin(b.stateT * 26) : 1
+      /* АУРА ЦАРЯ: грозное зарево за гривой — финальный босс сам себе сцена */
+      const aura = ctx.createRadialGradient(0, -R * 0.42, R * 0.18, 0, -R * 0.42, R * 1.72)
+      aura.addColorStop(0, 'rgba(255, 150, 40, 0.3)')
+      aura.addColorStop(0.55, 'rgba(122, 42, 12, 0.2)')
+      aura.addColorStop(1, 'rgba(0, 0, 0, 0)')
+      ctx.fillStyle = aura
+      ctx.beginPath()
+      ctx.arc(0, -R * 0.42, R * 1.72, 0, Math.PI * 2)
+      ctx.fill()
       // хвост с кисточкой
       ctx.strokeStyle = '#D08A2E'
       ctx.lineWidth = 6 * u
@@ -4954,11 +5066,37 @@ export class PopcornEngine {
       ctx.moveTo(R * 0.34, -R * 0.72)
       ctx.lineTo(R * 0.1, -R * 0.62)
       ctx.stroke()
-      ctx.fillStyle = '#2B1A0E'
+      /* v0.0.46: ЯНТАРНЫЕ ГЛАЗА с вертикальным зрачком — в рокте ГОРЯТ */
+      ctx.save()
+      if (b.roar > 0) {
+        ctx.shadowColor = '#FFC93C'
+        ctx.shadowBlur = 16 * u
+      }
+      ctx.fillStyle = b.roar > 0 ? '#FFE066' : '#FFB43C'
       ctx.beginPath()
-      ctx.arc(-R * 0.2, -R * 0.56, 4.5 * u, 0, Math.PI * 2)
-      ctx.arc(R * 0.2, -R * 0.56, 4.5 * u, 0, Math.PI * 2)
+      ctx.ellipse(-R * 0.2, -R * 0.56, 5.2 * u, 6.4 * u, 0, 0, Math.PI * 2)
+      ctx.ellipse(R * 0.2, -R * 0.56, 5.2 * u, 6.4 * u, 0, 0, Math.PI * 2)
       ctx.fill()
+      ctx.fillStyle = '#1D0F06'
+      ctx.beginPath()
+      ctx.ellipse(-R * 0.2, -R * 0.56, 1.7 * u, 4.6 * u, 0, 0, Math.PI * 2)
+      ctx.ellipse(R * 0.2, -R * 0.56, 1.7 * u, 4.6 * u, 0, 0, Math.PI * 2)
+      ctx.fill()
+      ctx.restore()
+      // клыки в рокте: царственный оскал виден издалека
+      if (b.roar > 0) {
+        ctx.fillStyle = '#FFF3D6'
+        ctx.beginPath()
+        ctx.moveTo(-7 * u, -R * 0.3)
+        ctx.lineTo(-4 * u, -R * 0.3 + 10 * u)
+        ctx.lineTo(-1.5 * u, -R * 0.3)
+        ctx.closePath()
+        ctx.moveTo(7 * u, -R * 0.3)
+        ctx.lineTo(4 * u, -R * 0.3 + 10 * u)
+        ctx.lineTo(1.5 * u, -R * 0.3)
+        ctx.closePath()
+        ctx.fill()
+      }
     } else if (b.kind === 'pigeon') {
       /* ═══════ МЕГА-ГОЛУБЬ: огромная сизая птица, бей по ГЛАЗАМ (v0.0.38) ═══════
          Тело неуязвимо — зерно отскакивает, лапка по телу ничего не даёт.
@@ -5438,6 +5576,47 @@ export class PopcornEngine {
         ctx.stroke()
         ctx.restore()
       }
+    }
+  }
+
+  /** КОГТИ ОНЛИФАНСИЯ (v0.0.46): пульсирующий круг-телеграф, в который
+      сверху опускаются три когтистых дуги — удар следует сразу после */
+  private drawLionSlams(): void {
+    const { ctx } = this
+    const u = this.u
+    for (const s of this.lionSlams) {
+      const q = Math.min(1, s.t / LION_SLAM_TELE)
+      const pulse = 1 + Math.sin(s.t * 22) * 0.07
+      const r = LION_SLAM_R * u * pulse
+      // КРУГ-ТЕЛЕГРАФ: сжимается к удару, к краю — краснеет
+      ctx.save()
+      ctx.strokeStyle = q > 0.72 ? '#FF6B5E' : '#FFC93C'
+      ctx.globalAlpha = 0.4 + 0.4 * q
+      ctx.lineWidth = Math.max(2, 3.2 * u)
+      ctx.beginPath()
+      ctx.arc(s.x, s.y, r * (1.3 - 0.3 * q), 0, Math.PI * 2)
+      ctx.stroke()
+      ctx.globalAlpha = (0.14 + 0.24 * q) * 0.5
+      ctx.fillStyle = q > 0.72 ? '#FF6B5E' : '#FFC93C'
+      ctx.beginPath()
+      ctx.arc(s.x, s.y, r * (1.3 - 0.3 * q), 0, Math.PI * 2)
+      ctx.fill()
+      ctx.restore()
+      // ТРИ КОГТЯ СВЕРХУ: опускаются к кругу по мере телеграфа
+      ctx.save()
+      ctx.strokeStyle = 'rgba(92, 46, 14, 0.85)'
+      ctx.lineWidth = 5 * u
+      ctx.lineCap = 'round'
+      for (let k = 0; k < 3; k++) {
+        const off = (k - 1) * r * 0.46
+        const len = r * (0.55 + 1.05 * q)
+        const topY = s.y - r * 1.55
+        ctx.beginPath()
+        ctx.moveTo(s.x + off, topY)
+        ctx.quadraticCurveTo(s.x + off + 10 * u, topY + len * 0.6, s.x + off - 5 * u, topY + len)
+        ctx.stroke()
+      }
+      ctx.restore()
     }
   }
 

@@ -42,7 +42,7 @@ const BOSS_ICON: Record<BossPortraitKind, string> = {
 
 interface BossIntroProps {
   t: TranslateFn
-  /** Номер босс-уровня (кратен 5) */
+  /** Номер босс-уровня (кратен 4) */
   level: number
   kind: BossPortraitKind
   /** Кнопка «В БОЙ!»: отпустить геймплей (движок.dismissBossIntro) */
