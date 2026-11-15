@@ -1992,16 +1992,35 @@ function LeadersOverlay({
       exit={{ opacity: 0, pointerEvents: 'none' }}
     >
       <motion.div
-        className="my-auto w-full max-w-sm rounded-2xl border-4 border-[#8a5330] bg-[#FFF6E6] p-4 text-center shadow-[0_18px_50px_rgba(0,0,0,0.55)] sm:p-5"
+        className="relative my-auto w-full max-w-sm overflow-hidden rounded-2xl border-4 border-[#8a5330] bg-[#1d0f06] p-4 text-center shadow-[0_18px_50px_rgba(0,0,0,0.55)] sm:p-5"
         initial={{ scale: 0.92, y: 14 }}
         animate={{ scale: 1, y: 0 }}
         exit={{ scale: 0.95, opacity: 0, pointerEvents: 'none' }}
         transition={{ type: 'spring', stiffness: 260, damping: 22 }}
       >
-        <div aria-hidden className="text-3xl">
-          🏆
-        </div>
-        <h2 className="mt-0.5 font-pixel text-xl font-bold text-[#B33A26]">{t('lead.title')}</h2>
+        {/* 0.0.48: королевский тронный зал (ужатый WebP) на фоне окна таблицы.
+         *  Градиент-скрим поверх — тексты и светлые карточки строк остаются читаемыми. */}
+        <img
+          src="/throne.webp"
+          alt=""
+          aria-hidden
+          draggable={false}
+          className="pointer-events-none absolute inset-0 h-full w-full object-cover"
+        />
+        <div
+          aria-hidden
+          className="pointer-events-none absolute inset-0"
+          style={{
+            background:
+              'linear-gradient(180deg, rgba(42,21,8,0.64) 0%, rgba(42,21,8,0.78) 55%, rgba(29,15,6,0.86) 100%)',
+          }}
+        />
+        <div className="relative">
+          <div aria-hidden className="text-3xl">
+            🏆
+          </div>
+          {/* Заголовок золотом — под королевский фон; контраст против тёмного скрима */}
+          <h2 className="mt-0.5 font-pixel text-xl font-bold text-[#F6D488]">{t('lead.title')}</h2>
 
         {world.status === 'on' ? (
           <div className="mt-2.5 grid grid-cols-2 gap-1.5 rounded-xl bg-[#f3e2c8] p-1">
@@ -2052,7 +2071,7 @@ function LeadersOverlay({
 
         {tab === 'local' || world.status !== 'on' ? (
           leaders.length === 0 ? (
-            <p className="mt-4 font-ui text-sm font-medium text-[#5C3A1E]">{t('lead.emptyLocal')}</p>
+            <p className="mt-4 rounded-xl bg-[#FFF6E6]/90 px-3 py-2 font-ui text-sm font-medium text-[#5C3A1E]">{t('lead.emptyLocal')}</p>
           ) : (
             <ol className={`mt-3 max-h-[42vh] space-y-1.5 overflow-y-auto pr-1 sm:max-h-72 ${OVERLAY_SCROLL}`}>
               {leaders.map((e, i) => {
@@ -2102,9 +2121,9 @@ function LeadersOverlay({
               </p>
             )}
             {/* 0.0.47: топ — «один котик = одна строка», только максимальный рекорд */}
-            <p className="mt-1.5 font-ui text-[10px] font-medium text-[#a97c50]">{t('lead.unique')}</p>
+            <p className="mt-1.5 font-ui text-[10px] font-medium text-[#e3cba4]">{t('lead.unique')}</p>
             {world.rows.length === 0 ? (
-              <p className="mt-4 font-ui text-sm font-medium text-[#5C3A1E]">{t('lead.emptyWorld')}</p>
+              <p className="mt-4 rounded-xl bg-[#FFF6E6]/90 px-3 py-2 font-ui text-sm font-medium text-[#5C3A1E]">{t('lead.emptyWorld')}</p>
             ) : (
           <ol className={`mt-3 max-h-[42vh] space-y-1.5 overflow-y-auto pr-1 sm:max-h-72 ${OVERLAY_SCROLL}`}>
             {world.rows.map((e, i) => {
@@ -2148,6 +2167,7 @@ function LeadersOverlay({
         )}
         <div className="mt-3">
           <GameButton onClick={onClose}>{t('shop.close')}</GameButton>
+        </div>
         </div>
       </motion.div>
     </motion.div>

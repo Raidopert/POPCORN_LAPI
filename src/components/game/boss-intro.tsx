@@ -49,6 +49,10 @@ interface BossIntroProps {
   onGo: () => void
 }
 
+/** Королевский тронный зал с почестями — фон босс-файта с ОНЛИФАНСИЕМ (0.0.48).
+ *  Ужат в WebP (1440px, q62, ~82 КБ). Тёмный градиент-скрим сверху — читаемость текста. */
+const THRONE_BG = '/throne.webp'
+
 export function BossIntroOverlay({ t, level, kind, onGo }: BossIntroProps) {
   const canvasRef = useRef<HTMLCanvasElement | null>(null)
 
@@ -80,6 +84,19 @@ export function BossIntroOverlay({ t, level, kind, onGo }: BossIntroProps) {
     <motion.div
       key="boss-intro"
       className="absolute inset-0 z-50 flex flex-col items-center overflow-y-auto bg-[#1d0f06]/95 p-3 backdrop-blur-sm [@media(max-height:520px)]:p-2 sm:p-5"
+      /* Только у финального босса ОНЛИФАНСИЯ: за спиной — тронный зал королевы.
+       * Фон через CSS-бэкграунд: тянется на всю прокручиваемую область,
+       * скрим (тёмный градиент) поверх — чтобы все тексты остались читаемы. */
+      style={
+        kind === 'lion'
+          ? {
+              backgroundImage: `linear-gradient(rgba(29,15,6,0.70), rgba(29,15,6,0.70)), url("${THRONE_BG}")`,
+              backgroundSize: 'cover, cover',
+              backgroundPosition: 'center, center',
+              backgroundRepeat: 'no-repeat, no-repeat',
+            }
+          : undefined
+      }
       initial={{ opacity: 0 }}
       animate={{ opacity: 1 }}
       exit={{ opacity: 0, pointerEvents: 'none' }}
