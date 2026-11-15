@@ -2352,6 +2352,9 @@ export const T: Record<string, Row> = {
   /* ---------- HUD ---------- */
   'hud.streak': ['серия {{n}}', 'streak {{n}}', 'Serie {{n}}', 'racha {{n}}'],
   'hud.level': ['УР. {{n}}', 'LV {{n}}', 'LVL {{n}}', 'NV {{n}}'],
+  /* 0.0.55: крупный таймер уровня справа вверху поля. Статичная подпись —
+     цифры обновляются прямым DOM-письмом мимо React, без перерисовок */
+  'hud.timerAria': ['Таймер уровня', 'Level timer', 'Level-Timer', 'Temporizador de nivel'],
   'hud.fever': ['🔥 ЛИХОРАДКА +{{n}}', '🔥 FEVER +{{n}}', '🔥 FIEBER +{{n}}', '🔥 FIEBRE +{{n}}'],
   'hud.freeze': ['❄ ФРИЗ {{n}} СЕК', '❄ FREEZE {{n}} SEC', '❄ STOPP {{n}} SEK', '❄ PAUSA {{n}} SEG'],
   'hud.giftmult': ['ОЧКИ ×{{n}} · {{s}} СЕК', 'SCORE ×{{n}} · {{s}} SEC', 'PUNKTE ×{{n}} · {{s}} SEK', 'PUNTOS ×{{n}} · {{s}} SEG'],

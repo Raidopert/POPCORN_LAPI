@@ -669,6 +669,55 @@ function ChestImg({ open }: { open: boolean }) {
   return <canvas ref={ref} aria-hidden className="pixelated h-auto w-16 sm:w-20 [@media(max-height:520px)]:w-11 sm:[@media(max-height:520px)]:w-11" />
 }
 
+/* ---------- КРУПНЫЙ ТАЙМЕР УРОВНЯ (0.0.55) ----------
+   Обратный отсчёт справа вверху поля: красные пиксельные цифры с белым
+   контуром, крупнее остального HUD — сколько времени осталось видно даже
+   на телефоне. Хитрость производительности: цифры обновляются ПРЯМЫМ
+   письмом в DOM раз в 200 мс — React не рендерится вовсе, таймер стоит
+   нуль на слабых устройствах. Состояние «мало времени» меняет только
+   класс у крошечного компонента (редкие перерисовки) */
+function BigTimer({
+  getLeft,
+  ariaLabel,
+}: {
+  /** Свежее значение секунд из движка (мимо React-стейта) */
+  getLeft: () => number
+  ariaLabel: string
+}) {
+  const numRef = useRef<HTMLSpanElement | null>(null)
+  const [urgent, setUrgent] = useState(false)
+  const urgentRef = useRef(false)
+  useEffect(() => {
+    const iv = window.setInterval(() => {
+      const sec = Math.max(0, getLeft())
+      if (numRef.current && numRef.current.textContent !== String(sec)) {
+        numRef.current.textContent = String(sec)
+      }
+      const u = sec <= 10 && sec > 0
+      if (urgentRef.current !== u) {
+        urgentRef.current = u
+        setUrgent(u)
+      }
+    }, 200)
+    return () => window.clearInterval(iv)
+  }, [getLeft])
+  return (
+    <div
+      role="timer"
+      aria-label={ariaLabel}
+      className="pointer-events-none absolute right-2 top-1.5 z-20 sm:right-3 sm:top-2"
+    >
+      <span
+        className={`timer-outline inline-block font-pixel text-[38px] font-bold leading-none tabular-nums sm:text-5xl ${
+          urgent ? 'timer-urgent' : ''
+        }`}
+      >
+        <span ref={numRef}>{Math.max(0, getLeft())}</span>
+      </span>
+    </div>
+  )
+}
+
 /** Лапка выбранного окраса и стиля (магазин скинов) */
 function PawImg({
   skinId,
@@ -916,7 +965,7 @@ function TravelOverlay({
     const loot = tripLootText(trip.coins, trip.grains)
     return (
       <motion.div
-        className="absolute inset-0 z-40 flex items-center justify-center overflow-y-auto bg-black/70 p-4 backdrop-blur-sm"
+        className="absolute inset-0 z-40 flex items-center justify-center overflow-y-auto bg-black/70 p-4"
         initial={{ opacity: 0 }}
         animate={{ opacity: 1 }}
         exit={{ opacity: 0, pointerEvents: 'none' }}
@@ -996,7 +1045,7 @@ function TravelOverlay({
   /* Дома: выбор из шести путешествий (с учётом снаряжения и артефактов) */
   return (
     <motion.div
-      className="absolute inset-0 z-40 flex items-center justify-center overflow-y-auto bg-black/70 p-4 backdrop-blur-sm"
+      className="absolute inset-0 z-40 flex items-center justify-center overflow-y-auto bg-black/70 p-4"
       initial={{ opacity: 0 }}
       animate={{ opacity: 1 }}
       exit={{ opacity: 0, pointerEvents: 'none' }}
@@ -1215,7 +1264,7 @@ function MShopOverlay({
 
   return (
     <motion.div
-      className="absolute inset-0 z-40 flex items-center justify-center overflow-y-auto bg-black/70 p-4 backdrop-blur-sm"
+      className="absolute inset-0 z-40 flex items-center justify-center overflow-y-auto bg-black/70 p-4"
       initial={{ opacity: 0 }}
       animate={{ opacity: 1 }}
       exit={{ opacity: 0, pointerEvents: 'none' }}
@@ -1439,7 +1488,7 @@ function MarketOverlay({
 
   return (
     <motion.div
-      className="absolute inset-0 z-40 flex items-center justify-center overflow-y-auto bg-black/70 p-4 backdrop-blur-sm"
+      className="absolute inset-0 z-40 flex items-center justify-center overflow-y-auto bg-black/70 p-4"
       initial={{ opacity: 0 }}
       animate={{ opacity: 1 }}
       exit={{ opacity: 0, pointerEvents: 'none' }}
@@ -1797,7 +1846,7 @@ function InventoryOverlay({
 
   return (
     <motion.div
-      className="absolute inset-0 z-40 flex items-center justify-center overflow-y-auto bg-black/70 p-3 backdrop-blur-sm sm:p-4"
+      className="absolute inset-0 z-40 flex items-center justify-center overflow-y-auto bg-black/70 p-3 sm:p-4"
       initial={{ opacity: 0 }}
       animate={{ opacity: 1 }}
       exit={{ opacity: 0, pointerEvents: 'none' }}
@@ -2239,7 +2288,7 @@ function ShopOverlay({
       : t(`upg.${def.id}.effectNone`)
   return (
     <motion.div
-      className="absolute inset-0 z-40 flex items-center justify-center overflow-y-auto bg-black/70 p-4 backdrop-blur-sm"
+      className="absolute inset-0 z-40 flex items-center justify-center overflow-y-auto bg-black/70 p-4"
       initial={{ opacity: 0 }}
       animate={{ opacity: 1 }}
       exit={{ opacity: 0, pointerEvents: 'none' }}
@@ -2521,7 +2570,7 @@ function LeadersOverlay({
 
   return (
     <motion.div
-      className="absolute inset-0 z-40 flex items-center justify-center overflow-y-auto bg-black/70 p-4 backdrop-blur-sm"
+      className="absolute inset-0 z-40 flex items-center justify-center overflow-y-auto bg-black/70 p-4"
       initial={{ opacity: 0 }}
       animate={{ opacity: 1 }}
       exit={{ opacity: 0, pointerEvents: 'none' }}
@@ -2723,7 +2772,7 @@ function RulesOverlay({ t, onClose }: { t: TranslateFn; onClose: () => void }) {
   ]
   return (
     <motion.div
-      className="absolute inset-0 z-40 flex items-center justify-center overflow-y-auto bg-black/70 p-4 backdrop-blur-sm"
+      className="absolute inset-0 z-40 flex items-center justify-center overflow-y-auto bg-black/70 p-4"
       initial={{ opacity: 0 }}
       animate={{ opacity: 1 }}
       exit={{ opacity: 0, pointerEvents: 'none' }}
@@ -2813,7 +2862,7 @@ function InstallOverlay({
 
   return (
     <motion.div
-      className="absolute inset-0 z-40 flex items-center justify-center overflow-y-auto bg-black/70 p-4 backdrop-blur-sm"
+      className="absolute inset-0 z-40 flex items-center justify-center overflow-y-auto bg-black/70 p-4"
       initial={{ opacity: 0 }}
       animate={{ opacity: 1 }}
       exit={{ opacity: 0, pointerEvents: 'none' }}
@@ -3042,7 +3091,7 @@ function TreeOverlay({
 
   return (
     <motion.div
-      className="absolute inset-0 z-40 flex items-center justify-center overflow-y-auto bg-black/70 p-4 backdrop-blur-sm"
+      className="absolute inset-0 z-40 flex items-center justify-center overflow-y-auto bg-black/70 p-4"
       initial={{ opacity: 0 }}
       animate={{ opacity: 1 }}
       exit={{ opacity: 0, pointerEvents: 'none' }}
@@ -3253,7 +3302,7 @@ function CreatorsOverlay({ t, onClose }: { t: TranslateFn; onClose: () => void }
 
   return (
     <motion.div
-      className="absolute inset-0 z-40 flex items-center justify-center overflow-y-auto bg-black/70 p-4 backdrop-blur-sm"
+      className="absolute inset-0 z-40 flex items-center justify-center overflow-y-auto bg-black/70 p-4"
       initial={{ opacity: 0 }}
       animate={{ opacity: 1 }}
       exit={{ opacity: 0, pointerEvents: 'none' }}
@@ -3393,7 +3442,7 @@ function AchievementsOverlay({
 }) {
   return (
     <motion.div
-      className="absolute inset-0 z-40 flex items-center justify-center overflow-y-auto bg-black/70 p-4 backdrop-blur-sm"
+      className="absolute inset-0 z-40 flex items-center justify-center overflow-y-auto bg-black/70 p-4"
       initial={{ opacity: 0 }}
       animate={{ opacity: 1 }}
       exit={{ opacity: 0, pointerEvents: 'none' }}
@@ -3551,7 +3600,7 @@ function SettingsOverlay({
   }, [])
   return (
     <motion.div
-      className="absolute inset-0 z-[60] flex items-center justify-center overflow-y-auto bg-black/80 p-4 backdrop-blur-sm"
+      className="absolute inset-0 z-[60] flex items-center justify-center overflow-y-auto bg-black/80 p-4"
       initial={{ opacity: 0 }}
       animate={{ opacity: 1 }}
       exit={{ opacity: 0, pointerEvents: 'none' }}
@@ -3989,7 +4038,7 @@ function NickDialog({
   }
   return (
     <motion.div
-      className="absolute inset-0 z-[46] flex items-center justify-center overflow-y-auto bg-black/80 p-4 backdrop-blur-sm"
+      className="absolute inset-0 z-[46] flex items-center justify-center overflow-y-auto bg-black/80 p-4"
       initial={{ opacity: 0 }}
       animate={{ opacity: 1 }}
       exit={{ opacity: 0, pointerEvents: 'none' }}
@@ -6285,6 +6334,8 @@ export function PopcornGame() {
 
   const sec = Math.ceil(stats.timeLeft)
   const urgent = sec <= 10
+  /* Крупный таймер читает движок напрямую (мимо React) — колбэк стабилен */
+  const getTimerLeft = useCallback(() => engineRef.current?.secondsLeft ?? 0, [])
   const onLevel = phase === 'playing' || phase === 'paused'
   /* Вид босса текущего босс-уровня: HUD показывает его имя и значок (v0.0.33) */
   const hudBossKind = bossKindForTier(bossTierForLevel(stats.level))
@@ -6516,6 +6567,13 @@ export function PopcornGame() {
             и игровой цикл не трогаем, рисует композитор GPU бесплатно */}
         {settings.crt && <div aria-hidden className="popcorn-crt pointer-events-none absolute inset-0 z-20" />}
 
+        {/* КРУПНЫЙ ТАЙМЕР (0.0.55): красные пиксельные цифры с белым контуром
+            справа вверху поля, крупнее остального HUD — видно даже на телефоне.
+            Обновление — прямое DOM-письмо мимо React, для слабых устройств бесплатно */}
+        {phase === 'playing' && (
+          <BigTimer getLeft={getTimerLeft} ariaLabel={t('hud.timerAria')} />
+        )}
+
         {/* Индикатор «ВОЛНА N»: HTML поверх канваса — виден сквозь попкорновый
             туман и любую темноту (туман рисуется внутри канваса) */}
         <AnimatePresence>
@@ -6572,7 +6630,7 @@ export function PopcornGame() {
           {phase === 'start' && (
             <motion.div
               key="start"
-              className="absolute inset-0 z-30 flex items-center justify-center overflow-y-auto bg-gradient-to-b from-[#1c0e31]/90 via-[#170a29]/88 to-[#120722]/95 p-4 backdrop-blur-sm"
+              className="absolute inset-0 z-30 flex items-center justify-center overflow-y-auto bg-gradient-to-b from-[#1c0e31]/90 via-[#170a29]/88 to-[#120722]/95 p-4"
               initial={{ opacity: 0 }}
               animate={{ opacity: 1 }}
               exit={{ opacity: 0, pointerEvents: 'none' }}
@@ -7069,7 +7127,7 @@ export function PopcornGame() {
           {phase === 'paused' && (
             <motion.div
               key="paused"
-              className="absolute inset-0 z-30 flex items-center justify-center bg-black/60 p-4 backdrop-blur-sm"
+              className="absolute inset-0 z-30 flex items-center justify-center bg-black/60 p-4"
               initial={{ opacity: 0 }}
               animate={{ opacity: 1 }}
               exit={{ opacity: 0, pointerEvents: 'none' }}
@@ -7126,7 +7184,7 @@ export function PopcornGame() {
           {phase === 'chest' && clearInfo && (
             <motion.div
               key="chest"
-              className="absolute inset-0 z-30 flex flex-col bg-black/70 p-2 backdrop-blur-sm sm:p-4"
+              className="absolute inset-0 z-30 flex flex-col bg-black/70 p-2 sm:p-4"
               initial={{ opacity: 0 }}
               animate={{ opacity: 1 }}
               exit={{ opacity: 0, pointerEvents: 'none' }}
@@ -7402,7 +7460,7 @@ export function PopcornGame() {
           {phase === 'ended' && result && (
             <motion.div
               key="ended"
-              className="absolute inset-0 z-30 flex flex-col bg-black/60 p-2 backdrop-blur-sm sm:p-4"
+              className="absolute inset-0 z-30 flex flex-col bg-black/60 p-2 sm:p-4"
               initial={{ opacity: 0 }}
               animate={{ opacity: 1 }}
               exit={{ opacity: 0, pointerEvents: 'none' }}

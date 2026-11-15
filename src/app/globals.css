@@ -146,6 +146,42 @@
   text-shadow: 2px 2px 0 rgba(90, 40, 15, 0.28);
 }
 
+/* ===== Крупный таймер уровня (0.0.55) =====
+   Красные пиксельные цифры с плотным кремово-белым контуром — читаются
+   на любой комнате и яркости. Контур — 8 направлений text-shadow:
+   -webkit-text-stroke рисуется ПОД заливкой и на пиксельном шрифте
+   съедает цифру, тени надёжнее и работают во всех старых Safari */
+.timer-outline {
+  color: #e24b3b;
+  text-shadow:
+    -2px -2px 0 #fff6e6,
+    2px -2px 0 #fff6e6,
+    -2px 2px 0 #fff6e6,
+    2px 2px 0 #fff6e6,
+    -2.5px 0 0 #fff6e6,
+    2.5px 0 0 #fff6e6,
+    0 -2.5px 0 #fff6e6,
+    0 2.5px 0 #fff6e6,
+    0 4px 0 rgba(90, 20, 10, 0.55);
+}
+
+/* Мало времени (≤10 сек): пульс-встряска приковывает взгляд */
+@keyframes timer-urgent {
+  0%,
+  100% {
+    transform: scale(1);
+    opacity: 1;
+  }
+  50% {
+    transform: scale(1.14);
+    opacity: 0.8;
+  }
+}
+
+.timer-urgent {
+  animation: timer-urgent 1s ease-in-out infinite;
+}
+
 img.pixelated {
   image-rendering: pixelated;
 }
@@ -347,7 +383,8 @@ body {
   .pop-dot,
   .logo-glow,
   .popcorn-fall,
-  .glow-drift {
+  .glow-drift,
+  .timer-urgent {
     animation: none;
   }
 }

@@ -4299,6 +4299,13 @@ export class PopcornEngine {
 
   private loop = (ts: number): void => {
     if (this.destroyed) return
+    /* 0.0.55: капаем ~60 FPS. На 120-Гц дисплеях (iPhone ProMotion и др.) rAF
+       гонял цикл дважды чаще: двойная работа рендера и апдейта, телефон греется
+       и быстрее садится. На обычных 60-Гц экранах условие не срабатывает никогда */
+    if (ts - this.lastTs < 15.5) {
+      this.raf = requestAnimationFrame(this.loop)
+      return
+    }
     const dt = Math.min(0.05, (ts - this.lastTs) / 1000)
     this.lastTs = ts
     if (this.phase === 'playing' && !this.paused && !this.introHold) {
@@ -4329,6 +4336,11 @@ export class PopcornEngine {
   /** Текущий сглаженный FPS (для отладки: window.__popcornEngine.fps) */
   get fps(): number {
     return Math.round(this.fpsMeter.fps)
+  }
+
+  /** Остаток времени этапа в секундах (для крупного таймера поверх поля) */
+  get secondsLeft(): number {
+    return Math.ceil(this.timeLeft)
   }
 
   /** Активный perf-тир авто-качества (0 — все эффекты, 2 — минимум) */
@@ -4643,9 +4655,13 @@ export class PopcornEngine {
   private emitStats(force: boolean): void {
     if (!this.cb.onStats) return
     /* Троттлинг: HUD не нужен 60 раз в секунду — 7 Гц хватает глаз,
-       а сборка строкового ключа каждый кадр — лишний мусор для GC */
+       а сборка строкового ключа каждый кадр — лишний мусор для GC.
+       0.0.55: на сенсорных (слабых) устройствах реже — 4.5 Гц: каждое
+       обновление это reconciling большого дерева React, на старых
+       телефонах именно он давал микроподлагивания */
     const now = performance.now()
-    if (!force && now - this.lastStatsEmit < 150) return
+    const throttleMs = this.coarse ? 220 : 150
+    if (!force && now - this.lastStatsEmit < throttleMs) return
     this.lastStatsEmit = now
     const sec = Math.ceil(this.timeLeft)
     const fever = !!this.fever || this.feverAfter >= 0
