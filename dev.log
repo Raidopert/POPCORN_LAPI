@@ -1,0 +1,31 @@
+▲ Next.js 16.4.5 (Turbopack)
+- Local:         http://localhost:3000
+- Network:       http://21.0.4.193:3000
+- Environments: .env
+✓ Ready in 267ms
+✓ Running next.config.ts took 31ms
+Attention: Next.js now collects completely anonymous telemetry regarding usage.
+This information is used to shape Next.js' roadmap and prioritize features.
+You can learn more, including how to opt-out if you'd not like to participate in this anonymous program, by visiting the following URL:
+https://nextjs.org/telemetry
+
+
+○ Compiling / ...
+ GET / 200 in 39ms (next.js: 1.4ms, application-code: 37ms)
+ GET / 200 in 383ms (next.js: 109ms, application-code: 274ms)
+ GET / 200 in 28ms (next.js: 1.2ms, application-code: 27ms)
+ GET / 200 in 26ms (next.js: 0.7ms, application-code: 25ms)
+ POST /api/sessions 200 in 139ms (next.js: 40ms, application-code: 99ms)
+⚠ Blocked cross-origin request to Next.js dev resource /__nextjs_font/geist-latin.woff2 from "preview-chat-92f0a0a1-137a-411e-926d-67dcf93533f8.space-z.ai".
+Cross-origin access to Next.js dev resources is blocked by default for safety.
+
+To allow this host in development, add it to "allowedDevOrigins" in next.config.js and restart the dev server:
+
+// next.config.js
+module.exports = {
+  allowedDevOrigins: ['preview-chat-92f0a0a1-137a-411e-926d-67dcf93533f8.space-z.ai'],
+}
+
+Read more: https://nextjs.org/docs/app/api-reference/config/next-config-js/allowedDevOrigins
+ GET / 200 in 45ms (next.js: 1.3ms, application-code: 44ms)
+ POST /api/sessions 200 in 11ms (next.js: 1.1ms, application-code: 10ms)
