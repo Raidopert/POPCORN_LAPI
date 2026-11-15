@@ -2147,6 +2147,9 @@ function InventoryOverlay({
                 <div className="mt-0.5 font-ui text-[10px] font-semibold leading-snug text-[#3f6b28]">
                   {t(`item.${selDef.id}.bonus`)}
                 </div>
+                <div className="mt-0.5 font-ui text-[10px] leading-snug text-[#8a5330]">
+                  {t(`item.${selDef.id}.desc`)}
+                </div>
               </div>
             </div>
             <div className="mt-2 grid grid-cols-2 gap-1.5">

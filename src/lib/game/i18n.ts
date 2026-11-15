@@ -3469,12 +3469,24 @@ export const T: Record<string, Row> = {
     '+4% Münzen: Truhen, großes Popcorn und Gold',
     '+4% monedas: cofres, palomitas grandes y oro',
   ],
+  'item.col-leather.desc': [
+    'Мягкая кожа и старые швы — с неё началась коллекция.',
+    'Soft leather, worn seams — where the collection began.',
+    'Weiches Leder, getragene Nähte — hier beginnt die Sammlung.',
+    'Cuero suave, costuras gastadas — aquí empieza la colección.',
+  ],
   'item.col-red.name': ['Красный с бубенцом', 'Red Bell Collar', 'Rot mit Glöckchen', 'Collar con Cascabel'],
   'item.col-red.bonus': [
     '+8% к монеткам: сундучки, попкорнины и золото',
     '+8% coins: chests, big popcorn and gold',
     '+8% Münzen: Truhen, großes Popcorn und Gold',
     '+8% monedas: cofres, palomitas grandes y oro',
+  ],
+  'item.col-red.desc': [
+    'Бубенец звенит — ни один сундучок не проскочит мимо.',
+    'The little bell chimes — no chest slips past unnoticed.',
+    'Das Glöckchen klingelt — keine Truhe schlüpft vorbei.',
+    'La campanita suena — ningún cofre pasa desapercibido.',
   ],
   'item.col-spiked.name': ['Шипастый ошейник', 'Spiked Collar', 'Stachelhalsband', 'Collar de Púas'],
   'item.col-spiked.bonus': [
@@ -3483,12 +3495,24 @@ export const T: Record<string, Row> = {
     '+12% Münzen: Truhen, großes Popcorn und Gold',
     '+12% monedas: cofres, palomitas grandes y oro',
   ],
+  'item.col-spiked.desc': [
+    'Шипы полируются самой Лихорадкой.',
+    'Its spikes get polished by Fever itself.',
+    'Seine Stacheln werden vom Fieber selbst poliert.',
+    'Sus púas las pule la propia Fiebre.',
+  ],
   'item.col-diamond.name': ['Бриллиантовый ошейник', 'Diamond Collar', 'Diamanthalsband', 'Collar de Diamantes'],
   'item.col-diamond.bonus': [
     '+18% к монеткам: сундучки, попкорнины и золото',
     '+18% coins: chests, big popcorn and gold',
     '+18% Münzen: Truhen, großes Popcorn und Gold',
     '+18% monedas: cofres, palomitas grandes y oro',
+  ],
+  'item.col-diamond.desc': [
+    'Каждый стежок ловит свет — роскошь видно через комнату.',
+    'Every stitch catches the light — luxury visible across the room.',
+    'Jede Naht fängt Licht — Luxus schon von weitem sichtbar.',
+    'Cada costura atrapa la luz — lujo que se ve de lejos.',
   ],
   'item.bra-beads.name': ['Бусовый браслет', 'Bead Bracelet', 'Perlenarmband', 'Pulsera de Cuentas'],
   'item.bra-beads.bonus': [
@@ -3497,12 +3521,24 @@ export const T: Record<string, Row> = {
     '+4% EP: Truhen und Etappenbonus',
     '+4% XP: cofres y recompensa de etapa',
   ],
+  'item.bra-beads.desc': [
+    'Сто бусин — сто маленьких уроков на память.',
+    'A hundred beads — a hundred little lessons to keep.',
+    'Hundert Perlen — hundert kleine Lektionen zum Behalten.',
+    'Cien cuentas — cien pequeñas lecciones para recordar.',
+  ],
   'item.bra-silver.name': ['Серебряный браслет', 'Silver Bracelet', 'Silberarmband', 'Pulsera de Plata'],
   'item.bra-silver.bonus': [
     '+8% к опыту: сундучки и награда за этап',
     '+8% XP: chests and stage rewards',
     '+8% EP: Truhen und Etappenbonus',
     '+8% XP: cofres y recompensa de etapa',
+  ],
+  'item.bra-silver.desc': [
+    'Тихо звенит всякий раз, когда котик становится умнее.',
+    'Chimes softly each time the cat gets a bit smarter.',
+    'Klingelt leise, wann immer der Kater klüger wird.',
+    'Suena suave cada vez que el gato se vuelve más listo.',
   ],
   'item.bra-gold.name': ['Золотой браслет', 'Golden Bracelet', 'Goldarmband', 'Pulsera de Oro'],
   'item.bra-gold.bonus': [
@@ -3511,12 +3547,24 @@ export const T: Record<string, Row> = {
     '+12% EP: Truhen und Etappenbonus',
     '+12% XP: cofres y recompensa de etapa',
   ],
+  'item.bra-gold.desc': [
+    'Тяжёлое золото, лёгкий прирост опыта — честный размен.',
+    'Heavy gold, easy XP — a fair trade.',
+    'Schweres Gold, leichter EP — ein fairer Handel.',
+    'Oro pesado, XP ligero — un trato justo.',
+  ],
   'item.bra-legend.name': ['Браслет с рубином', 'Ruby Bracelet', 'Rubinarmband', 'Pulsera con Rubí'],
   'item.bra-legend.bonus': [
     '+18% к опыту: сундучки и награда за этап',
     '+18% XP: chests and stage rewards',
     '+18% EP: Truhen und Etappenbonus',
     '+18% XP: cofres y recompensa de etapa',
+  ],
+  'item.bra-legend.desc': [
+    'Рубин пульсирует в такт каждому новому уровню.',
+    'The ruby pulses in rhythm with every new level.',
+    'Der Rubin pulsiert im Takt jedes neuen Levels.',
+    'El rubí late al ritmo de cada nuevo nivel.',
   ],
   'item.crown-gold.name': ['Золотой венец', 'Golden Crown', 'Goldene Krone', 'Corona Dorada'],
   'item.crown-gold.bonus': [
@@ -3525,6 +3573,12 @@ export const T: Record<string, Row> = {
     '+10% Diamanten aus NANAS Reisen',
     '+10% diamantes de los viajes de NANA',
   ],
+  'item.crown-gold.desc': [
+    'Венец юной путешественницы: каждая дорога начинается с него.',
+    "A young traveler's crown: every road begins with it.",
+    'Krone der jungen Reisenden: jede Reise beginnt mit ihr.',
+    'Corona de joven viajera: todo camino empieza con ella.',
+  ],
   'item.crown-diamond.name': ['Бриллиантовый венец', 'Diamond Crown', 'Diamantkrone', 'Corona de Diamantes'],
   'item.crown-diamond.bonus': [
     '+15% алмазов из путешествий NANA',
@@ -3532,12 +3586,24 @@ export const T: Record<string, Row> = {
     '+15% Diamanten aus NANAS Reisen',
     '+15% diamantes de los viajes de NANA',
   ],
+  'item.crown-diamond.desc': [
+    'Грани ловят свет чужих звёзд и приносят его домой.',
+    'Its facets catch the light of distant stars and bring it home.',
+    'Die Facetten fangen das Licht ferner Sterne und bringen es heim.',
+    'Sus facetas atrapan la luz de estrellas lejanas y la traen a casa.',
+  ],
   'item.crown-ancient.name': ['Древний венец', 'Ancient Crown', 'Antike Krone', 'Corona Ancestral'],
   'item.crown-ancient.bonus': [
     '+20% алмазов из путешествий NANA',
     "+20% gems from NANA's travels",
     '+20% Diamanten aus NANAS Reisen',
     '+20% diamantes de los viajes de NANA',
+  ],
+  'item.crown-ancient.desc': [
+    'Носился ещё до того, как изобрели попкорн. Помнит всё.',
+    'Worn long before popcorn was invented. It remembers everything.',
+    'Getragen, lange bevor es Popcorn gab. Es erinnert sich an alles.',
+    'Se usaba mucho antes de que inventaran las palomitas. Lo recuerda todo.',
   ],
 }
 
