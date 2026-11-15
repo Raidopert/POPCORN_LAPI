@@ -339,3 +339,170 @@ Import trace:
  GET / 200 in 119ms (next.js: 0.6ms, application-code: 118ms)
  POST /api/sessions 200 in 46ms (next.js: 0.9ms, application-code: 45ms)
  GET /public/inventory 404 in 46ms (next.js: 6ms, application-code: 40ms)
+ GET / 200 in 52ms (next.js: 0.9ms, application-code: 51ms)
+ GET /public/inventory 404 in 53ms (next.js: 6ms, application-code: 48ms)
+ GET /public/inventory 404 in 51ms (next.js: 5ms, application-code: 46ms)
+ GET /public/inventory 404 in 47ms (next.js: 5ms, application-code: 43ms)
+ GET /public/inventory 404 in 39ms (next.js: 6ms, application-code: 33ms)
+ GET /public/inventory 404 in 48ms (next.js: 6ms, application-code: 43ms)
+✓ Compiled in 276ms
+✓ Compiled in 202ms
+ GET /public/inventory 404 in 48ms (next.js: 9ms, application-code: 39ms)
+✓ Compiled in 165ms
+ GET /public/inventory 404 in 52ms (next.js: 9ms, application-code: 43ms)
+✓ Compiled in 273ms
+✓ Compiled in 196ms
+ GET /public/inventory 404 in 46ms (next.js: 6ms, application-code: 40ms)
+✓ Compiled in 160ms
+ GET /public/inventory 404 in 72ms (next.js: 8ms, application-code: 64ms)
+✓ Compiled in 453ms
+ GET /public/inventory 404 in 42ms (next.js: 7ms, application-code: 36ms)
+ GET /public/inventory 404 in 31ms (next.js: 5ms, application-code: 26ms)
+✓ Compiled in 466ms
+✓ Compiled in 369ms
+[browser] ./src/components/game/popcorn-game.tsx:1883:9
+Error: Expression expected
+  1881 |           </span>
+  1882 |         </div>
+> 1883 |         <div className="mt-1.5 grid grid-cols-9 gap-1">
+       |         ^
+  1884 |           {Array.from({ length: INV_CAPACITY }, (_, i) => {
+  1885 |             const item = sorted[i] ?? null
+  1886 |             if (!item) {
+
+Parsing ecmascript source code failed
+
+Import trace:
+  Server Component:
+    ./src/components/game/popcorn-game.tsx
+    ./src/app/page.tsx 
+ GET /public/inventory 500 in 34ms (next.js: 11ms, application-code: 23ms)
+[browser] ./src/components/game/popcorn-game.tsx:1883:9
+Error: Expression expected
+  1881 |           </span>
+  1882 |         </div>
+> 1883 |         <div className="mt-1.5 grid grid-cols-9 gap-1">
+       |         ^
+  1884 |           {Array.from({ length: INV_CAPACITY }, (_, i) => {
+  1885 |             const item = sorted[i] ?? null
+  1886 |             if (!item) {
+
+Parsing ecmascript source code failed
+
+Import trace:
+  Server Component:
+    ./src/components/game/popcorn-game.tsx
+    ./src/app/page.tsx 
+[browser] Uncaught Error: ./src/components/game/popcorn-game.tsx:1883:9
+Error: Expression expected
+  1881 |           </span>
+  1882 |         </div>
+> 1883 |         <div className="mt-1.5 grid grid-cols-9 gap-1">
+       |         ^
+  1884 |           {Array.from({ length: INV_CAPACITY }, (_, i) => {
+  1885 |             const item = sorted[i] ?? null
+  1886 |             if (!item) {
+
+Parsing ecmascript source code failed
+
+Import trace:
+  Server Component:
+    ./src/components/game/popcorn-game.tsx
+    ./src/app/page.tsx
+
+
+[browser] ./src/components/game/popcorn-game.tsx:1883:9
+Error: Expression expected
+  1881 |           </span>
+  1882 |         </div>
+> 1883 |         <div className="mt-1.5 grid grid-cols-9 gap-1">
+       |         ^
+  1884 |           {Array.from({ length: INV_CAPACITY }, (_, i) => {
+  1885 |             const item = sorted[i] ?? null
+  1886 |             if (!item) {
+
+Parsing ecmascript source code failed
+
+Import trace:
+  Server Component:
+    ./src/components/game/popcorn-game.tsx
+    ./src/app/page.tsx 
+[browser] ./src/components/game/popcorn-game.tsx:1883:9
+Error: Expression expected
+  1881 |           </span>
+  1882 |         </div>
+> 1883 |         <div className="mt-1.5 grid grid-cols-9 gap-1">
+       |         ^
+  1884 |           {Array.from({ length: INV_CAPACITY }, (_, i) => {
+  1885 |             const item = sorted[i] ?? null
+  1886 |             if (!item) {
+
+Parsing ecmascript source code failed
+
+Import trace:
+  Server Component:
+    ./src/components/game/popcorn-game.tsx
+    ./src/app/page.tsx 
+[browser] ./src/components/game/popcorn-game.tsx:1883:9
+Error: Expression expected
+  1881 |           </span>
+  1882 |         </div>
+> 1883 |         <div className="mt-1.5 grid grid-cols-9 gap-1">
+       |         ^
+  1884 |           {Array.from({ length: INV_CAPACITY }, (_, i) => {
+  1885 |             const item = sorted[i] ?? null
+  1886 |             if (!item) {
+
+Parsing ecmascript source code failed
+
+Import trace:
+  Server Component:
+    ./src/components/game/popcorn-game.tsx
+    ./src/app/page.tsx 
+✓ Compiled in 685ms
+ GET / 200 in 59ms (next.js: 15ms, application-code: 45ms)
+⚠ Fast Refresh had to perform a full reload due to a runtime error.
+ GET /public/inventory 404 in 63ms (next.js: 10ms, application-code: 53ms)
+ GET /public/inventory 404 in 59ms (next.js: 6ms, application-code: 54ms)
+✓ Compiled in 649ms
+✓ Compiled in 810ms
+ GET /public/inventory 404 in 52ms (next.js: 8ms, application-code: 44ms)
+✓ Compiled in 1076ms
+ POST /api/sessions 200 in 19ms (next.js: 0.9ms, application-code: 18ms)
+ GET /public/inventory 404 in 39ms (next.js: 9ms, application-code: 30ms)
+✓ Compiled in 765ms
+ GET /public/inventory 404 in 43ms (next.js: 9ms, application-code: 35ms)
+ GET /public/inventory 404 in 42ms (next.js: 6ms, application-code: 36ms)
+✓ Compiled in 675ms
+ GET /public/inventory 404 in 58ms (next.js: 8ms, application-code: 51ms)
+✓ Compiled in 784ms
+ GET / 200 in 107ms (next.js: 1.4ms, application-code: 106ms)
+ GET /public/inventory 404 in 45ms (next.js: 8ms, application-code: 38ms)
+ GET / 200 in 85ms (next.js: 0.6ms, application-code: 85ms)
+ POST /api/sessions 200 in 65ms (next.js: 1.0ms, application-code: 64ms)
+ GET /public/inventory 404 in 44ms (next.js: 7ms, application-code: 37ms)
+ GET / 200 in 79ms (next.js: 0.8ms, application-code: 79ms)
+ POST /api/sessions 200 in 16ms (next.js: 0.7ms, application-code: 16ms)
+ GET /public/inventory 404 in 44ms (next.js: 5ms, application-code: 39ms)
+ GET /public/inventory 404 in 53ms (next.js: 8ms, application-code: 45ms)
+ GET / 200 in 55ms (next.js: 0.9ms, application-code: 55ms)
+ POST /api/sessions 200 in 16ms (next.js: 0.9ms, application-code: 15ms)
+ GET /public/inventory 404 in 54ms (next.js: 5ms, application-code: 49ms)
+ GET / 200 in 71ms (next.js: 0.8ms, application-code: 70ms)
+ POST /api/sessions 200 in 18ms (next.js: 0.9ms, application-code: 17ms)
+ GET / 200 in 145ms (next.js: 0.8ms, application-code: 145ms)
+ POST /api/sessions 200 in 17ms (next.js: 1.5ms, application-code: 15ms)
+ GET /public/inventory 404 in 82ms (next.js: 6ms, application-code: 75ms)
+ GET /public/inventory 404 in 40ms (next.js: 5ms, application-code: 35ms)
+ GET / 200 in 201ms (next.js: 1.3ms, application-code: 200ms)
+ POST /api/sessions 200 in 25ms (next.js: 1.0ms, application-code: 24ms)
+ GET /public/inventory 404 in 62ms (next.js: 11ms, application-code: 51ms)
+ GET /public/inventory 404 in 46ms (next.js: 5ms, application-code: 41ms)
+✓ Compiled in 340ms
+ GET /public/inventory 404 in 59ms (next.js: 9ms, application-code: 50ms)
+ GET / 200 in 171ms (next.js: 3ms, application-code: 168ms)
+ POST /api/sessions 200 in 37ms (next.js: 0.8ms, application-code: 36ms)
+ GET / 200 in 81ms (next.js: 0.7ms, application-code: 80ms)
+ POST /api/sessions 200 in 12ms (next.js: 0.7ms, application-code: 12ms)
+ GET /public/inventory 404 in 43ms (next.js: 6ms, application-code: 38ms)
+✓ Compiled in 1364ms

@@ -1,17 +1,32 @@
 /**
- * ИНВЕНТАРЬ «POPCORN PAWS» (0.0.53) — лут из сундучков и лапка со слотами.
+ * ИНВЕНТАРЬ «POPCORN PAWS» — лут из сундучков и лапка со слотами.
  *
  * Как работает:
  *  - Сундучки после этапа, кроме перка и подарка, роняют ПРЕДМЕТ
  *    (ошейник / браслет / венец) одной из четырёх редкостей;
- *  - Предметы складываются на склад (сетка 4×9 = 36 ячеек);
+ *  - Предметы складываются на склад — сетка 4×9 = 36 ячеек; вторая
+ *    страница (+36 ячеек, всего 72) покупается за монетки (0.0.54);
  *  - Простые предметы можно ПРОДАТЬ за монетки, редкие — НАДЕТЬ на лапку;
+ *    три одинаковых — ПЕРЕПЛАВИТЬ в предмет ступенью выше (0.0.54);
  *  - Слоты лапки: ОШЕЙНИК (+монетки), БРАСЛЕТ (+опыт), ВЕНЕЦ (+алмазы путешествий).
- *    Надеть можно по одному предмету каждого вида; бонус действует сразу.
+ *    Надеть можно по одному предмету каждого вида; бонус действует сразу;
+ *  - Артефакты ЛАВКИ (0.0.54) живут в инвентаре полоской на лапке:
+ *    купленный артефакт надевается автоматически, можно снять/надеть
+ *    обратно. Бонус артефакта действует, только пока он надет —
+ *    marketBonuses(market, equippedArtifacts(inv)) в popcorn-game.
+ *
+ * NEW-подсветка (0.0.54): у предмета хранится время дропа (ts), у склада —
+ * время последнего открытия (lastOpened). Свежий лут помечается точкой,
+ * кнопка ИНВЕНТАРЬ показывает бейдж с числом новинок.
+ *
+ * Ачивки инвентаря (0.0.54) считаются по everHad (все 11 лут-предметов)
+ * и счётчикам sold/recycled; легендарка на лапке — по текущим слотам.
  *
  * Хранится в localStorage одним JSON-объектом; изменения бродкастятся
  * событием INVENTORY_EVENT (useSyncExternalStore в UI).
  */
+
+import { getMarketSnapshot, isArtifactId, type ArtifactId } from './market'
 
 /* ════════════════ Каталог предметов ════════════════ */
 
@@ -79,6 +94,27 @@ export const INV_MAP: Record<InvItemId, InvDef> = INV_DEFS.reduce(
 export const isInvItemId = (v: unknown): v is InvItemId =>
   typeof v === 'string' && v in INV_MAP
 
+/** Все 11 лутовых предметов — для ачивки «Полный лут» */
+export const LOOT_IDS: ReadonlyArray<InvItemId> = INV_DEFS.map((d) => d.id)
+
+/**
+ * Переплавка 3→1 (0.0.54): ступень выше той же ветки.
+ * null — вершина ветки (переплавлять нельзя).
+ */
+export const NEXT_TIER: Record<InvItemId, InvItemId | null> = {
+  'col-leather': 'col-red',
+  'col-red': 'col-spiked',
+  'col-spiked': 'col-diamond',
+  'col-diamond': null,
+  'bra-beads': 'bra-silver',
+  'bra-silver': 'bra-gold',
+  'bra-gold': 'bra-legend',
+  'bra-legend': null,
+  'crown-gold': 'crown-diamond',
+  'crown-diamond': 'crown-ancient',
+  'crown-ancient': null,
+}
+
 /** Цвет редкости (рамки/подписи) — в палитре игры, без синего */
 export const RARITY_COLOR: Record<Rarity, { border: string; text: string; bg: string }> = {
   common: { border: 'border-[#a97c50]', text: 'text-[#a97c50]', bg: 'bg-[#f3e2c8]' },
@@ -93,10 +129,12 @@ export const RARITY_COLOR: Record<Rarity, { border: string; text: string; bg: st
 export interface InvItem {
   uid: string
   id: InvItemId
+  /** Время дропа (мс) — для NEW-подсветки; у старых сейвов 0 */
+  ts: number
 }
 
 export interface InventoryState {
-  /** Склад: до 36 предметов (сетка 4×9) */
+  /** Склад: до 36 ячеек на страницу, 72 со второй страницей */
   items: InvItem[]
   /** Надетый ошейник (uid из items) */
   collar: string | null
@@ -104,20 +142,45 @@ export interface InventoryState {
   bracelet: string | null
   /** Надетый венец (uid из items) */
   crown: string | null
+  /** Надетые артефакты ЛАВКИ (0.0.54) — бонус действует, пока надет */
+  arts: ArtifactId[]
+  /** Вторая страница склада куплена (0.0.54) */
+  page2: boolean
+  /** Время последнего открытия инвентаря (мс) — для NEW-подсветки */
+  lastOpened: number
+  /** Какие лут-предметы когда-либо попадали в руки — ачивка «Полный лут» */
+  everHad: InvItemId[]
+  /** Продано предметов за всё время — ачивка «Торгаш» */
+  sold: number
+  /** Переплавок за всё время — ачивка «Переплавщик» */
+  recycled: number
 }
 
 export const INVENTORY_KEY = 'popcorn-inventory'
 export const INVENTORY_EVENT = 'popcorn-inventory-update'
 
-/** Вместимость склада: сетка 4×9 */
+/** Вместимость страницы склада: сетка 4×9 */
 export const INV_CAPACITY = 36
+/** Максимум со второй страницей: 72 ячейки */
+export const INV_MAX = 72
+/** Цена второй страницы склада (0.0.54) */
+export const PAGE2_PRICE = 2000
 
 export const DEFAULT_INVENTORY: InventoryState = {
   items: [],
   collar: null,
   bracelet: null,
   crown: null,
+  arts: [],
+  page2: false,
+  lastOpened: 0,
+  everHad: [],
+  sold: 0,
+  recycled: 0,
 }
+
+/** Вместимость склада игрока: 36 или 72 со второй страницей */
+export const storageCap = (s: InventoryState): number => (s.page2 ? INV_MAX : INV_CAPACITY)
 
 const RARITIES: Rarity[] = ['common', 'rare', 'epic', 'legendary']
 export const isRarity = (v: unknown): v is Rarity =>
@@ -125,31 +188,47 @@ export const isRarity = (v: unknown): v is Rarity =>
 
 /** Прочитать инвентарь из localStorage (старые сейвы мигрируют мягко) */
 export function loadInventory(): InventoryState {
-  if (typeof window === 'undefined') return { ...DEFAULT_INVENTORY, items: [] }
+  if (typeof window === 'undefined') return { ...DEFAULT_INVENTORY, items: [], everHad: [], arts: [] }
   try {
     const raw = window.localStorage.getItem(INVENTORY_KEY)
-    if (!raw) return { ...DEFAULT_INVENTORY, items: [] }
+    if (!raw) return { ...DEFAULT_INVENTORY, items: [], everHad: [], arts: [] }
     const o = JSON.parse(raw) as Record<string, unknown>
     const items: InvItem[] = []
     if (Array.isArray(o.items)) {
-      for (const it of o.items.slice(0, INV_CAPACITY)) {
+      for (const it of o.items.slice(0, INV_MAX)) {
         const rec = it as Record<string, unknown>
         if (isInvItemId(rec.id) && typeof rec.uid === 'string') {
-          items.push({ uid: rec.uid, id: rec.id })
+          items.push({ uid: rec.uid, id: rec.id, ts: Math.max(0, Number(rec.ts) || 0) })
         }
       }
     }
     const uids = new Set(items.map((i) => i.uid))
     const eq = (v: unknown): string | null =>
       typeof v === 'string' && uids.has(v) ? v : null
+    /* 0.0.54 миграция: у старых сейвов артефакты ЛАВКИ действовали сразу после
+       покупки — надеваем все купленные, чтобы бонусы не пропали */
+    const arts = Array.isArray(o.arts)
+      ? [...new Set(o.arts.filter(isArtifactId) as ArtifactId[])]
+      : [...getMarketSnapshot().artifacts]
+    /* everHad — всё, что когда-либо было на складе (старые сейвы: текущие предметы) */
+    const everSet = new Set<InvItemId>(
+      Array.isArray(o.everHad) ? (o.everHad.filter(isInvItemId) as InvItemId[]) : [],
+    )
+    for (const it of items) everSet.add(it.id)
     return {
       items,
       collar: eq(o.collar),
       bracelet: eq(o.bracelet),
       crown: eq(o.crown),
+      arts,
+      page2: o.page2 === true,
+      lastOpened: Math.max(0, Math.floor(Number(o.lastOpened) || 0)),
+      everHad: [...everSet],
+      sold: Math.max(0, Math.floor(Number(o.sold) || 0)),
+      recycled: Math.max(0, Math.floor(Number(o.recycled) || 0)),
     }
   } catch {
-    return { ...DEFAULT_INVENTORY, items: [] }
+    return { ...DEFAULT_INVENTORY, items: [], everHad: [], arts: [] }
   }
 }
 
@@ -182,6 +261,25 @@ function saveInventory(s: InventoryState): void {
 /** Свежий uid: хватит простого счётчика времени */
 const newUid = (): string => `i${Date.now().toString(36)}${Math.floor(Math.random() * 1296).toString(36)}`
 
+/* ════════════════ NEW-подсветка ════════════════ */
+
+/** Предмет ещё не видели в инвентаре (дроп после последнего открытия) */
+export const isNewItem = (item: InvItem, lastOpened: number): boolean =>
+  item.ts > 0 && item.ts > lastOpened
+
+/** Сколько новинок ждёт на складе — бейдж на кнопке ИНВЕНТАРЬ */
+export function countNewItems(state: InventoryState = getInventorySnapshot()): number {
+  return state.items.reduce((n, it) => n + (isNewItem(it, state.lastOpened) ? 1 : 0), 0)
+}
+
+/** Открыли инвентарь: всё, что было на складе, — уже видели */
+export function markInventoryOpened(): void {
+  const cur = getInventorySnapshot()
+  const now = Date.now()
+  if (now - cur.lastOpened < 500) return
+  saveInventory({ ...cur, lastOpened: now })
+}
+
 /* ════════════════ Действия ════════════════ */
 
 /** Результат дропа: предмет добавлен ИЛИ склад полон (возврат цены продажи) */
@@ -210,11 +308,13 @@ export function rollInvDef(): InvDef {
 export function dropInvItem(): DropResult {
   const def = rollInvDef()
   const cur = getInventorySnapshot()
-  if (cur.items.length >= INV_CAPACITY) {
+  if (cur.items.length >= storageCap(cur)) {
     return { def, stored: false, coins: def.sell }
   }
-  const item: InvItem = { uid: newUid(), id: def.id }
-  saveInventory({ ...cur, items: [...cur.items, item] })
+  const item: InvItem = { uid: newUid(), id: def.id, ts: Date.now() }
+  const everSet = new Set<InvItemId>(cur.everHad)
+  everSet.add(def.id)
+  saveInventory({ ...cur, items: [...cur.items, item], everHad: [...everSet] })
   return { def, stored: true, coins: 0 }
 }
 
@@ -224,13 +324,14 @@ export function sellInvItem(uid: string): number {
   const item = cur.items.find((i) => i.uid === uid)
   if (!item) return 0
   const coins = INV_MAP[item.id].sell
-  const next: InventoryState = {
+  saveInventory({
+    ...cur,
     items: cur.items.filter((i) => i.uid !== uid),
     collar: cur.collar === uid ? null : cur.collar,
     bracelet: cur.bracelet === uid ? null : cur.bracelet,
     crown: cur.crown === uid ? null : cur.crown,
-  }
-  saveInventory(next)
+    sold: cur.sold + 1,
+  })
   return coins
 }
 
@@ -250,6 +351,113 @@ export function unequipInvSlot(kind: ItemKind): boolean {
   if (cur[kind] === null) return false
   saveInventory({ ...cur, [kind]: null } as InventoryState)
   return true
+}
+
+/* ════════════════ Переплавка 3→1 (0.0.54) ════════════════ */
+
+export interface RecycleInfo {
+  /** Сколько предметов ветки участвует: выбранный + до 2 свободных (1..3) */
+  have: number
+  /** Что получится (null — вершина ветки, переплавка невозможна) */
+  next: InvItemId | null
+}
+
+/** Данные для кнопки переплавки по выбранному предмету.
+    Выбранный участвует всегда: если он надет — снимется при переплавке */
+export function recycleInfo(state: InventoryState, uid: string): RecycleInfo {
+  const sel = state.items.find((i) => i.uid === uid)
+  if (!sel) return { have: 0, next: null }
+  const equipped = new Set([state.collar, state.bracelet, state.crown])
+  const othersFree = state.items.filter(
+    (i) => i.id === sel.id && !equipped.has(i.uid) && i.uid !== uid,
+  ).length
+  return { have: 1 + Math.min(othersFree, 2), next: NEXT_TIER[sel.id] }
+}
+
+export interface RecycleResult {
+  ok: boolean
+  /** Предмет следующей ступени (для тоста) */
+  next?: InvDef
+}
+
+/**
+ * Переплавить: выбранный предмет + 2 таких же свободных уходят,
+ * взамен рождается предмет ступенью выше той же ветки.
+ * Выбранный может быть надет — слот снимается автоматически.
+ * 3 consumed → 1 added: склад не переполняется никогда.
+ */
+export function recycleInvItem(uid: string): RecycleResult {
+  const cur = getInventorySnapshot()
+  const sel = cur.items.find((i) => i.uid === uid)
+  if (!sel) return { ok: false }
+  const nextId = NEXT_TIER[sel.id]
+  if (!nextId) return { ok: false }
+  const equipped = new Set([cur.collar, cur.bracelet, cur.crown])
+  const others = cur.items.filter((i) => i.id === sel.id && !equipped.has(i.uid) && i.uid !== uid)
+  if (others.length < 2) return { ok: false }
+  const gone = new Set([uid, others[0].uid, others[1].uid])
+  const fresh: InvItem = { uid: newUid(), id: nextId, ts: Date.now() }
+  const everSet = new Set<InvItemId>(cur.everHad)
+  everSet.add(nextId)
+  saveInventory({
+    ...cur,
+    items: [...cur.items.filter((i) => !gone.has(i.uid)), fresh],
+    collar: cur.collar === uid ? null : cur.collar,
+    bracelet: cur.bracelet === uid ? null : cur.bracelet,
+    crown: cur.crown === uid ? null : cur.crown,
+    everHad: [...everSet],
+    recycled: cur.recycled + 1,
+  })
+  return { ok: true, next: INV_MAP[nextId] }
+}
+
+/* ════════════════ Артефакты ЛАВКИ на лапке (0.0.54) ════════════════ */
+
+/** Надеть артефакт лавки (только купленный). Бонусы действуют, пока надет */
+export function equipArtifactInv(id: ArtifactId): boolean {
+  if (!getMarketSnapshot().artifacts.includes(id)) return false
+  const cur = getInventorySnapshot()
+  if (cur.arts.includes(id)) return false
+  saveInventory({ ...cur, arts: [...cur.arts, id] })
+  return true
+}
+
+/** Снять артефакт лавки с лапки */
+export function unequipArtifactInv(id: ArtifactId): boolean {
+  const cur = getInventorySnapshot()
+  if (!cur.arts.includes(id)) return false
+  saveInventory({ ...cur, arts: cur.arts.filter((a) => a !== id) })
+  return true
+}
+
+/** Список надетых артефактов — для marketBonuses(market, arts) */
+export const equippedArtifacts = (s: InventoryState): ArtifactId[] => s.arts
+
+/* ════════════════ Вторая страница склада (0.0.54) ════════════════ */
+
+/** Купить вторую страницу (+36 ячеек). Монетки списывает вызывающий */
+export function buyPage2(): boolean {
+  const cur = getInventorySnapshot()
+  if (cur.page2) return false
+  saveInventory({ ...cur, page2: true })
+  return true
+}
+
+/* ════════════════ Ачивки инвентаря ════════════════ */
+
+/** Все 11 лутовых предметов побывали в руках — «Полный лут» */
+export function lootAllHad(state: InventoryState): boolean {
+  const has = new Set<InvItemId>(state.everHad)
+  return LOOT_IDS.every((id) => has.has(id))
+}
+
+/** Легендарный предмет сейчас на лапке — «Корона на лапку» */
+export function legendaryEquipped(state: InventoryState): boolean {
+  return state.items.some(
+    (i) =>
+      (i.uid === state.collar || i.uid === state.bracelet || i.uid === state.crown) &&
+      INV_MAP[i.id].rarity === 'legendary',
+  )
 }
 
 /* ════════════════ Бонусы ════════════════ */

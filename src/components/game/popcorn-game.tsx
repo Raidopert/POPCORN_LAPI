@@ -94,18 +94,32 @@ import {
   DEFAULT_INVENTORY,
   INV_CAPACITY,
   INV_MAP,
+  PAGE2_PRICE,
   RARITY_COLOR,
+  buyPage2,
   dropInvItem,
+  equipArtifactInv,
   equipInvItem,
   getInventorySnapshot,
   inventoryBonuses,
+  lootAllHad,
+  legendaryEquipped,
+  markInventoryOpened,
+  recycleInfo,
+  recycleInvItem,
   sellInvItem,
+  storageCap,
   subscribeInventory,
+  unequipArtifactInv,
   unequipInvSlot,
+  isNewItem,
+  countNewItems,
+  equippedArtifacts,
   type DropResult,
   type InventoryState,
   type InvBonuses,
   type InvDef,
+  type InvItem,
   type ItemKind,
   type Rarity,
 } from '@/lib/game/inventory'
@@ -1371,6 +1385,7 @@ function MarketOverlay({
   xp,
   market,
   catLevel,
+  eqArts,
   t,
   onExchange,
   onBuyArtifact,
@@ -1382,6 +1397,8 @@ function MarketOverlay({
   market: MarketState
   /** Уровень котика 🎖: часть артефактов закрыта замком (v0.0.33) */
   catLevel: number
+  /** Надетые артефакты инвентаря (0.0.54) — чип «Надето» в карточке */
+  eqArts: ArtifactId[]
   t: TranslateFn
   onExchange: (from: Currency, to: Currency, amount: number) => boolean
   onBuyArtifact: (id: ArtifactId) => void
@@ -1607,6 +1624,8 @@ function MarketOverlay({
           >
             {ARTIFACTS.map((def) => {
               const owned = market.artifacts.includes(def.id)
+              /* 0.0.54: артефакт живёт в инвентаре — бонус действует, пока надет */
+              const on = eqArts.includes(def.id)
               /* v0.0.33: артефакт закрыт до нужного уровня котика */
               const reqLvl = artifactReqLevel(def.id)
               const levelLocked = reqLvl > catLevel
@@ -1616,11 +1635,13 @@ function MarketOverlay({
                   key={def.id}
                   title={levelLocked ? t('shop.lockedHint', { n: reqLvl }) : undefined}
                   className={`flex items-center gap-2.5 rounded-xl border-2 p-2 ${
-                    owned
+                    owned && on
                       ? 'border-amber-400 bg-amber-50'
-                      : levelLocked
-                        ? 'border-[#e3cba4] bg-[#fdf3e0] opacity-60'
-                        : 'border-[#e3cba4] bg-[#fdf3e0]'
+                      : owned
+                        ? 'border-[#d9c6a8] bg-[#fdf3e0] opacity-80'
+                        : levelLocked
+                          ? 'border-[#e3cba4] bg-[#fdf3e0] opacity-60'
+                          : 'border-[#e3cba4] bg-[#fdf3e0]'
                   }`}
                 >
                   {/* 0.0.52: рисованная мини-иконка вместо эмодзи */}
@@ -1646,8 +1667,14 @@ function MarketOverlay({
                     </div>
                   </div>
                   {owned ? (
-                    <span className="shrink-0 rounded-full bg-amber-400 px-2.5 py-1.5 font-ui text-[10px] font-bold text-[#5C3A1E]">
-                      {t('market.owned')}
+                    /* 0.0.54: показываем, надет ли артефакт на лапке инвентаря */
+                    <span
+                      title={on ? t('market.ownedOn') : t('inv.artOff')}
+                      className={`shrink-0 rounded-full px-2.5 py-1.5 font-ui text-[10px] font-bold ${
+                        on ? 'bg-amber-400 text-[#5C3A1E]' : 'bg-[#d9c6a8] text-[#6b5233]'
+                      }`}
+                    >
+                      {on ? t('market.ownedOn') : t('market.owned')}
                     </span>
                   ) : levelLocked ? (
                     <span
@@ -1700,28 +1727,50 @@ const INV_SLOT_ORDER: ReadonlyArray<{ kind: ItemKind; labelKey: string }> = [
 
 function InventoryOverlay({
   inv,
+  ownedArts,
   t,
   onEquip,
   onUnequip,
   onSell,
+  onRecycle,
+  onEquipArt,
+  onUnequipArt,
+  onBuyPage2,
   onClose,
 }: {
   inv: InventoryState
+  /** Купленные артефакты лавки (рынок) — полоска слотов на лапке (0.0.54) */
+  ownedArts: ArtifactId[]
   t: TranslateFn
   onEquip: (uid: string) => boolean
   onUnequip: (kind: ItemKind) => boolean
   onSell: (uid: string) => number
+  onRecycle: (uid: string) => { ok: boolean; next?: InvDef }
+  onEquipArt: (id: ArtifactId) => boolean
+  onUnequipArt: (id: ArtifactId) => boolean
+  onBuyPage2: () => boolean
   onClose: () => void
 }) {
   const [selUid, setSelUid] = useState<string | null>(null)
   /* Продажа редкого — в два тапа: первый только предупреждает */
   const [sellArm, setSellArm] = useState(false)
+  /* Переплавка — тоже в два тапа (0.0.54) */
+  const [recycleArm, setRecycleArm] = useState(false)
+  /* Страница склада: 0 или 1 (вторая — после покупки) */
+  const [page, setPage] = useState(0)
+  const [pageArm, setPageArm] = useState(false)
   const [note, setNote] = useState<string | null>(null)
   const noteTimer = useRef<number | null>(null)
+  const pageArmTimer = useRef<number | null>(null)
   const flash = useCallback((msg: string) => {
     setNote(msg)
     if (noteTimer.current) window.clearTimeout(noteTimer.current)
     noteTimer.current = window.setTimeout(() => setNote(null), 2200)
+  }, [])
+
+  /* Открыли инвентарь — весь текущий лут считается увиденным (NEW-гашение) */
+  useEffect(() => {
+    markInventoryOpened()
   }, [])
 
   /* Склад: редкое сверху — легендарки не теряются в куче бус */
@@ -1730,13 +1779,20 @@ function InventoryOverlay({
     return [...inv.items].sort((a, b) => rank[INV_MAP[a.id].rarity] - rank[INV_MAP[b.id].rarity])
   }, [inv.items])
 
+  /* Пустая вторая страница после продажи — мягкий возврат на первую */
+  const showPage = page > 0 && page * INV_CAPACITY >= sorted.length ? 0 : page
+  const pageItems = sorted.slice(showPage * INV_CAPACITY, showPage * INV_CAPACITY + INV_CAPACITY)
+
   const sel = selUid ? (inv.items.find((i) => i.uid === selUid) ?? null) : null
   const selDef = sel ? INV_MAP[sel.id] : null
   const selEquipped = sel ? sel.uid === inv.collar || sel.uid === inv.bracelet || sel.uid === inv.crown : false
+  const selIsNew = sel ? isNewItem(sel, inv.lastOpened) : false
+  const selRec = sel ? recycleInfo(inv, sel.uid) : null
 
   const pick = (uid: string | null): void => {
     setSelUid(uid)
     setSellArm(false)
+    setRecycleArm(false)
   }
 
   return (
@@ -1828,16 +1884,131 @@ function InventoryOverlay({
           </div>
         </div>
 
-        {/* Склад 4×9: редкое сверху, надетое помечено колечком */}
-        <div className="mt-2.5 flex items-center justify-between px-0.5">
-          <span className="font-pixel text-[11px] font-bold text-[#5C3A1E]">{t('inv.grid')}</span>
-          <span className="font-ui text-[10px] font-bold text-[#a97c50]">
-            {t('inv.count', { n: inv.items.length })}
+        {/* Артефакты лавки (0.0.54): куплен → надет автоматически; тап — надеть/снять.
+            Бонус действует, только пока предмет надет — снятый гаснет */}
+        <div className="mt-2">
+          <span className="block px-0.5 font-pixel text-[11px] font-bold text-[#5C3A1E]">
+            {t('inv.arts')}
           </span>
+          <div className="mt-1 grid grid-cols-6 gap-1">
+            {ARTIFACTS.map((ad) => {
+              const owned = ownedArts.includes(ad.id)
+              const on = inv.arts.includes(ad.id)
+              return (
+                <button
+                  key={ad.id}
+                  type="button"
+                  onClick={() => {
+                    if (!owned) {
+                      flash(t('inv.artLocked'))
+                      return
+                    }
+                    if (on) {
+                      if (onUnequipArt(ad.id)) flash(t('inv.artOff'))
+                    } else if (onEquipArt(ad.id)) {
+                      flash(t('inv.toast.equip'))
+                    }
+                  }}
+                  title={
+                    owned
+                      ? `${t(`artifact.${ad.id}.name`)} · ${t(`artifact.${ad.id}.effect`)}`
+                      : `${t(`artifact.${ad.id}.name`)} — ${t('inv.artLocked')}`
+                  }
+                  aria-label={
+                    owned
+                      ? `${t(`artifact.${ad.id}.name`)} — ${on ? t('market.ownedOn') : t('inv.equip')}`
+                      : `${t(`artifact.${ad.id}.name`)} — ${t('inv.artLocked')}`
+                  }
+                  className={`relative flex aspect-square items-center justify-center overflow-hidden rounded-lg border-2 transition active:scale-95 ${
+                    owned
+                      ? on
+                        ? 'border-amber-400 bg-[#FFF6E6]'
+                        : 'border-[#e3cba4] bg-[#fdf3e0] opacity-75'
+                      : 'border-dashed border-[#c9a97a] bg-[#fdf3e0]'
+                  }`}
+                >
+                  {owned ? (
+                    <img
+                      src={ARTIFACT_ICON[ad.id]}
+                      alt=""
+                      aria-hidden
+                      draggable={false}
+                      className="h-full w-full object-cover"
+                    />
+                  ) : (
+                    <span aria-hidden className="text-base leading-none opacity-40">
+                      🔒
+                    </span>
+                  )}
+                  {owned && on && (
+                    <span
+                      aria-hidden
+                      className="absolute right-0 top-0 rounded-bl-md bg-amber-400 px-0.5 font-pixel text-[7px] font-bold leading-[1.35] text-[#5C3A1E]"
+                    >
+                      ✓
+                    </span>
+                  )}
+                </button>
+              )
+            })}
+          </div>
+        </div>
+
+        {/* Склад: страницы 1/2 (вторая покупается) + счётчик, редкое сверху */}
+        <div className="mt-2.5 flex items-center justify-between gap-1.5 px-0.5">
+          <span className="font-pixel text-[11px] font-bold text-[#5C3A1E]">{t('inv.grid')}</span>
+          <div className="flex items-center gap-1.5">
+            <button
+              type="button"
+              onClick={() => setPage(0)}
+              aria-label={`${t('inv.grid')} 1`}
+              className={`h-5 min-w-5 rounded-md border-2 px-1 font-pixel text-[9px] font-bold leading-none transition active:scale-95 ${
+                showPage === 0
+                  ? 'border-[#B33A26] bg-[#B33A26] text-white'
+                  : 'border-[#d9c6a8] bg-[#fdf3e0] text-[#8a5330]'
+              }`}
+            >
+              1
+            </button>
+            <button
+              type="button"
+              onClick={() => {
+                if (inv.page2) {
+                  setPage(1)
+                  return
+                }
+                if (!pageArm) {
+                  setPageArm(true)
+                  flash(t('inv.page2Arm', { n: PAGE2_PRICE }))
+                  if (pageArmTimer.current) window.clearTimeout(pageArmTimer.current)
+                  pageArmTimer.current = window.setTimeout(() => setPageArm(false), 2600)
+                  return
+                }
+                setPageArm(false)
+                if (!onBuyPage2()) flash(t('inv.noCoins'))
+              }}
+              aria-label={inv.page2 ? t('inv.page2Title') : t('inv.page2Buy', { n: PAGE2_PRICE })}
+              title={inv.page2 ? t('inv.page2Title') : t('inv.page2Buy', { n: PAGE2_PRICE })}
+              className={`h-5 rounded-md border-2 px-1 font-pixel text-[9px] font-bold leading-none transition active:scale-95 ${
+                inv.page2
+                  ? showPage === 1
+                    ? 'border-[#B33A26] bg-[#B33A26] text-white'
+                    : 'border-[#d9c6a8] bg-[#fdf3e0] text-[#8a5330]'
+                  : pageArm
+                    ? 'border-[#B33A26] bg-[#fbe9e4] text-[#B33A26]'
+                    : 'border-dashed border-[#c9a97a] bg-[#fdf3e0] text-[#8a5330]'
+              }`}
+            >
+              {inv.page2 ? '2' : '🔒'}
+            </button>
+            <span className="font-ui text-[10px] font-bold text-[#a97c50]">
+              {t('inv.count', { n: inv.items.length, m: storageCap(inv) })}
+            </span>
+          </div>
         </div>
         <div className="mt-1.5 grid grid-cols-9 gap-1">
           {Array.from({ length: INV_CAPACITY }, (_, i) => {
-            const item = sorted[i] ?? null
+            const item = pageItems[i] ?? null
             if (!item) {
               return (
                 <span
@@ -1850,6 +2021,7 @@ function InventoryOverlay({
             const def = INV_MAP[item.id]
             const rc = RARITY_COLOR[def.rarity]
             const equipped = item.uid === inv.collar || item.uid === inv.bracelet || item.uid === inv.crown
+            const fresh = isNewItem(item, inv.lastOpened)
             return (
               <button
                 key={item.uid}
@@ -1868,6 +2040,12 @@ function InventoryOverlay({
                   draggable={false}
                   className="h-full w-full object-cover"
                 />
+                {fresh && (
+                  <span
+                    aria-hidden
+                    className="absolute left-0 top-0 h-2 w-2 rounded-full border border-[#7e2a1b] bg-[#B33A26]"
+                  />
+                )}
                 {equipped && (
                   <span
                     aria-hidden
@@ -1911,6 +2089,11 @@ function InventoryOverlay({
                   >
                     {t(`inv.rarity.${selDef.rarity}`)}
                   </span>
+                  {selIsNew && (
+                    <span className="rounded-full bg-[#B33A26] px-1.5 py-px font-ui text-[8px] font-bold uppercase text-[#FFF3DC]">
+                      {t('inv.newBadge')}
+                    </span>
+                  )}
                 </div>
                 <div className="mt-0.5 font-ui text-[10px] font-semibold leading-snug text-[#3f6b28]">
                   {t(`item.${selDef.id}.bonus`)}
@@ -1960,6 +2143,43 @@ function InventoryOverlay({
                 {sellArm ? t('inv.sellSure') : `${t('inv.sell')} · ${selDef.sell} 🪙`}
               </button>
             </div>
+            {/* Переплавка 3→1 (0.0.54): 3 одинаковых свободных → ступень выше.
+                Двухтапное подтверждение — как у продажи редкого */}
+            {selRec && selRec.next !== null && (
+              <button
+                type="button"
+                disabled={selRec.have < 3}
+                onClick={() => {
+                  if (!recycleArm) {
+                    setRecycleArm(true)
+                    return
+                  }
+                  const res = onRecycle(sel.uid)
+                  if (res.ok && res.next) {
+                    flash(t('inv.toast.recycle', { name: t(`item.${res.next.id}.name`) }))
+                    pick(null)
+                  }
+                }}
+                title={
+                  selRec.have < 3
+                    ? t('inv.recycleNeed', { n: 3 - selRec.have })
+                    : t(`item.${selRec.next}.name`)
+                }
+                className={`mt-1.5 w-full rounded-lg px-2 py-1.5 font-ui text-[11px] font-bold transition active:scale-[0.98] ${
+                  selRec.have < 3
+                    ? 'cursor-not-allowed border-2 border-dashed border-[#c9a97a] bg-[#fdf3e0] text-[#a97c50]'
+                    : recycleArm
+                      ? 'bg-[#B33A26] text-white shadow-[0_3px_0_#7e2a1b] hover:bg-[#c74430]'
+                      : 'border-2 border-[#8a5330] bg-[#f3e2c8] text-[#8a5330] hover:bg-[#eed7b4]'
+                }`}
+              >
+                {selRec.have < 3
+                  ? `${t('inv.recycle')} · ${t('inv.recycleNeed', { n: 3 - selRec.have })}`
+                  : recycleArm
+                    ? t('inv.sellSure')
+                    : t('inv.recycle')}
+              </button>
+            )}
           </div>
         )}
 
@@ -4383,28 +4603,33 @@ export function PopcornGame() {
   const marketRef = useRef<MarketBonuses>(ZERO_MARKET_BONUS)
   /* Множители надетых предметов инвентаря (ошейник/браслет/венец) */
   const invBonus = useMemo<InvBonuses>(() => inventoryBonuses(inv), [inv])
+  /* 0.0.54: артефакты лавки действуют, только пока надеты на лапке инвентаря */
+  const eqArts = useMemo<ArtifactId[]>(() => equippedArtifacts(inv), [inv])
+  /* Бейдж новинок на кнопке ИНВЕНТАРЬ (0.0.54) */
+  const invNewCount = useMemo(() => countNewItems(inv), [inv])
   useEffect(() => {
     /* 0.0.53: бонусы инвентаря вшиваем в общие множители рынка — все точки
        выдачи наград (сундучки, попкорнины, золото, Лихорадка, этапы,
-       путешествия) автоматически получают ошейник/браслет/венец */
-    const mb = marketBonuses(market)
+       путешествия) автоматически получают ошейник/браслет/венец;
+       0.0.54: артефакты считаем по надетым (eqArts), не по купленным */
+    const mb = marketBonuses(market, eqArts)
     marketRef.current = {
       ...mb,
       coinGift: mb.coinGift * invBonus.coins,
       xpGift: mb.xpGift * invBonus.xp,
       gemTrip: mb.gemTrip * invBonus.gems,
     }
-  }, [market, invBonus])
+  }, [market, invBonus, eqArts])
   /* Те же множители для рендера (карточки путешествий показывают итоговые награды) */
   const marketBonus = useMemo<MarketBonuses>(() => {
-    const mb = marketBonuses(market)
+    const mb = marketBonuses(market, eqArts)
     return {
       ...mb,
       coinGift: mb.coinGift * invBonus.coins,
       xpGift: mb.xpGift * invBonus.xp,
       gemTrip: mb.gemTrip * invBonus.gems,
     }
-  }, [market, invBonus])
+  }, [market, invBonus, eqArts])
 
   /* Сеттер банка опыта в ref: обменник рынка пишет напрямую, без зависимостей */
   const storeXpRef = useRef(storeXp)
@@ -4588,6 +4813,8 @@ export function PopcornGame() {
       return
     }
     if (spendMartenDiamonds(def.price) && buyArtifact(id, def.price)) {
+      /* 0.0.54: артефакт попадает в инвентарь и сразу надевается на лапку */
+      equipArtifactInv(id)
       audio.play('perk')
     } else {
       audio.play('penalty')
@@ -4616,6 +4843,38 @@ export function PopcornGame() {
     if (got > 0) audio.play('coin')
     else audio.play('penalty')
     return got
+  }, [])
+
+  /** Переплавить 3 одинаковых → предмет ступенью выше (0.0.54) */
+  const handleRecycleInv = useCallback((uid: string): { ok: boolean; next?: InvDef } => {
+    const res = recycleInvItem(uid)
+    if (res.ok) audio.play('perk')
+    else audio.play('penalty')
+    return res
+  }, [])
+
+  /** Артефакт лавки: надеть на лапку инвентаря (0.0.54) */
+  const handleEquipArtInv = useCallback((id: ArtifactId): boolean => {
+    if (!equipArtifactInv(id)) return false
+    audio.play('perk')
+    return true
+  }, [])
+
+  /** Артефакт лавки: снять с лапки инвентаря (0.0.54) */
+  const handleUnequipArtInv = useCallback((id: ArtifactId): boolean => {
+    if (!unequipArtifactInv(id)) return false
+    audio.play('click')
+    return true
+  }, [])
+
+  /** Купить вторую страницу склада за монетки (0.0.54) */
+  const handleBuyPage2 = useCallback((): boolean => {
+    if (getInventorySnapshot().page2) return true
+    if (getCoins() < PAGE2_PRICE) return false
+    addCoins(-PAGE2_PRICE)
+    buyPage2()
+    audio.play('perk')
+    return true
   }, [])
 
   /* Таймер времени в игре: +1 сек, каждые 20 сек — флеш в копилку куницы */
@@ -4754,6 +5013,17 @@ export function PopcornGame() {
     },
     [t],
   )
+
+  /* Ачивки инвентаря (0.0.54): лут-коллекция, продажи, переплавка, легендарка.
+     Эффект дёшев: все условия уже открытое фильтруются внутри unlockMany */
+  useEffect(() => {
+    const ids: AchId[] = []
+    if (inv.sold >= 10) ids.push('inv_sell10')
+    if (inv.recycled >= 1) ids.push('inv_recycle1')
+    if (lootAllHad(inv)) ids.push('inv_loot11')
+    if (legendaryEquipped(inv)) ids.push('inv_legend1')
+    if (ids.length > 0) announceAch(ids)
+  }, [inv, announceAch])
 
   /** Проверить пожизненные условия ачивок: счётчики стажа, монеты, банк,
       уровень котика, время в игре. Дёшево — можно звать после любого события. */
@@ -6504,6 +6774,15 @@ export function PopcornGame() {
                         <span className="font-pixel text-[8px] font-bold leading-none">
                           {t('inv.title')}
                         </span>
+                        {/* 0.0.54: бейдж с числом новинок на складе */}
+                        {invNewCount > 0 && (
+                          <span
+                            aria-hidden
+                            className="absolute -right-1.5 -top-1.5 z-10 flex h-4 min-w-4 items-center justify-center rounded-full border-2 border-[#FFF6E6] bg-[#B33A26] px-1 font-pixel text-[9px] font-bold leading-none text-[#FFF3DC]"
+                          >
+                            {invNewCount}
+                          </span>
+                        )}
                       </button>
                     </div>
                   </div>
@@ -7377,6 +7656,7 @@ export function PopcornGame() {
               xp={xp}
               market={market}
               catLevel={charInfo.level}
+              eqArts={eqArts}
               t={t}
               onExchange={handleExchange}
               onBuyArtifact={handleBuyArtifact}
@@ -7388,10 +7668,15 @@ export function PopcornGame() {
             overlay === 'inv' && (
               <InventoryOverlay
                 inv={inv}
+                ownedArts={market.artifacts}
                 t={t}
                 onEquip={handleEquipInv}
                 onUnequip={handleUnequipInv}
                 onSell={handleSellInv}
+                onRecycle={handleRecycleInv}
+                onEquipArt={handleEquipArtInv}
+                onUnequipArt={handleUnequipArtInv}
+                onBuyPage2={handleBuyPage2}
                 onClose={() => setOverlay(null)}
               />
             )}

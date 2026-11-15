@@ -139,6 +139,10 @@ export type AchId =
   | 'sliceCherry'
   | 'sliceGrape'
   | 'sliceAll3'
+  | 'inv_loot11'
+  | 'inv_sell10'
+  | 'inv_legend1'
+  | 'inv_recycle1'
 
 export interface AchDef {
   id: AchId
@@ -300,6 +304,11 @@ export const ACHIEVEMENTS: AchDef[] = [
   { id: 'sliceCherry', name: 'Вишнёвый разгром', desc: 'Нарезать ВИШНЁВУЮ попкорнину на 2500 очков', icon: '🍒' },
   { id: 'sliceGrape', name: 'Виноградный титан', desc: 'Нарезать ВИНОГРАДНУЮ попкорнину на 4500 очков', icon: '🟣' },
   { id: 'sliceAll3', name: 'Полное меню', desc: 'За всё время нарезать все три сорта попкорнин', icon: '🎆' },
+  /* ---------- инвентарь (0.0.54) ---------- */
+  { id: 'inv_loot11', name: 'Лут-коллекционер', desc: 'Собрать все 11 лутовых предметов из сундучков', icon: '🧰' },
+  { id: 'inv_sell10', name: 'Торгаш', desc: 'Продать 10 предметов со склада за всё время', icon: '🤝' },
+  { id: 'inv_legend1', name: 'Корона на лапку', desc: 'Надеть легендарный предмет на лапку NANA', icon: '👑' },
+  { id: 'inv_recycle1', name: 'Переплавщик', desc: 'Сдать 3 одинаковых предмета в переплавку', icon: '♻️' },
 ]
 
 export const ACH_MAP: Record<AchId, AchDef> = Object.fromEntries(

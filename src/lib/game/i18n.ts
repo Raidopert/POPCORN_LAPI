@@ -1961,6 +1961,35 @@ export const T: Record<string, Row> = {
     'Schneide alle drei Sorten insgesamt',
     'Corta las tres clases de palomitas en total',
   ],
+  /* ---------- ачивки инвентаря (0.0.54) ---------- */
+  'ach.inv_loot11.name': ['Лут-коллекционер', 'Loot Collector', 'Beuten-Sammler', 'Coleccionista de Botín'],
+  'ach.inv_loot11.desc': [
+    'Собрать все 11 лутовых предметов из сундучков',
+    'Collect all 11 loot items from the chests',
+    'Sammle alle 11 Beute-Gegenstände aus Truhen',
+    'Consigue los 11 objetos de botín de los cofres',
+  ],
+  'ach.inv_sell10.name': ['Торгаш', 'Trader', 'Händler', 'Mercader'],
+  'ach.inv_sell10.desc': [
+    'Продать 10 предметов со склада за всё время',
+    'Sell 10 stash items all time',
+    'Verkaufe 10 Lager-Gegenstände insgesamt',
+    'Vende 10 objetos del almacén en total',
+  ],
+  'ach.inv_legend1.name': ['Корона на лапку', 'Crown on the Paw', 'Krone auf die Pfote', 'Corona en la Pata'],
+  'ach.inv_legend1.desc': [
+    'Надеть легендарный предмет на лапку NANA',
+    'Equip a legendary item on NANA’s paw',
+    'Lege einen legendären Gegenstand an NANAS Pfote an',
+    'Equipa un objeto legendario en la pata de NANA',
+  ],
+  'ach.inv_recycle1.name': ['Переплавщик', 'Recycler', 'Einschmelzer', 'Fundidor'],
+  'ach.inv_recycle1.desc': [
+    'Сдать 3 одинаковых предмета в переплавку',
+    'Melt 3 identical items into one better',
+    'Schmilze 3 gleiche Gegenstände zu einem besseren ein',
+    'Funde 3 objetos iguales en uno mejor',
+  ],
 
   /* ---------- перки ----------
      v0.0.41: перки-перевороты (rot180/rot90), зеркало и «Ночная смена»
@@ -2954,6 +2983,8 @@ export const T: Record<string, Row> = {
     'El mercado cobra un {{n}}% de comisión: tasa libre, pero justa.',
   ],
   'market.owned': ['Куплено', 'Owned', 'Gekauft', 'Comprado'],
+  /* 0.0.54: артефакты живут в инвентаре — в лавке видно, надет ли предмет */
+  'market.ownedOn': ['Надето', 'Equipped', 'Angelegt', 'Equipado'],
   'market.cur.gems': [
     '💎 Алмазы — приносит NANA из путешествий',
     '💎 Diamonds — brought by NANA from travels',
@@ -3377,10 +3408,10 @@ export const T: Record<string, Row> = {
   /* 0.0.53: инвентарь — лут из сундучков, лапка со слотами, склад 4×9 */
   'inv.title': ['ИНВЕНТАРЬ', 'INVENTORY', 'INVENTAR', 'INVENTARIO'],
   'inv.hint': [
-    'Лут из сундучков. Простое продавай, редкое надевай!',
-    'Loot from chests. Sell the commons, equip the rare!',
-    'Beute aus Truhen. Gewöhnliches verkaufen, Seltenes anlegen!',
-    'Botín de cofres. Vende lo común, equipa lo raro.',
+    'Лут из сундучков. Продавай, надевай, 3 одинаковых — в переплавку!',
+    'Loot from chests. Sell, equip, melt 3 alike into better!',
+    'Beute aus Truhen. Verkaufen, anlegen, 3 gleiche einschmelzen!',
+    'Botín de cofres. Vende, equipa, funde 3 iguales en algo mejor.',
   ],
   'inv.pawTitle': ['Лапка NANA', "NANA's paw", 'NANAS Pfote', 'Pata de NANA'],
   'inv.slot.collar': ['Ошейник', 'Collar', 'Halsband', 'Collar'],
@@ -3388,7 +3419,7 @@ export const T: Record<string, Row> = {
   'inv.slot.crown': ['Венец', 'Crown', 'Krone', 'Corona'],
   'inv.emptySlot': ['Пусто', 'Empty', 'Leer', 'Vacío'],
   'inv.grid': ['Склад 4×9', 'Stash 4×9', 'Lager 4×9', 'Almacén 4×9'],
-  'inv.count': ['{{n}} из 36', '{{n}} of 36', '{{n}} von 36', '{{n}} de 36'],
+  'inv.count': ['{{n}} из {{m}}', '{{n}} of {{m}}', '{{n}} von {{m}}', '{{n}} de {{m}}'],
   'inv.emptyGrid': [
     'Пока пусто — открывай сундучки!',
     'Nothing yet — open some chests!',
@@ -3414,6 +3445,19 @@ export const T: Record<string, Row> = {
     'Almacén lleno: objeto vendido por {{n}} 🪙',
   ],
   'inv.lootToast': ['{{name}} — в инвентарь!', '{{name}} — to the stash!', '{{name}} — ins Inventar!', '¡{{name}} al almacén!'],
+  /* 0.0.54: страницы склада, переплавка, NEW-подсветка, артефакты лавки на лапке */
+  'inv.arts': ['Артефакты лавки', 'Shop artifacts', 'Laden-Artefakte', 'Artefactos de la tienda'],
+  'inv.artLocked': ['Купи в ЛАВКЕ', 'Buy in the shop', 'Im Laden kaufen', 'Compra en la tienda'],
+  'inv.artOff': ['Снят — бонус не действует', 'Unequipped — bonus inactive', 'Abgelegt — Bonus inaktiv', 'Sin equipar: sin bonus'],
+  'inv.page2Title': ['Вторая страница склада', 'Second stash page', 'Zweite Lagerseite', 'Segunda página del almacén'],
+  'inv.page2Buy': ['Страница 2 · {{n}} 🪙', 'Page 2 · {{n}} 🪙', 'Seite 2 · {{n}} 🪙', 'Página 2 · {{n}} 🪙'],
+  'inv.page2Arm': ['Тапни ещё раз — купишь за {{n}} 🪙', 'Tap again to buy for {{n}} 🪙', 'Noch einmal tippen: kaufen für {{n}} 🪙', 'Toca de nuevo para comprar por {{n}} 🪙'],
+  'inv.noCoins': ['Мало монеток', 'Not enough coins', 'Zu wenig Münzen', 'Faltan monedas'],
+  'inv.newBadge': ['НОВОЕ', 'NEW', 'NEU', 'NUEVO'],
+  'inv.recycle': ['СДАТЬ 3 →', 'MELT 3 →', '3 SCHMELZEN →', 'FUNDIR 3 →'],
+  'inv.recycleNeed': ['Нужно ещё {{n}} шт.', 'Need {{n}} more', 'Noch {{n}} fehlt', 'Faltan {{n}} más'],
+  'inv.recycleMax': ['Это лучшая ступень', 'Top tier already', 'Schon die Top-Stufe', 'Ya es el tope'],
+  'inv.toast.recycle': ['Переплавлено → {{name}}!', 'Melted into {{name}}!', 'Geschmolzen → {{name}}!', '¡Fundido en {{name}}!'],
   /* 0.0.53: названия и бонусы предметов инвентаря */
   'item.col-leather.name': ['Кожаный ошейник', 'Leather Collar', 'Lederhalsband', 'Collar de Cuero'],
   'item.col-leather.bonus': [

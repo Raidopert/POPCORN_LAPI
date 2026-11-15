@@ -186,6 +186,10 @@ export function hasArtifact(id: ArtifactId): boolean {
  *  - gemTrip / xpTrip: награды путешествий (Карта странствий);
  *  - clickCoin / clickAdd: монетки кликера (Кликер-колокольчик ×1.5,
  *    Погремушка — плоские +2🪙 к каждому клику).
+ *
+ * v0.0.54: артефакты живут в инвентаре — бонус действует, только пока предмет
+ * надет. Второй аргумент — надетые артефакты (equippedArtifacts(inv)); если он
+ * передан, считаются только они, иначе (legacy) — все купленные.
  */
 export interface MarketBonuses {
   coinGift: number
@@ -207,8 +211,12 @@ export const ZERO_MARKET_BONUS: MarketBonuses = {
   clickAdd: 0,
 }
 
-export function marketBonuses(state: MarketState = getMarketSnapshot()): MarketBonuses {
-  const has = (id: ArtifactId) => state.artifacts.includes(id)
+export function marketBonuses(
+  state: MarketState = getMarketSnapshot(),
+  equippedArts?: readonly ArtifactId[],
+): MarketBonuses {
+  const has = (id: ArtifactId) =>
+    equippedArts ? equippedArts.includes(id) : state.artifacts.includes(id)
   return {
     coinGift: has('piggy') ? 1.25 : 1,
     xpGift: has('academy') ? 1.25 : 1,
