@@ -165,7 +165,7 @@ function BossIntroOverlay({ t, level, kind, onGo }) {
                 columnNumber: 7
             }, this),
             /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["jsxDEV"])(__TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$framer$2d$motion$2f$dist$2f$es$2f$render$2f$components$2f$motion$2f$proxy$2e$mjs__$5b$app$2d$client$5d$__$28$ecmascript$29$__["motion"].p, {
-                className: "z-10 mt-1.5 shrink-0 rounded-full border border-amber-300/40 bg-black/40 px-3 py-1 font-pixel text-[11px] font-bold text-amber-100",
+                className: "relative z-20 mt-1.5 shrink-0 rounded-full border border-amber-300/40 bg-black/40 px-3 py-1 font-pixel text-[11px] font-bold text-amber-100",
                 initial: {
                     opacity: 0
                 },
@@ -189,13 +189,13 @@ function BossIntroOverlay({ t, level, kind, onGo }) {
                         children: BOSS_ICON[kind]
                     }, void 0, false, {
                         fileName: "[project]/src/components/game/boss-intro.tsx",
-                        lineNumber: 142,
+                        lineNumber: 143,
                         columnNumber: 9
                     }, this)
                 ]
             }, void 0, true, {
                 fileName: "[project]/src/components/game/boss-intro.tsx",
-                lineNumber: 135,
+                lineNumber: 136,
                 columnNumber: 7
             }, this),
             /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["jsxDEV"])("div", {
@@ -221,23 +221,24 @@ function BossIntroOverlay({ t, level, kind, onGo }) {
                     children: /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["jsxDEV"])("canvas", {
                         ref: canvasRef,
                         "aria-hidden": true,
-                        className: "h-auto w-[clamp(96px,26vmin,150px)]",
+                        /* 0.0.51: размер от высоты (vmin от меньшей стороны) — на низких окнах
+             * рамка больше не наезжает на подпись и кнопку «В БОЙ!» */ className: "h-[clamp(88px,20vmin,140px)] w-auto",
                         style: {
                             imageRendering: 'pixelated'
                         }
                     }, void 0, false, {
                         fileName: "[project]/src/components/game/boss-intro.tsx",
-                        lineNumber: 153,
+                        lineNumber: 154,
                         columnNumber: 11
                     }, this)
                 }, void 0, false, {
                     fileName: "[project]/src/components/game/boss-intro.tsx",
-                    lineNumber: 147,
+                    lineNumber: 148,
                     columnNumber: 9
                 }, this)
             }, void 0, false, {
                 fileName: "[project]/src/components/game/boss-intro.tsx",
-                lineNumber: 146,
+                lineNumber: 147,
                 columnNumber: 7
             }, this),
             /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["jsxDEV"])(__TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$framer$2d$motion$2f$dist$2f$es$2f$render$2f$components$2f$motion$2f$proxy$2e$mjs__$5b$app$2d$client$5d$__$28$ecmascript$29$__["motion"].div, {
@@ -262,7 +263,7 @@ function BossIntroOverlay({ t, level, kind, onGo }) {
                         children: t(`bossintro.${kind}`)
                     }, void 0, false, {
                         fileName: "[project]/src/components/game/boss-intro.tsx",
-                        lineNumber: 169,
+                        lineNumber: 172,
                         columnNumber: 9
                     }, this),
                     /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["jsxDEV"])("button", {
@@ -276,13 +277,13 @@ function BossIntroOverlay({ t, level, kind, onGo }) {
                         children: t('bossintro.go')
                     }, void 0, false, {
                         fileName: "[project]/src/components/game/boss-intro.tsx",
-                        lineNumber: 172,
+                        lineNumber: 175,
                         columnNumber: 9
                     }, this)
                 ]
             }, void 0, true, {
                 fileName: "[project]/src/components/game/boss-intro.tsx",
-                lineNumber: 163,
+                lineNumber: 166,
                 columnNumber: 7
             }, this)
         ]
@@ -11694,30 +11695,39 @@ function PopcornGame() {
                                                             lineNumber: 6349,
                                                             columnNumber: 17
                                                         }, this),
-                                                        /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["jsxDEV"])("span", {
-                                                            "aria-label": __TURBOPACK__imported__module__$5b$project$5d2f$src$2f$lib$2f$game$2f$version$2e$ts__$5b$app$2d$client$5d$__$28$ecmascript$29$__["GAME_VERSION_LABEL"],
-                                                            className: "pointer-events-none absolute bottom-0.5 right-2 font-ui text-[9px] font-semibold lowercase tracking-wide text-[#D8B4FE]/50 sm:bottom-1 sm:right-2.5",
-                                                            children: __TURBOPACK__imported__module__$5b$project$5d2f$src$2f$lib$2f$game$2f$version$2e$ts__$5b$app$2d$client$5d$__$28$ecmascript$29$__["GAME_VERSION_LABEL"]
-                                                        }, void 0, false, {
+                                                        /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["jsxDEV"])("div", {
+                                                            className: "mt-2 flex items-baseline justify-between gap-3 px-1",
+                                                            children: [
+                                                                worldStats && /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["jsxDEV"])("span", {
+                                                                    title: t('lead.stats', {
+                                                                        n: worldStats.launches,
+                                                                        r: worldStats.runs,
+                                                                        p: worldStats.players
+                                                                    }),
+                                                                    className: "pointer-events-none min-w-0 truncate font-ui text-[9px] font-semibold tracking-wide text-[#D8B4FE]/50",
+                                                                    children: t('menu.world', {
+                                                                        n: worldStats.launches,
+                                                                        v: worldStats.visitors ?? worldStats.players
+                                                                    })
+                                                                }, void 0, false, {
+                                                                    fileName: "[project]/src/components/game/popcorn-game.tsx",
+                                                                    lineNumber: 6373,
+                                                                    columnNumber: 21
+                                                                }, this),
+                                                                /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["jsxDEV"])("span", {
+                                                                    "aria-label": __TURBOPACK__imported__module__$5b$project$5d2f$src$2f$lib$2f$game$2f$version$2e$ts__$5b$app$2d$client$5d$__$28$ecmascript$29$__["GAME_VERSION_LABEL"],
+                                                                    className: "pointer-events-none shrink-0 font-ui text-[9px] font-semibold lowercase tracking-wide text-[#D8B4FE]/50",
+                                                                    children: __TURBOPACK__imported__module__$5b$project$5d2f$src$2f$lib$2f$game$2f$version$2e$ts__$5b$app$2d$client$5d$__$28$ecmascript$29$__["GAME_VERSION_LABEL"]
+                                                                }, void 0, false, {
+                                                                    fileName: "[project]/src/components/game/popcorn-game.tsx",
+                                                                    lineNumber: 6387,
+                                                                    columnNumber: 19
+                                                                }, this)
+                                                            ]
+                                                        }, void 0, true, {
                                                             fileName: "[project]/src/components/game/popcorn-game.tsx",
-                                                            lineNumber: 6369,
+                                                            lineNumber: 6371,
                                                             columnNumber: 17
-                                                        }, this),
-                                                        worldStats && /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["jsxDEV"])("span", {
-                                                            title: t('lead.stats', {
-                                                                n: worldStats.launches,
-                                                                r: worldStats.runs,
-                                                                p: worldStats.players
-                                                            }),
-                                                            className: "pointer-events-none absolute bottom-0.5 left-2 font-ui text-[9px] font-semibold tracking-wide text-[#D8B4FE]/50 sm:bottom-1 sm:left-2.5",
-                                                            children: t('menu.world', {
-                                                                n: worldStats.launches,
-                                                                v: worldStats.visitors ?? worldStats.players
-                                                            })
-                                                        }, void 0, false, {
-                                                            fileName: "[project]/src/components/game/popcorn-game.tsx",
-                                                            lineNumber: 6380,
-                                                            columnNumber: 19
                                                         }, this)
                                                     ]
                                                 }, void 0, true, {
@@ -12813,7 +12823,7 @@ function PopcornGame() {
                     }, this),
                     /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["jsxDEV"])(__TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$framer$2d$motion$2f$dist$2f$es$2f$components$2f$AnimatePresence$2f$index$2e$mjs__$5b$app$2d$client$5d$__$28$ecmascript$29$__["AnimatePresence"], {
                         children: [
-                            nickSetRaw !== '1' && (phase === 'ended' || phase === 'start' && playedOnce) && /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["jsxDEV"])(NickDialog, {
+                            nickSetRaw !== '1' && (phase === 'ended' || phase === 'start' && playedOnce && overlay === null) && /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["jsxDEV"])(NickDialog, {
                                 mode: "gate",
                                 current: "",
                                 t: t,
@@ -12822,8 +12832,8 @@ function PopcornGame() {
                                 afterRun: phase === 'ended'
                             }, void 0, false, {
                                 fileName: "[project]/src/components/game/popcorn-game.tsx",
-                                lineNumber: 6977,
-                                columnNumber: 13
+                                lineNumber: 6980,
+                                columnNumber: 15
                             }, this),
                             nickEdit && /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["jsxDEV"])(NickDialog, {
                                 mode: "edit",
@@ -12833,13 +12843,13 @@ function PopcornGame() {
                                 onClose: ()=>setNickEdit(false)
                             }, void 0, false, {
                                 fileName: "[project]/src/components/game/popcorn-game.tsx",
-                                lineNumber: 6987,
+                                lineNumber: 6990,
                                 columnNumber: 13
                             }, this)
                         ]
                     }, void 0, true, {
                         fileName: "[project]/src/components/game/popcorn-game.tsx",
-                        lineNumber: 6975,
+                        lineNumber: 6977,
                         columnNumber: 9
                     }, this)
                 ]
@@ -12862,12 +12872,12 @@ function PopcornGame() {
                     onClose: ()=>setOverlay(null)
                 }, void 0, false, {
                     fileName: "[project]/src/components/game/popcorn-game.tsx",
-                    lineNumber: 7001,
+                    lineNumber: 7004,
                     columnNumber: 11
                 }, this)
             }, void 0, false, {
                 fileName: "[project]/src/components/game/popcorn-game.tsx",
-                lineNumber: 6999,
+                lineNumber: 7002,
                 columnNumber: 7
             }, this),
             /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["jsxDEV"])(__TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$framer$2d$motion$2f$dist$2f$es$2f$components$2f$AnimatePresence$2f$index$2e$mjs__$5b$app$2d$client$5d$__$28$ecmascript$29$__["AnimatePresence"], {
@@ -12902,7 +12912,7 @@ function PopcornGame() {
                                 children: "🪙"
                             }, void 0, false, {
                                 fileName: "[project]/src/components/game/popcorn-game.tsx",
-                                lineNumber: 7028,
+                                lineNumber: 7031,
                                 columnNumber: 15
                             }, this),
                             /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["jsxDEV"])("div", {
@@ -12915,23 +12925,23 @@ function PopcornGame() {
                                 ]
                             }, void 0, true, {
                                 fileName: "[project]/src/components/game/popcorn-game.tsx",
-                                lineNumber: 7031,
+                                lineNumber: 7034,
                                 columnNumber: 15
                             }, this)
                         ]
                     }, void 0, true, {
                         fileName: "[project]/src/components/game/popcorn-game.tsx",
-                        lineNumber: 7027,
+                        lineNumber: 7030,
                         columnNumber: 13
                     }, this)
                 }, `fever-coins-${feverCoins}`, false, {
                     fileName: "[project]/src/components/game/popcorn-game.tsx",
-                    lineNumber: 7019,
+                    lineNumber: 7022,
                     columnNumber: 11
                 }, this)
             }, void 0, false, {
                 fileName: "[project]/src/components/game/popcorn-game.tsx",
-                lineNumber: 7017,
+                lineNumber: 7020,
                 columnNumber: 7
             }, this),
             /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["jsxDEV"])(__TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$framer$2d$motion$2f$dist$2f$es$2f$components$2f$AnimatePresence$2f$index$2e$mjs__$5b$app$2d$client$5d$__$28$ecmascript$29$__["AnimatePresence"], {
@@ -12964,22 +12974,22 @@ function PopcornGame() {
                             children: t('lead.reject')
                         }, void 0, false, {
                             fileName: "[project]/src/components/game/popcorn-game.tsx",
-                            lineNumber: 7050,
+                            lineNumber: 7053,
                             columnNumber: 15
                         }, this)
                     }, void 0, false, {
                         fileName: "[project]/src/components/game/popcorn-game.tsx",
-                        lineNumber: 7049,
+                        lineNumber: 7052,
                         columnNumber: 13
                     }, this)
                 }, void 0, false, {
                     fileName: "[project]/src/components/game/popcorn-game.tsx",
-                    lineNumber: 7042,
+                    lineNumber: 7045,
                     columnNumber: 11
                 }, this)
             }, void 0, false, {
                 fileName: "[project]/src/components/game/popcorn-game.tsx",
-                lineNumber: 7040,
+                lineNumber: 7043,
                 columnNumber: 7
             }, this),
             /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["jsxDEV"])(__TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$framer$2d$motion$2f$dist$2f$es$2f$components$2f$AnimatePresence$2f$index$2e$mjs__$5b$app$2d$client$5d$__$28$ecmascript$29$__["AnimatePresence"], {
@@ -13017,22 +13027,22 @@ function PopcornGame() {
                             })
                         }, void 0, false, {
                             fileName: "[project]/src/components/game/popcorn-game.tsx",
-                            lineNumber: 7072,
+                            lineNumber: 7075,
                             columnNumber: 15
                         }, this)
                     }, void 0, false, {
                         fileName: "[project]/src/components/game/popcorn-game.tsx",
-                        lineNumber: 7070,
+                        lineNumber: 7073,
                         columnNumber: 13
                     }, this)
                 }, `char-${charToast}`, false, {
                     fileName: "[project]/src/components/game/popcorn-game.tsx",
-                    lineNumber: 7062,
+                    lineNumber: 7065,
                     columnNumber: 11
                 }, this)
             }, void 0, false, {
                 fileName: "[project]/src/components/game/popcorn-game.tsx",
-                lineNumber: 7060,
+                lineNumber: 7063,
                 columnNumber: 7
             }, this),
             /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["jsxDEV"])(__TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$framer$2d$motion$2f$dist$2f$es$2f$components$2f$AnimatePresence$2f$index$2e$mjs__$5b$app$2d$client$5d$__$28$ecmascript$29$__["AnimatePresence"], {
@@ -13067,7 +13077,7 @@ function PopcornGame() {
                                 children: achToast.icon
                             }, void 0, false, {
                                 fileName: "[project]/src/components/game/popcorn-game.tsx",
-                                lineNumber: 7094,
+                                lineNumber: 7097,
                                 columnNumber: 15
                             }, this),
                             /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["jsxDEV"])("div", {
@@ -13077,7 +13087,7 @@ function PopcornGame() {
                                         children: t('ach.toast')
                                     }, void 0, false, {
                                         fileName: "[project]/src/components/game/popcorn-game.tsx",
-                                        lineNumber: 7098,
+                                        lineNumber: 7101,
                                         columnNumber: 17
                                     }, this),
                                     /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["jsxDEV"])("div", {
@@ -13085,29 +13095,29 @@ function PopcornGame() {
                                         children: achToast.name
                                     }, void 0, false, {
                                         fileName: "[project]/src/components/game/popcorn-game.tsx",
-                                        lineNumber: 7101,
+                                        lineNumber: 7104,
                                         columnNumber: 17
                                     }, this)
                                 ]
                             }, void 0, true, {
                                 fileName: "[project]/src/components/game/popcorn-game.tsx",
-                                lineNumber: 7097,
+                                lineNumber: 7100,
                                 columnNumber: 15
                             }, this)
                         ]
                     }, void 0, true, {
                         fileName: "[project]/src/components/game/popcorn-game.tsx",
-                        lineNumber: 7093,
+                        lineNumber: 7096,
                         columnNumber: 13
                     }, this)
                 }, `${achToast.name}-${unlockedAch.length}`, false, {
                     fileName: "[project]/src/components/game/popcorn-game.tsx",
-                    lineNumber: 7085,
+                    lineNumber: 7088,
                     columnNumber: 11
                 }, this)
             }, void 0, false, {
                 fileName: "[project]/src/components/game/popcorn-game.tsx",
-                lineNumber: 7083,
+                lineNumber: 7086,
                 columnNumber: 7
             }, this),
             /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["jsxDEV"])("footer", {
@@ -13117,12 +13127,12 @@ function PopcornGame() {
                     children: t('footer.text')
                 }, void 0, false, {
                     fileName: "[project]/src/components/game/popcorn-game.tsx",
-                    lineNumber: 7112,
+                    lineNumber: 7115,
                     columnNumber: 9
                 }, this)
             }, void 0, false, {
                 fileName: "[project]/src/components/game/popcorn-game.tsx",
-                lineNumber: 7111,
+                lineNumber: 7114,
                 columnNumber: 7
             }, this)
         ]

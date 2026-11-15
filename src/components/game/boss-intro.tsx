@@ -131,9 +131,10 @@ export function BossIntroOverlay({ t, level, kind, onGo }: BossIntroProps) {
         </span>
       </motion.div>
 
-      {/* Подзаголовок: кто выходит и на каком уровне */}
+      {/* Подзаголовок: кто выходит и на каком уровне.
+        * 0.0.51: relative z-20 — даже при переливе рамки подпись остаётся читаема */}
       <motion.p
-        className="z-10 mt-1.5 shrink-0 rounded-full border border-amber-300/40 bg-black/40 px-3 py-1 font-pixel text-[11px] font-bold text-amber-100"
+        className="relative z-20 mt-1.5 shrink-0 rounded-full border border-amber-300/40 bg-black/40 px-3 py-1 font-pixel text-[11px] font-bold text-amber-100"
         initial={{ opacity: 0 }}
         animate={{ opacity: 1 }}
         transition={{ delay: 0.12 }}
@@ -153,7 +154,9 @@ export function BossIntroOverlay({ t, level, kind, onGo }: BossIntroProps) {
           <canvas
             ref={canvasRef}
             aria-hidden
-            className="h-auto w-[clamp(96px,26vmin,150px)]"
+            /* 0.0.51: размер от высоты (vmin от меньшей стороны) — на низких окнах
+             * рамка больше не наезжает на подпись и кнопку «В БОЙ!» */
+            className="h-[clamp(88px,20vmin,140px)] w-auto"
             style={{ imageRendering: 'pixelated' }}
           />
         </motion.div>

@@ -6365,32 +6365,32 @@ export function PopcornGame() {
                   )}
                 </motion.div>
 
-                {/* Версия сборки: правый нижний угол меню — сразу видно, что на проде */}
-                <span
-                  aria-label={GAME_VERSION_LABEL}
-                  className="pointer-events-none absolute bottom-0.5 right-2 font-ui text-[9px] font-semibold lowercase tracking-wide text-[#D8B4FE]/50 sm:bottom-1 sm:right-2.5"
-                >
-                  {GAME_VERSION_LABEL}
-                </span>
-
-                {/* Счётчик заходов в мир (v0.0.36): сколько раз игру открывали
-                    и сколько уникальных устройств приходило — левый нижний угол.
-                    Цифры живые: приходят из /api/sessions при открытии меню */}
-                {worldStats && (
+                {/* Версия сборки и счётчик заходов — одна нижняя строка:
+                    justify-between + truncate, чтобы на узких экранах
+                    подписи не наезжали друг на друга (0.0.51) */}
+                <div className="mt-2 flex items-baseline justify-between gap-3 px-1">
+                  {worldStats && (
+                    <span
+                      title={t('lead.stats', {
+                        n: worldStats.launches,
+                        r: worldStats.runs,
+                        p: worldStats.players,
+                      })}
+                      className="pointer-events-none min-w-0 truncate font-ui text-[9px] font-semibold tracking-wide text-[#D8B4FE]/50"
+                    >
+                      {t('menu.world', {
+                        n: worldStats.launches,
+                        v: worldStats.visitors ?? worldStats.players,
+                      })}
+                    </span>
+                  )}
                   <span
-                    title={t('lead.stats', {
-                      n: worldStats.launches,
-                      r: worldStats.runs,
-                      p: worldStats.players,
-                    })}
-                    className="pointer-events-none absolute bottom-0.5 left-2 font-ui text-[9px] font-semibold tracking-wide text-[#D8B4FE]/50 sm:bottom-1 sm:left-2.5"
+                    aria-label={GAME_VERSION_LABEL}
+                    className="pointer-events-none shrink-0 font-ui text-[9px] font-semibold lowercase tracking-wide text-[#D8B4FE]/50"
                   >
-                    {t('menu.world', {
-                      n: worldStats.launches,
-                      v: worldStats.visitors ?? worldStats.players,
-                    })}
+                    {GAME_VERSION_LABEL}
                   </span>
-                )}
+                </div>
                 </div>
                 </div>
               </motion.div>
@@ -6971,18 +6971,21 @@ export function PopcornGame() {
 
         {/* Ник-гейт Ф0-1: спрашиваем имя после первого забега (поверх экрана
             результата). Страховка: игрок, который уже играл, но закрыл вкладку
-            до конца забега, увидит вопрос в меню. Совсем новички — не видят. */}
+            до конца забега, увидит вопрос в меню. Совсем новички — не видят.
+            0.0.51: в меню не рисуем поверх других оверлеев (АЧИВКИ/ДРЕВО/ЛАВКА…)
+            — ждём, пока игрок закроет текущее окно. */}
         <AnimatePresence>
-          {nickSetRaw !== '1' && (phase === 'ended' || (phase === 'start' && playedOnce)) && (
-            <NickDialog
-              mode="gate"
-              current=""
-              t={t}
-              onDone={handleNickDone}
-              onClose={() => {}}
-              afterRun={phase === 'ended'}
-            />
-          )}
+          {nickSetRaw !== '1' &&
+            (phase === 'ended' || (phase === 'start' && playedOnce && overlay === null)) && (
+              <NickDialog
+                mode="gate"
+                current=""
+                t={t}
+                onDone={handleNickDone}
+                onClose={() => {}}
+                afterRun={phase === 'ended'}
+              />
+            )}
           {nickEdit && (
             <NickDialog
               mode="edit"

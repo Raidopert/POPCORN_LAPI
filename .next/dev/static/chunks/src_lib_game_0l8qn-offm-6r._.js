@@ -19232,7 +19232,7 @@ if (typeof globalThis.$RefreshHelpers$ === 'object' && globalThis.$RefreshHelper
     "GAME_VERSION_LABEL",
     ()=>GAME_VERSION_LABEL
 ]);
-const GAME_VERSION = '0.0.50';
+const GAME_VERSION = '0.0.51';
 const GAME_STAGE = 'pre-alpha';
 const GAME_VERSION_LABEL = `${GAME_STAGE} ${GAME_VERSION}`;
 if (typeof globalThis.$RefreshHelpers$ === 'object' && globalThis.$RefreshHelpers !== null) {
