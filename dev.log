@@ -548,3 +548,33 @@ Import trace:
  GET /public/inventory 404 in 43ms (next.js: 7ms, application-code: 36ms)
  GET /public/inventory 404 in 40ms (next.js: 5ms, application-code: 35ms)
  GET /public/inventory 404 in 39ms (next.js: 6ms, application-code: 33ms)
+ GET / 200 in 35ms (next.js: 0.9ms, application-code: 34ms)
+ GET /public/inventory 404 in 32ms (next.js: 4ms, application-code: 28ms)
+ GET /public/inventory 404 in 32ms (next.js: 5ms, application-code: 28ms)
+ GET /public/inventory 404 in 38ms (next.js: 5ms, application-code: 33ms)
+ GET /public/inventory 404 in 35ms (next.js: 5ms, application-code: 30ms)
+ GET /public/inventory 404 in 35ms (next.js: 6ms, application-code: 29ms)
+✓ Compiled in 350ms
+✓ Compiled in 435ms
+✓ Compiled in 190ms
+✓ Compiled in 156ms
+✓ Compiled in 89ms
+✓ Compiled in 351ms
+ GET /public/inventory 404 in 229ms (next.js: 141ms, application-code: 88ms)
+ GET /public/inventory 404 in 32ms (next.js: 5ms, application-code: 27ms)
+ GET / 200 in 125ms (next.js: 1.1ms, application-code: 124ms)
+ POST /api/sessions 200 in 21ms (next.js: 0.8ms, application-code: 21ms)
+ GET / 200 in 67ms (next.js: 0.8ms, application-code: 66ms)
+ POST /api/sessions 200 in 13ms (next.js: 0.7ms, application-code: 13ms)
+ GET /public/inventory 404 in 46ms (next.js: 6ms, application-code: 41ms)
+ GET / 200 in 154ms (next.js: 0.8ms, application-code: 153ms)
+ POST /api/sessions 200 in 13ms (next.js: 0.9ms, application-code: 12ms)
+ GET /public/inventory 404 in 107ms (next.js: 7ms, application-code: 101ms)
+✓ Compiled in 1224ms
+ GET /public/inventory 404 in 43ms (next.js: 6ms, application-code: 37ms)
+ GET / 200 in 42ms (next.js: 1.1ms, application-code: 41ms)
+ GET /public/inventory 404 in 34ms (next.js: 6ms, application-code: 29ms)
+ GET / 200 in 49ms (next.js: 1.0ms, application-code: 49ms)
+ GET / 200 in 69ms (next.js: 1.6ms, application-code: 67ms)
+ GET / 200 in 51ms (next.js: 0.9ms, application-code: 50ms)
+ GET / 200 in 70ms (next.js: 1.2ms, application-code: 69ms)
