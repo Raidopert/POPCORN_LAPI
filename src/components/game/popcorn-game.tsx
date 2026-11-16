@@ -4681,6 +4681,9 @@ export function PopcornGame() {
   const [clearInfo, setClearInfo] = useState<ClearState | null>(null)
   /* v0.0.60: пуш-напоминание о поддержке (каждые SUPPORT_EVERY пройденных уровней) */
   const [supportPush, setSupportPush] = useState(false)
+  /* v0.0.61: пуш прилетел посреди геймплея — забег ставился на паузу, и его
+     нужно возобновить после ОК (флаг, чтобы не разбудить чужую паузу) */
+  const supportPausedRef = useRef(false)
   /** ПЛАКАТНАЯ ПЕРЕБИВКА: каждые 5 уровней после победы показываем
       трудовой плакат Наны. mode: 'normal' — дальше нарезка и сундучок,
       'fever' — сразу Лихорадка (перебивка врезается до ветки Fever,
@@ -6102,6 +6105,15 @@ export function PopcornGame() {
         }
         /* Ачивки лихорадки: «Горячка», «Жар-птица», «Пять сотен в огне», «Тысяча в огне» */
         addLife({ fevers: 1 })
+        /* v0.0.61: лихорадка — тоже пройденный этап: считаем её в общий
+           счёт пуша о поддержке (внезапный «Фарт» посреди этапа не считаем —
+           тот этап ещё продолжится и учтётся при своей победе) */
+        if (!r.resumed) {
+          const lifeFever = addLife({ levelsPassed: 1 })
+          if (lifeFever.levelsPassed > 0 && lifeFever.levelsPassed % SUPPORT_EVERY === 0) {
+            setSupportPush(true)
+          }
+        }
         announceAch(['fever1'])
         if (r.success && r.gained >= 500) announceAch(['fever500'])
         if (r.success && r.gained >= 1000) announceAch(['fever1000'])
@@ -6410,6 +6422,29 @@ export function PopcornGame() {
     }
     layoutRef.current()
   }, [perk, phase])
+
+  /* v0.0.61: пуш о поддержке может прилететь ПОСРЕДИ ГЕЙМПЛЕЯ — в конце
+     бонус-лихорадки (onFeverEnd идёт в фазе playing). Пока карточка открыта,
+     ставим забег на паузу и глушим музыку: следующий этап не должен тикать
+     под пушем. Закрыл на ОК — забег и музыка возвращаются сами.
+     На 'clear' (обычная победа над этапом) не трогаем: там и так паузы
+     переходов, а плакат/сундучок корректно дождутся под пушем */
+  useEffect(() => {
+    if (!supportPush) {
+      if (supportPausedRef.current) {
+        supportPausedRef.current = false
+        engineRef.current?.setPaused(false)
+        audio.startMusic('game')
+      }
+      return
+    }
+    const eng = engineRef.current
+    if (eng && eng.phase === 'playing' && !eng.paused) {
+      supportPausedRef.current = true
+      audio.stopMusic()
+      eng.setPaused(true)
+    }
+  }, [supportPush])
 
   /* Пожизненные счётчики ачивок дольём на диск при уходе со страницы.
      v0.0.59: тут же пишем СНАПШОТ забега — вкладку закрыли посреди боя,
