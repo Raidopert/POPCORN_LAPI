@@ -2376,10 +2376,10 @@ export const T: Record<string, Row> = {
   'bossintro.lvl': ['УРОВЕНЬ {{n}}', 'LEVEL {{n}}', 'LEVEL {{n}}', 'NIVEL {{n}}'],
   'bossintro.go': ['В БОЙ!', 'FIGHT!', 'LOS!', '¡A LUCHAR!'],
   'bossintro.kid': [
-    'Малыш несётся к корзинке — не дай схватить себя: касание минус сердечко! Толкай попкорн РЕЗКИМ МАХОМ лапки — летящее зерно бьёт его как снежком. Сбей все сердечки: наестся и отвалит!',
-    'The baby charges at your cup — don’t let him grab you: a touch costs a heart! Flick popcorn with a SHARP paw swing — flying kernels hit him like snowballs. Drain his hearts and he’ll eat up and roll away!',
-    'Das Baby rast auf den Becher zu — lass dich nicht greifen: Berührung kostet ein Herz! Schleudere Popcorn mit kurzem Pfotenschwung — fliegende Körner treffen ihn wie Schneebälle. Alle Herzen weg — er ist satt und verschwindet!',
-    '¡El bebé corre hacia la taza — no dejes que te agarre: un toque cuesta un corazón! Lanza palomitas con un golpe SECO de la patita — los granos voladores lo golpean como bolas de nieve. Quita todos sus corazones: ¡comerá y se irá!',
+    'Малыш бродит сверху и кидается зёрнами — не дай схватить себя: касание минус сердечко! ТАПНИ или кликни возле зёрнышка — лапка швырнёт его СНЕЖКОМ в малыша. Он и сам выхватывает зёрна у корзинки и запускает их в тебя: уворачивайся! Сбей все сердечки — наестся и отвалит!',
+    'The kid roams up top and flings kernels — don’t let him grab you: a touch costs a heart! TAP or click next to a kernel and the paw flings it as a SNOWBALL right at him. He snatches kernels by the cup and hurls them at you: dodge! Drain his hearts and he’ll eat up and roll away!',
+    'Das Knirps streift oben umher und wirft mit Körnern — lass dich nicht greifen: Berührung kostet ein Herz! TIPPE oder klicke neben einem Korn — die Pfote schleudert es als SCHNEEBALL auf ihn. Er schnappt selbst Körner am Becher und schleudert sie auf dich: weiche aus! Alle Herzen weg — er ist satt und verschwindet!',
+    '¡El bebé merodea arriba y lanza granos — no dejes que te agarre: un toque cuesta un corazón! TOCA o haz clic junto a un grano y la patita lo lanzará como BOLA DE NIEVE. Él mismo roba granos junto a la taza y te los tira: ¡esquiva! Quita todos sus corazones: ¡comerá y se irá!',
   ],
   'bossintro.marten': [
     'Куница Лана тянет к корзинке ДЛИННЫЕ ЛАПКИ с когтями! ПЕРЕРЕЗАЙ их быстрым свайпом лапки — каждый разрез отнимает у воровки жизнь. Дотянувшийся коготь выгребает попкорн из стаканчика!',
@@ -3217,13 +3217,27 @@ export const T: Record<string, Row> = {
   'txt.empty': ['ПУСТО!', 'EMPTY!', 'LEER!', '¡VACÍO!'],
   'txt.guard': ['ОБЕРЕГ!', 'SAVED!', 'GERETTET!', '¡SALVADO!'],
   'txt.shield': ['ЩИТ!', 'SHIELD!', 'SCHILD!', '¡ESCUDO!'],
-  /* ---------- БОСС «МАЛЫШ» (каждый 10-й уровень) ---------- */
+  /* ---------- БОСС «МАЛЫШ» (каждый 4-й уровень; с 0.0.58 — снежковый тир) ---------- */
   'banner.boss': ['👶 МАЛЫШ ИДЁТ!', '👶 THE KID ATTACKS!', '👶 DER KNIRPS!', '¡👶 EL PEQUEÑO!'],
   'txt.bossWarn': [
-    'НЕ ТРОГАЙ РУКАМИ — ПИНЬ ПОПКОРН!',
-    'DON’T TOUCH — KICK POPCORN!',
-    'NICHT ANFASSEN — POPCORN TRETTEN!',
-    'NO LO TOQUES: ¡PATEA PALOMITAS!',
+    'ТАПНИ У ЗЁРНЫШКА — СНЕЖОК В МАЛЫША!',
+    'TAP BY A KERNEL — SNOWBALL THE KID!',
+    'TIPP AM KORN — SCHNEEBALL AUF KNIRPS!',
+    '¡TOCA EL GRANO — BOLA AL BEBÉ!',
+  ],
+  /* v0.0.58: снежки — тап-стрельба и tantrum-броски малыша */
+  'txt.snowHint': [
+    'ТАПНИ ПРЯМО У ЗЁРНЫШКА — ЛАПКА ШВЫРНЁТ ЕГО В МАЛЫША!',
+    'TAP RIGHT BY A KERNEL — THE PAW FLINGS IT AT THE KID!',
+    'TIPP DIREKT AM KORN — DIE PFOTE SCHLEUDERT ES AUF IHN!',
+    '¡TOCA JUNTO AL GRANO Y LA PATITA LO LANZARÁ!',
+  ],
+  'txt.kidGrab': ['СХВАТИЛ ЗЁРНЫШКО!', 'SNATCHED A KERNEL!', 'KORN GEKLAUT!', '¡GRANO ROBADO!'],
+  'txt.kidHit': [
+    'ЗЕРНО ОТ МАЛЫША! ОГЛОХЛА!',
+    'THE KID’S KERNEL HIT YOU! DAZED!',
+    'KORN VOM KNIRPS! TAUB!',
+    '¡GRANO DEL BEBÉ! ¡ATURDIDA!',
   ],
   'txt.bossHit': ['ФЫРК! ПОПАЛ!', 'HIT!', 'GETROFFEN!', '¡GOLPE!'],
   'txt.bossDown': [

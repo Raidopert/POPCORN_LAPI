@@ -6063,6 +6063,9 @@ export function PopcornGame() {
       const sx = e.clientX - r.left
       const sy = e.clientY - r.top
       eng.setPointer(sx, sy, e.pointerType === 'touch' ? 64 : 0)
+      /* v0.0.58: клик/тап в бою с МАЛЫШОМ — выстрел снежком. Движок сам
+         проверит, что бой именно с малышом: остальные боссы не реагируют */
+      if (e.type === 'pointerdown') eng.tapFire(sx, sy)
     }
     const onReflow = () => {
       rectRef.current = main.getBoundingClientRect()

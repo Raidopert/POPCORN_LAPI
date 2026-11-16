@@ -335,6 +335,17 @@ const LION_SLAM_EVERY = 4.4 // пауза между ударами (с); мат
 const LION_SLAM_TELE = 1.15 // сколько секунд горит круг-телеграф, с
 const LION_SLAM_R = 64 // радиус удара когтей (u)
 
+/* --- СНЕЖКИ v0.0.58: новая механика боя с МАЛЫШОМ. Лапка больше НЕ
+    собирает попкорн и не пинает его свайпом: ТАП/КЛИК возле зёрнышка —
+    лапка выхватывает его и швыряет СНЕЖКОМ в малыша (с лёгким
+    подруливанием). Малыш в ответ на пустой стаканчик устраивает ТАНТРУМ:
+    хватает ближайшее к корзине зёрнышко (лишает патрона!) и кидает им в
+    лапку — у цели телеграф-круг, как у бросков цыганки --- */
+const SNOW_SPEED = 540 // скорость снежка (u/с)
+const SNOW_HOME_RATE = 2.6 // подруливание к малышу (рад/с)
+const SNOW_TTL = 1.5 // сколько живёт снежок без попадания (с)
+const KID_GRAB_R = 150 // радиус tantrum-хвата зёрна вокруг корзины (u)
+
 /* --- v0.0.46: КАСКАД ОНЛИФАНСИЯ — разбросан МЕЖДУ БОССАМИ.
     Посередине между боссовыми уровнями (6, 10, 14, 18, 22…) в случайный
     момент этапа С ЛЕВОГО ИЛИ ПРАВОГО КРАЯ внезапно въезжает ОГРОМНАЯ
@@ -558,6 +569,23 @@ interface GypsySeed {
   /** Вращение в полёте */
   rot: number
   spin: number
+  /** v0.0.58: 'kid' — бросок малыша (свой текст попадания) */
+  who?: 'kid'
+}
+
+/** СНЕЖОК (v0.0.58): зёрнышко, выхваченное тапом в бою с МАЛЫШОМ и летящее
+    в него. Подруливает к цели, врезался — минус жизнь малышу; промах —
+    разбивается с крошками у края поля или по таймеру */
+interface Snowball {
+  x: number
+  y: number
+  vx: number
+  vy: number
+  /** Вращение в полёте */
+  rot: number
+  spin: number
+  /** Возраст полёта (с) */
+  t: number
 }
 
 /** КОГТИ ОНЛИФАНСИЯ (v0.0.46): лев целится в ЛАПКУ игрока — у цели горит
@@ -856,6 +884,10 @@ export class PopcornEngine {
   private boss: Boss | null = null
   /* --- ЗЁРНА В ЭКРАН (v0.0.39): броски цыганской руки — растут в полёте --- */
   private seeds: GypsySeed[] = []
+  /** СНЕЖКИ (v0.0.58): тап-выстрелы лапки в бою с МАЛЫШОМ */
+  private snowballs: Snowball[] = []
+  /** Кулдаун подсказки «тапни возле зёрнышка» (с) */
+  private snowHintT = 0
   /** КОГТИ ОНЛИФАНСИЯ (v0.0.46): телеграфы и удары сверху по лапке */
   private lionSlams: LionSlam[] = []
   /** Монетки за победы над боссами за забег (выдаёт компонент) */
@@ -1288,6 +1320,8 @@ export class PopcornEngine {
     /* Босс и скорость лапки с прошлого уровня не выживают */
     this.boss = null
     this.seeds = []
+    this.snowballs = [] // снежки в полёте тоже не переносятся
+    this.snowHintT = 0
     this.lionSlams = [] // когтистые удары тоже не переносятся
     this.pawVX = 0
     this.pawVY = 0
@@ -1308,9 +1342,10 @@ export class PopcornEngine {
       this.paw.ty = this.paw.y
     }
     this.paw.hurt = 0
-    /* БОСС «МАЛЫШ»: каждый 10-й уровень вместо обычного — бой в тир-арканоид.
-       Никаких мин и воришек: малыш сам рвётся к корзине, а попкорн для
-       «стрельбы» подбрасывается волнами. Нормы нет — победить только босса */
+    /* БОСС «МАЛЫШ» (v0.0.58): каждый 4-й уровень вместо обычного — СНЕЖКОВЫЙ
+       ТИР. Никаких мин и воришек, стаканчик не наполняется: ТАПНИ возле
+       зёрнышка — лапка швырнёт его снежком в малыша. Зёрна-«патроны»
+       подбрасываются волнами, малыш отбирает их tantrum'ом у корзины */
     if (level % BOSS_EVERY === 0) {
       this.quota = 999999 // победа — только жизни малыша в ноль
       this.popPerWave = 9 // попкорн-«снаряды» для пинков
@@ -1587,6 +1622,66 @@ export class PopcornEngine {
       this.pawPrevY = this.paw.y
       this.paw.seen = true
     }
+  }
+
+  /* ================= СНЕЖКИ: тап-стрельба в бою с МАЛЫШОМ ================= */
+
+  /** ТАП/КЛИК в бою с малышом (v0.0.58): возле точки тапа ищем ближайшее
+      зёрнышко — лапка выхватывает его и швыряет СНЕЖКОМ в малыша.
+      Мины не стреляют; в шоке, на паузе и в интро лапка не кидает */
+  tapFire(sx: number, sy: number): void {
+    if (this.phase !== 'playing' || this.paused || this.introHold) return
+    const b = this.boss
+    if (!b || b.kind !== 'kid' || b.state === 'in' || b.state === 'flee') return
+    if (this.stun > 0) return
+    const u = this.u
+    let target: FieldPiece | null = null
+    let bestD = Infinity
+    for (const p of this.pieces) {
+      if (p.kind === 'corn' || p.spawn > 0.12 || (p.vx ?? 0) !== 0) continue
+      const d = Math.hypot(p.x - sx, p.y - sy)
+      if (d < bestD) {
+        bestD = d
+        target = p
+      }
+    }
+    /* Досягаемость чуть шире подбора: тапать можно рядом с зерном */
+    const reach = Math.max(this.grabR, 56 * u) + 26 * u
+    if (!target || bestD > reach) {
+      /* Мимо зёрна: лапка щёлкает впустую; раз в пару секунд — подсказка */
+      this.paw.pulse = 1
+      audio.play('click')
+      if (this.snowHintT <= 0) {
+        this.snowHintT = 2.8
+        this.texts.push({
+          x: Math.max(80 * u, Math.min(this.W - 80 * u, sx)),
+          y: Math.max(130, sy - 44 * u),
+          text: this.L('txt.snowHint'),
+          color: '#FFC93C',
+          t: 0,
+          dur: 1.5,
+          size: 20 * u,
+        })
+      }
+      return
+    }
+    /* ВЫСТРЕЛ: зёрнышко срывается с поля и летит снежком в малыша */
+    this.pieces.splice(this.pieces.indexOf(target), 1)
+    const d = Math.hypot(b.x - target.x, b.y - target.y) || 1
+    const sp = SNOW_SPEED * u
+    this.snowballs.push({
+      x: target.x,
+      y: target.y,
+      vx: ((b.x - target.x) / d) * sp,
+      vy: ((b.y - target.y) / d) * sp,
+      rot: Math.random() * Math.PI * 2,
+      spin: (Math.random() < 0.5 ? -1 : 1) * 13,
+      t: 0,
+    })
+    this.paw.pulse = 1
+    this.crumbs(target.x, target.y, '#FFF3D6', 5)
+    audio.play('shoo')
+    this.buzz(12)
   }
 
   /* ================= размеры ================= */
@@ -2068,12 +2163,15 @@ export class PopcornEngine {
     // Голубь-воришка: влетает с 3-го уровня и таскает попкорн из стаканчика
     this.updatePigeon(dt)
 
-    // БОСС: малыш ловит пинки зерном, а Лане режем лапки свайпом
+    // БОСС: у малыша — снежки по тапу (v0.0.58), Лане режем лапки свайпом
     this.updateBoss(dt)
     if (this.phase !== 'playing') return // босс повержен: уровень уже завершён
 
     // Летящий попкорн (пнутый лапкой): полёт, отскоки, попадания в босса
     this.updateThrownPieces(dt)
+
+    // СНЕЖКИ (v0.0.58): тап-выстрелы лапки летят в МАЛЫША
+    this.updateSnowballs(dt)
 
     // Зёрна цыганки, летящие В ЭКРАН: растут в подлёте — шлепают по лапке
     this.updateGypsySeeds(dt)
@@ -2100,10 +2198,13 @@ export class PopcornEngine {
       if (this.stun > 0) break // «опешила»: ни подбора, ни новых подрывов
       if (p.spawn > 0.12) continue
       const d = Math.hypot(this.paw.x - p.x, this.paw.y - p.y)
-      /* ТИР-АРКАНОИД: в босс-бою быстрый мах лапкой ПИНАЕТ зерно — оно летит
-         и бивает малыша. Медленное касание — обычный подбор, как всегда */
+      /* ОНЛИФАНСИЙ и прочие боссы: быстрый мах лапкой ПИНАЕТ зерно — оно летит
+         и бивает льва. У МАЛЫША своя механика — снежки по тапу (v0.0.58) */
       if (
         this.boss &&
+        /* v0.0.58: у МАЛЫША механика СНЕЖКОВ по тапу (tapFire) — свайп-пинок
+           остался у ОНЛИФАНСИЯ (и как флейвор у прочих боссов) */
+        this.boss.kind !== 'kid' &&
         p.kind !== 'corn' &&
         /* «Меткий пинок»: порог пинка ниже (−6% за ступень) */
         Math.hypot(this.pawVX, this.pawVY) > FLING_MIN_SPEED * u * (1 - Math.min(0.24, this.tree.flingEase01 ?? 0)) &&
@@ -2214,7 +2315,13 @@ export class PopcornEngine {
         }
         continue
       }
-      if (d < grabR && this.carried.length < this.carryMax) {
+      if (
+        d < grabR &&
+        this.carried.length < this.carryMax &&
+        /* v0.0.58: в бою с МАЛЫШОМ попкорн НЕ собирается — он СНАРЯД:
+           тапни возле зёрнышка, и лапка швырнёт его снежком (tapFire) */
+        !(this.boss && this.boss.kind === 'kid')
+      ) {
         this.pieces.splice(i, 1)
         this.carried.push({ kind: p.kind as Exclude<PieceKind, 'corn'>, grabT: 0 })
         this.runGrains++
@@ -2451,6 +2558,7 @@ export class PopcornEngine {
       this.multLeft = Math.max(0, this.multLeft - dt)
       if (this.multLeft <= 0) this.multValue = 1
     }
+    if (this.snowHintT > 0) this.snowHintT = Math.max(0, this.snowHintT - dt)
     if (this.hoverLeft > 0) this.hoverLeft = Math.max(0, this.hoverLeft - dt)
     if (this.freezeLeft > 0) {
       this.freezeLeft = Math.max(0, this.freezeLeft - dt)
@@ -3150,9 +3258,9 @@ export class PopcornEngine {
 
   /** Босс живёт своей жизнью: бродит по верхней половине, по таймеру РВЁТСЯ
       к корзине и выгребает попкорн. Касание лапкой — сердечко слетает.
-      МАЛЫШ ловит пинки зерном, ЛАНА мелькает рывками-дэшами и тянет к
-      корзинке длинные лапки с когтями — РЕЖЬ их свайпом лапки, а ГОЛУБЮ
-      выбивай ГЛАЗА точными махами! */
+      МАЛЫШ ловит СНЕЖКИ тап-выстрелов и отвечает tantrum-бросками,
+      ЛАНА мелькает рывками-дэшами и тянет к корзинке длинные лапки
+      с когтями — РЕЖЬ их свайпом лапки, а ГОЛУБЮ выбивай ГЛАЗА махами! */
   private updateBoss(dt: number): void {
     const b = this.boss
     if (!b) return
@@ -3626,17 +3734,65 @@ export class PopcornEngine {
     }
   }
 
-  /** МАЛЫШ добрался до корзины: гребёт из неё попкорн — как воришка-голубь,
-      только жирнее (растёт с номером босса). Пустую корзину только трясёт.
-      МЕГА-ГОЛУБЬ клюёт той же логикой — воришка-то семейный */
+  /** МАЛЫШ добрался до корзины (v0.0.58): в снежковом тире стаканчик не
+      наполняется — воровать нечего, поэтому ТАНТРУМ: хватает ближайшее к
+      корзине зёрнышко с поля (лишает патрона!) и ШВЫРЯЕТ его в лапку;
+      рядом зёрен нет — всё равно кидает, что есть.
+      МЕГА-ГОЛУБЬ клюёт по-старому: гребёт собранное из стаканчика */
   private bossSwat(): void {
     const u = this.u
     const b = this.boss
+    if (!b) return
+    if (b.kind === 'kid') {
+      this.cup.squash = 1
+      let grabbed: FieldPiece | null = null
+      let bestD = Infinity
+      for (const p of this.pieces) {
+        if (p.kind === 'corn' || p.spawn > 0.12 || (p.vx ?? 0) !== 0) continue
+        const d = Math.hypot(p.x - this.cup.x, p.y - this.cup.y)
+        if (d < bestD) {
+          bestD = d
+          grabbed = p
+        }
+      }
+      if (grabbed && bestD < KID_GRAB_R * u) {
+        this.pieces.splice(this.pieces.indexOf(grabbed), 1)
+        this.levelStolen++
+        this.crumbs(this.cup.x, this.cup.y - this.cupH * 0.4, '#FFF3D6', 5)
+        this.texts.push({
+          x: this.cup.x,
+          y: this.cup.y - this.cupH * 0.9,
+          text: this.L('txt.kidGrab'),
+          color: '#FF6B5E',
+          t: 0,
+          dur: 1,
+          size: 24 * u,
+        })
+        audio.play('penalty')
+        this.buzz(40)
+      } else {
+        this.texts.push({
+          x: this.cup.x,
+          y: this.cup.y - this.cupH * 0.9,
+          text: this.L('txt.empty'),
+          color: '#C8CFD8',
+          t: 0,
+          dur: 0.8,
+          size: 20 * u,
+        })
+      }
+      b.swing = 1
+      this.doShake(6)
+      /* Бросок в лапку: летит зёрнышко, у цели — телеграф-круг */
+      this.kidThrow()
+      this.emitStats(true)
+      return
+    }
     if (this.collected > 0) {
       const tier = bossTierForLevel(this.lvl)
       const steal = Math.min(
         this.collected,
-        BOSS_STEAL + tier - 1 + BOSS_STEAL_BY_KIND[b?.kind ?? 'kid'],
+        BOSS_STEAL + tier - 1 + BOSS_STEAL_BY_KIND[b.kind],
       )
       this.collected -= steal
       this.levelStolen++
@@ -3667,6 +3823,28 @@ export class PopcornEngine {
       })
     }
     this.emitStats(true)
+  }
+
+  /** МАЛЫШ швыряет зёрнышко В ЛАПКУ (v0.0.58): цель фиксируется в момент
+      броска — там, где лапка сейчас. Полёт, рост и шлепок о экран — общая
+      с цыганкой система зёрен: телеграф-круг у цели; попало — минус
+      сердечко и оглохшая лапка */
+  private kidThrow(): void {
+    const b = this.boss
+    if (!b) return
+    const u = this.u
+    this.seeds.push({
+      sx: b.x + (Math.random() - 0.5) * 24 * u,
+      sy: b.y + 12 * u,
+      tx: this.paw.x,
+      ty: this.paw.y,
+      t: 0,
+      rot: Math.random() * Math.PI * 2,
+      spin: (Math.random() < 0.5 ? -1 : 1) * 9,
+      who: 'kid',
+    })
+    audio.play('shoo')
+    this.buzz(15)
   }
 
   /* ================= ЦЫГАНСКАЯ РУКА: кражи с поля и броски в экран ================= */
@@ -3759,7 +3937,8 @@ export class PopcornEngine {
         this.texts.push({
           x: this.paw.x,
           y: this.paw.y - 46 * u,
-          text: this.L('txt.gypsyHit'),
+          /* v0.0.58: у броска малыша свой текст попадания */
+          text: this.L(s.who === 'kid' ? 'txt.kidHit' : 'txt.gypsyHit'),
           color: '#FF6B8A',
           t: 0,
           dur: 1,
@@ -4098,6 +4277,7 @@ export class PopcornEngine {
     }
     /* Летящие в экран зёрна при победе растворяются — не бьют по уставшему */
     this.seeds.length = 0
+    this.snowballs.length = 0 // снежки в полёте тоже растворяются
     const tier = Math.max(1, Math.floor(this.lvl / BOSS_EVERY))
     const bonus = BOSS_BONUS_BASE + (tier - 1) * BOSS_BONUS_PER_TIER
     this.score += bonus
@@ -4140,7 +4320,8 @@ export class PopcornEngine {
   }
 
   /** Летящий попкорн: пнутое лапкой зерно скользит с трением, отскакивает
-      от краёв поля и, врезавшись в МАЛЫША, снимает ему жизнь.
+      от краёв поля и, врезавшись в ОНЛИФАНСИЯ, снимает ему жизнь (у МАЛЫША
+      с v0.0.58 своя механика — СНЕЖКИ по тапу).
       ЛАНА зерном не берётся — ловко отбивает лапкой: режь её лапки! */
   private updateThrownPieces(dt: number): void {
     const u = this.u
@@ -4279,8 +4460,53 @@ export class PopcornEngine {
     }
   }
 
-  /** Пинок попкорном прилетел в босса: минус жизнь, отшатывается.
-      Жизни кончились — побеждён, уплывает за кадр */
+  /** СНЕЖКИ (v0.0.58): полёт тап-выстрела. Снежок подруливает к малышу,
+      врезался — минус жизнь ему; истёк или улетел за поле — разбился */
+  private updateSnowballs(dt: number): void {
+    if (this.snowballs.length === 0) return
+    const u = this.u
+    const b = this.boss
+    const canHit = !!b && b.kind === 'kid' && b.state !== 'in' && b.state !== 'flee'
+    for (let i = this.snowballs.length - 1; i >= 0; i--) {
+      const s = this.snowballs[i]
+      if (!s) continue
+      s.t += dt
+      s.rot += s.spin * dt
+      if (b && canHit) {
+        /* Лёгкое самонаведение: снежок подворачивает к малышу — попадать
+           приятно, а навык боя — в уворотах и темпе стрельбы */
+        const want = Math.atan2(b.y - s.y, b.x - s.x)
+        const cur = Math.atan2(s.vy, s.vx)
+        let diff = want - cur
+        while (diff > Math.PI) diff -= Math.PI * 2
+        while (diff < -Math.PI) diff += Math.PI * 2
+        const turn = Math.max(-SNOW_HOME_RATE * dt, Math.min(SNOW_HOME_RATE * dt, diff))
+        const a = cur + turn
+        const sp = Math.hypot(s.vx, s.vy)
+        s.vx = Math.cos(a) * sp
+        s.vy = Math.sin(a) * sp
+      }
+      s.x += s.vx * dt
+      s.y += s.vy * dt
+      if (this.perfTier < 2 && Math.random() < dt * 24) this.crumbs(s.x, s.y, '#FFF6EC', 1)
+      if (canHit) {
+        const hitR = BOSS_HIT_R_BY_KIND.kid * u + 12 * u
+        if (b && Math.hypot(s.x - b.x, s.y - b.y) < hitR) {
+          this.snowballs.splice(i, 1)
+          this.hitBoss(s.x, s.y, s.vx, s.vy)
+          continue
+        }
+      }
+      if (s.t > SNOW_TTL || s.x < -30 || s.x > this.W + 30 || s.y < -30 || s.y > this.H + 30) {
+        this.snowballs.splice(i, 1)
+        this.crumbs(s.x, s.y, '#FFF3D6', 4)
+        audio.play('click')
+      }
+    }
+  }
+
+  /** Пинок зерном или СНЕЖОК (v0.0.58) прилетел в босса: минус жизнь,
+      отшатывается. Жизни кончились — побеждён, уплывает за кадр */
   private hitBoss(x: number, y: number, vx: number, vy: number): void {
     const b = this.boss
     if (!b) return
@@ -4849,6 +5075,7 @@ export class PopcornEngine {
     if (this.boss && this.phase === 'playing') this.drawBoss()
     // Зёрна, летящие В ЭКРАН: растут по подлёту, у цели — круг-телеграф
     if (this.seeds.length > 0) this.drawGypsySeeds(ts)
+    if (this.snowballs.length > 0) this.drawSnowballs()
     // КОГТИ ОНЛИФАНСИЯ: круг-телеграф и опускающиеся когти — поверх босса
     if (this.lionSlams.length > 0) this.drawLionSlams()
     /* ЛАНА: длинные лапки с когтями — поверх босса и корзинки */
@@ -5624,6 +5851,30 @@ export class PopcornEngine {
         ctx.stroke()
         ctx.restore()
       }
+    }
+  }
+
+  /** СНЕЖКИ (v0.0.58): вращающееся зёрнышко со шлейфом скорости */
+  private drawSnowballs(): void {
+    const { ctx } = this
+    const u = this.u
+    for (const s of this.snowballs) {
+      const sp = Math.hypot(s.vx, s.vy) || 1
+      // ШЛЕЙФ: короткая белёсая полоска против вектора полёта
+      ctx.save()
+      ctx.globalAlpha = 0.42
+      ctx.strokeStyle = '#FFF6EC'
+      ctx.lineWidth = Math.max(2, 3.6 * u)
+      ctx.lineCap = 'round'
+      ctx.beginPath()
+      ctx.moveTo(s.x - (s.vx / sp) * 24 * u, s.y - (s.vy / sp) * 24 * u)
+      ctx.lineTo(s.x, s.y)
+      ctx.stroke()
+      ctx.restore()
+      // САМО ЗЁРНЫШКО: чуть крупнее полевого и крутится в полёте
+      drawSprite(ctx, this.sp.popcorn, s.x, s.y, 1.5 * this.popScale * u, {
+        rot: s.rot,
+      })
     }
   }
 
