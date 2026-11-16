@@ -132,7 +132,6 @@ function ensureTables(): Promise<void> {
   if (!ensurePromise) {
     ensurePromise = (async () => {
       for (const sql of POSTGRES_DDL) await db.$executeRawUnsafe(sql)
-      console.log('[leaders] ensureTables: таблицы Postgres готовы')
     })().catch((err) => {
       ensurePromise = null // разрешаем повторную попытку на следующем запросе
       throw err

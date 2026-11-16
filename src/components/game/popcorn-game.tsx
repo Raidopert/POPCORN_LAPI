@@ -1013,6 +1013,7 @@ function BindRow({
   custom,
   capturing,
   placeholder,
+  resetLabel,
   onPick,
   onReset,
 }: {
@@ -1023,6 +1024,8 @@ function BindRow({
   /** true — идёт захват («Нажмите клавишу…») */
   capturing: boolean
   placeholder: string
+  /** v0.0.64: настоящий a11y-лейбл для ✕ (сброс привязки), не голый глиф */
+  resetLabel: string
   onPick: () => void
   onReset: () => void
 }) {
@@ -1054,7 +1057,7 @@ function BindRow({
           <button
             type="button"
             onClick={onReset}
-            aria-label="✕"
+            aria-label={resetLabel}
             className="rounded-md px-1 py-1 font-pixel text-[10px] font-bold text-[#B33A26] transition hover:bg-[#ffe9df]"
           >
             ✕
@@ -4347,6 +4350,7 @@ function SettingsOverlay({
                           : DEFAULT_KEY_CODES[act].map(keyLabel).join(' / ')
                       }
                       custom={custom != null}
+                      resetLabel={t('set.kb.reset')}
                       capturing={capture !== null && capture.kind === 'kb' && capture.act === act}
                       placeholder={t('set.kb.press')}
                       onPick={() => setCapture({ kind: 'kb', act })}
@@ -4374,6 +4378,7 @@ function SettingsOverlay({
                       : padLabel(DEFAULT_PAD_ACTION)
                   }
                   custom={settings.padBtn.action != null}
+                  resetLabel={t('set.kb.reset')}
                   capturing={capture !== null && capture.kind === 'pad' && capture.act === 'action'}
                   placeholder={t('set.pad.press')}
                   onPick={() => setCapture({ kind: 'pad', act: 'action' })}
@@ -4382,9 +4387,12 @@ function SettingsOverlay({
                 <BindRow
                   label={t('set.pad.back')}
                   valueLabel={
-                    settings.padBtn.back != null ? padLabel(settings.padBtn.back) : 'Start / Back'
+                    settings.padBtn.back != null
+                      ? padLabel(settings.padBtn.back)
+                      : t('set.pad.backStd')
                   }
                   custom={settings.padBtn.back != null}
+                  resetLabel={t('set.kb.reset')}
                   capturing={capture !== null && capture.kind === 'pad' && capture.act === 'back'}
                   placeholder={t('set.pad.press')}
                   onPick={() => setCapture({ kind: 'pad', act: 'back' })}
@@ -4979,6 +4987,10 @@ export function PopcornGame() {
   const [settings, setSettings] = useSettings()
   const settingsRef = useRef(settings)
 
+  /* Функция перевода текущего языка (создаём ДО всех, кто в ней нуждается —
+     v0.0.64: дефолтный ник тоже идёт через i18n-ключ nick.default) */
+  const t = useMemo(() => tFor(settings.lang), [settings.lang])
+
   const [phase, setPhase] = useState<Phase>('start')
   /** Таймер «празднования» перед бонус-нарезкой: даём салюту програть */
   const slicerDelayRef = useRef<number | null>(null)
@@ -5183,7 +5195,7 @@ export function PopcornGame() {
     JSON.stringify({ capacity: 0, life: 0, startperk: 0, hearts: 0 }),
   )
   const [achRaw] = useStoredValue(ACH_KEY, '[]')
-  const [nameRaw, storeName] = useStoredValue(NAME_KEY, 'Котик')
+  const [nameRaw, storeName] = useStoredValue(NAME_KEY, t('nick.default'))
   const [nickSetRaw, storeNickSet] = useStoredValue(NICKSET_KEY, '0')
   /* Ф0-1: новичок играет сразу, ник спрашиваем ПОСЛЕ первого забега.
      playedOnce = у игрока уже есть хотя бы один забег за всё время.
@@ -5272,15 +5284,15 @@ export function PopcornGame() {
     }
   }, [leadersRaw])
 
-  /* Функция перевода текущего языка */
-  const t = useMemo(() => tFor(settings.lang), [settings.lang])
-
   /* Скрытые dev-параметры URL: ?fast=1 (короткая норма), ?perk=hover (гарантированный перк),
      ?fever=1 (лихорадка после каждого уровня — для проверки),
      ?poster=1 (плакатная перебивка после КАЖДОГО уровня — для проверки),
      ?mine=N (вариант звезды-мины 1..4 + полоса сравнения в углу),
-     ?lvl=N (старт забега с уровня N — QA кривых 20/30/100) */
+     ?lvl=N (старт забега с уровня N — QA кривых 20/30/100).
+     v0.0.64: РЕЛИЗ-БЛОКЕР закрыт — в production-сборке читы отключены
+     полностью (?lvl=999 больше не льёт рекорды в мировую таблицу) */
   useEffect(() => {
+    if (process.env.NODE_ENV === 'production') return
     const sp = new URLSearchParams(window.location.search)
     const mineRaw = parseInt(sp.get('mine') ?? '', 10)
     const mine =
@@ -6587,8 +6599,10 @@ export function PopcornGame() {
           storeBest(String(r.score))
           window.setTimeout(() => audio.play('record'), 700)
         }
-        /* Ник игрока — и в локальный список, и в мировую таблицу */
-        const nick = (window.localStorage.getItem(NAME_KEY) || 'Котик').trim() || 'Котик'
+        /* Ник игрока — и в локальный список, и в мировую таблицу.
+           v0.0.64: дефолт из i18n (nick.default), а не хардкод */
+        const defNick = tFor(settingsRef.current.lang)('nick.default')
+        const nick = (window.localStorage.getItem(NAME_KEY) || defNick).trim() || defNick
         /* Опыт уже зачислен по ходу забега (onStats) — здесь только список лидеров */
         const entry: LeaderEntry = { score: r.score, level: r.level, date: Date.now(), name: nick }
         let list: LeaderEntry[] = []
@@ -8910,7 +8924,7 @@ export function PopcornGame() {
           {nickEdit && (
             <NickDialog
               mode="edit"
-              current={nameRaw === 'Котик' ? '' : nameRaw}
+              current={nameRaw === t('nick.default') ? '' : nameRaw}
               t={t}
               onDone={handleNickDone}
               onClose={() => setNickEdit(false)}

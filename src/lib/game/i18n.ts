@@ -3306,6 +3306,9 @@ export const T: Record<string, Row> = {
     'el stick y la cruceta mueven la pata siempre · A/✕ y Start por defecto',
   ],
   'set.controlsReset': ['СБРОС УПРАВЛЕНИЯ', 'RESET CONTROLS', 'STEUERUNG ZURÜCKSETZEN', 'RESTABLECER CONTROLES'],
+  /* v0.0.64: a11y-лейбл ✕ у строки перепривязки + стандартная пара кнопок пада */
+  'set.kb.reset': ['СБРОС', 'RESET', 'ZURÜCKSETZEN', 'RESTABLECER'],
+  'set.pad.backStd': ['Start / Назад', 'Start / Back', 'Start / Zurück', 'Start / Atrás'],
 
   /* ---------- комнаты ---------- */
   'room.cinema.name': ['Кинозал', 'Cinema Hall', 'Kinosaal', 'Sala de Cine'],
