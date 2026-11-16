@@ -21,6 +21,8 @@ export interface LifeStats {
   fevers: number
   /** Забегов начато */
   runs: number
+  /** Уровней пройдено за всё время (v0.0.60: триггер пуша о поддержке каждые 20 уровней) */
+  levelsPassed: number
   /** Проклятий из сундучков взято */
   curse: number
   /** Бонусов из сундучков взято */
@@ -68,6 +70,7 @@ const DEFAULT_LIFE: LifeStats = {
   mines: 0,
   fevers: 0,
   runs: 0,
+  levelsPassed: 0,
   curse: 0,
   bonus: 0,
   nipples: 0,

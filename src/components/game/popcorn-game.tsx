@@ -245,18 +245,14 @@ const AUTHOR_EMAIL = 'raidopert@gmail.com'
 const AUTHOR_CARD = '2200 7020 0120 0364'
 /** Номер карты без пробелов — его кодирует QR-код и получает копирование */
 const AUTHOR_CARD_RAW = '2200702001200364'
+/** v0.0.60: пуш-напоминание о поддержке показываем раз в столько пройденных уровней */
+const SUPPORT_EVERY = 20
 
-/** Скопировать номер карты в буфер (с fallback для старых браузеров) */
+/** Скопировать номер карты в буфер (с fallback для старых браузеров).
+ *  v0.0.60: промис writeText подхватывается с .catch — раньше отказ в
+ *  разрешении на буфер оставлял необработанный rejection в консоли */
 function copyCardNumber(): void {
-  const done = () => {
-    try {
-      if (navigator.clipboard?.writeText) {
-        void navigator.clipboard.writeText(AUTHOR_CARD_RAW)
-        return
-      }
-    } catch {
-      /* переходим к fallback */
-    }
+  const fallback = (): void => {
     try {
       const ta = document.createElement('textarea')
       ta.value = AUTHOR_CARD_RAW
@@ -270,7 +266,16 @@ function copyCardNumber(): void {
       /* совсем без буфера — ничего не делаем */
     }
   }
-  done()
+  try {
+    const p = navigator.clipboard?.writeText(AUTHOR_CARD_RAW)
+    if (p && typeof p.then === 'function') {
+      p.catch(fallback)
+      return
+    }
+  } catch {
+    /* переходим к fallback */
+  }
+  fallback()
 }
 
 interface ResultState {
@@ -3631,6 +3636,108 @@ function CreatorsOverlay({ t, onClose }: { t: TranslateFn; onClose: () => void }
   )
 }
 
+/** v0.0.60: ПУШ-НАПОМИНАНИЕ О ПОДДЕРЖКЕ — показывается раз в SUPPORT_EVERY
+ *  пройденных уровней на аккаунте. Выезжает сверху, как push-уведомление:
+ *  картинка с котиками, текст «игра бесплатная благодаря вашей поддержке»,
+ *  номер карты МИР (тап — копирование) и большая кнопка ОК внизу. */
+function SupportPush({ t, onClose }: { t: TranslateFn; onClose: () => void }) {
+  const [copied, setCopied] = useState(false)
+  const copiedTimer = useRef<number | null>(null)
+
+  /** Тап по номеру карты: копируем и показываем подсказку */
+  const onDonateTap = useCallback(() => {
+    copyCardNumber()
+    audio.play('click')
+    setCopied(true)
+    if (copiedTimer.current) window.clearTimeout(copiedTimer.current)
+    copiedTimer.current = window.setTimeout(() => setCopied(false), 2600)
+  }, [])
+
+  useEffect(
+    () => () => {
+      if (copiedTimer.current) window.clearTimeout(copiedTimer.current)
+    },
+    [],
+  )
+
+  return (
+    <motion.div
+      className="absolute inset-0 z-[60] flex items-start justify-center overflow-y-auto bg-black/60 px-3 pb-4 pt-[max(1.25rem,env(safe-area-inset-top))] backdrop-blur-[2px]"
+      initial={{ opacity: 0 }}
+      animate={{ opacity: 1 }}
+      exit={{ opacity: 0, pointerEvents: 'none' }}
+      role="dialog"
+      aria-modal="true"
+      aria-label={t('support.pushTitle')}
+    >
+      <motion.div
+        className="w-full max-w-sm overflow-hidden rounded-3xl border-4 border-[#8a5330] bg-[#FFF6E6] shadow-[0_24px_60px_rgba(0,0,0,0.6)]"
+        initial={{ y: -160, scale: 0.96, opacity: 0 }}
+        animate={{ y: 0, scale: 1, opacity: 1 }}
+        exit={{ y: -120, opacity: 0, pointerEvents: 'none' }}
+        transition={{ type: 'spring', stiffness: 300, damping: 26 }}
+      >
+        {/* Шапка пуша: бренд — как заголовок системного уведомления */}
+        <div className="flex items-center justify-between bg-[#B33A26] px-4 py-1.5">
+          <span className="font-pixel text-[11px] font-bold tracking-wide text-amber-100">
+            🍿 POPCORN PAWS
+          </span>
+          <span aria-hidden className="text-xs">
+            🐾
+          </span>
+        </div>
+
+        <div className="px-4 pb-4 pt-3 text-center">
+          {/* Картинка с котиками (квадрат — без обрезки) */}
+          <img
+            src="/support-cats.png"
+            alt=""
+            aria-hidden
+            draggable={false}
+            className="mx-auto h-40 w-40 rounded-2xl border-2 border-[#e3cba4] object-cover shadow-md sm:h-44 sm:w-44"
+          />
+
+          <p className="mt-3 font-pixel text-sm font-bold leading-snug text-[#B33A26] sm:text-base">
+            {t('support.pushTitle')}
+          </p>
+          <p className="mt-1.5 font-ui text-xs font-medium leading-relaxed text-[#5C3A1E] sm:text-sm">
+            {t('support.pushBody')}
+          </p>
+
+          {/* Номер карты МИР: тап — копирование */}
+          <button
+            type="button"
+            onClick={onDonateTap}
+            aria-label={`${t('creators.card')}: ${AUTHOR_CARD}`}
+            className={`mt-3 inline-flex min-h-[44px] w-full items-center justify-center gap-2 rounded-xl px-3 py-2 font-ui font-bold transition active:scale-95 ${
+              copied
+                ? 'bg-emerald-500 text-white shadow-[0_2px_0_#047857]'
+                : 'bg-amber-100 text-[#5C3A1E] ring-2 ring-amber-300 hover:bg-amber-200'
+            }`}
+          >
+            <span aria-hidden className="text-base">
+              💳
+            </span>
+            <span className="font-mono text-base tracking-wider">{AUTHOR_CARD}</span>
+          </button>
+          <p
+            className={`mt-1 font-ui text-[11px] font-semibold ${copied ? 'text-emerald-600' : 'text-[#a97c50]'}`}
+            role="status"
+            aria-live="polite"
+          >
+            {copied ? t('creators.copied') : t('support.tapCopy')}
+          </p>
+
+          {/* Кнопка ОК — единственный способ закрыть пуш */}
+          <div className="mt-3">
+            <GameButton onClick={onClose}>{t('support.ok')}</GameButton>
+          </div>
+        </div>
+      </motion.div>
+    </motion.div>
+  )
+}
+
 /** Экран «Достижения»: медали за игровые подвиги */
 function AchievementsOverlay({
   unlocked,
@@ -4572,6 +4679,8 @@ export function PopcornGame() {
   const muted = mutedRaw === '1'
   const [result, setResult] = useState<ResultState | null>(null)
   const [clearInfo, setClearInfo] = useState<ClearState | null>(null)
+  /* v0.0.60: пуш-напоминание о поддержке (каждые SUPPORT_EVERY пройденных уровней) */
+  const [supportPush, setSupportPush] = useState(false)
   /** ПЛАКАТНАЯ ПЕРЕБИВКА: каждые 5 уровней после победы показываем
       трудовой плакат Наны. mode: 'normal' — дальше нарезка и сундучок,
       'fever' — сразу Лихорадка (перебивка врезается до ветки Fever,
@@ -5872,6 +5981,13 @@ export function PopcornGame() {
         checkLifeAch()
       },
       onLevelComplete: (r) => {
+        /* v0.0.60: PUSH-НАПОМИНАНИЕ о поддержке — раз в 20 пройденных уровней
+           на аккаунте (пожизненный счётчик). Выезжает пуш-карточкой поверх
+           любых оверлеев, закрывается кнопкой ОК */
+        const lifeNow = addLife({ levelsPassed: 1 })
+        if (lifeNow.levelsPassed > 0 && lifeNow.levelsPassed % SUPPORT_EVERY === 0) {
+          setSupportPush(true)
+        }
         /* Куница NANA: уровень пройден — +1 к росту (плюс накопленные секунды) */
         growMarten(1, playSecsRef.current)
         playSecsRef.current = 0
@@ -8253,6 +8369,11 @@ export function PopcornGame() {
               onClose={() => setOverlay(null)}
             />
           )}
+        </AnimatePresence>
+
+        {/* v0.0.60: ПУШ о поддержке — поверх всех оверлеев (z-60), закрывается только ОК */}
+        <AnimatePresence>
+          {supportPush && <SupportPush t={t} onClose={() => setSupportPush(false)} />}
         </AnimatePresence>
 
         {/* Куница: путешествие, лавка и рынок — поверх меню (отдельный AnimatePresence,

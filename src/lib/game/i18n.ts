@@ -2673,6 +2673,27 @@ export const T: Record<string, Row> = {
     'Cada donación significa una nueva sala para los gatos 🐾',
   ],
 
+  /* ---------- пуш-напоминание о поддержке (v0.0.60, каждые 20 уровней) ---------- */
+  'support.pushTitle': [
+    'Игра бесплатная ТОЛЬКО благодаря вашей поддержке!',
+    'The game is free ONLY thanks to your support!',
+    'Das Spiel ist kostenlos NUR dank eurer Unterstützung!',
+    'El juego es gratis SOLO gracias a vuestro apoyo',
+  ],
+  'support.pushBody': [
+    'Кошки будут сыты, а новый контент — ещё качественнее! Переведи на карту, сколько не жалко 🧡',
+    'The cats stay fed and the new content gets even better! Send any amount to the card 🧡',
+    'Die Katzen bleiben satt und der neue Inhalt wird noch besser! Zahle einen beliebigen Betrag auf die Karte 🧡',
+    '¡Los gatos estarán alimentados y el nuevo contenido será aún mejor! Envía lo que quieras a la tarjeta 🧡',
+  ],
+  'support.tapCopy': [
+    'Тапни по номеру — он скопируется',
+    'Tap the number to copy it',
+    'Tippe auf die Nummer, um sie zu kopieren',
+    'Toca el número para copiarlo',
+  ],
+  'support.ok': ['ОК', 'OK', 'OK', 'OK'],
+
   /* ---------- куница в меню ---------- */
   'marten.aria': [
     'Живая куница NANA играет с попкорном в своей комнате',
