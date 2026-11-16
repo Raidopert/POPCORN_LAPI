@@ -69,6 +69,14 @@ export const T: Record<string, Row> = {
     '🎖 ¡Nivel {{n}}! Desbloqueado: {{list}} · +1 punto del árbol',
   ],
   'menu.play': ['▶ ИГРАТЬ', '▶ PLAY', '▶ SPIELEN', '▶ JUGAR'],
+  /* v0.0.59: продолжение прерванного забега из снапшота ({{n}} уровень,
+     {{s}} очков, {{h}} сердечек) */
+  'menu.resume': [
+    '⏩ ПРОДОЛЖИТЬ · УР.{{n}} · {{s}} · ♥{{h}}',
+    '⏩ RESUME · LVL {{n}} · {{s}} · ♥{{h}}',
+    '⏩ WEITER · LVL {{n}} · {{s}} · ♥{{h}}',
+    '⏩ SEGUIR · NIV {{n}} · {{s}} · ♥{{h}}',
+  ],
   'menu.rules': ['ПРАВИЛА', 'RULES', 'REGELN', 'REGLAS'],
   'menu.leaders': ['ЛИДЕРЫ', 'RANKING', 'BESTEN', 'RÉCORDS'],
   'menu.paws': ['ЛАПКИ', 'PAWS', 'PFOTEN', 'PATITAS'],
@@ -2246,6 +2254,8 @@ export const T: Record<string, Row> = {
   'slicer.swipes': ['взмахов: {{n}}', 'slices: {{n}}', 'Schnitte: {{n}}', 'cortes: {{n}}'],
   'slicer.maxcombo': ['макс. комбо ×{{n}}', 'best combo ×{{n}}', 'bestes Combo ×{{n}}', 'mejor combo ×{{n}}'],
   'slicer.take': ['ЗАБРАТЬ 🎁', 'TAKE IT 🎁', 'HOLEN 🎁', '¡RECOGER 🎁!'],
+  /* v0.0.59: пропуск этапа нарезки — очки уже набранные засчитываются */
+  'slicer.skip': ['ПРОПУСТИТЬ ▶', 'SKIP ▶', 'ÜBERSPRINGEN ▶', 'OMITIR ▶'],
   'slicer.reward': [
     'Награда: +{{n}} 🪙',
     'Reward: +{{n}} 🪙',
@@ -2329,6 +2339,13 @@ export const T: Record<string, Row> = {
     '⏹ FIN DEL JUEGO — victoria (la exp se guarda)',
   ],
   'quit.short': ['⏹ КОНЕЦ ИГРЫ', '⏹ END GAME', '⏹ SPIELENDE', '⏹ FIN DEL JUEGO'],
+  /* v0.0.59: двухтапное подтверждение завершения забега в HUD */
+  'quit.confirm': [
+    '⏹ ТОЧНО ЗАВЕРШИТЬ?',
+    '⏹ SURE FINISH?',
+    '⏹ WIRKLICH BEENDEN?',
+    '⏹ ¿SEGURO QUE SÍ?',
+  ],
   'quit.pauseMenu': [
     '⏹ КОНЕЦ ИГРЫ — ПОБЕДА',
     '⏹ END GAME — WIN',
@@ -3089,6 +3106,19 @@ export const T: Record<string, Row> = {
   ],
   'set.save.export': ['ЭКСПОРТ КОДА', 'EXPORT CODE', 'CODE EXPORTIEREN', 'EXPORTAR CÓDIGO'],
   'set.save.import': ['ВОССТАНОВИТЬ', 'RESTORE', 'WIEDERHERSTELLEN', 'RESTAURAR'],
+  /* v0.0.59: двухтапный импорт — второй тап подтверждает замену прогресса */
+  'set.save.importConfirm': [
+    'ТОЧНО ЗАМЕНИТЬ?',
+    'SURE OVERWRITE?',
+    'WIRKLICH ERSETZEN?',
+    '¿SEGURO QUE SÍ?',
+  ],
+  'set.save.warnOverwrite': [
+    'ВНИМАНИЕ: весь текущий прогресс будет заменён! Нажми ещё раз для подтверждения.',
+    'WARNING: all current progress will be replaced! Tap again to confirm.',
+    'ACHTUNG: der ganze Fortschritt wird ersetzt! Zum Bestätigen nochmal tippen.',
+    'ATENCIÓN: ¡todo el progreso actual será reemplazado! Toca de nuevo para confirmar.',
+  ],
   'set.save.copy': ['Скопировать заново', 'Copy again', 'Erneut kopieren', 'Copiar de nuevo'],
   'set.save.codeAria': ['Код сохранения', 'Save code', 'Spielstand-Code', 'Código de guardado'],
   'set.save.placeholder': [

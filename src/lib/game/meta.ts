@@ -63,7 +63,6 @@ let xpMigrated = false
 
 export function migrateXpBank(): void {
   if (xpMigrated || typeof window === 'undefined') return
-  xpMigrated = true
   try {
     /* --- разовая миграция v0.0.27: экономика стала строже — цены апгрейдов
         ×3 и крутее кривая уровня. Старые запасы (заработанные ещё в мягкой
@@ -89,15 +88,21 @@ export function migrateXpBank(): void {
       window.localStorage.setItem(COINS_KEY, String(Math.floor(v / 10)))
       window.dispatchEvent(new Event(STORE_EVENT))
     }
-    if (window.localStorage.getItem(XP_MIG_KEY) === '1') return
+    if (window.localStorage.getItem(XP_MIG_KEY) === '1') {
+      xpMigrated = true
+      return
+    }
     window.localStorage.setItem(XP_MIG_KEY, '1')
     for (const key of [TOTAL_KEY, XP_BANK_KEY]) {
       const v = Math.max(0, Math.floor(Number(window.localStorage.getItem(key)) || 0))
       window.localStorage.setItem(key, String(Math.floor(v / 10)))
     }
     window.dispatchEvent(new Event(STORE_EVENT))
+    /* v0.0.59: флаг «миграция выполнена» ставится только ПОСЛЕ успеха —
+       раньше исключение в приватном режиме молча поднимал его навсегда */
+    xpMigrated = true
   } catch {
-    /* приватный режим — не беда */
+    /* приватный режим — не беда; миграция повторится при следующем вызове */
   }
 }
 
@@ -113,7 +118,7 @@ export function addTotalXp(delta: number): void {
 }
 
 /** Опыт, нужный для перехода с уровня на следующий: 1100, 1190, 1331…
-    v0.0.27 — кривая круче: 1100 + 90×(l−1)^1.6. Полное древо (~89 очков)
+    v0.0.27 — кривая круче: 1100 + 90×(l−1)^1.6. Полное древо (98 очков, 27 узлов)
     — путь на недели регулярных забегов, а не один удачный вечер:
     на 89-й уровень нужно ≈ 4 000 000 суммарного опыта */
 export function needForLevel(level: number): number {

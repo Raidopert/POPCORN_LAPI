@@ -346,6 +346,50 @@ const NAME_KEY = 'popcorn-name'
 const NICKSET_KEY = 'popcorn-nick-set'
 /** Ф0-2: флаг «туториал первого забега показан» — не повторяем опыт */
 const TUT_DONE_KEY = 'popcorn-tut-done'
+/** v0.0.59: снапшот незавершённого забега — вкладка закрылась посреди боя,
+    меню предложит «ПРОДОЛЖИТЬ ЗАБЕГ» с сохранённым счётом/уровнем/сердечками */
+const RUN_SNAP_KEY = 'popcorn-run-snap'
+/** Снапшот забега: минимум для продолжения; текущий уровень начинается заново */
+interface RunSnap {
+  score: number
+  lvl: number
+  hearts: number
+  ts: number
+}
+
+/* v0.0.59: снапшот как внешний стор — getSnapshot обязан возвращать
+   стабильную ссылку, поэтому кэшируем на уровне модуля */
+let runSnapCache: RunSnap | null | undefined = undefined
+
+function readRunSnap(): RunSnap | null {
+  if (runSnapCache !== undefined) return runSnapCache
+  try {
+    const raw = window.localStorage.getItem(RUN_SNAP_KEY)
+    if (raw) {
+      const snap = JSON.parse(raw) as RunSnap
+      if (snap && snap.lvl >= 1 && Date.now() - snap.ts < 6 * 60 * 60 * 1000) {
+        runSnapCache = snap
+        return snap
+      }
+      window.localStorage.removeItem(RUN_SNAP_KEY)
+    }
+  } catch {
+    /* битый снапшот — тихо забываем */
+  }
+  runSnapCache = null
+  return null
+}
+
+/** Сбросить снапшот забега (забег закончился / начался новый) */
+function clearRunSnap(): void {
+  try {
+    window.localStorage.removeItem(RUN_SNAP_KEY)
+  } catch {
+    /* пусто */
+  }
+  runSnapCache = undefined
+  window.dispatchEvent(new Event(STORE_EVENT))
+}
 /** Ф0-2: ключи подсказок туториала по шагам 1..5 */
 const TUT_KEYS = ['tut.1', 'tut.2', 'tut.3', 'tut.4', 'tut.5'] as const
 /** Анонимный id устройства для мирового лидерборда (ник — не идентификатор) */
@@ -400,7 +444,13 @@ function useStoredValue(key: string, fallback: string): [string, (v: string) => 
   )
   const setValue = useCallback(
     (v: string) => {
-      window.localStorage.setItem(key, v)
+      /* v0.0.59: приватный режим браузера кидает QuotaExceeded — раньше ронял
+         колбэк движка, теперь пишем в память молча */
+      try {
+        window.localStorage.setItem(key, v)
+      } catch {
+        /* приватный режим — не беда */
+      }
       window.dispatchEvent(new Event(STORE_EVENT))
     },
     [key],
@@ -468,7 +518,9 @@ function IconBtn({
   size?: 'md' | 'sm'
   children: React.ReactNode
 }) {
-  const dim = size === 'sm' ? 'h-9 w-9' : 'h-11 w-11'
+  /* v0.0.59: «sm» тоже 44px — тач-цель рекомендаций WCAG; раньше пауза/звук
+     в HUD были 36px и промахивались на ходу */
+  const dim = size === 'sm' ? 'h-11 w-11' : 'h-11 w-11'
   return (
     <button
       type="button"
@@ -589,6 +641,7 @@ function MenuBackdrop() {
 function MartenIdleEmotes({ away }: { away: boolean }) {
   const [emotes, setEmotes] = useState<{ id: number; emoji: string; left: number; big: boolean }[]>([])
   const seqRef = useRef(0)
+  const timeoutsRef = useRef<number[]>([])
   useEffect(() => {
     if (away) return // в походе комната пустая — эмоции не спавним
     const spawn = window.setInterval(() => {
@@ -599,11 +652,19 @@ function MartenIdleEmotes({ away }: { away: boolean }) {
         ...cur.slice(-2),
         { id, emoji, left: 16 + Math.random() * 60, big: Math.random() < 0.35 },
       ])
-      window.setTimeout(() => {
-        setEmotes((cur) => cur.filter((e) => e.id !== id))
-      }, 2600)
+      /* v0.0.59: таймер удаления копится в ref и чистится на unmount —
+         раньше setState улетал в размонтированное дерево */
+      timeoutsRef.current.push(
+        window.setTimeout(() => {
+          setEmotes((cur) => cur.filter((e) => e.id !== id))
+        }, 2600),
+      )
     }, 3600)
-    return () => window.clearInterval(spawn)
+    return () => {
+      window.clearInterval(spawn)
+      for (const t of timeoutsRef.current) window.clearTimeout(t)
+      timeoutsRef.current = []
+    }
   }, [away])
   return (
     <div aria-hidden className="pointer-events-none absolute inset-0 z-[5] overflow-hidden">
@@ -862,13 +923,20 @@ function Seg({
   onPick: (v: string) => void
 }) {
   return (
-    <div className="grid gap-1 rounded-xl bg-[#f3e2c8] p-1" style={{ gridTemplateColumns: `repeat(${options.length}, minmax(0, 1fr))` }}>
+    /* v0.0.59: ARIA-роли — скринридер объявляет выбранный вариант */
+    <div
+      role="radiogroup"
+      className="grid gap-1 rounded-xl bg-[#f3e2c8] p-1"
+      style={{ gridTemplateColumns: `repeat(${options.length}, minmax(0, 1fr))` }}
+    >
       {options.map((o) => (
         <button
           key={o.v}
           type="button"
+          role="radio"
+          aria-checked={cur === o.v}
           onClick={() => onPick(o.v)}
-          className={`rounded-lg px-1.5 py-1.5 font-pixel text-[11px] font-bold transition ${
+          className={`min-h-9 rounded-lg px-1.5 py-1.5 font-pixel text-[11px] font-bold transition ${
             cur === o.v
               ? 'bg-[#E24B3B] text-white shadow-[0_2px_0_#9c2f22]'
               : 'text-[#8a5330] hover:bg-[#eed7b4]'
@@ -905,13 +973,14 @@ function ToggleRow({
         aria-checked={value}
         aria-label={label}
         onClick={() => onChange(!value)}
-        className={`relative h-7 w-12 shrink-0 rounded-full border-2 transition ${
+        /* v0.0.59: увеличенная тач-зона — сам тумблер остался компактным */
+        className={`relative h-9 w-14 shrink-0 rounded-full border-2 transition ${
           value ? 'border-[#9c2f22] bg-[#E24B3B]' : 'border-[#c9a97a] bg-[#e3cba4]'
         }`}
       >
         <span
-          className={`absolute top-0.5 h-4.5 w-4.5 rounded-full bg-white shadow transition-all ${
-            value ? 'left-[1.4rem]' : 'left-0.5'
+          className={`absolute top-1.5 h-4.5 w-4.5 rounded-full bg-white shadow transition-all ${
+            value ? 'left-[1.65rem]' : 'left-1'
           }`}
           style={{ height: 18, width: 18 }}
         />
@@ -1857,6 +1926,15 @@ function InventoryOverlay({
     noteTimer.current = window.setTimeout(() => setNote(null), 2200)
   }, [])
 
+  /* v0.0.59: таймеры заметки и подтверждения страницы чистятся при закрытии
+     оверлея — как в TreeOverlay и CreatorsOverlay, а раньше висели */
+  useEffect(() => {
+    return () => {
+      if (noteTimer.current) window.clearTimeout(noteTimer.current)
+      if (pageArmTimer.current) window.clearTimeout(pageArmTimer.current)
+    }
+  }, [])
+
   /* Открыли инвентарь — весь текущий лут считается увиденным (NEW-гашение) */
   useEffect(() => {
     markInventoryOpened()
@@ -2124,7 +2202,7 @@ function InventoryOverlay({
               type="button"
               onClick={() => setPage(0)}
               aria-label={`${t('inv.grid')} 1`}
-              className={`h-5 min-w-5 rounded-md border-2 px-1 font-pixel text-[9px] font-bold leading-none transition active:scale-95 ${
+              className={`h-8 min-w-8 rounded-md border-2 px-2 font-pixel text-[10px] font-bold leading-none transition active:scale-95 ${
                 showPage === 0
                   ? 'border-[#B33A26] bg-[#B33A26] text-white'
                   : 'border-[#d9c6a8] bg-[#fdf3e0] text-[#8a5330]'
@@ -2151,7 +2229,7 @@ function InventoryOverlay({
               }}
               aria-label={inv.page2 ? t('inv.page2Title') : t('inv.page2Buy', { n: PAGE2_PRICE })}
               title={inv.page2 ? t('inv.page2Title') : t('inv.page2Buy', { n: PAGE2_PRICE })}
-              className={`h-5 rounded-md border-2 px-1 font-pixel text-[9px] font-bold leading-none transition active:scale-95 ${
+              className={`h-8 min-w-8 rounded-md border-2 px-2 font-pixel text-[10px] font-bold leading-none transition active:scale-95 ${
                 inv.page2
                   ? showPage === 1
                     ? 'border-[#B33A26] bg-[#B33A26] text-white'
@@ -3674,6 +3752,10 @@ function SettingsOverlay({
   const [saveCode, setSaveCode] = useState('')
   const [importDraft, setImportDraft] = useState('')
   const [saveNote, setSaveNote] = useState<{ ok: boolean; msg: string } | null>(null)
+  /* v0.0.59: импорт сейва — в два тапа: первый предупреждает, что весь
+     текущий прогресс будет ЗАМЕНЁН, второй выполняет */
+  const [importArm, setImportArm] = useState(false)
+  const importArmTimer = useRef<number | null>(null)
 
   const doExport = () => {
     try {
@@ -3690,12 +3772,24 @@ function SettingsOverlay({
     setSaveNote({ ok: true, msg: t('set.save.exported') })
   }
   const doImport = () => {
+    if (!importArm) {
+      setImportArm(true)
+      setSaveNote({ ok: false, msg: t('set.save.warnOverwrite') })
+      if (importArmTimer.current !== null) window.clearTimeout(importArmTimer.current)
+      importArmTimer.current = window.setTimeout(() => setImportArm(false), 6000)
+      return
+    }
+    if (importArmTimer.current !== null) {
+      window.clearTimeout(importArmTimer.current)
+      importArmTimer.current = null
+    }
     try {
       if (importSaveCode(importDraft) < 0) throw new Error('bad')
       setSaveNote({ ok: true, msg: t('set.save.imported') })
       window.setTimeout(() => window.location.reload(), 1300)
     } catch {
       setSaveNote({ ok: false, msg: t('set.save.badcode') })
+      setImportArm(false)
     }
   }
   const [best] = useState(() => Number(window.localStorage.getItem(BEST_KEY) ?? 0))
@@ -3934,9 +4028,11 @@ function SettingsOverlay({
                 value={settings.volumeSfx}
                 onChange={(e) => {
                   set({ volumeSfx: Number(e.target.value) })
-                  // мгновенный отклик: пробный «клик» при изменении громкости звуков
-                  audio.play('tick')
                 }}
+                /* v0.0.59: пробный «тик» играется на ОТПУСКАНИИ ползунка, а не
+                   на каждый кадр перетаскивания — раньше было 60 звуков/с */
+                onPointerUp={() => audio.play('tick')}
+                onKeyUp={() => audio.play('tick')}
                 className="mt-1 w-full accent-[#E24B3B]"
                 aria-label={t('set.sfx')}
               />
@@ -4045,9 +4141,13 @@ function SettingsOverlay({
                 type="button"
                 onClick={doImport}
                 disabled={importDraft.trim().length < 20}
-                className="rounded-xl border-2 border-[#e3cba4] bg-[#fdf3e0] px-3 py-2.5 font-pixel text-[11px] font-bold text-[#5C3A1E] transition enabled:hover:border-[#E24B3B] enabled:active:scale-[0.98] disabled:opacity-50"
+                className={
+                  importArm
+                    ? 'rounded-xl border-2 border-[#E24B3B] bg-[#fbe3dd] px-3 py-2.5 font-pixel text-[11px] font-bold text-[#B33A26] transition active:scale-[0.98]'
+                    : 'rounded-xl border-2 border-[#e3cba4] bg-[#fdf3e0] px-3 py-2.5 font-pixel text-[11px] font-bold text-[#5C3A1E] transition enabled:hover:border-[#E24B3B] enabled:active:scale-[0.98] disabled:opacity-50'
+                }
               >
-                ⬆ {t('set.save.import')}
+                ⬆ {importArm ? t('set.save.importConfirm') : t('set.save.import')}
               </button>
             </div>
             <textarea
@@ -4538,6 +4638,8 @@ export function PopcornGame() {
     comboHold: 0,
     stepAt: 0,
   })
+  /** v0.0.59: слушатель «первого движения лапки» туториала — чистится при выходе */
+  const tutMoveRef = useRef<((e: PointerEvent) => void) | null>(null)
   /** Номер волны, для которой тост уже показан — не перезапускаем анимацию */
   const waveShownRef = useRef(0)
   /** Таймер скрытия тоста волны: гасим при новой волне, чтобы не мигало */
@@ -4573,6 +4675,16 @@ export function PopcornGame() {
   const runStartRef = useRef(0)
   /** Серверный забег мирового лидерборда: HMAC-токен для защищённого submit */
   const runTokenRef = useRef<{ runId: string; token: string; startedAt: number } | null>(null)
+  /** v0.0.59: промис выдачи токена — submit быстрого забега дождётся ответа
+      /api/leaders/start, а не уйдёт с пустым runId */
+  const runTokenPromiseRef = useRef<Promise<void> | null>(null)
+  /** v0.0.59: снапшот забега для «ПРОДОЛЖИТЬ ЗАБЕГ» в меню (или null).
+      Внешний стор: hydration-безопасно, обновляется через STORE_EVENT */
+  const resumeOffer = useSyncExternalStore(subscribeStore, readRunSnap, () => null)
+  /** v0.0.59: двухтапное подтверждение «КОНЕЦ ИГРЫ» в HUD — случайный тап
+      больше не завершает забег и не отправляет рекорд в мировую таблицу */
+  const [endArm, setEndArm] = useState(false)
+  const endArmTimerRef = useRef<number | null>(null)
 
   /* Мета-прогресс: опыт, магазин лапок, апгрейды, ачивки, лидеры, имя */
   const [xpRaw, storeXp] = useStoredValue(XP_KEY, '0')
@@ -5259,8 +5371,9 @@ export function PopcornGame() {
     /* НОВЫЕ МЕХАНИКИ 0.0.31: босс «МАЛЫШ», большие попкорнины, сорта нарезки */
     if (L.bigGrape >= 5) cand.push('bigGrape5')
     if (L.bossKills >= 5) cand.push('boss5life')
-    /* v0.0.34: МАЛЫШ (bossKills) и ЛАНА побеждены за один забег (лев в запасе) */
-    if (L.bossKills >= 1 && L.bossMartenKills >= 1) cand.push('menagerie')
+    /* v0.0.34: МАЛЫШ (bossKills) и ЛАНА побеждены за один забег (лев в запасе).
+       v0.0.59: проверка переехала в onStats — по счётчикам ТЕКУЩЕГО забега,
+       раньше медаль открывалась и при победах в разных забегах */
     if (L.sliceCaramel > 0 && L.sliceCherry > 0 && L.sliceGrape > 0) cand.push('sliceAll3')
     if (L.runs >= 10) cand.push('runs10')
     if (L.runs >= 25) cand.push('runs25')
@@ -5303,35 +5416,41 @@ export function PopcornGame() {
     const gain = Math.floor(delta / XP_PER_SCORE)
     if (gain <= 0) return
     runXpGainRef.current += gain
-    const cur = Math.max(0, Number(window.localStorage.getItem(XP_KEY) ?? 0) || 0)
-    const next = Math.max(0, Math.floor(cur + gain))
-    window.localStorage.setItem(XP_KEY, String(next))
-    const tot = Math.max(0, Number(window.localStorage.getItem(TOTAL_KEY) ?? 0) || 0)
-    window.localStorage.setItem(TOTAL_KEY, String(Math.floor(tot + gain)))
-    /* v0.0.33: уровень может вырасти ПРЯМО ЗАБЕГОМ (очки = опыт) —
-       тост с плодами роста не ждёт конца этапа. Дубликат исключён:
-       awardStage сравнивает уровни на момент своей работы */
-    const lvlBefore = charLevel(tot)
-    const lvlAfter = charLevel(tot + gain)
-    if (lvlAfter > lvlBefore) {
-      const show = () => {
-        const unlocks = unlockNamesForRange(lvlBefore, lvlAfter).map((u) =>
-          tFor(settingsRef.current.lang)(u.nameKey),
-        )
-        charToastRef.current = { lvl: lvlAfter, unlocks }
-        setCharToast(lvlAfter)
-        audio.play('record')
-        setCharToastUnlocks(unlocks)
-        window.clearTimeout(lvlToastTimerRef.current ?? undefined)
-        lvlToastTimerRef.current = window.setTimeout(() => {
-          charToastRef.current = null
-          setCharToast(null)
-          setCharToastUnlocks([])
-        }, 3400)
+    /* v0.0.59: запись в localStorage подстрахована — в приватном режиме
+       QuotaExceeded раньше ронял колбэк onStats (кадр статистики) */
+    try {
+      const cur = Math.max(0, Number(window.localStorage.getItem(XP_KEY) ?? 0) || 0)
+      const next = Math.max(0, Math.floor(cur + gain))
+      window.localStorage.setItem(XP_KEY, String(next))
+      const tot = Math.max(0, Number(window.localStorage.getItem(TOTAL_KEY) ?? 0) || 0)
+      window.localStorage.setItem(TOTAL_KEY, String(Math.floor(tot + gain)))
+      /* v0.0.33: уровень может вырасти ПРЯМО ЗАБЕГОМ (очки = опыт) —
+         тост с плодами роста не ждёт конца этапа. Дубликат исключён:
+         awardStage сравнивает уровни на момент своей работы */
+      const lvlBefore = charLevel(tot)
+      const lvlAfter = charLevel(tot + gain)
+      if (lvlAfter > lvlBefore) {
+        const show = () => {
+          const unlocks = unlockNamesForRange(lvlBefore, lvlAfter).map((u) =>
+            tFor(settingsRef.current.lang)(u.nameKey),
+          )
+          charToastRef.current = { lvl: lvlAfter, unlocks }
+          setCharToast(lvlAfter)
+          audio.play('record')
+          setCharToastUnlocks(unlocks)
+          window.clearTimeout(lvlToastTimerRef.current ?? undefined)
+          lvlToastTimerRef.current = window.setTimeout(() => {
+            charToastRef.current = null
+            setCharToast(null)
+            setCharToastUnlocks([])
+          }, 3400)
+        }
+        /* 0.0.49: открыто босс-интро — тост в очередь до кнопки «В БОЙ!» */
+        if (bossIntroRef.current) pendingToastsRef.current.push(show)
+        else show()
       }
-      /* 0.0.49: открыто босс-интро — тост в очередь до кнопки «В БОЙ!» */
-      if (bossIntroRef.current) pendingToastsRef.current.push(show)
-      else show()
+    } catch {
+      /* приватный режим — опыт досчитается позже */
     }
     window.dispatchEvent(new Event(STORE_EVENT))
   }, [])
@@ -5473,13 +5592,59 @@ export function PopcornGame() {
     }
   }, [])
 
+  /* v0.0.59: ЖИВЫЕ ссылки на колбэки движка. Эффект создания движка больше
+     НЕ зависит от колбэков (а те зависят от языка и сторов): смена языка
+     в настройках и любые ререндеры больше не пересоздают PopcornEngine
+     и не убивают текущий забег. Обёртки внутри эффекта всегда зовут
+     свежую версию колбэка через ref */
+  type StoreBestFn = typeof storeBest
+  type AddXpDeltaFn = typeof addXpDelta
+  type AnnounceAchFn = typeof announceAch
+  type CheckLifeAchFn = typeof checkLifeAch
+  type RollExtrasFn = typeof rollExtras
+  type RollOffersFn = typeof rollOffers
+  type GrowMartenFn = typeof growMarten
+  type AwardStageFn = typeof awardStage
+  type GrantMartenXpFn = typeof grantMartenXp
+  const engCbsRef = useRef<{
+    storeBest: StoreBestFn
+    addXpDelta: AddXpDeltaFn
+    announceAch: AnnounceAchFn
+    checkLifeAch: CheckLifeAchFn
+    rollExtras: RollExtrasFn
+    rollOffers: RollOffersFn
+    growMarten: GrowMartenFn
+    awardStage: AwardStageFn
+    grantMartenXp: GrantMartenXpFn
+  }>({ storeBest, addXpDelta, announceAch, checkLifeAch, rollExtras, rollOffers, growMarten, awardStage, grantMartenXp })
+  /* Актуальные колбэки — после каждого рендера (эффекты идут по порядку
+     объявления: этот раньше эффекта создания движка) */
+  useEffect(() => {
+    engCbsRef.current = { storeBest, addXpDelta, announceAch, checkLifeAch, rollExtras, rollOffers, growMarten, awardStage, grantMartenXp }
+  })
+  /* Последний срез статистики движка: нужен снапшоту забега на pagehide */
+  const statsRef = useRef<EngineStats | null>(null)
+
   /* Инициализация движка */
   useEffect(() => {
     const canvas = canvasRef.current
     if (!canvas) return
 
+    /* v0.0.59: обёртки-форвардеры — вызов уходит в ref, поэтому движок всегда
+       зовёт АКТУАЛЬНЫЕ колбэки, а сам эффект зависимостей не имеет */
+    const storeBest: StoreBestFn = (...a) => engCbsRef.current.storeBest(...a)
+    const addXpDelta: AddXpDeltaFn = (...a) => engCbsRef.current.addXpDelta(...a)
+    const announceAch: AnnounceAchFn = (...a) => engCbsRef.current.announceAch(...a)
+    const checkLifeAch: CheckLifeAchFn = () => engCbsRef.current.checkLifeAch()
+    const rollExtras: RollExtrasFn = (...a) => engCbsRef.current.rollExtras(...a)
+    const rollOffers: RollOffersFn = (...a) => engCbsRef.current.rollOffers(...a)
+    const growMarten: GrowMartenFn = (...a) => engCbsRef.current.growMarten(...a)
+    const awardStage: AwardStageFn = (...a) => engCbsRef.current.awardStage(...a)
+    const grantMartenXp: GrantMartenXpFn = (...a) => engCbsRef.current.grantMartenXp(...a)
+
     const engine = new PopcornEngine(canvas, {
       onStats: (s) => {
+        statsRef.current = s // v0.0.59: свежий срез — для снапшота забега
         setStats(s)
         /* Ф0-2: машина туториала — дешёвая, только на тиках статистики */
         if (tutRef.current.active && !s.paused) {
@@ -5672,6 +5837,9 @@ export function PopcornGame() {
           if (dMarten > 0) announceAch(['marten1'])
           if (dPigeon > 0) announceAch(['pigeonBoss1'])
           if (dGypsy > 0) announceAch(['gypsyBoss1'])
+          /* v0.0.59: «Фильм про зверей» — МАЛЫШ и ЛАНА за ОДИН забег
+             (по счётчикам текущего забега, как обещает описание) */
+          if (s.bossKidKills >= 1 && s.bossMartenKills >= 1) announceAch(['menagerie'])
           addLife({
             bossKills: s.bossKills - prevBossKillsRef.current,
             bossLionKills: dLion,
@@ -5805,7 +5973,13 @@ export function PopcornGame() {
            ЭКОНОМИКА 0.0.31: курс gained/4 вместо /3, минимум 50.
            Артефакт «Копилка-хрюшка» добавляет +25% */
         if (r.success) {
-          const coins = Math.max(50, Math.round((r.gained / 4) * marketRef.current.coinGift))
+          /* v0.0.59: «Монетный магнит» (+10%/ступень) теперь умножает и монеты
+             ЛИХОРАДКИ — как обещает его описание («с этапов, сундучков и
+             лихорадки») и древо «Монетный дождь» */
+          const coins = Math.max(
+            50,
+            Math.round((r.gained / 4) * (1 + (treeRef.current.coinsAdd ?? 0)) * marketRef.current.coinGift),
+          )
           addCoins(coins)
           setFeverCoins(coins)
           window.setTimeout(() => setFeverCoins(null), 3200)
@@ -5946,32 +6120,39 @@ export function PopcornGame() {
         /* Мировая таблица: отправляем только финальный забег.
            Защита: device + HMAC-токен забега (runId выдаётся сервером при старте) */
         if (!canRevive) {
-          const tok = runTokenRef.current
-          runTokenRef.current = null
-          void fetch('/api/leaders', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({
-              device: getDeviceId(),
-              name: nick,
-              score: r.score,
-              level: r.level,
-              secs: runSecs,
-              runId: tok?.runId ?? '',
-              token: tok?.token ?? '',
-            }),
-          })
-            .then((res) => {
-              /* Отказ сервера (битый токен, rate-limit, потолок очков)
-                 больше не глотается молча — игрок видит, что мировой
-                 рекорд не засчитан, и понимает почему нет его в таблице */
-              if (!res.ok) {
-                setLeaderNote(true)
-                window.setTimeout(() => setLeaderNote(false), 3600)
-              }
+          /* v0.0.59: дожидаемся выдачи токена, если /api/leaders/start ещё
+             в полёте — быстрые забеги раньше улетали с пустым runId и сервер
+             отклонял рекорд, показывая игроку ложное «не принят» */
+          void (runTokenPromiseRef.current ?? Promise.resolve()).then(() => {
+            const tok = runTokenRef.current
+            runTokenRef.current = null
+            void fetch('/api/leaders', {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({
+                device: getDeviceId(),
+                name: nick,
+                score: r.score,
+                level: r.level,
+                secs: runSecs,
+                runId: tok?.runId ?? '',
+                token: tok?.token ?? '',
+              }),
             })
-            .catch(() => {})
+              .then((res) => {
+                /* Отказ сервера (битый токен, rate-limit, потолок очков)
+                   больше не глотается молча — игрок видит, что мировой
+                   рекорд не засчитан, и понимает почему нет его в таблице */
+                if (!res.ok) {
+                  setLeaderNote(true)
+                  window.setTimeout(() => setLeaderNote(false), 3600)
+                }
+              })
+              .catch(() => {})
+          })
         }
+        /* v0.0.59: забег закончился штатно — снапшот-продолжение не нужно */
+        clearRunSnap()
         setRunXpGain(runXpGainRef.current)
         /* v0.0.33: опыт за забег — ачивки «студента» и «профессора» */
         if (runXpGainRef.current >= 250) announceAch(['xpRun250'])
@@ -5988,6 +6169,10 @@ export function PopcornGame() {
         /* Забег кончился — перебивка больше не актуальна */
         setPosterPending(null)
         /* Ф0-2: забег кончился — закрываем туториал и запоминаем, что он был */
+        if (tutMoveRef.current) {
+          window.removeEventListener('pointermove', tutMoveRef.current)
+          tutMoveRef.current = null
+        }
         if (tutRef.current.active) {
           tutRef.current.active = false
           window.localStorage.setItem(TUT_DONE_KEY, '1')
@@ -5997,7 +6182,10 @@ export function PopcornGame() {
       },
     })
     engineRef.current = engine
-    ;(window as unknown as { __popcornEngine?: PopcornEngine }).__popcornEngine = engine
+    /* QA-ручка: только в dev — прод не загрязняем */
+    if (process.env.NODE_ENV !== 'production') {
+      ;(window as unknown as { __popcornEngine?: PopcornEngine }).__popcornEngine = engine
+    }
     /* Применяем сохранённые настройки сразу после создания движка */
     const s = settingsRef.current
     engine.setOptions({
@@ -6029,8 +6217,22 @@ export function PopcornGame() {
         window.clearTimeout(posterDelayRef.current)
         posterDelayRef.current = null
       }
+      /* v0.0.59: тосты (волна/ачивка/левелап) гасим на размонтировании —
+         раньше их таймеры били setState по мёртвому дереву */
+      if (waveTimerRef.current !== null) {
+        window.clearTimeout(waveTimerRef.current)
+        waveTimerRef.current = null
+      }
+      if (achToastTimerRef.current !== null) {
+        window.clearTimeout(achToastTimerRef.current)
+        achToastTimerRef.current = null
+      }
+      if (lvlToastTimerRef.current !== null) {
+        window.clearTimeout(lvlToastTimerRef.current)
+        lvlToastTimerRef.current = null
+      }
     }
-  }, [storeBest, addXpDelta, announceAch, checkLifeAch, rollExtras, rollOffers, growMarten, awardStage, grantMartenXp])
+  }, [])
 
   /* Следим за размером контейнера */
   useEffect(() => {
@@ -6093,9 +6295,27 @@ export function PopcornGame() {
     layoutRef.current()
   }, [perk, phase])
 
-  /* Пожизненные счётчики ачивок дольём на диск при уходе со страницы */
+  /* Пожизненные счётчики ачивок дольём на диск при уходе со страницы.
+     v0.0.59: тут же пишем СНАПШОТ забега — вкладку закрыли посреди боя,
+     счёт/уровень/сердечки не пропадают: меню предложит «ПРОДОЛЖИТЬ ЗАБЕГ» */
   useEffect(() => {
-    const onFlush = () => flushLife()
+    const writeRunSnap = (): void => {
+      const eng = engineRef.current
+      const s = statsRef.current
+      if (!eng || eng.phase !== 'playing' || !s) return
+      try {
+        window.localStorage.setItem(
+          RUN_SNAP_KEY,
+          JSON.stringify({ score: s.score, lvl: s.level, hearts: s.hearts, ts: Date.now() } satisfies RunSnap),
+        )
+      } catch {
+        /* приватный режим — без снапшота */
+      }
+    }
+    const onFlush = (): void => {
+      flushLife()
+      writeRunSnap()
+    }
     window.addEventListener('pagehide', onFlush)
     document.addEventListener('visibilitychange', onFlush)
     return () => {
@@ -6108,19 +6328,83 @@ export function PopcornGame() {
      чтобы троттлинг таймеров не копил отставание аудио-планировщика.
      Музыку меню (фаза 'start') не трогаем — она тихая и не копит отставание. */
   useEffect(() => {
+    const doPause = (): void => {
+      if (engineRef.current?.phase !== 'playing') return
+      audio.stopMusic()
+      engineRef.current.setPaused(true)
+      setPhase((p) => (p === 'playing' ? 'paused' : p))
+    }
     const onVisibility = () => {
-      if (document.hidden) {
-        if (engineRef.current?.phase !== 'playing') return
-        audio.stopMusic()
-        engineRef.current.setPaused(true)
-        setPhase((p) => (p === 'playing' ? 'paused' : p))
-      } else if (engineRef.current?.phase === 'playing') {
+      if (document.hidden) doPause()
+      else if (engineRef.current?.phase === 'playing') {
         audio.startMusic('game')
       }
     }
     document.addEventListener('visibilitychange', onVisibility)
-    return () => document.removeEventListener('visibilitychange', onVisibility)
+    /* v0.0.59: окно потеряло фокус (Alt-Tab, клик в другое окно на десктопе) —
+       та же пауза: раньше таймер уровня и playSecs продолжали тикать */
+    window.addEventListener('blur', doPause)
+    return () => {
+      document.removeEventListener('visibilitychange', onVisibility)
+      window.removeEventListener('blur', doPause)
+    }
   }, [])
+
+  /* v0.0.59: снапшот прошлого забега читается как ВНЕШНИЙ СТОР
+     (readRunSnap через useSyncExternalStore) — эффект не нужен */
+
+  /** v0.0.59: продолжить прерванный забег из снапшота.
+      Счёт/сердечки/уровень возвращаются, текущий уровень начинается заново */
+  const resumeRun = useCallback(() => {
+    const snap = resumeOffer
+    if (!snap) return
+    audio.ensure()
+    audio.setMuted(mutedRef.current)
+    audio.startMusic('game')
+    audio.play('click')
+    const ups = parseUpgrades(window.localStorage.getItem(UPG_KEY))
+    engineRef.current?.setUpgrades({ carryPlus: ups.capacity, heartsPlus: ups.hearts })
+    engineRef.current?.setPawSkin(equippedRef.current)
+    /* Коготки + «Девятая жизнь»: шансы СКЛАДЫВАЮТСЯ (2+1), а не перекрывают друг друга */
+    const cb = clawBonuses(getInventorySnapshot())
+    engineRef.current?.setClawBonuses({
+      pigeonSlow: cb.pigeonSlow,
+      revives: (cb.revives > 0 ? 2 : 0) + (ups.life > 0 ? 1 : 0),
+      mineImmuneStages: cb.mineImmuneStages,
+    })
+    /* lastScoreRef ДОЛЖЕН быть готов до restoreRun: первый же тик статистики
+       посчитает дельту от восстановленного счёта — иначе XP уйдёт дважды */
+    lastScoreRef.current = snap.score
+    engineRef.current?.restoreRun({ score: snap.score, hearts: snap.hearts })
+    engineRef.current?.startLevel(snap.lvl, null)
+    bigCoinsPaidRef.current = 0
+    bossCoinsPaidRef.current = 0
+    goldCoinsPaidRef.current = 0
+    runXpGainRef.current = 0
+    lastRunXpShownRef.current = 0
+    const startLvl = charLevel(getTotalXp())
+    runStartLevelRef.current = startLvl
+    setRunStartLevel(startLvl)
+    setRunLevelUnlocks([])
+    setRunXpGain(0)
+    prevHeartsRef.current = -1
+    heartFreeStreakRef.current = 0
+    prevBigRef.current = { big: 0, caramel: 0, cherry: 0, grape: 0 }
+    prevBossKillsRef.current = 0
+    prevBossKidRef.current = 0
+    prevBossLionRef.current = 0
+    prevBossMartenRef.current = 0
+    prevBossPigeonRef.current = 0
+    prevBossGypsyRef.current = 0
+    prevRunRef.current = { grains: 0, golden: 0, pigeons: 0, nipples: 0, mines: 0, saves: 0 }
+    runStartRef.current = Date.now()
+    runSecsRef.current = 0
+    lockOrientation(settingsRef.current.orientation)
+    setPerk(null)
+    clearRunSnap()
+    setPhase('playing')
+    addLife({ runs: 1 })
+  }, [resumeOffer, lockOrientation])
 
   const startGame = useCallback(() => {
     setResult(null)
@@ -6154,11 +6438,12 @@ export function PopcornGame() {
       startPerk = bonusPool[Math.floor(Math.random() * bonusPool.length)]?.id ?? null
     }
     engineRef.current?.setPawSkin(equippedRef.current)
-    /* 0.0.57: коготки — в движок до старта забега (шансы ревайва считаются в startRun) */
+    /* 0.0.57: коготки — в движок до старта забега (шансы ревайва считаются в startRun).
+       v0.0.59: «Девятая жизнь» и сумеречный коготок СКЛАДЫВАЮТСЯ (2+1=3 шанса) */
     const cb = clawBonuses(getInventorySnapshot())
     engineRef.current?.setClawBonuses({
       pigeonSlow: cb.pigeonSlow,
-      revives: cb.revives > 0 ? 2 : ups.life > 0 ? 1 : 0,
+      revives: (cb.revives > 0 ? 2 : 0) + (ups.life > 0 ? 1 : 0),
       mineImmuneStages: cb.mineImmuneStages,
     })
     engineRef.current?.startRun({ fast: devRef.current.fast, perk: startPerk })
@@ -6199,11 +6484,17 @@ export function PopcornGame() {
         stepAt: Date.now(),
       }
       setTutStep(1)
-      /* Шаг 1 завершится первым движением лапки (once — слушатель снимется сам) */
+      /* Шаг 1 завершится первым движением лапки; слушатель снимается сам
+         и чистится при выходе из забега (v0.0.59 — раньше висел навсегда) */
       const onFirstMove = (): void => {
         tutRef.current.pawMoved = true
+        if (tutMoveRef.current) {
+          window.removeEventListener('pointermove', tutMoveRef.current)
+          tutMoveRef.current = null
+        }
       }
-      window.addEventListener('pointermove', onFirstMove, { passive: true, once: true })
+      tutMoveRef.current = onFirstMove
+      window.addEventListener('pointermove', onFirstMove, { passive: true })
     }
     prevRunRef.current = { grains: 0, golden: 0, pigeons: 0, nipples: 0, mines: 0, saves: 0 }
     runStartRef.current = Date.now()
@@ -6212,7 +6503,9 @@ export function PopcornGame() {
     /* Мировой лидерборд: открываем серверный забег (HMAC-токен против накрутки).
        Офлайн/ошибка — забег просто локальный, ничего не ломается */
     runTokenRef.current = null
-    void fetch('/api/leaders/start', {
+    /* v0.0.59: промис выдачи токена хранится в ref — submit забега дождётся
+       его даже при молниеносном финале (раньше уходил с пустым runId) */
+    runTokenPromiseRef.current = fetch('/api/leaders/start', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ device: getDeviceId() }),
@@ -6224,6 +6517,8 @@ export function PopcornGame() {
         }
       })
       .catch(() => {})
+    /* Новый забег: старый снапшот-продолжение больше не актуален */
+    clearRunSnap()
     if (new Date().getHours() < 6) announceAch(['nightowl'])
     checkLifeAch()
   }, [lockOrientation, announceAch, checkLifeAch])
@@ -6268,7 +6563,10 @@ export function PopcornGame() {
       в кошелёк (награды в стиле Fruit Ninja) → сундучок с перком.
       0.0.31: ачивки нарезки — пороги очков, сорта вишня/виноград,
       пожизненное «Полное меню» */
-  const handleSlicerDone = useCallback(
+  /* v0.0.59: засчитывание награды нарезки — вызывается СРАЗУ при переходе
+     на карточку результата (onBank). Закрытие вкладки на карточке больше
+     не теряет монетки, коготок и ачивки сорта */
+  const handleSlicerBank = useCallback(
     (total: number, rewards?: { coins?: number }, meta?: { kind?: SliceKind }) => {
       if (rewards?.coins && rewards.coins > 0) addCoins(rewards.coins)
       engineRef.current?.addBonus(total)
@@ -6293,10 +6591,15 @@ export function PopcornGame() {
       else if (meta?.kind === 'grape') addLife({ sliceGrape: 1 })
       announceAch(cand)
       checkLifeAch()
-      setPhase('chest')
     },
     [announceAch, checkLifeAch, clawRoll],
   )
+
+  /** Кнопка «ЗАБРАТЬ»: награда уже засчитана (handleSlicerBank) — только
+      закрываем нарезку и открываем сундучок */
+  const handleSlicerDone = useCallback(() => {
+    setPhase('chest')
+  }, [])
 
   /** Плакат закрыт: 'normal' → бонус-нарезка; 'fever' → сразу Лихорадка.
       Оба пути снимают паузу сами (startLevel/startFever делают paused=false),
@@ -6352,7 +6655,14 @@ export function PopcornGame() {
     flushLife() // дольём пожизненные счётчики перед выходом
     unlockOrientation()
     layoutRef.current()
+    /* v0.0.59: выход в меню по воле игрока — снапшот-продолжение не нужен
+       (игрок сознательно бросил забег) */
+    clearRunSnap()
     /* Ф0-2: игрок вышел в меню посреди туториала — закрываем и запоминаем */
+    if (tutMoveRef.current) {
+      window.removeEventListener('pointermove', tutMoveRef.current)
+      tutMoveRef.current = null
+    }
     if (tutRef.current.active) {
       tutRef.current.active = false
       window.localStorage.setItem(TUT_DONE_KEY, '1')
@@ -6368,6 +6678,25 @@ export function PopcornGame() {
     const finished = engineRef.current?.finish() ?? false
     if (!finished) quitToMenu() // страховка: активного забега нет — просто в меню
   }, [quitToMenu])
+
+  /** v0.0.59: двухтапное подтверждение «КОНЕЦ ИГРЫ» в HUD. Первый тап —
+      «точно?», второй в течение 3 с — завершение. Случайный тап по маленькой
+      кнопке посреди боя больше не сжигает забег и не льёт рекорд в таблицу */
+  const confirmFinish = useCallback(() => {
+    audio.play('click')
+    if (!endArm) {
+      setEndArm(true)
+      if (endArmTimerRef.current !== null) window.clearTimeout(endArmTimerRef.current)
+      endArmTimerRef.current = window.setTimeout(() => setEndArm(false), 3000)
+      return
+    }
+    if (endArmTimerRef.current !== null) {
+      window.clearTimeout(endArmTimerRef.current)
+      endArmTimerRef.current = null
+    }
+    setEndArm(false)
+    finishRun()
+  }, [endArm, finishRun])
 
   const toggleMute = useCallback(() => {
     storeMuted(muted ? '0' : '1')
@@ -6414,7 +6743,12 @@ export function PopcornGame() {
          Артефакты рынка усиливают подарки: Копилка (монетки), Котоакадемия (опыт) */
       const ex = extras[i]
       if (ex) {
-        if (ex.kind === 'coins') addCoins(Math.round(ex.n * marketRef.current.coinGift))
+        /* v0.0.59: монетки сундучка тоже умножаются «Монетным магнитом» —
+           как обещают описания апгрейда «Монетный магнит» и древа */
+        if (ex.kind === 'coins')
+          addCoins(
+            Math.round(ex.n * (1 + (treeRef.current.coinsAdd ?? 0)) * marketRef.current.coinGift),
+          )
         else addTotalXp(Math.round(ex.n * marketRef.current.xpGift))
         /* Пожизненные ачивки богатства (кошелёк/банк) проверяем сразу —
            иначе медаль открывалась бы только на следующем событии статистики */
@@ -6537,9 +6871,12 @@ export function PopcornGame() {
       className="flex h-dvh flex-col overflow-hidden bg-[#1d110b] select-none"
       style={needsFilter ? { filter: `brightness(${settings.brightness}) contrast(${settings.contrast})` } : undefined}
     >
-      {/* Панель статистики НАД игровой зоной: поле остаётся чистым */}
+      {/* Панель статистики НАД игровой зоной: поле остаётся чистым.
+          v0.0.59: перенос строк УБРАН (flex-nowrap + прокрутка) — раньше
+          переношенная пилюля меняла высоту панели посреди боя и
+          кэш рамки канваса уезжал вместе с лапкой */}
       {onLevel && (
-        <div className="relative z-30 flex flex-wrap items-center gap-1.5 border-b border-white/10 bg-[#160c07] px-2 pb-1.5 pt-[max(0.45rem,env(safe-area-inset-top))]">
+        <div className="relative z-30 flex flex-nowrap items-center gap-1.5 overflow-x-auto border-b border-white/10 bg-[#160c07] px-2 pb-1.5 pt-[max(0.45rem,env(safe-area-inset-top))] [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
           <StatPill className="font-pixel text-[13px]">
             <Popcorn className="h-3.5 w-3.5 text-amber-300" aria-hidden />
             <span className="tabular-nums">{stats.score}</span>
@@ -6647,10 +6984,15 @@ export function PopcornGame() {
               </span>
             </StatPill>
           )}
-          <StatPill className={urgent ? 'animate-pulse border-red-400/60 text-red-200' : ''}>
-            <Timer className={`h-3.5 w-3.5 ${urgent ? 'text-red-400' : 'text-amber-300'}`} aria-hidden />
-            <span className="tabular-nums">{sec}</span>
-          </StatPill>
+          {/* v0.0.59: мелкий ⏱ дублировал КРУПНЫЙ таймер справа вверху —
+              теперь показывается только в последней десятке секунд (urgent)
+              и на паузе (когда крупный скрыт) */}
+          {(urgent || phase === 'paused') && (
+            <StatPill className={urgent ? 'animate-pulse border-red-400/60 text-red-200' : ''}>
+              <Timer className={`h-3.5 w-3.5 ${urgent ? 'text-red-400' : 'text-amber-300'}`} aria-hidden />
+              <span className="tabular-nums">{sec}</span>
+            </StatPill>
+          )}
           <StatPill className="font-pixel">{t('hud.level', { n: stats.level })}</StatPill>
           {stats.fever && (
             <StatPill className="animate-pulse border-amber-300/80 bg-amber-400/20 text-amber-200">
@@ -6703,12 +7045,18 @@ export function PopcornGame() {
               )}
             </IconBtn>
             {phase === 'playing' && (
+              /* v0.0.59: двухтапное подтверждение — первый тап меняет кнопку
+                 на «ТОЧНО ЗАВЕРШИТЬ?», второй в течение 3 с завершает забег */
               <button
                 type="button"
-                onClick={finishRun}
-                className="rounded-lg border-2 border-red-300/50 bg-black/60 px-2 py-1.5 font-pixel text-[10px] font-bold text-red-200 transition hover:bg-black/80 active:scale-95"
+                onClick={confirmFinish}
+                className={
+                  endArm
+                    ? 'min-h-11 rounded-lg border-2 border-red-400 bg-red-900/90 px-3 py-2 font-pixel text-[10px] font-bold text-white transition active:scale-95'
+                    : 'min-h-11 rounded-lg border-2 border-red-300/50 bg-black/60 px-3 py-2 font-pixel text-[10px] font-bold text-red-200 transition hover:bg-black/80 active:scale-95'
+                }
               >
-                {t('quit.short')}
+                {endArm ? t('quit.confirm') : t('quit.short')}
               </button>
             )}
           </span>
@@ -6998,15 +7346,14 @@ export function PopcornGame() {
                         </button>
                       </div>
                       {/* ИНВЕНТАРЬ (0.0.53): лут из сундучков и лапка со слотами.
-                          Открыт в меню, на сундучках (лут только что выпал!) и в паузе;
-                          в бою/нарезке кнопка задизейблена — не отвлекаем от игры */}
+                          Кнопка живёт в меню (phase 'start') — в бою её нет.
+                          v0.0.59: бессмысленные сравнения фазы убраны (tsc) */}
                       <button
                         type="button"
                         onClick={() => {
                           audio.play('click')
                           setOverlay('inv')
                         }}
-                        disabled={phase === 'playing' || phase === 'slicer' || phase === 'ended'}
                         title={t('inv.title')}
                         aria-label={t('inv.title')}
                         className="relative flex h-11 shrink-0 flex-col items-center justify-center gap-0.5 rounded-xl border-2 border-[#E8B54D]/80 bg-[#4A2E0A] px-0.5 py-1 text-[#FFE9BE] shadow-[0_3px_0_#2b1a05] transition hover:bg-[#5C3A10] active:translate-y-[2px] active:shadow-[0_1px_0_#2b1a05] disabled:cursor-not-allowed disabled:opacity-40 sm:h-12"
@@ -7171,6 +7518,25 @@ export function PopcornGame() {
                     </GameButton>
                   </div>
                 </motion.div>
+
+                {/* v0.0.59: «ПРОДОЛЖИТЬ ЗАБЕГ» — снапшот найден (вкладку закрыли
+                    посреди боя). Счёт/сердечки восстановятся, уровень начнётся заново */}
+                {resumeOffer && phase === 'start' && (
+                  <motion.div className="mt-2.5" {...menuPop(4)}>
+                    <button
+                      type="button"
+                      onClick={resumeRun}
+                      className="flex min-h-11 w-full items-center justify-center gap-2 rounded-xl border-2 border-amber-300/60 bg-amber-950/70 px-4 py-2.5 font-pixel text-sm font-bold text-amber-100 transition hover:bg-amber-900/70 active:scale-[0.98]"
+                    >
+                      <span aria-hidden>⏩</span>
+                      {t('menu.resume', {
+                        n: resumeOffer.lvl,
+                        s: resumeOffer.score,
+                        h: resumeOffer.hearts,
+                      })}
+                    </button>
+                  </motion.div>
+                )}
 
                 {/* Ряд: ЛАПКИ · АЧИВКИ · ДРЕВО — сразу под ИГРАТЬ (дерево уменьшено, бейдж очков сохранён) */}
                 <motion.div className="mt-2.5 grid grid-cols-3 gap-2" {...menuPop(4)}>
@@ -7361,6 +7727,7 @@ export function PopcornGame() {
               t={t}
               level={clearInfo.level}
               onDone={handleSlicerDone}
+              onBank={handleSlicerBank}
               dropClaw={clawRoll?.icon ?? null}
             />
           )}
@@ -7932,9 +8299,9 @@ export function PopcornGame() {
               onClose={() => setOverlay(null)}
             />
           )}
-          {/* ИНВЕНТАРЬ: меню, сундучки (лут только что выпал) и пауза */}
-          {(phase === 'start' || phase === 'chest' || phase === 'paused') &&
-            overlay === 'inv' && (
+          {/* ИНВЕНТАРЬ: меню и пауза (v0.0.59: мёртвая ветка 'chest' убрана —
+              в фазе сундучка кнопки инвентаря не показываются) */}
+          {(phase === 'start' || phase === 'paused') && overlay === 'inv' && (
               <InventoryOverlay
                 inv={inv}
                 ownedArts={market.artifacts}

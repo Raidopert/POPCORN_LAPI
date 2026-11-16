@@ -17,7 +17,7 @@
  */
 
 import { motion } from 'framer-motion'
-import { useEffect } from 'react'
+import { useEffect, useRef } from 'react'
 import { audio } from '@/lib/game/audio'
 import type { TranslateFn } from '@/lib/game/i18n'
 
@@ -80,6 +80,7 @@ export function PosterInterstitial({
 }: PosterInterstitialProps) {
   const idx = ((posterIdx % POSTER_COUNT) + POSTER_COUNT) % POSTER_COUNT
   const poster = POSTERS[idx]
+  const btnRef = useRef<HTMLButtonElement | null>(null)
 
   /* Победная фанфара: плакат — награда за рубеж сложности.
      Заодно догружаем остальные постеры: следующий рубеж покажет мгновенно */
@@ -89,6 +90,19 @@ export function PosterInterstitial({
     return () => window.clearTimeout(tm)
   }, [])
 
+  /* v0.0.59: автофокус на кнопке и Esc = «Продолжить» — доступность модалки */
+  useEffect(() => {
+    btnRef.current?.focus()
+    const onKey = (e: KeyboardEvent): void => {
+      if (e.key === 'Escape') {
+        e.preventDefault()
+        onContinue()
+      }
+    }
+    window.addEventListener('keydown', onKey)
+    return () => window.removeEventListener('keydown', onKey)
+  }, [onContinue])
+
   return (
     <motion.div
       key="poster"
@@ -97,6 +111,7 @@ export function PosterInterstitial({
       animate={{ opacity: 1 }}
       exit={{ opacity: 0, pointerEvents: 'none' }}
       role="dialog"
+      aria-modal="true"
       aria-label={t('poster.banner', { n: level })}
     >
       {/* Пропагандистские лучи за плакатом — чистый CSS, без канваса */}
@@ -168,6 +183,7 @@ export function PosterInterstitial({
 
         <button
           type="button"
+          ref={btnRef}
           onClick={() => {
             audio.play('click')
             onContinue()

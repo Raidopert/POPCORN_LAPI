@@ -80,6 +80,18 @@ export function BossIntroOverlay({ t, level, kind, onGo }: BossIntroProps) {
     return () => window.clearTimeout(tm)
   }, [])
 
+  /* v0.0.59: Esc = «В БОЙ!» — доступность клавиатуры для модалки */
+  useEffect(() => {
+    const onKey = (e: KeyboardEvent): void => {
+      if (e.key === 'Escape') {
+        e.preventDefault()
+        onGo()
+      }
+    }
+    window.addEventListener('keydown', onKey)
+    return () => window.removeEventListener('keydown', onKey)
+  }, [onGo])
+
   return (
     <motion.div
       key="boss-intro"
@@ -101,6 +113,7 @@ export function BossIntroOverlay({ t, level, kind, onGo }: BossIntroProps) {
       animate={{ opacity: 1 }}
       exit={{ opacity: 0, pointerEvents: 'none' }}
       role="dialog"
+      aria-modal="true"
       aria-label={t('bossintro.title')}
     >
       {/* Вращающиеся лучи позади портрета — чистый CSS */}

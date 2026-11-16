@@ -79,8 +79,10 @@ export const INV_DEFS: ReadonlyArray<InvDef> = [
   { id: 'bra-legend', kind: 'bracelet', rarity: 'legendary', icon: '/inventory/bra-legend.png', sell: 600, bonus: 0.18, weight: 3 },
   /* Легендарные венцы */
   { id: 'crown-gold', kind: 'crown', rarity: 'legendary', icon: '/inventory/crown-gold.png', sell: 600, bonus: 0.1, weight: 4 },
-  { id: 'crown-diamond', kind: 'crown', rarity: 'legendary', icon: '/inventory/crown-diamond.png', sell: 800, bonus: 0.15, weight: 2 },
-  { id: 'crown-ancient', kind: 'crown', rarity: 'legendary', icon: '/inventory/crown-ancient.png', sell: 1000, bonus: 0.2, weight: 1 },
+  /* v0.0.59: sell верхних венцов поднят — раньше переплавка 3×венец давала
+     предмет ДЕШЕВЛЕ тройки исходников (1800 🪙 → 800) и была всегда невыгодна */
+  { id: 'crown-diamond', kind: 'crown', rarity: 'legendary', icon: '/inventory/crown-diamond.png', sell: 1500, bonus: 0.15, weight: 2 },
+  { id: 'crown-ancient', kind: 'crown', rarity: 'legendary', icon: '/inventory/crown-ancient.png', sell: 3800, bonus: 0.2, weight: 1 },
 ]
 
 export const INV_MAP: Record<InvItemId, InvDef> = INV_DEFS.reduce(

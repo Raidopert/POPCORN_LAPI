@@ -52,6 +52,8 @@ const SLICE_SECONDS = 5
 const COMBO_GAP = 1.5
 /** Антидребезг: минимальная пауза между тиками одного свайпа */
 const TICK_COOLDOWN = 0.055
+/** v0.0.59: отдельный кулдаун золотых зёрен — вдвое короче тика попкорна */
+const GOLD_COOLDOWN = 0.025
 /** Крит: случайный шанс (не зависит от точности) */
 const CRIT_CHANCE = 0.12
 const CRIT_BONUS = 10
@@ -276,11 +278,19 @@ interface SlicerProps {
     rewards?: { coins?: number },
     meta?: { kind?: SliceKind },
   ) => void
+  /** v0.0.59: засчитать награду СРАЗУ при переходе на итог (без закрытия).
+      Если задан — кнопка «ЗАБРАТЬ» только закрывает; закрытие вкладки на
+      карточке результата больше не теряет монетки/коготок */
+  onBank?: (
+    total: number,
+    rewards?: { coins?: number },
+    meta?: { kind?: SliceKind },
+  ) => void
   /** Иконка выпавшего коготка (0.0.57): вылетает при взрыве попкорна */
   dropClaw?: string | null
 }
 
-export function PopcornSlicer({ t, level, onDone, dropClaw = null }: SlicerProps) {
+export function PopcornSlicer({ t, level, onDone, onBank, dropClaw = null }: SlicerProps) {
   const canvasRef = useRef<HTMLCanvasElement>(null)
   const wrapRef = useRef<HTMLDivElement>(null)
   const [stage, setStage] = useState<Stage>('intro')
@@ -312,6 +322,14 @@ export function PopcornSlicer({ t, level, onDone, dropClaw = null }: SlicerProps
   useEffect(() => {
     onDoneRef.current = onDone
   }, [onDone])
+  const onBankRef = useRef(onBank)
+  useEffect(() => {
+    onBankRef.current = onBank
+  }, [onBank])
+  /** v0.0.59: награда уже засчитана (защита от двойной выдачи) */
+  const paidRef = useRef(false)
+  /** v0.0.59: флаг «Пропустить» — этап нарезки обрывается с уже набранными очками */
+  const skipRef = useRef(false)
 
   /* ════ Игровое состояние: один мутабельный объект в ref ════ */
   const gRef = useRef<{
@@ -332,6 +350,9 @@ export function PopcornSlicer({ t, level, onDone, dropClaw = null }: SlicerProps
     mult: number
     maxMult: number
     lastTickAt: number
+    /** v0.0.59: отдельный кулдаун золотых зёрен — срез золота сразу после
+        тика попкорна больше не «проглатывается» общим кулдауном */
+    lastGoldAt: number
     lastPlopAt: number
     timeLeft: number
     exploded: boolean
@@ -385,6 +406,7 @@ export function PopcornSlicer({ t, level, onDone, dropClaw = null }: SlicerProps
       mult: 1,
       maxMult: 1,
       lastTickAt: -9,
+      lastGoldAt: -9,
       lastPlopAt: -9,
       timeLeft: SLICE_SECONDS,
       exploded: false,
@@ -412,10 +434,12 @@ export function PopcornSlicer({ t, level, onDone, dropClaw = null }: SlicerProps
       cracks: [],
     })
 
-    /* DEV-отладка: состояние слайсера из консоли (window.__slicerDbg()) */
-    ;(window as unknown as { __slicerDbg?: () => string; __slicerG?: unknown }).__slicerDbg = () =>
-      `kind=${g.kind} stage=${g.stage} stageT=${g.stageT.toFixed(2)} timeLeft=${g.timeLeft.toFixed(2)} hp=${g.hp} ticks=${g.ticks} total=${g.total} mult=${g.mult} R=${g.R.toFixed(1)} cx=${g.cx} cy=${g.cy} u=${g.u} W=${g.W} H=${g.H} down=${g.down}`
-    ;(window as unknown as { __slicerDbg?: () => string; __slicerG?: unknown }).__slicerG = g
+    /* DEV-отладка: состояние слайсера из консоли (window.__slicerDbg()) — только в dev */
+    if (process.env.NODE_ENV !== 'production') {
+      ;(window as unknown as { __slicerDbg?: () => string; __slicerG?: unknown }).__slicerDbg = () =>
+        `kind=${g.kind} stage=${g.stage} stageT=${g.stageT.toFixed(2)} timeLeft=${g.timeLeft.toFixed(2)} hp=${g.hp} ticks=${g.ticks} total=${g.total} mult=${g.mult} R=${g.R.toFixed(1)} cx=${g.cx} cy=${g.cy} u=${g.u} W=${g.W} H=${g.H} down=${g.down}`
+      ;(window as unknown as { __slicerDbg?: () => string; __slicerG?: unknown }).__slicerG = g
+    }
 
     /* ── Геометрия гигантской кукурузины: генерируется один раз.
           Все координаты — в ДОЛЯХ радиуса R (0..1), масштабируются при рисовании ── */
@@ -487,7 +511,10 @@ export function PopcornSlicer({ t, level, onDone, dropClaw = null }: SlicerProps
       g.cx = g.W / 2
       g.cy = g.H * 0.46
       g.R = Math.min(g.W, g.H) * 0.21
-      buildPopcorn()
+      /* v0.0.59: геометрия кукурузины (трещины/доли) пересобирается ТОЛЬКО
+         в интро/между стадиями — посреди нарезки поворот экрана больше
+         не «телепортирует» трещины, счёт и урон сохраняются */
+      if (g.stage === 'intro' || g.stage === 'results') buildPopcorn()
     }
     resize()
     const ro = new ResizeObserver(resize)
@@ -673,13 +700,18 @@ export function PopcornSlicer({ t, level, onDone, dropClaw = null }: SlicerProps
       const mdy = p.y - ay
       const enough = mdx * mdx + mdy * mdy >= MIN_MOVE * MIN_MOVE
       const cooled = now - g.lastTickAt >= TICK_COOLDOWN
+      /* v0.0.59: золотые зёрна со СВОИМ коротким кулдауном — срез золота
+         сразу после тика попкорна больше не игнорируется (был несправедливый
+         «промах» из-за общего кулдауна 55 мс) */
+      const goldCooled = now - g.lastGoldAt >= GOLD_COOLDOWN
       /* Золотые зёрна проверяем ПЕРВЫМИ: их срез не тратит тик попкорна */
-      if (g.stage === 'slice' && enough && cooled) {
+      if (g.stage === 'slice' && enough && goldCooled) {
         for (let i = g.goldens.length - 1; i >= 0; i--) {
           const gr = g.goldens[i]
           if (!gr) continue
           const gy = gr.y0 + Math.sin(gr.t * 3.2) * 30 * g.u
           if (segCircleNear(ax, ay, p.x, p.y, gr.x, gy, gr.r * 1.3)) {
+            g.lastGoldAt = now
             hitGolden((ax + p.x) / 2, (ay + p.y) / 2, i)
             break
           }
@@ -908,6 +940,11 @@ export function PopcornSlicer({ t, level, onDone, dropClaw = null }: SlicerProps
         setStage('slice')
       } else if (g.stage === 'slice') {
         g.timeLeft -= dt
+        /* v0.0.59: «Пропустить» — обрываем этап, очки уже набранные засчитываются */
+        if (skipRef.current) {
+          skipRef.current = false
+          g.timeLeft = 0
+        }
         /* Плавание цели: центр гуляет по эллипсу вокруг точки покоя —
             скорость и амплитуда у СОРТА: виноград вертится заметно резче.
             Свайп по неподвижной мишени фармил бы очки, по бегущей — требует внимания */
@@ -949,19 +986,28 @@ export function PopcornSlicer({ t, level, onDone, dropClaw = null }: SlicerProps
         g.stage = 'results'
         g.stageT = 0
         setStage('results')
+        const rewardCoins =
+          g.goldCoins + Math.max(MIN_SLICER_COINS, Math.round(g.total * COINS_PER_POINT))
         setResult({
           total: g.total,
           swipes: g.ticks,
           maxMult: g.maxMult,
           /* Награды Fruit Ninja: конверсия очков в монетки (мин. 3) + золото по 8 */
-          coins:
-            g.goldCoins + Math.max(MIN_SLICER_COINS, Math.round(g.total * COINS_PER_POINT)),
+          coins: rewardCoins,
           stars: (() => {
             const st = VR().stars
             return g.total >= st[2] ? 3 : g.total >= st[1] ? 2 : g.total >= st[0] ? 1 : 0
           })(),
           kind: g.kind,
         })
+        /* v0.0.59: награда ЗАСЧИТЫВАЕТСЯ прямо на переходе к итогу — раньше
+           монетки/коготок начислялись только по клику «ЗАБРАТЬ», и закрытие
+           вкладки на карточке результата теряло всё заработанное */
+        if (!paidRef.current) {
+          paidRef.current = true
+          if (onBankRef.current) onBankRef.current(g.total, { coins: rewardCoins }, { kind: g.kind })
+          else onDoneRef.current(g.total, { coins: rewardCoins }, { kind: g.kind })
+        }
       }
 
       /* ── Физика кусочков: гравитация, пол, отскок ──
@@ -1231,7 +1277,7 @@ export function PopcornSlicer({ t, level, onDone, dropClaw = null }: SlicerProps
         }
       }
       if (cur) lines.push(cur)
-      return lines.slice(0, 3)
+      return lines.slice(0, 4)
     }
 
     /** Скруглённый прямоугольник (path-only, заливка снаружи) */
@@ -1260,7 +1306,9 @@ export function PopcornSlicer({ t, level, onDone, dropClaw = null }: SlicerProps
     <motion.div
       ref={wrapRef}
       key="slicer"
-      className="absolute inset-0 z-30 overflow-hidden bg-black/70 backdrop-blur-[3px]"
+      className="absolute inset-0 z-30 overflow-hidden bg-black/75"
+      /* v0.0.59: backdrop-blur убран — блюр поверх живого канваса ронял
+         FPS на слабых телефонах (прямо противоречил Pill-комментарию) */
       initial={{ opacity: 0 }}
       animate={{ opacity: 1 }}
       exit={{ opacity: 0, pointerEvents: 'none' }}
@@ -1318,6 +1366,21 @@ export function PopcornSlicer({ t, level, onDone, dropClaw = null }: SlicerProps
         </div>
       )}
 
+      {/* v0.0.59: «ПРОПУСТИТЬ» — выход из этапа с уже набранными очками;
+          раньше экран был заперт на ~8 секунд без возможности выйти */}
+      {stage === 'slice' && (
+        <button
+          type="button"
+          onClick={() => {
+            skipRef.current = true
+            audio.play('click')
+          }}
+          className="absolute right-2.5 top-2.5 z-20 min-h-11 rounded-xl border-2 border-white/25 bg-black/55 px-3 py-2 font-pixel text-[10px] font-bold text-white/85 transition hover:bg-black/75 active:scale-95"
+        >
+          {t('slicer.skip')}
+        </button>
+      )}
+
       {/* Карточка результата: появляется после взрыва */}
       {stage === 'results' && result && (
         <motion.div
@@ -1365,7 +1428,9 @@ export function PopcornSlicer({ t, level, onDone, dropClaw = null }: SlicerProps
               aria-label={t('slicer.take')}
               onClick={() => {
                 audio.play('chest')
-                onDoneRef.current(result.total, { coins: result.coins }, { kind: result.kind })
+                /* v0.0.59: награда уже засчитана onBank'ом — кнопка только закрывает */
+                if (paidRef.current) onDoneRef.current(result.total)
+                else onDoneRef.current(result.total, { coins: result.coins }, { kind: result.kind })
               }}
               className="mt-3 min-h-11 w-full rounded-xl border-2 border-[#8a5330] bg-[#f3e2c8] px-4 py-2.5 font-pixel text-sm font-bold text-[#8a5330] transition hover:bg-[#eed7b4] active:scale-[0.98]"
             >

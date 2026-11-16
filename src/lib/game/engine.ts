@@ -2,7 +2,7 @@
  * Игровой движок POPCORN PAWS — рогалик-режим.
  * Canvas + requestAnimationFrame, независим от React.
  *
- * Игра бесконечна: каждый уровень = 60 секунд и норма (квота) попкорна.
+ * Игра бесконечна: каждый уровень = 50 секунд и норма (квота) попкорна.
  * Выполнил норму → уровень пройден, сундучок с перком, дальше сложнее.
  * Не успел → конец забега. Перки меняют правила одного уровня.
  */
@@ -260,12 +260,10 @@ function rollBigKind(): BigKind {
   return 'caramel'
 }
 
-/* --- БОСС «МАЛЫШ»: на каждом 10-м уровне в зал вламывается ребёнок.
-    Он крупнее воришки-голубя, рвётся к корзине и выгребает попкорн.
-    Трогать малыша лапкой НЕЛЬЗЯ — слетает сердечко. Победить можно
-    только издали: в босс-бою быстрый мах лапкой ПИНАЕТ попкорнинки,
-    те летят как в арканоиде и бивают малыша. У первого босса 3 жизни,
-    у каждого следующего — на одну больше. Время уровня ограничено --- */
+/* --- БОСС «МАЛЫШ» (v0.0.58): на каждом 4-м уровне в зал вламывается ребёнок.
+    Трогать малыша лапкой НЕЛЬЗЯ — слетает сердечко. Собирать попкорн в его
+    бою нельзя: ТАП возле зёрнышка — и лапка швыряет его СНЕЖКОМ в малыша.
+    У первого босса 3 жизни, у каждого следующего — на одну больше --- */
 const BOSS_EVERY = 4 // босс выходит на каждом 4-м уровне (4, 8, 12, 16, 20… — v0.0.46)
 const BOSS_BASE_HP = 3 // жизней у первого босса
 const BOSS_HP_PER_TIER = 1 // +1 жизнь за каждого следующего босса
@@ -276,20 +274,16 @@ const BOSS_BONUS_PER_TIER = 100 // + очки за каждого следующ
 const BOSS_COINS_BASE = 60 // монетки за победу (выдаёт компонент с множителями)
 const BOSS_COINS_PER_TIER = 20 // + монетки за каждого следующего (было 40)
 const BOSS_CHARGE_BASE = 3.6 // пауза между рывками малыша к корзине, с
-const BOSS_STEAL = 3 // сколько зёрен выгребает за раз (растёт с номером босса)
+const BOSS_STEAL = 3 // сколько зёрен выгребает за раз (растёт с тиром; v0.0.59 — не больше половины стаканчика)
 /** Скорость лапки, с которой она ПИНАЕТ зерно (u/с): ниже — обычный подбор */
 const FLING_MIN_SPEED = 430
 /** Трение летящего зерна (экспоненциальное, 1/с): полёт затухает плавно */
 const FLING_FRICTION = 3.4
 
-/* --- v0.0.34: ДВА ВИДА БОССОВ — каждые 10 уровней чередуются.
-    МАЛЫШ (уровни 10, 30, 50…) — как был: рвётся к корзине, трогать нельзя.
-    КУНИЦА ЛАНА (уровни 20, 40, 60…) — воровка: мелькает по верху поля и
-    тянет к корзинке ДЛИННЫЕ ЛАПКИ с когтями со всех сторон. Лапки нужно
-    ПЕРЕРЕЗАТЬ свайпом лапки — каждый разрез минус жизнь воровке!
-    Дотянувшийся коготь выгребает попкорн из корзинки и уносит добычу.
-    Зерном Лану не достать — она отбивает его лапкой. ЛЬВ пока в запасе
-    («без львов пока что») — код гривы-щита сохранился, вернём позже --- */
+/* --- v0.0.34: боссы-воровки. КУНИЦА ЛАНА — мелькает по верху поля и
+    тянет к корзинке ДЛИННЫЕ ЛАПКИ с когтями: лапки нужно ПЕРЕРЕЗАТЬ
+    свайпом — каждый разрез минус жизнь воровке. Зерном Лану не достать.
+    v0.0.46: ПАРАД ПЯТЕРЫХ — цикл боссов каждые 4 уровня (см. ниже) --- */
 export type BossKind = 'kid' | 'lion' | 'marten' | 'pigeon' | 'gypsy'
 
 /** Номер босса (тир) для уровня: боссы выходят каждые BOSS_EVERY уровней.
@@ -342,7 +336,7 @@ const LION_SLAM_R = 64 // радиус удара когтей (u)
     хватает ближайшее к корзине зёрнышко (лишает патрона!) и кидает им в
     лапку — у цели телеграф-круг, как у бросков цыганки --- */
 const SNOW_SPEED = 540 // скорость снежка (u/с)
-const SNOW_HOME_RATE = 2.6 // подруливание к малышу (рад/с)
+const SNOW_HOME_RATE = 1.4 // подруливание к малышу (рад/с) — v0.0.59 ослаблено: бой решает меткость тапов
 const SNOW_TTL = 1.5 // сколько живёт снежок без попадания (с)
 const KID_GRAB_R = 150 // радиус tantrum-хвата зёрна вокруг корзины (u)
 
@@ -730,6 +724,8 @@ interface FloatText {
 }
 
 const LEVEL_SECONDS = 50
+/** v0.0.59: мягкий потолок нормы — дальше растёт только от «беспорядка NANA» */
+const QUOTA_CEILING = 96
 const LEVEL_SECONDS_PERK = 62 // перк «Кошачьи часы»
 const SPAWN_DUR = 0.35
 const CLEAR_DELAY = 0.5 // пауза до «уровень пройден», чтобы зёрна долетели
@@ -930,8 +926,6 @@ export class PopcornEngine {
   private maxHearts = MAX_HEARTS_BASE
   /** Сердец потеряно за текущий уровень (ачивки «без потерь») */
   private heartLost = 0
-  /** Почему закончился забег */
-  private endReason: EndResult['reason'] = 'time'
   /* --- «Девятая жизнь»: сколько вторых шансов осталось в этом забеге.
       0.0.57: сумеречный коготок даёт два, апгрейд — один (0 без обоих) --- */
   private revivesLeft = 0
@@ -972,8 +966,6 @@ export class PopcornEngine {
   /** Множитель очков из коробки: сколько секунд ещё действует и его значение */
   private multLeft = 0
   private multValue = 1
-  /** Коробка-зачистка сработала: до конца этапа мины не спавнятся */
-  private mineSweep = false
   /** Подарочных коробок поймано за забег (пожизненный счётчик ведёт компонент) */
   private giftsRun = 0
   /* --- ОНЛИФАНСИЙ (0.0.43): гигантская лапа с краю поля на уровнях 7/13/18.
@@ -993,6 +985,8 @@ export class PopcornEngine {
   /** ИНТРО БОССА: геймплей заморожен, пока игрок читает инструкцию
       (не путать с paused — это отдельная пауза, кнопка паузы не влияет) */
   private introHold = false
+  /** Страховка интро (v0.0.59): сколько секунд интро висит без ответа */
+  private introHoldT = 0
 
   private cupScale = 5
   private cupH = 0
@@ -1182,13 +1176,32 @@ export class PopcornEngine {
     this.fever = null
     this.feverAfter = -1
     this.feverResume = null
-    /* Сердечки: максимум зависит от апгрейдов, древа и лапки; в новом забеге запас полон */
+    this.pendingFever = false // v0.0.59: «Фарт» из последнего кадра не срабатывает в новом забеге
+    /* Сердечки: максимум зависит от апгрейдов, древа и лапки; в новом забеге запас полон.
+       v0.0.59: кап 9 → 13 — иначе 4 ступени «Крепкого сердца» всегда покупались впустую */
     this.maxHearts = Math.min(
-      9,
+      13,
       MAX_HEARTS_BASE + this.upgHearts + (this.tree.heartsMax ?? 0) + (this.pawBonus.heartsPlus ?? 0),
     )
     this.hearts = this.maxHearts
     this.startLevel(1, opts.perk ?? null)
+  }
+
+  /** v0.0.59: вернуть счёт/сердечки ПРЕРВАННОГО забега (снапшот компонента
+      пишется на pagehide). Сам уровень стартует отдельным вызовом
+      startLevel — счёт при этом не сбрасывается */
+  restoreRun(s: { score: number; hearts: number }): void {
+    this.score = Math.max(0, Math.floor(s.score))
+    this.maxHearts = Math.min(
+      13,
+      MAX_HEARTS_BASE + this.upgHearts + (this.tree.heartsMax ?? 0) + (this.pawBonus.heartsPlus ?? 0),
+    )
+    this.hearts = Math.max(1, Math.min(Math.floor(s.hearts), this.maxHearts))
+    this.revivesLeft = Math.floor(this.clawBonus.revives ?? 0)
+    this.streak = Math.max(0, Math.floor(this.tree.comboStart ?? 0))
+    this.comboArmorLeft = Math.max(0, Math.floor(this.tree.comboArmor ?? 0))
+    this.boss = null
+    this.lionCameo = null
   }
 
   /** Следующий уровень забега (счёт сохраняется) */
@@ -1219,7 +1232,7 @@ export class PopcornEngine {
     if (perk === 'milky') this.quota = Math.max(3, Math.round(this.quota * 1.2))
     /* «Беспорядок NANA»: куница рассыпала попкорн — чем она взрослее, тем
        больше нужно собрать (×1…×2). Забег жирнее — и очков больше */
-    this.quota = Math.max(3, Math.round(this.quota * this.mess.quota))
+    this.quota = Math.min(QUOTA_CEILING, Math.max(3, Math.round(this.quota * this.mess.quota)))
     this.collected = 0
     this.wave = 1
     /* Ступень сложности каждые 5 уровней: пропорционально больше попкорна
@@ -1268,7 +1281,6 @@ export class PopcornEngine {
     this.freezeLeft = 0
     this.multLeft = 0
     this.multValue = 1
-    this.mineSweep = false
     this.hoverLeft =
       this.perk === 'hover' ? HOVER_BASE_SECONDS + (this.tree.hoverPlus ?? 0) : 0
     this.pieces = []
@@ -1407,6 +1419,7 @@ export class PopcornEngine {
     /* Онлифансий не пугает на лихорадке: лапа исчезает, страх отменяется */
     this.lionCameo = null
     this.seeds = [] // боссов на лихорадке нет и зёрен-снарядов тоже
+    this.snowballs = [] // снежки в полёте тоже не переживают лихорадку
     this.lionSlams = [] // и когти Онлифансия отменяются
     this.waveDelay = -1
     this.pendingClear = -1
@@ -1520,6 +1533,10 @@ export class PopcornEngine {
     this.giftTimer = GIFT_FIRST_MIN + Math.random() * (GIFT_FIRST_MAX - GIFT_FIRST_MIN)
     this.hoverLeft =
       this.perk === 'hover' ? HOVER_BASE_SECONDS + (this.tree.hoverPlus ?? 0) : 0
+    /* v0.0.59: воришка-голубь возвращается и после внезапной лихорадки —
+       раньше он пропадал до конца возобновлённого этапа */
+    this.pigeon = null
+    this.pigeonTimer = 4 + Math.random() * 3
     this.spawnWave()
     this.emitStats(true)
   }
@@ -1556,6 +1573,13 @@ export class PopcornEngine {
     this.feverAfter = -1
     this.feverResume = null
     this.introHold = false
+    /* v0.0.59: abort() раньше оставлял висеть босса, снежки, большую
+       попкорнину, стан и «Фарт» до следующего startRun */
+    this.boss = null
+    this.big = null
+    this.snowballs = []
+    this.stun = 0
+    this.pendingFever = false
     this.gift = null
     this.freezeLeft = 0
     this.multLeft = 0
@@ -1592,6 +1616,14 @@ export class PopcornEngine {
     this.stun = 0
     /* Второй шанс возвращает и сердца — полный запас */
     this.hearts = this.maxHearts
+    /* v0.0.59: на босс-уровне забег без босса непобедим (норма 999999) —
+       при «девятой жизни» зверь возвращается в зал с полным здоровьем,
+       короткое интро напоминает правила боя */
+    if (this.lvl % BOSS_EVERY === 0) {
+      this.spawnBoss()
+      this.introHold = true
+      this.cb.onBossIntro?.(this.lvl, bossKindForTier(bossTierForLevel(this.lvl)))
+    }
     this.timeLeft = REVIVE_SECONDS
     this.duration = REVIVE_SECONDS
     this.lastSec = Math.ceil(this.timeLeft)
@@ -1700,6 +1732,9 @@ export class PopcornEngine {
     this.u = Math.max(0.7, Math.min(1.5, Math.min(w, h) / 420))
 
     if (oldW > 0 && oldH > 0 && (oldW !== w || oldH !== h)) {
+      /* v0.0.59: при повороте экрана масштабируются ВСЕ сущности поля,
+         а не только зёрна и лапка — раньше босс, воришка, семена, когти,
+         подарок и большая попкорнина оставались в старых координатах */
       const kx = w / oldW
       const ky = h / oldH
       for (const p of this.pieces) {
@@ -1710,6 +1745,36 @@ export class PopcornEngine {
       this.paw.y *= ky
       this.paw.tx *= kx
       this.paw.ty *= ky
+      if (this.boss) {
+        this.boss.x *= kx
+        this.boss.y *= ky
+        this.boss.hx *= kx
+        this.boss.hy *= ky
+      }
+      if (this.pigeon) {
+        this.pigeon.x *= kx
+        this.pigeon.y *= ky
+        this.pigeon.hx *= kx
+        this.pigeon.hy *= ky
+      }
+      if (this.big) {
+        this.big.x *= kx
+        this.big.y *= ky
+      }
+      if (this.gift) {
+        this.gift.x *= kx
+        this.gift.y *= ky
+      }
+      for (const s of this.seeds) {
+        s.sx *= kx
+        s.sy *= ky
+        s.tx *= kx
+        s.ty *= ky
+      }
+      for (const s of this.lionSlams) {
+        s.x *= kx
+        s.y *= ky
+      }
     }
 
     /* Детальный стаканчик 48×54: пиксели вдвое мельче при том же размере */
@@ -1788,9 +1853,11 @@ export class PopcornEngine {
 
   /* ================= размеры и ступени сложности ================= */
 
-  /** Вместимость лапки: 3 зерна, после 5-го уровня — 4, после 10-го — 5 (+скин, +апгрейд, +перк, +древо) */
+  /** Вместимость лапки: 3 зерна, после 5-го — 4, после 10-го — 5,
+      v0.0.59: после 20-го — 6 и после 30-го — 7 (+скин, +апгрейд, +перк, +древо).
+      Без роста поздние уровни (норма ~90) требовали 17+ сдач за 50 секунд */
   private get carryMax(): number {
-    const base = this.lvl >= 11 ? 5 : this.lvl >= 6 ? 4 : 3
+    const base = this.lvl >= 31 ? 7 : this.lvl >= 21 ? 6 : this.lvl >= 11 ? 5 : this.lvl >= 6 ? 4 : 3
     return (
       base +
       (this.pawBonus.carryPlus ?? 0) +
@@ -1801,10 +1868,10 @@ export class PopcornEngine {
   }
 
   /** Комбо-множитель: +1 за каждые 6 сдач подряд (с «Комбо-тренером» — 5).
-      Потолка больше нет: серия мастера разгоняется без предела,
-      а мины и воришки всё ещё сбивают её в ноль */
+      v0.0.59: потолок ×16 вернулся — шестизначные уловы на длинных сериях
+      ломали экономику, а мины и воришки всё ещё сбивают серию в ноль */
   private get comboMult(): number {
-    return 1 + Math.floor(this.streak / (this.tree.comboFast ? 5 : 6))
+    return 1 + Math.min(15, Math.floor(this.streak / (this.tree.comboFast ? 5 : 6)))
   }
 
   /** Мина или воришка сбивают серию. «Комбо-броня» гасит первые удары за
@@ -2709,7 +2776,6 @@ export class PopcornEngine {
 
   private end(reason: EndResult['reason'] = 'time'): void {
     if (this.phase === 'ended') return // поражение уже зафиксировано
-    this.endReason = reason
     this.phase = 'ended'
     audio.stopMusic()
     this.feverResume = null // забег кончился — возобновлять нечего
@@ -2894,6 +2960,9 @@ export class PopcornEngine {
       return
     }
     const u = this.u
+    /* v0.0.59: «Морозный коготок» (−25% скорость голубей) теперь честно
+       работает на воришке — и на подлёте, и в парении над корзиной */
+    const slow = 1 - Math.min(0.6, this.clawBonus.pigeonSlow ?? 0)
     const g = this.pigeon
     g.stateT += dt
     if (g.state === 'in') {
@@ -2901,7 +2970,7 @@ export class PopcornEngine {
       const dy = g.hy - g.y
       const d = Math.hypot(dx, dy)
       /* Голуби стали вдвое быстрее — успей запугать, пока не расклевала корзину */
-      const step = 300 * u * dt
+      const step = 300 * slow * u * dt
       if (d <= step) {
         g.x = g.hx
         g.y = g.hy
@@ -2920,7 +2989,7 @@ export class PopcornEngine {
         this.pigeonPeck()
       }
     } else {
-      // 'flee': улетает за тот же борт, откуда прилетел.
+      // 'flee': улетает за ПРОТИВОПОЛОЖНЫЙ борт (x += -g.side * …).
       // Поверженный — быстрее, выше и кувырком
       const speed = g.downed ? 430 : 320
       const rise = g.downed ? 150 : 40
@@ -2947,8 +3016,8 @@ export class PopcornEngine {
       g.kx -= g.kx * dec
       g.ky -= g.ky * dec
       if (g.state === 'hover') {
-        g.x += (g.hx - g.x) * Math.min(1, dt * 1.5)
-        g.y += (g.hy - g.y) * Math.min(1, dt * 1.5)
+        g.x += (g.hx - g.x) * Math.min(1, dt * 1.5 * slow)
+        g.y += (g.hy - g.y) * Math.min(1, dt * 1.5 * slow)
       }
     }
     /* УДАР ЛАПКОЙ: каждое касание (или проведение через него) — минус
@@ -3027,13 +3096,15 @@ export class PopcornEngine {
       /* Воришка становится наглее с уровнем: с 6-го тащит по 2 зерна,
          с 11-го — по 3, с 16-го — по 4 за клюв (1 + floor((lvl-1)/5)).
          «Мир с голубем»: тащит на 1 зерно меньше за ступень, но не меньше 1 */
+      /* v0.0.59: за клюв — не больше 2 зёрен: наглее воришка становится
+         только ЧАЩЕ клюя, а не объемом кражи */
       const steal = Math.min(
         this.collected,
-        Math.max(1, 1 + Math.floor((this.lvl - 1) / 5) - (this.tree.pigeonStealCut ?? 0)),
+        Math.max(1, Math.min(2, 1 + Math.floor((this.lvl - 1) / 5) - (this.tree.pigeonStealCut ?? 0))),
       )
       this.collected -= steal
       g.stolen += steal
-      g.pecks++ // со второго клюва — минус сердечко
+      g.pecks++ // с третьего клюва — минус сердечко (v0.0.59: был со второго)
       this.levelStolen++ // ачивка «Чистая работа» сгорела
       this.breakStreak(this.cup.x, this.cup.y - this.cupH * 0.9) // воришка сбивает серию (или гасится бронёй)
       this.pendingClear = -1 // украденное зерно отменяет близкое «уровень пройден»
@@ -3056,8 +3127,9 @@ export class PopcornEngine {
         this.end('ransacked')
         return
       }
-      /* Повторный клюв по корзине — минус сердечко */
-      if (g.pecks >= 2) this.loseHeart('pigeon')
+      /* Третий клюв по корзине — минус сердечко (v0.0.59: сдвинуто со второго,
+         чтобы стая на поздних уровнях не выжигала сердца мгновенно) */
+      if (g.pecks >= 3) this.loseHeart('pigeon')
     } else {
       this.texts.push({
         x: this.cup.x,
@@ -3313,10 +3385,9 @@ export class PopcornEngine {
       // ЛАНА бегает вдвое быстрее и мелькает короткими рывками-дэшами
       if (b.vx === 0 && b.vy === 0) {
         const a = Math.random() * Math.PI * 2
-        const sp =
-          b.kind === 'marten'
-            ? MARTEN_DASH_SPEED * u
-            : 62 * (1 - Math.min(0.6, this.clawBonus.pigeonSlow ?? 0)) * u
+        /* v0.0.59: «Морозный коготок» замедляет только воришек-голубей —
+           в бродяге боссов множитель раньше замедлял и малыша с Онлифансием */
+        const sp = b.kind === 'marten' ? MARTEN_DASH_SPEED * u : 62 * u
         b.vx = Math.cos(a) * sp
         b.vy = Math.sin(a) * sp * 0.72
       }
@@ -3553,7 +3624,7 @@ export class PopcornEngine {
       b.x += Math.sin(b.stateT * 9) * 40 * u * dt
       if (b.y < -110 * u) {
         this.boss = null
-        this.bossDefeated()
+        this.levelComplete()
       }
       return
     }
@@ -3790,8 +3861,11 @@ export class PopcornEngine {
     }
     if (this.collected > 0) {
       const tier = bossTierForLevel(this.lvl)
+      /* v0.0.59: за раз босс забирает не больше ПОЛОВИНЫ стаканчика —
+         поздние тиры больше не выгребают 10+ зёрен одним сватом */
       const steal = Math.min(
         this.collected,
+        Math.ceil(this.collected / 2),
         BOSS_STEAL + tier - 1 + BOSS_STEAL_BY_KIND[b.kind],
       )
       this.collected -= steal
@@ -3918,7 +3992,8 @@ export class PopcornEngine {
       s.rot += s.spin * dt
       if (s.t < GYPSY_SEED_DUR) continue
       // ШЛЁП О ЭКРАН: попало по лапке — сердечко и стан; мимо — просто треснуло
-      const hit = Math.hypot(this.paw.x - s.tx, this.paw.y - s.ty) < (GYPSY_SEED_POP_R + 10) * u
+      // v0.0.59: хитбокс теперь ровно с видимым кругом-телеграфом (был шире на +10u)
+      const hit = Math.hypot(this.paw.x - s.tx, this.paw.y - s.ty) < GYPSY_SEED_POP_R * u
       this.rings.push({
         x: s.tx,
         y: s.ty,
@@ -3964,7 +4039,8 @@ export class PopcornEngine {
       s.t += dt
       if (s.t < LION_SLAM_TELE) continue
       // УДАР СВЕРХУ: попало по лапке — сердечко и стан; мимо — просто грохот
-      const hit = Math.hypot(this.paw.x - s.x, this.paw.y - s.y) < (LION_SLAM_R + 10) * u
+      // v0.0.59: хитбокс теперь ровно с видимым кругом-телеграфом (был шире на +10u)
+      const hit = Math.hypot(this.paw.x - s.x, this.paw.y - s.y) < LION_SLAM_R * u
       this.rings.push({
         x: s.x,
         y: s.y,
@@ -4247,7 +4323,35 @@ export class PopcornEngine {
     const u = this.u
     b.state = 'flee'
     b.stateT = 0
+    /* v0.0.59: loot в отступающих лапках Ланы не пропадает — вываливается на пол */
+    let pawLoot = 0
+    for (const pl of b.paws) pawLoot += pl.loot
     b.paws.length = 0
+    if (pawLoot > 0) {
+      for (let k = 0; k < pawLoot; k++) {
+        this.pieces.push({
+          x: this.cup.x + (Math.random() - 0.5) * 120 * u,
+          y: Math.max(70, this.cup.y - this.cupH - (10 + Math.random() * 60) * u),
+          rot: Math.random() * Math.PI * 2,
+          kind: 'popcorn',
+          phase: Math.random() * Math.PI * 2,
+          spawn: 0,
+          spin: (Math.random() < 0.5 ? -1 : 1) * 6,
+          dA: 0,
+          vx: (Math.random() - 0.5) * 200 * u,
+          vy: -(100 + Math.random() * 150) * u,
+        })
+      }
+      this.texts.push({
+        x: this.cup.x,
+        y: Math.max(100, this.cup.y - this.cupH - 90 * u),
+        text: this.L('txt.lootBack'),
+        color: '#FFF3D6',
+        t: 0,
+        dur: 0.9,
+        size: 21 * u,
+      })
+    }
     /* Украденное цыганкой вываливается обратно на пол — успей подобрать! */
     if (b.loot > 0) {
       for (let k = 0; k < b.loot; k++) {
@@ -4278,6 +4382,7 @@ export class PopcornEngine {
     /* Летящие в экран зёрна при победе растворяются — не бьют по уставшему */
     this.seeds.length = 0
     this.snowballs.length = 0 // снежки в полёте тоже растворяются
+    this.lionSlams.length = 0 // v0.0.59: горящие когти гаснут — удар и «сердечко» после победы невозможны
     const tier = Math.max(1, Math.floor(this.lvl / BOSS_EVERY))
     const bonus = BOSS_BONUS_BASE + (tier - 1) * BOSS_BONUS_PER_TIER
     this.score += bonus
@@ -4547,12 +4652,6 @@ export class PopcornEngine {
     this.emitStats(true)
   }
 
-  /** Малыш повержен и уплыл за кадр: уровень завершается той же дорогой,
-      что и обычная сдача нормы — салют, сундучок, нарезка, следующий этап */
-  private bossDefeated(): void {
-    this.levelComplete()
-  }
-
   /* ================= цикл ================= */
 
   private loop = (ts: number): void => {
@@ -4566,6 +4665,14 @@ export class PopcornEngine {
     }
     const dt = Math.min(0.05, (ts - this.lastTs) / 1000)
     this.lastTs = ts
+    /* v0.0.59: если интро босса никто не закрыл (сбой компонента, скрытая
+       вкладка), через 12 секунд геймплей отпускается сам — игра не виснет */
+    if (this.introHold && this.phase === 'playing') {
+      this.introHoldT += dt
+      if (this.introHoldT > 12) this.dismissBossIntro()
+    } else {
+      this.introHoldT = 0
+    }
     if (this.phase === 'playing' && !this.paused && !this.introHold) {
       try {
         this.update(dt)
@@ -4586,7 +4693,12 @@ export class PopcornEngine {
        когда снова стабильно выше 55 — возвращаем эффекты */
     const newTier = this.fpsMeter.tick(dt, ts)
     if (newTier !== null) this.setPerfTier(newTier)
-    this.render(ts)
+    try {
+      this.render(ts)
+    } catch (err) {
+      // v0.0.59: сбой отрисовки больше не убивает rAF-цикл — логируем и живём
+      console.error('[popcorn] render error:', err)
+    }
     this.emitStats(false)
     this.raf = requestAnimationFrame(this.loop)
   }
@@ -4729,7 +4841,6 @@ export class PopcornEngine {
         this.crumbs(p.x, p.y, '#FFC93C', 6)
       }
       this.cornPerWave = 0
-      this.mineSweep = true
       audio.play('sweep')
       this.doShake(5)
       this.banner = { text: this.L('gift.sweep'), t: 0 }
@@ -5062,8 +5173,9 @@ export class PopcornEngine {
 
     this.drawCup(ts)
     this.drawPieces(ts)
-    /* ПОДАРОЧНАЯ КОРОБКА поверх зёрен; морозная дымка — пока действует фриз */
-    this.drawGift(ts)
+    /* ПОДАРОЧНАЯ КОРОБКА поверх зёрен; морозная дымка — пока действует фриз.
+       v0.0.59: коробка рисуется только в бою — не замирает на экране «ПРОЙДЕН» */
+    if (this.gift && this.phase === 'playing') this.drawGift(ts)
     if (this.freezeLeft > 0) {
       ctx.fillStyle = 'rgba(120, 190, 255, 0.08)'
       ctx.fillRect(0, 0, this.W, this.H)
