@@ -157,7 +157,7 @@ import {
   type AchId,
 } from '@/lib/game/achievements'
 import { addLife, flushLife, getLife } from '@/lib/game/lifestats'
-import { attachAltInput } from '@/lib/game/alt-input'
+import { attachAltInput, setBindCapture } from '@/lib/game/alt-input'
 import QRCode from 'react-qr-code'
 import { ROOMS, roomForLevel, roomSrcForLevel } from '@/lib/game/rooms'
 import MartenScene from './marten-scene'
@@ -222,13 +222,19 @@ import { GAME_VERSION_LABEL } from '@/lib/game/version'
 import { unlockNamesForRange, type LevelUnlock } from '@/lib/game/unlocks'
 import { tFor, LANGS, LOCALES, type Lang, type TranslateFn } from '@/lib/game/i18n'
 import {
+  DEFAULT_KEY_CODES,
+  DEFAULT_PAD_ACTION,
   DEFAULT_SETTINGS,
+  keyLabel,
+  padLabel,
   parseSettingsRaw,
   saveSettings,
   SETTINGS_EVENT,
   SETTINGS_KEY,
+  type BindAction,
   type GameSettings,
   type Orientation,
+  type PadStick,
 } from '@/lib/game/settings'
 
 type Phase = 'start' | 'playing' | 'paused' | 'slicer' | 'chest' | 'ended'
@@ -999,8 +1005,78 @@ function ToggleRow({
   )
 }
 
+/** v0.0.63: строка переназначения клавиши/кнопки в «Управлении».
+    Жёлтая капсула — своя привязка, серая — стандарт; ✕ возвращает стандарт */
+function BindRow({
+  label,
+  valueLabel,
+  custom,
+  capturing,
+  placeholder,
+  onPick,
+  onReset,
+}: {
+  label: string
+  valueLabel: string
+  /** true — стоит пользовательская привязка (показываем ✕) */
+  custom: boolean
+  /** true — идёт захват («Нажмите клавишу…») */
+  capturing: boolean
+  placeholder: string
+  onPick: () => void
+  onReset: () => void
+}) {
+  return (
+    <div
+      className={`flex items-center justify-between gap-1.5 rounded-lg border-2 px-2 py-1 ${
+        capturing ? 'border-[#E24B3B] bg-[#ffe9df]' : 'border-[#e3cba4] bg-white'
+      }`}
+    >
+      <span className="min-w-0 truncate font-ui text-[10px] font-semibold text-[#5C3A1E]">
+        {label}
+      </span>
+      <span className="flex shrink-0 items-center gap-0.5">
+        <button
+          type="button"
+          onClick={onPick}
+          aria-label={label}
+          className={`min-w-14 rounded-md px-2 py-1 font-pixel text-[11px] font-bold transition ${
+            capturing
+              ? 'animate-pulse bg-[#E24B3B] text-white'
+              : custom
+                ? 'bg-[#FFC93C] text-[#5C3A1E]'
+                : 'bg-[#f3e2c8] text-[#8a5330]'
+          }`}
+        >
+          {capturing ? placeholder : valueLabel}
+        </button>
+        {custom && !capturing && (
+          <button
+            type="button"
+            onClick={onReset}
+            aria-label="✕"
+            className="rounded-md px-1 py-1 font-pixel text-[10px] font-bold text-[#B33A26] transition hover:bg-[#ffe9df]"
+          >
+            ✕
+          </button>
+        )}
+      </span>
+    </div>
+  )
+}
+
 const OVERLAY_SCROLL =
   '[scrollbar-width:thin] [&::-webkit-scrollbar]:w-1.5 [&::-webkit-scrollbar-thumb]:rounded-full [&::-webkit-scrollbar-thumb]:bg-[#d9b98c] [&::-webkit-scrollbar-track]:bg-transparent'
+
+/** v0.0.63: действия клавиатуры, которые можно переназначить в настройках */
+const KB_ACTIONS: Array<{ act: BindAction; key: string }> = [
+  { act: 'up', key: 'set.kb.up' },
+  { act: 'down', key: 'set.kb.down' },
+  { act: 'left', key: 'set.kb.left' },
+  { act: 'right', key: 'set.kb.right' },
+  { act: 'action', key: 'set.kb.action' },
+  { act: 'back', key: 'set.kb.back' },
+]
 
 /* ---------- Путешествие куницы: авто-забег за зерном, алмазами и особым лутом ---------- */
 
@@ -3927,6 +4003,125 @@ function SettingsOverlay({
       alive = false
     }
   }, [])
+
+  /* v0.0.63: УПРАВЛЕНИЕ — захват привязки («нажмите клавишу…») и
+     живой индикатор геймпада */
+  const [capture, setCapture] = useState<{ kind: 'kb' | 'pad'; act: BindAction } | null>(null)
+  const [padName, setPadName] = useState<string | null>(null)
+
+  /* Пока идёт захват — глушим alt-input, чтобы клавиша не двигала лапку
+     и Start на паде не ставил игру на паузу */
+  useEffect(() => {
+    setBindCapture(capture !== null)
+    return () => setBindCapture(false)
+  }, [capture])
+
+  /* Захват КЛАВИАШИ: перехватываем keydown в capture-фазе — раньше alt-input;
+     Esc — отмена без записи */
+  useEffect(() => {
+    if (!capture || capture.kind !== 'kb') return
+    const onKey = (e: KeyboardEvent): void => {
+      e.preventDefault()
+      e.stopPropagation()
+      if (e.code !== 'Escape') {
+        set({ keys: { ...settings.keys, [capture.act]: e.code } })
+      }
+      setCapture(null)
+    }
+    window.addEventListener('keydown', onKey, true)
+    return () => window.removeEventListener('keydown', onKey, true)
+  }, [capture, settings, set])
+
+  /* Захват КНОПКИ ГЕЙМПАДА: 9 секунд опрашиваем Gamepad API. Первые пол
+     секунды запоминаем «уже зажатые» кнопки (чтобы не поймать ту, которой
+     нажимали «назначить»); Esc — отмена */
+  useEffect(() => {
+    if (!capture || capture.kind !== 'pad') return
+    let raf = 0
+    const t0 = performance.now()
+    const seen = new Set<number>()
+    let ready = false
+    const cancel = (e: KeyboardEvent): void => {
+      if (e.code === 'Escape') setCapture(null)
+    }
+    window.addEventListener('keydown', cancel, true)
+    const step = (): void => {
+      const now = performance.now()
+      if (now - t0 > 9000) {
+        setCapture(null)
+        return
+      }
+      if (!ready && now - t0 > 500) ready = true
+      let pressed = false
+      const pads =
+        typeof navigator.getGamepads === 'function' ? (navigator.getGamepads() ?? []) : []
+      for (const gp of pads) {
+        if (!gp) continue
+        for (let i = 0; i < gp.buttons.length; i++) {
+          if (!gp.buttons[i].pressed) continue
+          pressed = true
+          if (ready && !seen.has(i)) {
+            set({ padBtn: { ...settings.padBtn, [capture.act]: i } })
+            setCapture(null)
+            return
+          }
+          seen.add(i)
+        }
+      }
+      if (!pressed) seen.clear()
+      raf = requestAnimationFrame(step)
+    }
+    raf = requestAnimationFrame(step)
+    return () => {
+      cancelAnimationFrame(raf)
+      window.removeEventListener('keydown', cancel, true)
+    }
+  }, [capture, settings, set])
+
+  /* Индикатор подключённого геймпада: опрос раз в секунду, пока настройки открыты */
+  useEffect(() => {
+    let alive = true
+    const tick = (): void => {
+      if (!alive) return
+      let name: string | null = null
+      if (typeof navigator.getGamepads === 'function') {
+        try {
+          const gp = (navigator.getGamepads() ?? []).find((p) => p && p.connected)
+          if (gp) {
+            name =
+              gp.id
+                .replace(/\(.*?\)/g, ' ')
+                .replace(/\s+/g, ' ')
+                .trim()
+                .slice(0, 30) || 'Gamepad'
+          }
+        } catch {
+          name = null
+        }
+      }
+      setPadName(name)
+    }
+    const id = window.setInterval(tick, 1000)
+    tick()
+    return () => {
+      alive = false
+      window.clearInterval(id)
+    }
+  }, [])
+
+  /* Сброс только раздела «Управление» — остальные настройки не трогаем */
+  const resetControls = () =>
+    set({
+      cursorSpeed: 1,
+      invertX: false,
+      invertY: false,
+      padStick: 'left',
+      deadzone: 0.22,
+      chop: true,
+      keys: { up: null, down: null, left: null, right: null, action: null, back: null },
+      padBtn: { action: null, back: null },
+    })
+
   return (
     <motion.div
       className="absolute inset-0 z-[60] flex items-center justify-center overflow-y-auto bg-black/80 p-4"
@@ -4045,6 +4240,171 @@ function SettingsOverlay({
                 { v: 'auto', label: t('set.orient.auto') },
               ]}
             />
+          </section>
+
+          {/* v0.0.63: Управление — играть на любом устройстве:
+              тач/мышь/клавиатура/геймпад/ТВ-пульт */}
+          <section className="space-y-2">
+            <div className="font-pixel text-[12px] font-bold text-[#8a5330]">
+              {t('set.controls')}
+            </div>
+            <p className="font-ui text-[10px] leading-tight text-[#a97c50]">
+              {t('set.controlsHint')}
+            </p>
+
+            {/* Скорость курсора: клавиатура, пульт и стик */}
+            <label className="block rounded-xl border-2 border-[#e3cba4] bg-[#fdf3e0] px-3 py-2">
+              <span className="flex items-center justify-between font-ui text-[11px] font-semibold text-[#5C3A1E]">
+                {t('set.cursSpeed')}
+                <span className="tabular-nums">{Math.round(settings.cursorSpeed * 100)}%</span>
+              </span>
+              <input
+                type="range"
+                min={0.5}
+                max={2}
+                step={0.05}
+                value={settings.cursorSpeed}
+                onChange={(e) => set({ cursorSpeed: Number(e.target.value) })}
+                className="mt-1 w-full accent-[#E24B3B]"
+                aria-label={t('set.cursSpeed')}
+              />
+              <span className="mt-0.5 block font-ui text-[10px] leading-tight text-[#a97c50]">
+                {t('set.cursSpeedHint')}
+              </span>
+            </label>
+
+            {/* Авто-нарезка: держишь направление — лапка пилит сама */}
+            <ToggleRow
+              label={t('set.chop')}
+              hint={t('set.chopHint')}
+              value={settings.chop}
+              onChange={(v) => set({ chop: v })}
+            />
+
+            {/* Геймпад: какой стик режет */}
+            <div className="rounded-xl border-2 border-[#e3cba4] bg-[#fdf3e0] px-3 py-2">
+              <div className="mb-1 font-ui text-[11px] font-semibold text-[#5C3A1E]">
+                {t('set.padStick')}
+              </div>
+              <Seg
+                cur={settings.padStick}
+                onPick={(v) => set({ padStick: v as PadStick })}
+                options={[
+                  { v: 'left', label: t('set.padStick.left') },
+                  { v: 'right', label: t('set.padStick.right') },
+                ]}
+              />
+            </div>
+
+            {/* Мёртвая зона стика */}
+            <label className="block rounded-xl border-2 border-[#e3cba4] bg-[#fdf3e0] px-3 py-2">
+              <span className="flex items-center justify-between font-ui text-[11px] font-semibold text-[#5C3A1E]">
+                {t('set.deadzone')}
+                <span className="tabular-nums">{Math.round(settings.deadzone * 100)}%</span>
+              </span>
+              <input
+                type="range"
+                min={0.05}
+                max={0.45}
+                step={0.01}
+                value={settings.deadzone}
+                onChange={(e) => set({ deadzone: Number(e.target.value) })}
+                className="mt-1 w-full accent-[#E24B3B]"
+                aria-label={t('set.deadzone')}
+              />
+              <span className="mt-0.5 block font-ui text-[10px] leading-tight text-[#a97c50]">
+                {t('set.deadzoneHint')}
+              </span>
+            </label>
+
+            {/* Инверсии стика */}
+            <ToggleRow
+              label={t('set.invertX')}
+              value={settings.invertX}
+              onChange={(v) => set({ invertX: v })}
+            />
+            <ToggleRow
+              label={t('set.invertY')}
+              value={settings.invertY}
+              onChange={(v) => set({ invertY: v })}
+            />
+
+            {/* Клавиатура: свои клавиши ПОВЕРХ стандартных */}
+            <div className="rounded-xl border-2 border-[#e3cba4] bg-[#fdf3e0] p-2">
+              <div className="mb-1.5 font-pixel text-[11px] font-bold text-[#5C3A1E]">
+                {t('set.kbKeys')}
+              </div>
+              <div className="grid grid-cols-1 gap-1.5 sm:grid-cols-2">
+                {KB_ACTIONS.map(({ act, key }) => {
+                  const custom = settings.keys[act]
+                  return (
+                    <BindRow
+                      key={act}
+                      label={t(key)}
+                      valueLabel={
+                        custom
+                          ? keyLabel(custom)
+                          : DEFAULT_KEY_CODES[act].map(keyLabel).join(' / ')
+                      }
+                      custom={custom != null}
+                      capturing={capture !== null && capture.kind === 'kb' && capture.act === act}
+                      placeholder={t('set.kb.press')}
+                      onPick={() => setCapture({ kind: 'kb', act })}
+                      onReset={() => set({ keys: { ...settings.keys, [act]: null } })}
+                    />
+                  )
+                })}
+              </div>
+              <p className="mt-1.5 font-ui text-[10px] leading-tight text-[#a97c50]">
+                {t('set.kb.hint')}
+              </p>
+            </div>
+
+            {/* Геймпад: свои кнопки поверх standard mapping */}
+            <div className="rounded-xl border-2 border-[#e3cba4] bg-[#fdf3e0] p-2">
+              <div className="mb-1.5 font-pixel text-[11px] font-bold text-[#5C3A1E]">
+                {t('set.padBtns')}
+              </div>
+              <div className="grid grid-cols-1 gap-1.5 sm:grid-cols-2">
+                <BindRow
+                  label={t('set.pad.action')}
+                  valueLabel={
+                    settings.padBtn.action != null
+                      ? padLabel(settings.padBtn.action)
+                      : padLabel(DEFAULT_PAD_ACTION)
+                  }
+                  custom={settings.padBtn.action != null}
+                  capturing={capture !== null && capture.kind === 'pad' && capture.act === 'action'}
+                  placeholder={t('set.pad.press')}
+                  onPick={() => setCapture({ kind: 'pad', act: 'action' })}
+                  onReset={() => set({ padBtn: { ...settings.padBtn, action: null } })}
+                />
+                <BindRow
+                  label={t('set.pad.back')}
+                  valueLabel={
+                    settings.padBtn.back != null ? padLabel(settings.padBtn.back) : 'Start / Back'
+                  }
+                  custom={settings.padBtn.back != null}
+                  capturing={capture !== null && capture.kind === 'pad' && capture.act === 'back'}
+                  placeholder={t('set.pad.press')}
+                  onPick={() => setCapture({ kind: 'pad', act: 'back' })}
+                  onReset={() => set({ padBtn: { ...settings.padBtn, back: null } })}
+                />
+              </div>
+              <p className="mt-1.5 font-ui text-[10px] leading-tight text-[#a97c50]">
+                {padName ? t('set.pad.found', { name: padName }) : t('set.pad.none')}
+              </p>
+              <p className="font-ui text-[10px] leading-tight text-[#a97c50]">{t('set.pad.hint')}</p>
+            </div>
+
+            {/* Сброс только «Управления» */}
+            <button
+              type="button"
+              onClick={resetControls}
+              className="w-full rounded-xl border-2 border-[#e3cba4] bg-white px-3 py-2 font-pixel text-[11px] font-bold text-[#B33A26] transition hover:border-[#E24B3B] active:scale-[0.99]"
+            >
+              {t('set.controlsReset')}
+            </button>
           </section>
 
           {/* Игровые механики */}
