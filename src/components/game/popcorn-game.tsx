@@ -157,6 +157,7 @@ import {
   type AchId,
 } from '@/lib/game/achievements'
 import { addLife, flushLife, getLife } from '@/lib/game/lifestats'
+import { attachAltInput } from '@/lib/game/alt-input'
 import QRCode from 'react-qr-code'
 import { ROOMS, roomForLevel, roomSrcForLevel } from '@/lib/game/rooms'
 import MartenScene from './marten-scene'
@@ -548,6 +549,8 @@ function GameButton({
   /** 0.0.45: 'violet' — леопардовая тема главного меню; 'red' — классический,
       им пользуются все диалоги — их вид не менялся */
   tone = 'red',
+  /** v0.0.62: пометка data-primary — ТВ-пульт/клавиатура берут её первым фокусом */
+  primary = false,
 }: {
   onClick: () => void
   children: React.ReactNode
@@ -555,6 +558,7 @@ function GameButton({
   className?: string
   shine?: boolean
   tone?: 'red' | 'violet'
+  primary?: boolean
 }) {
   const tones = {
     red: 'bg-[#E24B3B] shadow-[0_5px_0_#9c2f22] hover:bg-[#ef5a4a] active:shadow-[0_2px_0_#9c2f22]',
@@ -566,6 +570,7 @@ function GameButton({
       type="button"
       onClick={onClick}
       disabled={disabled}
+      data-primary={primary || undefined}
       className={`w-full rounded-xl px-6 py-3.5 font-pixel text-base text-white transition-all active:translate-y-[3px] disabled:cursor-not-allowed disabled:opacity-60 sm:text-lg ${tones[tone]} ${className ?? ''} ${shine ? 'relative overflow-hidden' : ''}`}
     >
       {shine && (
@@ -4681,6 +4686,12 @@ export function PopcornGame() {
   const [clearInfo, setClearInfo] = useState<ClearState | null>(null)
   /* v0.0.60: пуш-напоминание о поддержке (каждые SUPPORT_EVERY пройденных уровней) */
   const [supportPush, setSupportPush] = useState(false)
+  /* v0.0.62: зеркало фазы для альтернативного ввода (клавиатура/геймпад/ТВ-пульт)
+     — слушатели события навешаны один раз, а решения принимают по актуальной фазе */
+  const phaseRef = useRef(phase)
+  useEffect(() => {
+    phaseRef.current = phase
+  }, [phase])
   /* v0.0.61: пуш прилетел посреди геймплея — забег ставился на паузу, и его
      нужно возобновить после ОК (флаг, чтобы не разбудить чужую паузу) */
   const supportPausedRef = useRef(false)
@@ -4838,6 +4849,11 @@ export function PopcornGame() {
     | 'inv'
     | null
   >(null)
+  /* v0.0.62: зеркало оверлея для альтернативного ввода — Esc/Back закрывает актуальный */
+  const overlayRef = useRef(overlay)
+  useEffect(() => {
+    overlayRef.current = overlay
+  }, [overlay])
   const [achToast, setAchToast] = useState<{ icon: string; name: string } | null>(null)
   const [shareNote, setShareNote] = useState<string | null>(null)
   /* Мировой рекорд отклонён сервером (тост на экране результата) */
@@ -6783,6 +6799,34 @@ export function PopcornGame() {
     setPhase('paused')
   }, [])
 
+  /* v0.0.62: КЛАВИАТУРА / ГЕЙМПАД (Xbox 360, PS4) / ТВ-ПУЛЬТ (Android TV).
+     Стрелки/WASD или стик/крестовина — двигать лапку, Space/Enter или A/✕ —
+     действие (снежок в бою с Малышом), Esc/P/Start/«Назад» — пауза и назад.
+     В меню стрелки ходят фокусом по кнопкам — на ТВ пультом, на десктопе
+     тоже работает. Модуль сам скармливает движку те же координаты, что и тач.
+     Эффект стоит ПОСЛЕ объявления pauseGame/resumeGame — иначе React Compiler
+     ругается на доступ до объявления */
+  useEffect(() => {
+    return attachAltInput({
+      getEngine: () => engineRef.current,
+      getRect: () => rectRef.current,
+      isPlaying: () => {
+        const eng = engineRef.current
+        return !!eng && eng.phase === 'playing' && !eng.paused
+      },
+      onUiBack: () => {
+        if (overlayRef.current) {
+          audio.play('click')
+          setOverlay(null)
+        } else if (phaseRef.current === 'playing') {
+          pauseGame()
+        } else if (phaseRef.current === 'paused') {
+          resumeGame()
+        }
+      },
+    })
+  }, [pauseGame, resumeGame])
+
   /** «КОНЕЦ ИГРЫ»: сразу в меню. Собранный попкорн уже лежит в банке опыта. */
   const quitToMenu = useCallback(() => {
     audio.play('click')
@@ -7664,7 +7708,7 @@ export function PopcornGame() {
                       aria-hidden
                       className="play-pulse pointer-events-none absolute inset-0 rounded-xl"
                     />
-                    <GameButton onClick={startGame} shine tone="violet">
+                    <GameButton onClick={startGame} shine tone="violet" primary>
                       {t('menu.play')}
                     </GameButton>
                   </div>
@@ -7867,6 +7911,16 @@ export function PopcornGame() {
                 >
                   {t('quit.pauseMenu')}
                 </button>
+                {/* v0.0.62: подсказка про клавиатуру/геймпад/ТВ — в паузе её ищут,
+                    когда «что-то не работает», здесь она и помогает */}
+                <div className="mt-3 border-t-2 border-[#e3cba4] pt-2.5 text-left">
+                  <p className="font-ui text-[10px] font-medium leading-relaxed text-[#a97c50]">
+                    {t('pause.hintKeys')}
+                  </p>
+                  <p className="mt-1 font-ui text-[10px] font-medium leading-relaxed text-[#a97c50]">
+                    {t('pause.hintPad')}
+                  </p>
+                </div>
               </motion.div>
             </motion.div>
           )}

@@ -388,3 +388,13 @@ body {
     animation: none;
   }
 }
+
+/* v0.0.62: видимый фокус для клавиатуры, ТВ-пульта и геймпада —
+   где курсор нет, фокус единственный ориентир навигации */
+button:focus-visible,
+a:focus-visible,
+input:focus-visible {
+  outline: 3px solid #fbbf24;
+  outline-offset: 2px;
+  border-radius: 0.75rem;
+}

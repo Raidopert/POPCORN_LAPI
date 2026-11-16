@@ -2362,6 +2362,19 @@ export const T: Record<string, Row> = {
     'Nivel {{l}} · Puntos: {{s}} · Meta {{c}}/{{q}}',
   ],
   'pause.resume': ['▶ ПРОДОЛЖИТЬ', '▶ RESUME', '▶ WEITER', '▶ CONTINUAR'],
+  /* v0.0.62: подсказки альтернативного ввода — клавиатура, геймпад, ТВ-пульт */
+  'pause.hintKeys': [
+    '⌨ Клавиатура: стрелки / WASD — двигать лапку (Shift — быстрее) · Space / Enter — действие · Esc / P — пауза',
+    '⌨ Keyboard: arrows / WASD — move the paw (Shift — faster) · Space / Enter — action · Esc / P — pause',
+    '⌨ Tastatur: Pfeile / WASD — Pfote bewegen (Shift — schneller) · Leertaste / Enter — Aktion · Esc / P — Pause',
+    '⌨ Teclado: flechas / WASD — mover la pata (Shift — más rápido) · Espacio / Enter — acción · Esc / P — pausa',
+  ],
+  'pause.hintPad': [
+    '🎮 Геймпад Xbox 360 / PS4: стик или крестовина — лапка · A / ✕ — действие · Start / Options — пауза. Android ТВ: играй с дивана пультом — крестовина + ОК, кнопка «Назад» — пауза',
+    '🎮 Xbox 360 / PS4 pad: stick or D-pad — paw · A / ✕ — action · Start / Options — pause. Android TV: play from the couch with the remote — D-pad + OK, Back button pauses',
+    '🎮 Xbox-360-/PS4-Gamepad: Stick oder Kreuz — Pfote · A / ✕ — Aktion · Start / Options — Pause. Android TV: vom Sofa mit der Fernbedienung — Kreuz + OK, „Zurück“ pausiert',
+    '🎮 Mando Xbox 360 / PS4: stick o cruceta — pata · A / ✕ — acción · Start / Options — pausa. Android TV: juega desde el sofá con el mando — cruceta + OK, «Atrás» pausa',
+  ],
   'hud.pause': ['Пауза', 'Pause', 'Pause', 'Pausa'],
   'hud.mute': ['Выключить звук', 'Mute sound', 'Ton aus', 'Silenciar'],
   'hud.unmute': ['Включить звук', 'Unmute sound', 'Ton an', 'Activar sonido'],
