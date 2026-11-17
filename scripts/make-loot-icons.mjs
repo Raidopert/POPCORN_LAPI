@@ -5,6 +5,7 @@
  * Запуск: bun scripts/make-loot-icons.mjs
  * Результат: public/inventory/*.png (256×256)
  * 0.0.68: +4 иконки — col-leopard, bra-leopard, crown-rose, crown-leopard
+ * 0.0.69: +5 боссовых баночек — jar-pigeon, jar-kid, jar-lion, jar-gypsy, jar-marten
  */
 import sharp from 'sharp'
 import { mkdir } from 'node:fs/promises'
@@ -181,6 +182,57 @@ function crown({ band, bandDark, gem, spots }) {
     </g>`)
 }
 
+/* ─── БОССОВЫЕ БАНОЧКИ (0.0.69): склянка + эмблема босса в зелье ─── */
+function bossJar({ liquid, liquidTop, emblem, glow }) {
+  const glowRing = glow ? `<circle cx="128" cy="150" r="66" fill="none" stroke="${glow}" stroke-width="8" opacity="0.55"/>` : ''
+  return svgWrap(`
+    ${glowRing}
+    <g>
+      <rect x="114" y="42" width="28" height="20" rx="6" fill="#8a5330"/>
+      <rect x="108" y="58" width="40" height="16" rx="5" fill="#e3cba4" stroke="#c9a97a" stroke-width="4"/>
+      <rect x="72" y="72" width="112" height="128" rx="28" fill="#fff3dc" stroke="#d9c6a8" stroke-width="7"/>
+      <path d="M86 118 h84 a12 12 0 0 1 0 14 h-84 a12 12 0 0 1 0 -14 Z" fill="${liquidTop}"/>
+      <rect x="86" y="126" width="84" height="60" rx="14" fill="${liquid}"/>
+      ${emblem}
+      <ellipse cx="103" cy="96" rx="9" ry="5" fill="#ffffff" opacity="0.75"/>
+    </g>`)
+}
+
+/* Эмблемы боссов в баночках */
+const emblemFeather = `
+  <g transform="translate(128 150) rotate(-20)">
+    <path d="M0 -26 C14 -14 14 8 0 24 C-14 8 -14 -14 0 -26 Z" fill="#f4f7fa" stroke="#8fa3b8" stroke-width="3"/>
+    <path d="M0 -22 L0 22" stroke="#8fa3b8" stroke-width="2.5"/>
+  </g>`
+const emblemPacifier = `
+  <g>
+    <rect x="120" y="122" width="16" height="11" rx="4" fill="#c96a80"/>
+    <circle cx="128" cy="152" r="17" fill="#f7a8b8" stroke="#c96a80" stroke-width="3"/>
+    <circle cx="128" cy="152" r="8" fill="#fff3dc" stroke="#c96a80" stroke-width="3"/>
+  </g>`
+const emblemMane = `
+  <g>
+    ${Array.from({ length: 10 }, (_, i) => {
+      const a = (i / 10) * Math.PI * 2
+      const x1 = 128 + Math.cos(a) * 16
+      const y1 = 150 + Math.sin(a) * 16
+      const x2 = 128 + Math.cos(a + 0.28) * 30
+      const y2 = 150 + Math.sin(a + 0.28) * 30
+      const x3 = 128 + Math.cos(a - 0.28) * 30
+      const y3 = 150 + Math.sin(a - 0.28) * 30
+      return `<polygon points="${x1.toFixed(1)},${y1.toFixed(1)} ${x2.toFixed(1)},${y2.toFixed(1)} ${x3.toFixed(1)},${y3.toFixed(1)}" fill="#f4b942"/>`
+    }).join('')}
+    <circle cx="128" cy="150" r="14" fill="#e8862e"/>
+  </g>`
+const emblemCoin = `
+  <g>
+    <circle cx="128" cy="150" r="18" fill="#f4c542" stroke="#a87410" stroke-width="4"/>
+    <circle cx="128" cy="150" r="10" fill="none" stroke="#a87410" stroke-width="2.5"/>
+    ${sparkle(128, 150, 8, '#a87410')}
+  </g>`
+const emblemHeart = `
+  <path d="M128 168 C102 150 98 128 112 119 C120 114 128 119 128 128 C128 119 136 114 144 119 C158 128 154 150 128 168 Z" fill="#ff8fb3" stroke="#c94a78" stroke-width="3.5"/>`
+
 /* ─── Каталог иконок ─── */
 const ICONS = {
   /* Кольца */
@@ -199,6 +251,12 @@ const ICONS = {
   'jar-leopard': jar({ liquid: '#e8862e', liquidTop: '#f4b942', spots: '#7a4a1f' }),
   'jar-leopard-gold': jar({ liquid: '#e9c24a', liquidTop: '#ffe066', spots: '#8a5a12' }),
   'jar-leopard-mega': jar({ liquid: '#9a4ed6', liquidTop: '#c77dff', spots: '#4a1f73', glow: '#c77dff' }),
+  /* Боссовые баночки (0.0.69): голубь → малыш → лев → цыган → Лана */
+  'jar-pigeon': bossJar({ liquid: '#a7b6c4', liquidTop: '#c2cfda', emblem: emblemFeather }),
+  'jar-kid': bossJar({ liquid: '#f2c4cf', liquidTop: '#fadde4', emblem: emblemPacifier }),
+  'jar-lion': bossJar({ liquid: '#ef6b3a', liquidTop: '#f7986e', emblem: emblemMane }),
+  'jar-gypsy': bossJar({ liquid: '#d9a62e', liquidTop: '#ecc96e', emblem: emblemCoin }),
+  'jar-marten': bossJar({ liquid: '#ee6fa8', liquidTop: '#f8a6c9', emblem: emblemHeart, glow: '#f273a8' }),
   /* Талисманы */
   'magic-star': magicStar(),
   'magic-moon': magicMoon(),

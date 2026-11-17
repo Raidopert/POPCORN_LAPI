@@ -791,8 +791,9 @@ export class PopcornEngine {
   /** Троттлинг вибрации: чаще, чем раз в 80 мс — нельзя (лаги на Android) */
   private lastBuzzAt = 0
 
-  private W = 0
-  private H = 0
+  /* Размеры поля — публичные: их читает alt-input (AltEngineLike, 0.0.63) */
+  W = 0
+  H = 0
   private dpr = 1
   private u = 1
 
@@ -810,6 +811,8 @@ export class PopcornEngine {
   private pawBonus: PawBonus = {}
   /** Коготки на лапке (0.0.57): замедление воришек, вторые шансы, броня от мин */
   private clawBonus: { pigeonSlow?: number; revives?: number; mineImmuneStages?: number } = {}
+  /* Боссовые баночки (0.0.69): спец-эффекты надетой баночки */
+  private jarFx: { theftDown?: number; feverPlus?: number; goldenUp?: number; heartsPlus?: number } = {}
   /** v0.0.35 «примерка»: текущий стиль отрисовки лапки (0..PAW_STYLE_COUNT-1) */
   private pawStyle = PAW_DEFAULT_STYLE
   /** Текущий скин из магазина — палитра сохраняется при смене стиля */
@@ -834,7 +837,8 @@ export class PopcornEngine {
      «удаление» — swap-remove без splice и мусора для GC */
   private particles = new Pool<Particle>(192, makeParticle)
   private texts: FloatText[] = []
-  private paw = { x: 0, y: 0, tx: 0, ty: 0, seen: false, pulse: 0, hurt: 0 }
+  /* Лапка — публичная: её координаты читает alt-input (AltEngineLike) */
+  paw = { x: 0, y: 0, tx: 0, ty: 0, seen: false, pulse: 0, hurt: 0 }
   private cup = { x: 0, y: 0, squash: 0 }
   private banner = { text: '', t: 99 }
   private lastSec = -1
@@ -1120,6 +1124,15 @@ export class PopcornEngine {
     this.revivesLeft = Math.max(this.revivesLeft, Math.floor(b.revives ?? 0))
   }
 
+  /** Боссовая баночка (0.0.69): воры крадут меньше, Лихорадка длиннее,
+      золотые зёрна чаще, +1 сердечко к максимуму. pigeonSlow баночки
+      приходит через setClawBonuses вместе с коготком */
+  setJarFx(
+    b: { theftDown?: number; feverPlus?: number; goldenUp?: number; heartsPlus?: number },
+  ): void {
+    this.jarFx = b
+  }
+
   /** Настройки из меню: сложность, качество, тряска, вибрация, дальтоник, голубь */
   setOptions(o: Partial<EngineOptions>): void {
     this.opts = { ...this.opts, ...o }
@@ -1177,11 +1190,16 @@ export class PopcornEngine {
     this.feverAfter = -1
     this.feverResume = null
     this.pendingFever = false // v0.0.59: «Фарт» из последнего кадра не срабатывает в новом забеге
-    /* Сердечки: максимум зависит от апгрейдов, древа и лапки; в новом забеге запас полон.
+    /* Сердечки: максимум зависит от апгрейдов, древа, лапки и БАНОЧКИ Ланы (+1);
+       в новом забеге запас полон.
        v0.0.59: кап 9 → 13 — иначе 4 ступени «Крепкого сердца» всегда покупались впустую */
     this.maxHearts = Math.min(
       13,
-      MAX_HEARTS_BASE + this.upgHearts + (this.tree.heartsMax ?? 0) + (this.pawBonus.heartsPlus ?? 0),
+      MAX_HEARTS_BASE +
+        this.upgHearts +
+        (this.tree.heartsMax ?? 0) +
+        (this.pawBonus.heartsPlus ?? 0) +
+        (this.jarFx.heartsPlus ?? 0),
     )
     this.hearts = this.maxHearts
     this.startLevel(1, opts.perk ?? null)
@@ -1194,7 +1212,11 @@ export class PopcornEngine {
     this.score = Math.max(0, Math.floor(s.score))
     this.maxHearts = Math.min(
       13,
-      MAX_HEARTS_BASE + this.upgHearts + (this.tree.heartsMax ?? 0) + (this.pawBonus.heartsPlus ?? 0),
+      MAX_HEARTS_BASE +
+        this.upgHearts +
+        (this.tree.heartsMax ?? 0) +
+        (this.pawBonus.heartsPlus ?? 0) +
+        (this.jarFx.heartsPlus ?? 0),
     )
     this.hearts = Math.max(1, Math.min(Math.floor(s.hearts), this.maxHearts))
     this.revivesLeft = Math.floor(this.clawBonus.revives ?? 0)
@@ -1255,10 +1277,15 @@ export class PopcornEngine {
     if (this.opts.difficulty === 'hard') this.cornPerWave = Math.min(18, this.cornPerWave + 1)
     /* Разгром NANA: мины прибавляются (+1 за 10 уровней куницы, до +3) */
     this.cornPerWave = Math.min(18, this.cornPerWave + this.mess.mines)
+    /* Баночка цыгана (0.0.69): золотые зёрна чаще (×1.6); кап 0.3 → 0.45 */
     this.goldenChance =
       perk === 'goldenvein'
         ? 0.26
-        : Math.min(0.3, 0.12 + (this.pawBonus.goldenAdd ?? 0) + (this.tree.goldAdd ?? 0))
+        : Math.min(
+            0.45,
+            (0.12 + (this.pawBonus.goldenAdd ?? 0) + (this.tree.goldAdd ?? 0)) *
+              (this.jarFx.goldenUp ?? 1),
+          )
     /* Разнообразие зёрен: карамель и масло появляются с ростом уровня */
     this.caramelChance = Math.min(0.2, 0.04 + (this.lvl - 1) * 0.014)
     this.butterChance = this.lvl >= 3 ? Math.min(0.1, 0.015 + (this.lvl - 3) * 0.007) : 0
@@ -1397,8 +1424,8 @@ export class PopcornEngine {
     this.perk = null
     this.phase = 'playing'
     this.paused = false
-    /* «Долгая лихорадка» из древа: +1 сек за каждый уровень узла */
-    const dur = FEVER_SECONDS + (this.tree.feverPlus ?? 0)
+    /* «Долгая лихорадка» из древа: +1 сек за уровень узла; львиная баночка — ещё +4 сек */
+    const dur = FEVER_SECONDS + (this.tree.feverPlus ?? 0) + (this.jarFx.feverPlus ?? 0)
     this.duration = dur
     this.timeLeft = dur
     this.quota = 999999
@@ -3097,10 +3124,17 @@ export class PopcornEngine {
          с 11-го — по 3, с 16-го — по 4 за клюв (1 + floor((lvl-1)/5)).
          «Мир с голубем»: тащит на 1 зерно меньше за ступень, но не меньше 1 */
       /* v0.0.59: за клюв — не больше 2 зёрен: наглее воришка становится
-         только ЧАЩЕ клюя, а не объемом кражи */
+         только ЧАЩЕ клюя, а не объемом кражи.
+         0.0.69: баночка малыша — воры крадут на долю меньше (−25%) */
       const steal = Math.min(
         this.collected,
-        Math.max(1, Math.min(2, 1 + Math.floor((this.lvl - 1) / 5) - (this.tree.pigeonStealCut ?? 0))),
+        Math.max(
+          1,
+          Math.floor(
+            Math.min(2, 1 + Math.floor((this.lvl - 1) / 5) - (this.tree.pigeonStealCut ?? 0)) *
+              (1 - (this.jarFx.theftDown ?? 0)),
+          ),
+        ),
       )
       this.collected -= steal
       g.stolen += steal
@@ -3862,11 +3896,17 @@ export class PopcornEngine {
     if (this.collected > 0) {
       const tier = bossTierForLevel(this.lvl)
       /* v0.0.59: за раз босс забирает не больше ПОЛОВИНЫ стаканчика —
-         поздние тиры больше не выгребают 10+ зёрен одним сватом */
+         поздние тиры больше не выгребают 10+ зёрен одним сватом.
+         0.0.69: баночка малыша — воры крадут на долю меньше */
       const steal = Math.min(
         this.collected,
         Math.ceil(this.collected / 2),
-        BOSS_STEAL + tier - 1 + BOSS_STEAL_BY_KIND[b.kind],
+        Math.max(
+          1,
+          Math.floor(
+            (BOSS_STEAL + tier - 1 + BOSS_STEAL_BY_KIND[b.kind]) * (1 - (this.jarFx.theftDown ?? 0)),
+          ),
+        ),
       )
       this.collected -= steal
       this.levelStolen++
@@ -4166,7 +4206,16 @@ export class PopcornEngine {
         /* Коготь добрался до корзинки: выгребает попкорн и уносит добычу */
         if (p.loot === 0 && dCup < grabR) {
           if (this.collected > 0) {
-            const steal = Math.min(this.collected, LANA_STEAL + Math.floor((tier - 1) / 2))
+            /* 0.0.69: баночка малыша — воры крадут на долю меньше */
+            const steal = Math.min(
+              this.collected,
+              Math.max(
+                1,
+                Math.floor(
+                  (LANA_STEAL + Math.floor((tier - 1) / 2)) * (1 - (this.jarFx.theftDown ?? 0)),
+                ),
+              ),
+            )
             this.collected -= steal
             this.levelStolen++
             this.breakStreak(this.cup.x, this.cup.y - this.cupH * 0.9)

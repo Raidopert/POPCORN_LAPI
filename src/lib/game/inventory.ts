@@ -32,6 +32,7 @@
  */
 
 import { getMarketSnapshot, isArtifactId, type ArtifactId } from './market'
+import type { BossKind } from './engine'
 
 /* ════════════════ Каталог предметов ════════════════ */
 
@@ -94,6 +95,12 @@ export type InvItemId =
   | 'jar-leopard'
   | 'jar-leopard-gold'
   | 'jar-leopard-mega'
+  /* БОССОВЫЕ БАНОЧКИ (0.0.69): падают ТОЛЬКО с боссов, у каждой свой эффект */
+  | 'jar-pigeon'
+  | 'jar-kid'
+  | 'jar-lion'
+  | 'jar-gypsy'
+  | 'jar-marten'
   /* Волшебные талисманы (0.0.66) */
   | 'magic-star'
   | 'magic-moon'
@@ -130,6 +137,17 @@ export interface InvFx {
   gems?: number
   /** Удача: вес редких ступеней лута растёт как luck^(ступень/2) */
   luck?: number
+  /* ── Спец-эффекты боссовых баночек (0.0.69) ── */
+  /** Голуби-воришки летают медленнее (0.3 = −30% скорости) */
+  pigeonSlow?: number
+  /** Все воры выгребают на долю меньше (0.25 = −25% кражи) */
+  theftDown?: number
+  /** Лихорадка длиннее на N секунд */
+  feverPlus?: number
+  /** Золотые зёрна падают чаще (множитель шанса, 1.6 = ×1.6) */
+  goldenUp?: number
+  /** +N сердечек к максимуму забега */
+  heartsPlus?: number
 }
 
 /**
@@ -182,6 +200,16 @@ export const INV_DEFS: ReadonlyArray<InvDef> = [
   { id: 'jar-leopard', kind: 'jar', rarity: 'leopard', icon: '/inventory/jar-leopard.png', sell: 1900, bonus: 0, weight: 1.2, fx: { coins: 1.12, xp: 1.12, gems: 1.08, luck: 1.15 } },
   { id: 'jar-leopard-gold', kind: 'jar', rarity: 'leopard-gold', icon: '/inventory/jar-leopard-gold.png', sell: 4800, bonus: 0, weight: 0.5, fx: { coins: 1.18, xp: 1.18, gems: 1.12, luck: 1.3 } },
   { id: 'jar-leopard-mega', kind: 'jar', rarity: 'leopard-mega', icon: '/inventory/jar-leopard-mega.png', sell: 11000, bonus: 0, weight: 0.25, fx: { coins: 1.25, xp: 1.25, gems: 1.18, luck: 1.6 } },
+
+  /* ═══ БОССОВЫЕ БАНОЧКИ (0.0.69): 5 видов — по одной на каждого босса.
+     В общий пул сундучков НЕ входят (weight 0) — падают только с боссов;
+     обмен 3→1 ведёт по лестнице баночек до леопардовой вершины.
+     У каждой — свой спец-эффект, вместо скучных множителей */
+  { id: 'jar-pigeon', kind: 'jar', rarity: 'common', icon: '/inventory/jar-pigeon.png', sell: 45, bonus: 0, weight: 0, fx: { pigeonSlow: 0.3 } },
+  { id: 'jar-kid', kind: 'jar', rarity: 'rare', icon: '/inventory/jar-kid.png', sell: 120, bonus: 0, weight: 0, fx: { theftDown: 0.25 } },
+  { id: 'jar-lion', kind: 'jar', rarity: 'epic', icon: '/inventory/jar-lion.png', sell: 320, bonus: 0, weight: 0, fx: { feverPlus: 4 } },
+  { id: 'jar-gypsy', kind: 'jar', rarity: 'legendary', icon: '/inventory/jar-gypsy.png', sell: 850, bonus: 0, weight: 0, fx: { goldenUp: 1.6 } },
+  { id: 'jar-marten', kind: 'jar', rarity: 'legendary', icon: '/inventory/jar-marten.png', sell: 1500, bonus: 0, weight: 0, fx: { heartsPlus: 1, luck: 1.08 } },
 
   /* ═══ Волшебные талисманы (0.0.66): слот слева вверху инвентаря, мультибонус ═══ */
   { id: 'magic-star', kind: 'magic', rarity: 'common', icon: '/inventory/magic-star.png', sell: 35, bonus: 0, weight: 20, fx: { coins: 1.03, xp: 1.03 } },
@@ -260,6 +288,13 @@ export const NEXT_TIER: Record<InvItemId, InvItemId | null> = {
   'jar-leopard': 'jar-leopard-gold',
   'jar-leopard-gold': 'jar-leopard-mega',
   'jar-leopard-mega': null,
+  /* Боссовые баночки (0.0.69): своя лестница — голубь → малыш → лев →
+     цыган → Лана → леопардовая вершина (мост от боссового лута к короне) */
+  'jar-pigeon': 'jar-kid',
+  'jar-kid': 'jar-lion',
+  'jar-lion': 'jar-gypsy',
+  'jar-gypsy': 'jar-marten',
+  'jar-marten': 'jar-leopard',
   /* Талисманы (0.0.66) */
   'magic-star': 'magic-moon',
   'magic-moon': 'magic-comet',
@@ -684,6 +719,43 @@ export function rollInvDef(): InvDef {
 export const storageFull = (s: InventoryState): boolean =>
   s.items.length + s.claws.length >= storageCap(s)
 
+/* ── БОССОВЫЕ БАНОЧКИ (0.0.69) ──
+ * Каждый босс хранит СВОЮ баночку с уникальным эффектом:
+ *   ГОЛУБЬ → голубиная (голуби медленнее) · МАЛЫШ → детская (воры крадут меньше)
+ *   ЛЕВ → львиная (Лихорадка длиннее) · ЦЫГАН → цыганская (золотые зёрна чаще)
+ *   ЛАНА (куница) → баночка Ланы (+1 сердечко)
+ * Чистая победа без потери сердец — баночка гарантирована.
+ * Шанс капает удачей: надетые кольца/баночки поднимают дроп */
+export const BOSS_JAR_BY_KIND: Record<BossKind, InvItemId> = {
+  kid: 'jar-kid',
+  lion: 'jar-lion',
+  marten: 'jar-marten',
+  pigeon: 'jar-pigeon',
+  gypsy: 'jar-gypsy',
+}
+
+/** Базовый шанс баночки за победу над боссом (удача умножает, кап 90%) */
+export const BOSS_JAR_BASE_CHANCE = 0.5
+
+/** Уронить баночку с победы над боссом. null — сегодня не повезло.
+ *  guarantee — «чистая победа» (бои без потери сердец) даёт баночку точно */
+export function dropBossJar(kind: BossKind, guarantee = false): DropResult | null {
+  const luck = currentLuck()
+  const chance = Math.min(0.9, BOSS_JAR_BASE_CHANCE * luck)
+  if (!guarantee && Math.random() > chance) return null
+  const jarId = BOSS_JAR_BY_KIND[kind]
+  const def = INV_MAP[jarId]
+  const cur = getInventorySnapshot()
+  if (storageFull(cur)) {
+    return { def, stored: false, coins: def.sell }
+  }
+  const item: InvItem = { uid: newUid(), id: jarId, ts: Date.now() }
+  const everSet = new Set<InvItemId>(cur.everHad)
+  everSet.add(jarId)
+  saveInventory({ ...cur, items: [...cur.items, item], everHad: [...everSet] })
+  return { def, stored: true, coins: 0 }
+}
+
 /** Уронить предмет сундучка на склад. Если склад полон — автопродажа */
 export function dropInvItem(): DropResult {
   const def = rollInvDef()
@@ -998,4 +1070,45 @@ export function inventoryBonuses(state: InventoryState = getInventorySnapshot())
     if (fx.luck) out.luck *= fx.luck
   }
   return out
+}
+
+/* ════════════════ Спец-эффекты боссовых баночек (0.0.69) ════════════════ */
+
+/** Спец-эффекты надетой баночки — не множители валют, а правила игры */
+export interface JarFx {
+  /** Голуби-воришки медленнее (0..0.6) */
+  pigeonSlow: number
+  /** Все воры крадут на долю меньше (0.25 = −25%) */
+  theftDown: number
+  /** Лихорадка длиннее, секунд */
+  feverPlus: number
+  /** Шанс золотых зёрен ×N */
+  goldenUp: number
+  /** +N сердечек к максимуму забега */
+  heartsPlus: number
+}
+
+export const ZERO_JAR_FX: JarFx = {
+  pigeonSlow: 0,
+  theftDown: 0,
+  feverPlus: 0,
+  goldenUp: 1,
+  heartsPlus: 0,
+}
+
+/** Эффекты надетой баночки (слот «jar»); пусто — нейтральный набор */
+export function jarBonuses(state: InventoryState = getInventorySnapshot()): JarFx {
+  const uid = state.jar
+  if (!uid) return ZERO_JAR_FX
+  const item = state.items.find((i) => i.uid === uid)
+  if (!item) return ZERO_JAR_FX
+  const fx = INV_MAP[item.id]?.fx
+  if (!fx) return ZERO_JAR_FX
+  return {
+    pigeonSlow: fx.pigeonSlow ?? 0,
+    theftDown: fx.theftDown ?? 0,
+    feverPlus: fx.feverPlus ?? 0,
+    goldenUp: fx.goldenUp ?? 1,
+    heartsPlus: fx.heartsPlus ?? 0,
+  }
 }

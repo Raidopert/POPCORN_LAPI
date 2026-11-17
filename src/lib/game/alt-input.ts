@@ -228,7 +228,7 @@ export function attachAltInput(opts: AltInputOptions): () => void {
     if (!active || !visible.includes(active as HTMLButtonElement)) {
       /* Фокуса нет: сначала главная кнопка меню (data-primary — «ИГРАТЬ»),
          иначе ближайшая к центру экрана */
-      const primary = document.querySelector('button[data-primary]:not([disabled])')
+      const primary = document.querySelector<HTMLElement>('button[data-primary]:not([disabled])')
       if (primary) {
         primary.focus()
         return

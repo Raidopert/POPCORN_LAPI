@@ -4127,6 +4127,82 @@ export const T: Record<string, Row> = {
     'La mega-cima violeta: la mermelada susurra suerte.',
   ],
 
+  /* ═════════ 0.0.69: БОССОВЫЕ БАНОЧКИ — 5 видов, по одному на босса.
+     Падают только с боссов; у каждой свой спец-эффект ═════════ */
+  'item.jar-pigeon.name': ['Голубиная баночка', 'Pigeon Jar', 'Taubenglas', 'Frasco de Paloma'],
+  'item.jar-pigeon.bonus': [
+    'Голуби-воришки медленнее на 30%',
+    'Thieving pigeons 30% slower',
+    'Taubendiebe 30% langsamer',
+    'Palomas ladronas 30% más lentas',
+  ],
+  'item.jar-pigeon.desc': [
+    'Перо голубя в рассоле — воришки лениво машут крыльями.',
+    'A pigeon feather in the brine — thieves flap lazily.',
+    'Eine Taubenfeder in der Lake — Diebe flattern träge.',
+    'Una pluma de paloma en la salmuera: los ladrones aletean perezosos.',
+  ],
+  'item.jar-kid.name': ['Баночка малыша', 'Kid Jar', 'Babyglas', 'Frasco del Bebé'],
+  'item.jar-kid.bonus': [
+    'Воры крадут на 25% меньше',
+    'Thieves steal 25% less',
+    'Diebe stehlen 25% weniger',
+    'Los ladrones roban 25% menos',
+  ],
+  'item.jar-kid.desc': [
+    'Молочный сироп малыша: лапки воров становятся слабее.',
+    "The baby's milk syrup: thieves' paws grow weak.",
+    'Babys Milchsirup: die Pfoten der Diebe werden schwach.',
+    'El jarabe de leche del bebé: las patas de los ladrones se debilitan.',
+  ],
+  'item.jar-lion.name': ['Львиная баночка', 'Lion Jar', 'Löwenglas', 'Frasco del León'],
+  'item.jar-lion.bonus': [
+    'Лихорадка +4 секунды',
+    'Fever +4 seconds',
+    'Fieber +4 Sekunden',
+    'Fiebre +4 segundos',
+  ],
+  'item.jar-lion.desc': [
+    'Грива на дне баночки — пламя Лихорадки горит дольше.',
+    'A mane at the bottom of the jar — the Fever flame burns longer.',
+    'Eine Mähne am Glasboden — das Fieberflammen brennt länger.',
+    'Una melena en el fondo del frasco: la llama de la Fiebre arde más.',
+  ],
+  'item.jar-gypsy.name': ['Баночка цыгана', 'Gypsy Jar', 'Zigeunerglas', 'Frasco del Gitano'],
+  'item.jar-gypsy.bonus': [
+    'Золотые зёрна выпадают в 1.6 раза чаще',
+    'Golden grains 1.6× more often',
+    'Goldkörner 1,6× häufiger',
+    'Granitos dorados 1,6× más a menudo',
+  ],
+  'item.jar-gypsy.desc': [
+    'Тайный рассол цыгана: золото само сыплется в стаканчик.',
+    "The gypsy's secret brine: gold pours itself into the cup.",
+    'Des Zigeuners geheime Lake: Gold fällt von selbst in den Becher.',
+    'La salmuera secreta del gitano: el oro cae solo en la copa.',
+  ],
+  'item.jar-marten.name': ['Баночка Ланы', "Lana's Jar", 'Lanas Glas', 'Frasco de Lana'],
+  'item.jar-marten.bonus': [
+    '+1 сердечко в забеге, удача +8%',
+    '+1 heart per run, luck +8%',
+    '+1 Herz pro Lauf, Glück +8%',
+    '+1 corazón por partida, suerte +8%',
+  ],
+  'item.jar-marten.desc': [
+    'Вершина боссовых баночек: варенье Ланы греет сердце.',
+    'The top of boss jars: Lana’s jam warms the heart.',
+    'Die Spitze der Boss-Gläser: Lanas Marmelade wärmt das Herz.',
+    'La cima de los frascos: la mermelada de Lana calienta el corazón.',
+  ],
+
+  /* 0.0.69: тост дропа боссовой баночки */
+  'boss.jarDrop': [
+    'Босс оставил баночку: {{name}}!',
+    'The boss dropped a jar: {{name}}!',
+    'Der Boss ließ ein Glas fallen: {{name}}!',
+    '¡El jefe dejó un frasco: {{name}}!',
+  ],
+
   /* ═════════ 0.0.66: волшебные талисманы ═════════ */
   'item.magic-star.name': ['Звёздный талисман', 'Star Talisman', 'Stern-Talisman', 'Talisman Estelar'],
   'item.magic-star.bonus': [

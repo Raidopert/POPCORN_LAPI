@@ -2819,3 +2819,6 @@ Import trace:
  POST /api/sessions 200 in 13ms (next.js: 1.1ms, application-code: 12ms)
  GET / 200 in 73ms (next.js: 0.9ms, application-code: 72ms)
  POST /api/sessions 200 in 10ms (next.js: 1.0ms, application-code: 9ms)
+ GET / 200 in 34ms (next.js: 0.9ms, application-code: 33ms)
+ GET /lvl=20 404 in 36ms (next.js: 8ms, application-code: 28ms)
+✓ Compiled in 324ms

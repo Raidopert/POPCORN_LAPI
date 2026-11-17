@@ -107,6 +107,8 @@ import {
   buyPage2,
   clawBonuses,
   dropInvItem,
+  dropBossJar,
+  jarBonuses,
   equipArtifactInv,
   equipClaw,
   equipInvItem,
@@ -132,6 +134,7 @@ import {
   type ClawDropResult,
   type ClawId,
   type DropResult,
+  type JarFx,
   type InventoryState,
   type InvBonuses,
   type InvItem,
@@ -1986,7 +1989,6 @@ function InventoryOverlay({
   onEquip,
   onUnequip,
   onSell,
-  onRecycle,
   onEquipArt,
   onUnequipArt,
   onEquipClaw,
@@ -5319,6 +5321,9 @@ export function PopcornGame() {
   const [runLevelUnlocks, setRunLevelUnlocks] = useState<string[]>([])
   /** HTML-индикатор волны: виден поверх попкорнового тумана (туман — в канвасе) */
   const [waveToast, setWaveToast] = useState<number | null>(null)
+  /* ---------- БОССОВЫЕ БАНОЧКИ (0.0.69): тост дропа с босса ---------- */
+  const [jarToast, setJarToast] = useState<DropResult | null>(null)
+  const jarToastTimerRef = useRef<number | null>(null)
   /* ---------- Ф0-2: туториал первого забега ----------
      Логика живёт в ref (onStats создаётся один раз и видит актуальные данные),
      tutStep — только для рендера облачка. Шаги: 1 палец · 2 зёрна ·
@@ -5634,14 +5639,24 @@ export function PopcornGame() {
   /* 0.0.57: бонусы коготков для движка — голуби, вторые шансы, броня от мин.
       Апгрейд «девятая жизнь» даёт один шанс, сумеречный коготок — два */
   const clawB = useMemo<ClawBonuses>(() => clawBonuses(inv), [inv])
+  /* 0.0.69: спец-эффекты надетой боссовой баночки — воры крадут меньше,
+      Лихорадка длиннее, золотые зёрна чаще, +1 сердечко; замедление голубей
+      складываем с коготком (в движок идёт максимум) */
+  const jarB = useMemo<JarFx>(() => jarBonuses(inv), [inv])
   useEffect(() => {
     const ups = parseUpgrades(window.localStorage.getItem(UPG_KEY))
     engineRef.current?.setClawBonuses({
-      pigeonSlow: clawB.pigeonSlow,
+      pigeonSlow: Math.max(clawB.pigeonSlow, jarB.pigeonSlow),
       revives: clawB.revives > 0 ? 2 : ups.life > 0 ? 1 : 0,
       mineImmuneStages: clawB.mineImmuneStages,
     })
-  }, [clawB])
+    engineRef.current?.setJarFx({
+      theftDown: jarB.theftDown,
+      feverPlus: jarB.feverPlus,
+      goldenUp: jarB.goldenUp,
+      heartsPlus: jarB.heartsPlus,
+    })
+  }, [clawB, jarB])
   /* Бейдж новинок на кнопке ИНВЕНТАРЬ (0.0.54) */
   const invNewCount = useMemo(() => countNewItems(inv), [inv])
   useEffect(() => {
@@ -6573,6 +6588,25 @@ export function PopcornGame() {
           if (dMarten > 0) announceAch(['marten1'])
           if (dPigeon > 0) announceAch(['pigeonBoss1'])
           if (dGypsy > 0) announceAch(['gypsyBoss1'])
+          /* БОССОВЫЕ БАНОЧКИ (0.0.69): каждый босс при победе может уронить
+             свою баночку с уникальным эффектом. Чистая победа (без потери
+             сердец) — баночка гарантирована. Склад полон — автопродажа */
+          const jarDeltas: Array<[BossKind, number]> = [
+            ['kid', dKid],
+            ['lion', dLion],
+            ['marten', dMarten],
+            ['pigeon', dPigeon],
+            ['gypsy', dGypsy],
+          ]
+          for (const [kind, d] of jarDeltas) {
+            if (d <= 0) continue
+            const jarDrop = dropBossJar(kind, s.bossClean)
+            if (!jarDrop) continue
+            setJarToast(jarDrop)
+            if (!jarDrop.stored) addCoins(jarDrop.coins)
+            if (jarToastTimerRef.current) window.clearTimeout(jarToastTimerRef.current)
+            jarToastTimerRef.current = window.setTimeout(() => setJarToast(null), 2600)
+          }
           /* v0.0.59: «Фильм про зверей» — МАЛЫШ и ЛАНА за ОДИН забег
              (по счётчикам текущего забега, как обещает описание) */
           if (s.bossKidKills >= 1 && s.bossMartenKills >= 1) announceAch(['menagerie'])
@@ -7145,10 +7179,17 @@ export function PopcornGame() {
     /* Коготки + «Девятая жизнь»: шансы СКЛАДЫВАЮТСЯ (0.0.66: сумеречный 2,
        леопардовые 1/2/3 + апгрейд 1) */
     const cb = clawBonuses(getInventorySnapshot())
+    const jb = jarBonuses(getInventorySnapshot())
     engineRef.current?.setClawBonuses({
-      pigeonSlow: cb.pigeonSlow,
+      pigeonSlow: Math.max(cb.pigeonSlow, jb.pigeonSlow),
       revives: cb.revives + (ups.life > 0 ? 1 : 0),
       mineImmuneStages: cb.mineImmuneStages,
+    })
+    engineRef.current?.setJarFx({
+      theftDown: jb.theftDown,
+      feverPlus: jb.feverPlus,
+      goldenUp: jb.goldenUp,
+      heartsPlus: jb.heartsPlus,
     })
     /* lastScoreRef ДОЛЖЕН быть готов до restoreRun: первый же тик статистики
        посчитает дельту от восстановленного счёта — иначе XP уйдёт дважды */
@@ -7219,10 +7260,17 @@ export function PopcornGame() {
     /* 0.0.57: коготки — в движок до старта забега (шансы ревайва считаются в startRun).
        0.0.66: шансы коготков складываются как есть (сумеречный 2, мега-леопард 3) */
     const cb = clawBonuses(getInventorySnapshot())
+    const jb = jarBonuses(getInventorySnapshot())
     engineRef.current?.setClawBonuses({
-      pigeonSlow: cb.pigeonSlow,
+      pigeonSlow: Math.max(cb.pigeonSlow, jb.pigeonSlow),
       revives: cb.revives + (ups.life > 0 ? 1 : 0),
       mineImmuneStages: cb.mineImmuneStages,
+    })
+    engineRef.current?.setJarFx({
+      theftDown: jb.theftDown,
+      feverPlus: jb.feverPlus,
+      goldenUp: jb.goldenUp,
+      heartsPlus: jb.heartsPlus,
     })
     engineRef.current?.startRun({ fast: devRef.current.fast, perk: startPerk })
     /* Плакаты перебивки грузим ЗАРАНЕЕ — к 5-му уровню они уже в кэше
@@ -7927,6 +7975,40 @@ export function PopcornGame() {
             >
               <span className="text-shadow-pixel rounded-full border-2 border-amber-300 bg-[#2b1a0e]/85 px-4 py-1.5 font-pixel text-lg font-bold text-amber-200 shadow-[0_6px_20px_rgba(0,0,0,0.5),0_0_18px_rgba(255,193,7,0.3)]">
                 🌊 {t('banner.wave', { n: waveToast })}
+              </span>
+            </motion.div>
+          )}
+        </AnimatePresence>
+
+        {/* БОССОВАЯ БАНОЧКА (0.0.69): крупный тост дропа с босса — иконка
+            баночки в рамке редкости + название. Виден поверх тумана */}
+        <AnimatePresence>
+          {jarToast !== null && (phase === 'playing' || phase === 'paused') && (
+            <motion.div
+              key={`jar-${jarToast.def.id}`}
+              className="pointer-events-none absolute inset-x-0 top-28 z-20 flex justify-center"
+              initial={{ opacity: 0, y: -18, scale: 0.8 }}
+              animate={{ opacity: 1, y: 0, scale: 1 }}
+              exit={{ opacity: 0, y: -12, scale: 0.9 }}
+              transition={{ type: 'spring', stiffness: 380, damping: 24 }}
+            >
+              <span
+                className={`text-shadow-pixel flex max-w-[92vw] items-center gap-2 rounded-full border-2 ${
+                  RARITY_COLOR[jarToast.def.rarity].border
+                } bg-[#2b1a0e]/85 px-4 py-1.5 font-pixel text-base font-bold sm:text-lg ${
+                  RARITY_COLOR[jarToast.def.rarity].text
+                } shadow-[0_6px_20px_rgba(0,0,0,0.5),0_0_18px_rgba(255,193,7,0.3)]`}
+              >
+                <img
+                  src={jarToast.def.icon}
+                  alt=""
+                  aria-hidden
+                  draggable={false}
+                  className="h-7 w-7 shrink-0 rounded-full border border-amber-300/60"
+                />
+                {jarToast.stored
+                  ? t('boss.jarDrop', { name: t(`item.${jarToast.def.id}.name`) })
+                  : t('inv.toast.full', { n: jarToast.coins })}
               </span>
             </motion.div>
           )}
