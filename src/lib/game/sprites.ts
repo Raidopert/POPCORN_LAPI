@@ -176,74 +176,104 @@ export function makePopcornSprite(variant: PopcornVariant = 'white'): Sprite {
   return renderGrid(g)
 }
 
-/* ================= Бумажный стаканчик (детальный, 48×54 — пиксели вдвое мельче) ================= */
+/* ================= Бумажный стаканчик (v0.0.65: 96×108 — пиксели вдвое
+   мельче прежних 48×54, тот же видимый размер при масштабе 1.15 вместо 2.3)
+   Мягкие переходы света, тонкая обводка, эмблема «попкорн + лапка» ================= */
 
 export function makeCupSprite(): Sprite {
-  const cols = 48
-  const rows = 54
+  const cols = 96
+  const rows = 108
   const g = createGrid(cols, rows)
   const red = '#E24B3B'
   const redLight = '#F2685A' // блик слева
+  const redSoft = '#EC5D4C' // мягкий полутон
   const redDark = '#C43A2A' // тень справа
+  const redDeep = '#A83020' // глубокая тень
   const redCrease = '#D94432' // смятие бумаги
   const cream = '#FFF6EC'
+  const creamSoft = '#F7E9D6'
   const creamDark = '#F0DFC8'
-  const rimShadow = '#E3C9B4' // тень под ободком
-  const base = '#C43A2A'
-  const baseDark = '#A32E20'
-  const edge = '#572014'
+  const creamShadow = '#E3C9B4'
+  const baseDark = '#8C2717'
+  const edge = '#5E2416' // тонкая тёмная обводка
 
-  /* Трапеция: ширина 44 сверху → 26 снизу */
+  /* Плавная трапеция: полная ширина 88 сверху → 50 снизу с лёгкой выпуклостью */
   const halfSpan = (y: number): { x0: number; x1: number } => {
-    const t = y / (rows - 1)
-    const w = Math.round(44 - 18 * t)
-    const x0 = Math.floor((cols - w) / 2)
+    const t = Math.min(1, Math.max(0, (y - 10) / (rows - 14)))
+    const w = Math.round(88 - 38 * t + 2 * Math.sin(t * Math.PI))
+    const x0 = Math.round((cols - w) / 2)
     return { x0, x1: x0 + w - 1 }
   }
 
   for (let y = 0; y < rows; y++) {
-    const { x0, x1 } = halfSpan(y)
+    let { x0, x1 } = halfSpan(y)
+    /* округлое дно: последние строки сужаются внутрь */
+    if (y >= rows - 5) {
+      const inset = (y - (rows - 6)) * 3
+      x0 += inset
+      x1 -= inset
+    }
     for (let x = x0; x <= x1; x++) {
       const rel = (x - x0) / Math.max(1, x1 - x0) // 0 слева → 1 справа
+      const stripe = Math.floor((x - 6) / 14) % 2 === 0
       let col: string
       if (y === 0) {
         col = '#FFFFFF' // верхняя кромка ободка
-      } else if (y <= 3) {
-        col = cream // белый ободок
-        if (y === 3 && rel > 0.06 && rel < 0.94) col = rimShadow
-      } else if (y >= rows - 4) {
-        col = y >= rows - 2 ? baseDark : base // тёмное дно
-      } else if (y >= 27 && y <= 40) {
-        // кремовая лента с логотипом
-        col = rel < 0.12 ? redLight : rel > 0.86 ? redDark : cream
-        if (col === cream && rel > 0.78) col = creamDark
-      } else {
-        const abs = x - 2
-        const stripe = Math.floor(abs / 7) % 2 === 0
-        col = stripe ? red : cream
-        // объём цилиндра: свет слева, тень справа
-        if (rel < 0.12) col = stripe ? redLight : cream
-        else if (rel > 0.84) col = stripe ? redDark : creamDark
-        // сгибы бумаги на верхней половине
-        if ((y === 21 || y === 22) && stripe) col = redCrease
-        if ((y === 21 || y === 22) && !stripe) col = creamDark
-        // «открытое горлышко»: тень первых рядов под ободком
-        if ((y === 4 || y === 5) && rel > 0.06 && rel < 0.94) {
-          col = stripe ? redDark : rimShadow
+      } else if (y <= 7) {
+        // кремовый ободок с лёгкой флутурой (вертикальные ложбинки)
+        col = x % 14 < 2 ? creamSoft : cream
+        if (y >= 6) col = creamShadow
+        if (rel < 0.07) col = creamSoft
+        else if (rel > 0.92) col = creamDark
+      } else if (y <= 10) {
+        // тень под ободком — «открытое горлышко»
+        col = stripe ? redDark : creamShadow
+      } else if (y >= rows - 6) {
+        // дно: два тёмных тона
+        col = y >= rows - 3 ? baseDark : redDeep
+        if (rel < 0.12) col = redDark
+      } else if (y >= 56 && y <= 82) {
+        // кремовая лента с эмблемой
+        col = rel < 0.08 ? redLight : rel > 0.9 ? redDeep : cream
+        if (col === cream) {
+          if (rel > 0.74) col = creamDark
+          else if (rel > 0.6) col = creamSoft
         }
+        if (y === 56 || y === 82) col = creamShadow // кромки ленты
+      } else {
+        // корпус: полоски + мягкий объём (4 зоны вместо резких порогов)
+        const shade = rel < 0.14 ? 0 : rel < 0.3 ? 1 : rel < 0.78 ? 2 : rel < 0.9 ? 3 : 4
+        if (stripe) {
+          col = [redLight, redSoft, red, redDark, redDeep][shade]
+        } else {
+          col = [cream, cream, cream, creamSoft, creamDark][shade]
+        }
+        // горизонтальное смятие бумаги на верхней трети
+        if ((y === 44 || y === 45) && shade >= 2) col = stripe ? redCrease : creamDark
+        if ((y === 44 || y === 45) && shade < 2) col = stripe ? redLight : cream
       }
       g[y][x] = col
     }
   }
 
-  // Логотип: три пухлых попкорн-облачка на ленте
-  paintCircle(g, 24, 31.5, 3.4, '#FFFDF4')
-  paintCircle(g, 19.2, 34.2, 2.7, '#FFFDF4')
-  paintCircle(g, 28.8, 34.2, 2.7, '#FFFDF4')
-  tintCircle(g, 26, 33.4, 2.4, '#F7D97B')
-  tintCircle(g, 20.6, 35.4, 1.7, '#F7D97B')
-  tintCircle(g, 30, 35.4, 1.7, '#F7D97B')
-  tintCircle(g, 23.2, 29.8, 1.3, '#FFF3D6')
+  /* Эмблема на ленте: пухлое попкорн-облачко с мягкой тенью + мини-лапка.
+     Обводка-тень нужна для контраста: облачко белое на кремовой ленте */
+  paintCircle(g, 48, 65.5, 8.8, '#E3C9B4')
+  paintCircle(g, 36.5, 72, 6.8, '#E3C9B4')
+  paintCircle(g, 59.5, 72, 6.8, '#E3C9B4')
+  paintCircle(g, 48, 64, 8.2, '#FFFFFF')
+  paintCircle(g, 36.5, 70.5, 6.2, '#FFFFFF')
+  paintCircle(g, 59.5, 70.5, 6.2, '#FFFFFF')
+  tintCircle(g, 50, 66.5, 5.4, '#F7D97B')
+  tintCircle(g, 38, 72.5, 4.0, '#F7D97B')
+  tintCircle(g, 60, 72.5, 4.0, '#F7D97B')
+  tintCircle(g, 44, 60.5, 3.0, '#FFF3D6')
+  /* мини-лапка: подушечка + три бобика */
+  const bean = '#B06A3F'
+  paintCircle(g, 48, 68.5, 2.4, bean)
+  paintCircle(g, 44.6, 65.2, 1.15, bean)
+  paintCircle(g, 48, 64.2, 1.25, bean)
+  paintCircle(g, 51.4, 65.2, 1.15, bean)
 
   outlineGrid(g, edge)
   return renderGrid(g)

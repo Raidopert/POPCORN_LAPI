@@ -1185,43 +1185,87 @@ export default function MartenScene({
         }
       }
 
-      // лапка: линия от бедра до стопы; пары ходят в противофазе
+      // лапка: линия от бедра до стопы; пары ходят в противофазе.
+      // v0.0.65: мохнатые штанишки + митенка с пальчиками + кремовое колечко
       const drawLeg = (hx: number, hy: number, phase: number, far: boolean, extraSwing: number, extraLift: number): void => {
         const sw = (walking ? Math.sin(marten.walkPhase + phase) * 7 : 0) + extraSwing
         const lift = walking ? Math.max(0, -Math.cos(marten.walkPhase + phase)) * 2.6 : 0
         const footX = hx + sw
         const footY = -lift - extraLift
-        ctx.strokeStyle = far ? '#8A5330' : '#5C3A22'
-        ctx.lineWidth = 4.6
+        const furCol = far ? '#8A5330' : '#5C3A22'
+        ctx.strokeStyle = furCol
+        ctx.lineWidth = 5
         ctx.lineCap = 'round'
         ctx.beginPath()
         ctx.moveTo(hx, hy)
         ctx.lineTo(footX, footY)
         ctx.stroke()
-        ctx.fillStyle = far ? '#8A5330' : '#5C3A22'
+        // пушистая штанишка: клочек на середине ноги
+        ctx.fillStyle = furCol
         ctx.beginPath()
-        ctx.arc(footX, footY, 2.7, 0, Math.PI * 2)
+        ctx.arc(hx * 0.62 + footX * 0.38, hy * 0.62 + footY * 0.38, 3.1, 0, Math.PI * 2)
+        ctx.fill()
+        // кремовое колечко шерсти у запястья
+        ctx.fillStyle = far ? 'rgba(232, 192, 143, 0.5)' : '#E8C08F'
+        ctx.beginPath()
+        ctx.arc(hx * 0.45 + footX * 0.55, hy * 0.45 + footY * 0.55, 2.1, 0, Math.PI * 2)
+        ctx.fill()
+        // митенка: пясть + два пальчика
+        ctx.fillStyle = furCol
+        ctx.beginPath()
+        ctx.ellipse(footX, footY, 3.3, 2.6, 0, 0, Math.PI * 2)
+        ctx.fill()
+        ctx.beginPath()
+        ctx.arc(footX - 1.7, footY - 1.9, 1.5, 0, Math.PI * 2)
+        ctx.fill()
+        ctx.beginPath()
+        ctx.arc(footX + 1.8, footY - 2.0, 1.4, 0, Math.PI * 2)
         ctx.fill()
       }
 
-      /* — ПУШИСТЫЙ ХВОСТ с бегущей синусоидой (2 прохода: тень + шерсть) — */
-      const tailBaseX = rearX + 4
-      const tailBaseY = -bh * 0.5
-      const tailLen = bl * 0.52
-      const segs = 9
+      /* — ПУШИСТЫЙ ХВОСТ v0.0.65: длиннее, толще, с клочьями меха и
+          кремовым кончиком. Три прохода: тень → мех → клочья по краю — */
+      const tailBaseX = rearX + 5
+      const tailBaseY = -bh * 0.52
+      const tailLen = bl * 0.62
+      const segs = 12
       const step = tailLen / segs
-      const wagAmp = marten.state === 'happy' ? 0.3 : walking ? 0.22 : 0.14
-      for (let pass = 0; pass < 2; pass++) {
-        for (let i = segs; i >= 0; i--) {
-          const t = i / segs
-          const ang = Math.PI + 0.72 + Math.sin(t * 2.8 - marten.tailPhase) * wagAmp * t
-          const px = tailBaseX + Math.cos(ang) * step * i
-          const py = tailBaseY + Math.sin(ang) * step * i + (pass === 0 ? 1.4 : 0)
-          const r = bh * 0.3 - (bh * 0.3 - 3.4) * t // сужение к кончику
-          ctx.fillStyle = pass === 0 ? 'rgba(138, 83, 48, 0.9)' : t > 0.7 ? '#F6DCA8' : '#A2673D'
-          ctx.beginPath()
-          ctx.arc(px, py, r, 0, Math.PI * 2)
-          ctx.fill()
+      const wagAmp = marten.state === 'happy' ? 0.26 : walking ? 0.2 : 0.12
+      const tailPts: Array<{ x: number; y: number; r: number; t: number }> = []
+      for (let i = 0; i <= segs; i++) {
+        const t = i / segs
+        const ang = Math.PI + 0.66 + Math.sin(t * 3.0 - marten.tailPhase) * wagAmp * (0.35 + 0.65 * t)
+        tailPts.push({
+          x: tailBaseX + Math.cos(ang) * step * i,
+          y: tailBaseY + Math.sin(ang) * step * i,
+          r: bh * 0.34 * (1 - 0.7 * t),
+          t,
+        })
+      }
+      // 1) тень под хвостом
+      ctx.fillStyle = 'rgba(138, 83, 48, 0.55)'
+      for (const p of tailPts) {
+        ctx.beginPath()
+        ctx.arc(p.x, p.y + 1.6, p.r * 1.06, 0, Math.PI * 2)
+        ctx.fill()
+      }
+      // 2) мех: рыжая основа, короткий переход и КРЕМОВЫЙ КОНЧИК (не весь хвост)
+      for (let i = tailPts.length - 1; i >= 0; i--) {
+        const p = tailPts[i]
+        ctx.fillStyle = p.t > 0.78 ? '#F6DCA8' : p.t > 0.68 ? '#D8A96B' : '#A2673D'
+        ctx.beginPath()
+        ctx.arc(p.x, p.y, p.r, 0, Math.PI * 2)
+        ctx.fill()
+        if (p.t < 0.8) {
+          // клочья по краю: волнистый силуэт вместо гладкой колбасы
+          for (const side of [-1, 1]) {
+            ctx.beginPath()
+            ctx.arc(p.x + side * p.r * 0.55, p.y - p.r * 0.4, p.r * 0.42, 0, Math.PI * 2)
+            ctx.fill()
+            ctx.beginPath()
+            ctx.arc(p.x + side * p.r * 0.92, p.y + p.r * 0.12, p.r * 0.32, 0, Math.PI * 2)
+            ctx.fill()
+          }
         }
       }
 
@@ -1252,20 +1296,56 @@ export default function MartenScene({
       ctx.ellipse(2, -bh * 0.34, bl * 0.33, bh * 0.17, 0, 0, Math.PI * 2)
       ctx.fill()
 
-      /* — ГОЛОВА: уши, мордочка, нос, глаз, усы — */
+      /* — ШЕРСТЬ v0.0.65: клочья по спине, пушистый круп, кремовая манишка — */
+      ctx.fillStyle = '#A2673D'
+      const rx2 = bl * 0.46
+      const ry2 = bh * 0.46 * breath
+      for (let i = 0; i < 6; i++) {
+        const a = Math.PI * (0.2 + (0.6 * i) / 5) // верхняя дуга спины
+        ctx.beginPath()
+        ctx.arc(rx2 * Math.cos(a), -bh * 0.52 - ry2 * Math.sin(a) - 0.8, 2.3, 0, Math.PI * 2)
+        ctx.fill()
+      }
+      // пушистый круп: бугры над задней частью
+      ctx.beginPath()
+      ctx.arc(rearX + 10, -bh * 0.78, 3.2, 0, Math.PI * 2)
+      ctx.fill()
+      ctx.beginPath()
+      ctx.arc(rearX + 15.5, -bh * 0.86, 2.6, 0, Math.PI * 2)
+      ctx.fill()
+      // кремовая манишка на груди — маленькая, слитная с корпусом
+      ctx.fillStyle = '#F6DCA8'
+      ctx.beginPath()
+      ctx.arc(frontX + headR * 0.3, -bh * 0.52, bh * 0.13, 0, Math.PI * 2)
+      ctx.fill()
+
+      /* — ГОЛОВА v0.0.65: пухлые щёки-клочья, крупные янтарные глаза,
+          ЧЕШИРСКАЯ улыбка (видна всегда), expressive мордочка — */
       const headX = frontX + headR * 0.52
       const headY = -bh * 0.72 + Math.sin(time * 2.1) * 0.6 + (walking ? Math.sin(marten.walkPhase) * 0.9 : 0)
+      // пухлые щёки: клочья меха за мордочкой
+      ctx.fillStyle = '#A2673D'
+      ctx.beginPath()
+      ctx.arc(headX + headR * 0.1, headY + headR * 0.52, headR * 0.44, 0, Math.PI * 2)
+      ctx.fill()
+      ctx.beginPath()
+      ctx.arc(headX + headR * 0.62, headY + headR * 0.55, headR * 0.36, 0, Math.PI * 2)
+      ctx.fill()
       ctx.fillStyle = '#8A5330' // дальнее ухо
       ctx.beginPath()
-      ctx.arc(headX - headR * 0.5, headY - headR * 0.72, headR * 0.27, 0, Math.PI * 2)
+      ctx.arc(headX - headR * 0.5, headY - headR * 0.72, headR * 0.29, 0, Math.PI * 2)
       ctx.fill()
       ctx.fillStyle = '#A2673D' // ближнее ухо
       ctx.beginPath()
-      ctx.arc(headX - headR * 0.16, headY - headR * 0.86, headR * 0.34, 0, Math.PI * 2)
+      ctx.arc(headX - headR * 0.16, headY - headR * 0.86, headR * 0.36, 0, Math.PI * 2)
       ctx.fill()
-      ctx.fillStyle = '#E8C08F' // внутренняя часть ушка
+      // клочья на ушах — «дикость» куницы
       ctx.beginPath()
-      ctx.arc(headX - headR * 0.2, headY - headR * 0.8, headR * 0.18, 0, Math.PI * 2)
+      ctx.arc(headX - headR * 0.42, headY - headR * 1.04, headR * 0.16, 0, Math.PI * 2)
+      ctx.fill()
+      ctx.fillStyle = '#E8C08F' // внутренняя часть ушек
+      ctx.beginPath()
+      ctx.arc(headX - headR * 0.2, headY - headR * 0.8, headR * 0.19, 0, Math.PI * 2)
       ctx.fill()
       ctx.fillStyle = '#A2673D' // череп
       ctx.beginPath()
@@ -1273,39 +1353,94 @@ export default function MartenScene({
       ctx.fill()
       ctx.fillStyle = '#F6DCA8' // светлая мордочка
       ctx.beginPath()
-      ctx.ellipse(headX + headR * 0.68, headY + headR * 0.32, headR * 0.62, headR * 0.5, 0.1, 0, Math.PI * 2)
+      ctx.ellipse(headX + headR * 0.68, headY + headR * 0.32, headR * 0.68, headR * 0.54, 0.1, 0, Math.PI * 2)
       ctx.fill()
       ctx.fillStyle = '#4A2E17' // нос
       ctx.beginPath()
-      ctx.arc(headX + headR * 1.14, headY + headR * 0.2, headR * 0.17, 0, Math.PI * 2)
+      ctx.arc(headX + headR * 1.16, headY + headR * 0.18, headR * 0.19, 0, Math.PI * 2)
+      ctx.fill()
+      // блик на носу
+      ctx.fillStyle = 'rgba(255, 255, 255, 0.55)'
+      ctx.beginPath()
+      ctx.arc(headX + headR * 1.1, headY + headR * 0.12, headR * 0.06, 0, Math.PI * 2)
       ctx.fill()
       const ex = headX + headR * 0.3
       const ey = headY - headR * 0.02
+      /* — ЧЕШИРСКАЯ УЛЫБКА: широкая дуга с крючками уголков, видна ВСЕГДА;
+          в happy — открытая пасть с язычком — */
+      const smileCx = headX + headR * 0.76
+      const smileCy = headY + headR * 0.34
       if (marten.state === 'happy') {
-        // счастливый прищур дугой + улыбка
+        // открытая улыбка: тёмный полумесяц + язычок
+        ctx.fillStyle = '#4A2E17'
+        ctx.beginPath()
+        ctx.arc(smileCx, smileCy, headR * 0.44, Math.PI * 0.08, Math.PI * 0.92)
+        ctx.arc(smileCx, smileCy, headR * 0.24, Math.PI * 0.92, Math.PI * 0.08, true)
+        ctx.closePath()
+        ctx.fill()
+        ctx.fillStyle = '#E27965'
+        ctx.beginPath()
+        ctx.ellipse(smileCx + headR * 0.06, smileCy + headR * 0.3, headR * 0.16, headR * 0.1, 0, 0, Math.PI * 2)
+        ctx.fill()
+      } else {
+        // закрытая чеширская дуга + уголки-крючки вверх
+        ctx.strokeStyle = '#3B2413'
+        ctx.lineWidth = 1.9
+        ctx.lineCap = 'round'
+        ctx.beginPath()
+        ctx.arc(smileCx, smileCy, headR * 0.4, Math.PI * 0.12, Math.PI * 0.88)
+        ctx.stroke()
+        ctx.lineWidth = 1.4
+        ctx.beginPath()
+        ctx.arc(smileCx - headR * 0.4, smileCy - headR * 0.02, headR * 0.11, Math.PI * 1.1, Math.PI * 1.9)
+        ctx.stroke()
+        ctx.beginPath()
+        ctx.arc(smileCx + headR * 0.4, smileCy - headR * 0.02, headR * 0.11, Math.PI * 1.1, Math.PI * 1.9)
+        ctx.stroke()
+      }
+      // «носогубная» складка от носа к улыбке
+      ctx.strokeStyle = 'rgba(74, 46, 23, 0.6)'
+      ctx.lineWidth = 1.1
+      ctx.beginPath()
+      ctx.moveTo(headX + headR * 1.1, headY + headR * 0.36)
+      ctx.lineTo(headX + headR * 0.98, headY + headR * 0.5)
+      ctx.stroke()
+      if (marten.state === 'happy') {
+        // счастливый прищур дугой
         ctx.strokeStyle = '#2E1D12'
         ctx.lineWidth = 2.2
         ctx.lineCap = 'round'
         ctx.beginPath()
         ctx.arc(ex, ey + headR * 0.06, headR * 0.17, Math.PI * 1.15, Math.PI * 1.85)
         ctx.stroke()
-        ctx.strokeStyle = '#4A2E17'
+      } else {
+        // ГЛАЗ v0.0.65: крупный, янтарная радужка, два блика — чеширский прищур
+        ctx.strokeStyle = '#E8A13B'
         ctx.lineWidth = 1.6
         ctx.beginPath()
-        ctx.arc(headX + headR * 0.8, headY + headR * 0.42, headR * 0.24, 0.3, Math.PI - 0.5)
+        ctx.arc(ex, ey, headR * 0.24, 0, Math.PI * 2)
         ctx.stroke()
-      } else {
-        // глаз с морганием и бликом
         ctx.fillStyle = '#2E1D12'
         ctx.beginPath()
-        ctx.ellipse(ex, ey, headR * 0.15, headR * 0.17 * Math.max(0.1, marten.blink), 0, 0, Math.PI * 2)
+        ctx.ellipse(ex, ey, headR * 0.19, headR * 0.21 * Math.max(0.1, marten.blink), 0, 0, Math.PI * 2)
         ctx.fill()
         if (marten.blink > 0.6) {
-          ctx.fillStyle = 'rgba(255, 255, 255, 0.85)'
+          ctx.fillStyle = 'rgba(255, 255, 255, 0.9)'
           ctx.beginPath()
-          ctx.arc(ex - headR * 0.05, ey - headR * 0.06, headR * 0.05, 0, Math.PI * 2)
+          ctx.arc(ex - headR * 0.07, ey - headR * 0.08, headR * 0.07, 0, Math.PI * 2)
+          ctx.fill()
+          ctx.fillStyle = 'rgba(255, 255, 255, 0.6)'
+          ctx.beginPath()
+          ctx.arc(ex + headR * 0.07, ey + headR * 0.06, headR * 0.035, 0, Math.PI * 2)
           ctx.fill()
         }
+        // бровка-чёрточка для хитрого выражения
+        ctx.strokeStyle = 'rgba(74, 46, 23, 0.75)'
+        ctx.lineWidth = 1.3
+        ctx.beginPath()
+        ctx.moveTo(ex - headR * 0.22, ey - headR * 0.34)
+        ctx.lineTo(ex + headR * 0.18, ey - headR * 0.42)
+        ctx.stroke()
       }
       // усы: 3 тонкие линии
       ctx.strokeStyle = 'rgba(74, 46, 23, 0.5)'

@@ -766,17 +766,17 @@ const DEFAULT_OPTIONS: EngineOptions = {
   mineVariant: 0,
 }
 
-/** Точки наполнения ВНУТРИ стаканчика (в единицах спрайта от центра, спрайт 48×54).
+/** Точки наполнения ВНУТРИ стаканчика (в единицах спрайта от центра, спрайт 96×108).
  *  Зёрна рисуются «за бумажной стенкой» — их не путают с попкорном на поле. */
 const CUP_FILL_POS: Array<[number, number]> = [
-  [-8, 14.8],
-  [8, 14.8],
-  [-13, 5.2],
-  [1, 6.4],
-  [13.6, 4.4],
-  [-6.8, -5.2],
-  [8.4, -6.4],
-  [0, -15.2],
+  [-16, 29.6],
+  [16, 29.6],
+  [-26, 10.4],
+  [2, 12.8],
+  [27.2, 8.8],
+  [-13.6, -10.4],
+  [16.8, -12.8],
+  [0, -30.4],
 ]
 
 export class PopcornEngine {
@@ -1777,9 +1777,9 @@ export class PopcornEngine {
       }
     }
 
-    /* Детальный стаканчик 48×54: пиксели вдвое мельче при том же размере */
-    this.cupScale = 2.3 * this.u
-    this.cupH = 54 * this.cupScale
+    /* Детальный стаканчик 96×108: пиксели вдвое мельче при том же размере */
+    this.cupScale = 1.15 * this.u // v0.0.65: спрайт 96×108 — плотность пикселей ×2
+    this.cupH = 108 * this.cupScale
     this.cup.x = w / 2
     /* Столик внизу: стаканчик стоит на столешнице, а не висит в воздухе */
     this.tableY = h - 30 * this.u
@@ -6202,10 +6202,10 @@ export class PopcornEngine {
     if (fill > 0) {
       ctx.save()
       // Внутренняя трапеция стаканчика — зёрна не выходят за бумажные стенки
-      const topY = this.cup.y - 22.4 * s * sy
-      const botY = this.cup.y + 22.4 * s * sy
-      const halfTop = 20.8 * s * sx
-      const halfBot = 12.8 * s * sx
+      const topY = this.cup.y - 44.8 * s * sy
+      const botY = this.cup.y + 44.8 * s * sy
+      const halfTop = 41.6 * s * sx
+      const halfBot = 25.6 * s * sx
       ctx.beginPath()
       ctx.moveTo(this.cup.x - halfTop, topY)
       ctx.lineTo(this.cup.x + halfTop, topY)
@@ -6231,6 +6231,36 @@ export class PopcornEngine {
       ctx.globalAlpha = 0.18
       ctx.fillStyle = '#8a2f1d'
       ctx.fillRect(this.cup.x - halfTop, topY, halfTop * 2, botY - topY)
+      ctx.restore()
+    }
+
+    /* --- v0.0.65: жёлтый счётчик остатка ПРЯМО на корзине ---
+        тёмная плашка + янтарные цифры «сколько зёрен ещё не хватает» */
+    const left = this.quota > 0 ? Math.max(0, this.quota - this.collected) : 0
+    if (left > 0) {
+      const s = this.cupScale
+      const fs = Math.round(15 * s)
+      const txt = String(left)
+      ctx.save()
+      ctx.font = `700 ${fs}px "Handjet", system-ui, sans-serif`
+      ctx.textAlign = 'center'
+      ctx.textBaseline = 'middle'
+      const tw = ctx.measureText(txt).width
+      const pw = Math.max(18 * s, tw + 9 * s)
+      const ph = fs + 5 * s
+      const px = this.cup.x
+      const py = this.cup.y - 30 * s * sy // верх корпуса, между ободком и лентой
+      // плашка (8-битный стиль: прямоугольная, с янтарной рамкой)
+      ctx.fillStyle = 'rgba(43, 26, 14, 0.85)'
+      ctx.fillRect(px - pw / 2, py - ph / 2, pw, ph)
+      ctx.strokeStyle = 'rgba(255, 201, 60, 0.75)'
+      ctx.lineWidth = Math.max(1, 1.2 * s)
+      ctx.strokeRect(px - pw / 2, py - ph / 2, pw, ph)
+      // цифры: жёлтые с тёмной подложкой-тенью для читаемости
+      ctx.fillStyle = '#2B1A0E'
+      ctx.fillText(txt, px + Math.max(1, 1.1 * s), py + Math.max(1, 1.1 * s))
+      ctx.fillStyle = '#FFC93C'
+      ctx.fillText(txt, px, py)
       ctx.restore()
     }
 
