@@ -39,3 +39,5 @@ Read more: https://nextjs.org/docs/app/api-reference/config/next-config-js/allow
  POST /api/sessions 200 in 47ms (next.js: 19ms, application-code: 28ms)
  POST /api/leaders/start 200 in 12ms (next.js: 2ms, application-code: 10ms)
  POST /api/leaders 200 in 38ms (next.js: 1.1ms, application-code: 37ms)
+✓ Compiled in 670ms
+ GET / 200 in 37ms (next.js: 1.1ms, application-code: 36ms)
