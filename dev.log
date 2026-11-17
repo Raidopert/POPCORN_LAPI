@@ -77,3 +77,5 @@ https://nextjs.org/telemetry
  GET / 200 in 73ms (next.js: 0.8ms, application-code: 72ms)
  POST /api/sessions 200 in 10ms (next.js: 0.8ms, application-code: 9ms)
 ✓ Compiled in 161ms
+ GET / 200 in 137ms (next.js: 1.2ms, application-code: 136ms)
+ POST /api/sessions 200 in 37ms (next.js: 12ms, application-code: 25ms)
