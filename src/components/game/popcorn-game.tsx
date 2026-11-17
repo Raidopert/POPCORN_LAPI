@@ -11,6 +11,7 @@ import {
   Gem,
   Heart,
   Home,
+  LayoutGrid,
   MonitorDown,
   Music,
   Network,
@@ -30,6 +31,7 @@ import {
   Trophy,
   Volume2,
   VolumeX,
+  Zap,
 } from 'lucide-react'
 import { PopcornEngine, bossKindForTier, bossTierForLevel, type BossKind, type EngineStats } from '@/lib/game/engine'
 import { audio } from '@/lib/game/audio'
@@ -96,6 +98,8 @@ import {
   INV_MAP,
   PAGE2_PRICE,
   RARITY_COLOR,
+  RARITY_RANK,
+  EQUIP_KINDS,
   CLAW_DEFS,
   CLAW_MAP,
   addClawToStorage,
@@ -1945,6 +1949,14 @@ const INV_SLOT_ORDER: ReadonlyArray<{ kind: ItemKind; labelKey: string }> = [
   { kind: 'collar', labelKey: 'inv.slot.collar' },
 ]
 
+/** 0.0.66: волшебная полоса НАД лапкой — талисман СЛЕВА ВВЕРХУ инвентаря,
+ *  рядом кольцо (удача) и баночка (бонус цвета). Пустые показывают эмодзи */
+const MAGIC_SLOT_ORDER: ReadonlyArray<{ kind: ItemKind; labelKey: string; emptyIcon: string }> = [
+  { kind: 'magic', labelKey: 'inv.slot.magic', emptyIcon: '✨' },
+  { kind: 'ring', labelKey: 'inv.slot.ring', emptyIcon: '💍' },
+  { kind: 'jar', labelKey: 'inv.slot.jar', emptyIcon: '🧪' },
+]
+
 /* 0.0.57: единый вид содержимого склада — лут из сундучков или коготок из нарезки */
 type AnyItemId = InvItemId | ClawId
 interface AnyDefView {
@@ -2030,11 +2042,11 @@ function InventoryOverlay({
   }, [])
 
   /* Склад: редкое сверху — легендарки не теряются в куче бус.
-      0.0.57: коготки лежат в тех же ячейках и сортируются вместе с лутом */
+      0.0.57: коготки лежат в тех же ячейках и сортируются вместе с лутом.
+      0.0.66: леопардовые вершины выше легендарок (RARITY_RANK) */
   const sorted = useMemo(() => {
-    const rank: Record<Rarity, number> = { legendary: 0, epic: 1, rare: 2, common: 3 }
     return [...inv.items, ...inv.claws].sort(
-      (a, b) => rank[anyDef(a.id).rarity] - rank[anyDef(b.id).rarity],
+      (a, b) => RARITY_RANK[anyDef(a.id).rarity] - RARITY_RANK[anyDef(b.id).rarity],
     )
   }, [inv.items, inv.claws])
 
@@ -2050,7 +2062,7 @@ function InventoryOverlay({
   const selEquipped = sel
     ? selClawId
       ? inv.clawSlots[selClawId] === sel.uid
-      : sel.uid === inv.collar || sel.uid === inv.bracelet || sel.uid === inv.crown
+      : EQUIP_KINDS.some((k) => inv[k] === sel.uid)
     : false
   const selIsNew = sel ? isNewItem(sel, inv.lastOpened) : false
   const selRec = sel && !selClawId ? recycleInfo(inv, sel.uid) : null
@@ -2082,6 +2094,72 @@ function InventoryOverlay({
         </div>
         <h2 className="mt-0.5 font-pixel text-lg font-bold text-[#B33A26] sm:text-xl">{t('inv.title')}</h2>
         <p className="mt-1 font-ui text-[11px] font-medium text-[#8a5330] sm:text-xs">{t('inv.hint')}</p>
+
+        {/* Волшебная лапка (0.0.66): талисман СЛЕВА ВВЕРХУ инвентаря +
+            кольцо (удача) и баночка (бонус цвета). Тап по занятому — снять */}
+        <div className="mt-2.5 grid grid-cols-3 gap-1.5">
+          {MAGIC_SLOT_ORDER.map(({ kind, labelKey, emptyIcon }) => {
+            const uid = inv[kind]
+            const item = uid ? (inv.items.find((i) => i.uid === uid) ?? null) : null
+            const def = item ? INV_MAP[item.id] : null
+            const rc = def ? RARITY_COLOR[def.rarity] : null
+            const isMagic = kind === 'magic'
+            return (
+              <button
+                key={kind}
+                type="button"
+                onClick={() => {
+                  if (item && def) {
+                    if (onUnequip(kind)) pick(null)
+                  }
+                }}
+                disabled={!item}
+                aria-label={
+                  def
+                    ? `${t(labelKey)}: ${t(`item.${def.id}.name`)} — ${t('inv.unequip')}`
+                    : `${t(labelKey)}: ${t('inv.emptySlot')}`
+                }
+                title={def ? t(`item.${def.id}.bonus`) : t(labelKey)}
+                className={`relative flex flex-col items-center gap-0.5 rounded-lg border-2 px-1 py-1 transition active:scale-95 ${
+                  def && rc
+                    ? `${rc.border} bg-[#FFF6E6]/95 shadow-sm`
+                    : isMagic
+                      ? 'border-dashed border-[#9A4ED6]/60 bg-[#f6ecff]/80'
+                      : 'border-dashed border-[#c9a97a] bg-[#FFF6E6]/80'
+                }`}
+              >
+                {def ? (
+                  <img
+                    src={def.icon}
+                    alt=""
+                    aria-hidden
+                    draggable={false}
+                    className="h-8 w-8 rounded-md object-cover sm:h-9 sm:w-9"
+                  />
+                ) : (
+                  <span aria-hidden className="text-lg leading-none opacity-40">
+                    {emptyIcon}
+                  </span>
+                )}
+                <span
+                  className={`w-full truncate font-pixel text-[7px] font-bold leading-tight sm:text-[8px] ${
+                    def && rc ? rc.text : isMagic ? 'text-[#9A4ED6]' : 'text-[#a97c50]'
+                  }`}
+                >
+                  {def ? t(`item.${def.id}.name`) : t(labelKey)}
+                </span>
+                {isMagic && !def && (
+                  <span
+                    aria-hidden
+                    className="absolute right-1 top-1 font-pixel text-[8px] leading-none text-[#9A4ED6]/70"
+                  >
+                    ✨
+                  </span>
+                )}
+              </button>
+            )
+          })}
+        </div>
 
         {/* Лапка NANA: три слота надетого (венец / браслет / ошейник).
             Тап по занятому слоту снимает предмет */}
@@ -2220,7 +2298,8 @@ function InventoryOverlay({
           </div>
         </div>
 
-        {/* Коготки нарезки (0.0.57): 4 слота, каждый закреплён за своим цветом.
+        {/* Коготки нарезки (0.0.57): слот закреплён за своим цветом —
+            0.0.66: их семь, леопардовые вершины на втором ряду.
             Тап по пустому — надеть первый такой коготок со склада, по занятому — снять */}
         <div className="mt-2">
           <span className="block px-0.5 font-pixel text-[11px] font-bold text-[#5C3A1E]">
@@ -2352,7 +2431,7 @@ function InventoryOverlay({
             const clawId = isClawId(item.id) ? item.id : null
             const equipped = clawId
               ? inv.clawSlots[clawId] === item.uid
-              : item.uid === inv.collar || item.uid === inv.bracelet || item.uid === inv.crown
+              : EQUIP_KINDS.some((k) => inv[k] === item.uid)
             const fresh = isNewItem(item, inv.lastOpened)
             return (
               <button
@@ -3042,6 +3121,82 @@ function LeadersOverlay({
         <div className="mt-3">
           <GameButton onClick={onClose}>{t('shop.close')}</GameButton>
         </div>
+        </div>
+      </motion.div>
+    </motion.div>
+  )
+}
+
+/**
+ * Хаб-выбор (0.0.66): одно окно, внутри — крупные «вкладки».
+ * ПРОКАЧКА: ЛАПКИ · ДРЕВО · ЛАВКА · РЫНОК · ИНВЕНТАРЬ.
+ * ЕЩЁ: АЧИВКИ · ЛИДЕРЫ · ПРАВИЛА · СОЗДАТЕЛИ · НАСТРОЙКИ.
+ * Тап по вкладке открывает нужный раздел; ✕ в разделе возвращает сюда.
+ */
+function HubOverlay({
+  titleKey,
+  hintKey,
+  tiles,
+  t,
+  onClose,
+}: {
+  titleKey: string
+  hintKey: string
+  tiles: ReadonlyArray<{ labelKey: string; emoji: string; badge?: number; onClick: () => void }>
+  t: TranslateFn
+  onClose: () => void
+}) {
+  return (
+    <motion.div
+      className="absolute inset-0 z-40 flex items-center justify-center overflow-y-auto bg-black/70 p-4"
+      initial={{ opacity: 0 }}
+      animate={{ opacity: 1 }}
+      exit={{ opacity: 0, pointerEvents: 'none' }}
+      role="dialog"
+      aria-label={t(titleKey)}
+    >
+      <motion.div
+        className="my-auto w-full max-w-sm rounded-2xl border-4 border-[#8a5330] bg-[#FFF6E6] p-4 text-center shadow-[0_18px_50px_rgba(0,0,0,0.55)] sm:p-5"
+        initial={{ scale: 0.92, y: 14 }}
+        animate={{ scale: 1, y: 0 }}
+        exit={{ scale: 0.95, opacity: 0, pointerEvents: 'none' }}
+        transition={{ type: 'spring', stiffness: 260, damping: 22 }}
+      >
+        <div aria-hidden className="text-3xl">
+          🧰
+        </div>
+        <h2 className="mt-0.5 font-pixel text-xl font-bold text-[#B33A26]">{t(titleKey)}</h2>
+        <p className="mt-1 font-ui text-[11px] font-medium text-[#8a5330] sm:text-xs">
+          {t(hintKey)}
+        </p>
+        <div className="mt-3 grid grid-cols-2 gap-2">
+          {tiles.map((tile) => (
+            <button
+              key={tile.labelKey}
+              type="button"
+              onClick={tile.onClick}
+              aria-label={t(tile.labelKey)}
+              className="relative flex min-h-16 flex-col items-center justify-center gap-1 rounded-xl border-2 border-[#c9a97a] bg-[#fdf3e0] px-2 py-2.5 transition hover:bg-[#f3e2c8] active:scale-95"
+            >
+              <span aria-hidden className="text-2xl leading-none">
+                {tile.emoji}
+              </span>
+              <span className="font-pixel text-[11px] font-bold leading-none text-[#5C3A1E]">
+                {t(tile.labelKey)}
+              </span>
+              {!!tile.badge && tile.badge > 0 && (
+                <span
+                  aria-hidden
+                  className="absolute -right-1.5 -top-1.5 flex h-5 min-w-5 items-center justify-center rounded-full border-2 border-[#FFF6E6] bg-[#B33A26] px-1 font-pixel text-[10px] font-bold leading-none text-[#FFF3DC]"
+                >
+                  {tile.badge}
+                </span>
+              )}
+            </button>
+          ))}
+        </div>
+        <div className="mt-3">
+          <GameButton onClick={onClose}>{t('hub.close')}</GameButton>
         </div>
       </motion.div>
     </motion.div>
@@ -5219,8 +5374,31 @@ export function PopcornGame() {
     | 'mshop'
     | 'market'
     | 'inv'
+    | 'upgrades'
+    | 'more'
     | null
   >(null)
+  /* v0.0.66: хаб «ПРОКАЧКА»/«ЕЩЁ» — из него вкладки открываются, и ✕
+     возвращает НЕ в меню, а обратно в хаб. null = открыто прямо из меню */
+  const [hubReturn, setHubReturn] = useState<'upgrades' | 'more' | null>(null)
+  const hubReturnRef = useRef(hubReturn)
+  useEffect(() => {
+    hubReturnRef.current = hubReturn
+  }, [hubReturn])
+  /* v0.0.66: тап по вкладке хаба — открыть раздел и запомнить, откуда пришли */
+  const openFromHub = useCallback(
+    (hub: 'upgrades' | 'more', target: NonNullable<typeof overlay>) => {
+      audio.play('click')
+      setHubReturn(hub)
+      setOverlay(target)
+    },
+    [],
+  )
+  /* v0.0.66: закрыть раздел — если открыт из хаба, вернуться в него */
+  const closeOverlayBack = useCallback(() => {
+    setOverlay(hubReturnRef.current)
+    setHubReturn(null)
+  }, [])
   /* v0.0.62: зеркало оверлея для альтернативного ввода — Esc/Back закрывает актуальный */
   const overlayRef = useRef(overlay)
   useEffect(() => {
@@ -5390,10 +5568,16 @@ export function PopcornGame() {
   /* Множители артефактов рынка — в ref для колбэков без перезапуска эффектов */
   const marketRef = useRef<MarketBonuses>(ZERO_MARKET_BONUS)
   /* Множители надетых предметов инвентаря (ошейник/браслет/венец).
-      0.0.57: солнечный коготок добавляет +15% опыта поверх браслета */
+      0.0.57: солнечный коготок добавляет +15% опыта поверх браслета.
+      0.0.66: кольца/баночки/талисманы — монетки/опыт/алмазы + удача */
   const invBonus = useMemo<InvBonuses>(() => {
     const base = inventoryBonuses(inv)
-    return { coins: base.coins, xp: base.xp * clawBonuses(inv).xpMult, gems: base.gems }
+    return {
+      coins: base.coins,
+      xp: base.xp * clawBonuses(inv).xpMult,
+      gems: base.gems,
+      luck: base.luck,
+    }
   }, [inv])
   /* 0.0.54: артефакты лавки действуют, только пока надеты на лапке инвентаря */
   const eqArts = useMemo<ArtifactId[]>(() => equippedArtifacts(inv), [inv])
@@ -6906,11 +7090,12 @@ export function PopcornGame() {
     const ups = parseUpgrades(window.localStorage.getItem(UPG_KEY))
     engineRef.current?.setUpgrades({ carryPlus: ups.capacity, heartsPlus: ups.hearts })
     engineRef.current?.setPawSkin(equippedRef.current)
-    /* Коготки + «Девятая жизнь»: шансы СКЛАДЫВАЮТСЯ (2+1), а не перекрывают друг друга */
+    /* Коготки + «Девятая жизнь»: шансы СКЛАДЫВАЮТСЯ (0.0.66: сумеречный 2,
+       леопардовые 1/2/3 + апгрейд 1) */
     const cb = clawBonuses(getInventorySnapshot())
     engineRef.current?.setClawBonuses({
       pigeonSlow: cb.pigeonSlow,
-      revives: (cb.revives > 0 ? 2 : 0) + (ups.life > 0 ? 1 : 0),
+      revives: cb.revives + (ups.life > 0 ? 1 : 0),
       mineImmuneStages: cb.mineImmuneStages,
     })
     /* lastScoreRef ДОЛЖЕН быть готов до restoreRun: первый же тик статистики
@@ -6980,11 +7165,11 @@ export function PopcornGame() {
     }
     engineRef.current?.setPawSkin(equippedRef.current)
     /* 0.0.57: коготки — в движок до старта забега (шансы ревайва считаются в startRun).
-       v0.0.59: «Девятая жизнь» и сумеречный коготок СКЛАДЫВАЮТСЯ (2+1=3 шанса) */
+       0.0.66: шансы коготков складываются как есть (сумеречный 2, мега-леопард 3) */
     const cb = clawBonuses(getInventorySnapshot())
     engineRef.current?.setClawBonuses({
       pigeonSlow: cb.pigeonSlow,
-      revives: (cb.revives > 0 ? 2 : 0) + (ups.life > 0 ? 1 : 0),
+      revives: cb.revives + (ups.life > 0 ? 1 : 0),
       mineImmuneStages: cb.mineImmuneStages,
     })
     engineRef.current?.startRun({ fast: devRef.current.fast, perk: startPerk })
@@ -7191,7 +7376,9 @@ export function PopcornGame() {
       onUiBack: () => {
         if (overlayRef.current) {
           audio.play('click')
-          setOverlay(null)
+          /* v0.0.66: Esc/Back тоже уважают хаб — закрывают в него, а не в меню */
+          setOverlay(hubReturnRef.current)
+          setHubReturn(null)
         } else if (phaseRef.current === 'playing') {
           pauseGame()
         } else if (phaseRef.current === 'paused') {
@@ -7881,66 +8068,9 @@ export function PopcornGame() {
                           {t('marten.travel')}
                         </span>
                       </button>
-                      {/* Ряд: ЛАВКА (снаряжение) + РЫНОК (обмен валют) */}
-                      <div className="grid shrink-0 grid-cols-2 gap-1">
-                        <button
-                          type="button"
-                          onClick={() => {
-                            audio.play('click')
-                            setOverlay('mshop')
-                          }}
-                          title={t('mshop.title')}
-                          aria-label={t('mshop.title')}
-                          className="flex h-11 flex-col items-center justify-center gap-0.5 rounded-xl border-2 border-[#C979F0]/80 bg-[#2E1650] px-0.5 py-1 text-[#EBD6FF] shadow-[0_3px_0_#170826] transition hover:bg-[#3A1D66] active:translate-y-[2px] active:shadow-[0_1px_0_#170826] sm:h-12"
-                        >
-                          <ShoppingBag className="h-3.5 w-3.5" aria-hidden />
-                          <span className="font-pixel text-[8px] font-bold leading-none">
-                            {t('marten.shop')}
-                          </span>
-                        </button>
-                        <button
-                          type="button"
-                          onClick={() => {
-                            audio.play('click')
-                            setOverlay('market')
-                          }}
-                          title={t('market.title')}
-                          aria-label={t('market.title')}
-                          className="relative flex h-11 flex-col items-center justify-center gap-0.5 rounded-xl border-2 border-[#7FB069]/80 bg-[#233a18] px-0.5 py-1 text-[#C7F0A8] shadow-[0_3px_0_#12200c] transition hover:bg-[#2B4A1E] active:translate-y-[2px] active:shadow-[0_1px_0_#12200c] sm:h-12"
-                        >
-                          <Store className="h-3.5 w-3.5" aria-hidden />
-                          <span className="font-pixel text-[8px] font-bold leading-none">
-                            {t('marten.market')}
-                          </span>
-                        </button>
-                      </div>
-                      {/* ИНВЕНТАРЬ (0.0.53): лут из сундучков и лапка со слотами.
-                          Кнопка живёт в меню (phase 'start') — в бою её нет.
-                          v0.0.59: бессмысленные сравнения фазы убраны (tsc) */}
-                      <button
-                        type="button"
-                        onClick={() => {
-                          audio.play('click')
-                          setOverlay('inv')
-                        }}
-                        title={t('inv.title')}
-                        aria-label={t('inv.title')}
-                        className="relative flex h-11 shrink-0 flex-col items-center justify-center gap-0.5 rounded-xl border-2 border-[#E8B54D]/80 bg-[#4A2E0A] px-0.5 py-1 text-[#FFE9BE] shadow-[0_3px_0_#2b1a05] transition hover:bg-[#5C3A10] active:translate-y-[2px] active:shadow-[0_1px_0_#2b1a05] disabled:cursor-not-allowed disabled:opacity-40 sm:h-12"
-                      >
-                        <Backpack className="h-3.5 w-3.5" aria-hidden />
-                        <span className="font-pixel text-[8px] font-bold leading-none">
-                          {t('inv.title')}
-                        </span>
-                        {/* 0.0.54: бейдж с числом новинок на складе */}
-                        {invNewCount > 0 && (
-                          <span
-                            aria-hidden
-                            className="absolute -right-1.5 -top-1.5 z-10 flex h-4 min-w-4 items-center justify-center rounded-full border-2 border-[#FFF6E6] bg-[#B33A26] px-1 font-pixel text-[9px] font-bold leading-none text-[#FFF3DC]"
-                          >
-                            {invNewCount}
-                          </span>
-                        )}
-                      </button>
+                      {/* v0.0.66: ЛАВКА, РЫНОК и ИНВЕНТАРЬ переехали в хаб
+                          «ПРОКАЧКА» под кнопкой ИГРАТЬ — панель куницы
+                          теперь только про NANA: алмазы, уровень, путешествие */}
                     </div>
                   </div>
 
@@ -8107,87 +8237,48 @@ export function PopcornGame() {
                   </motion.div>
                 )}
 
-                {/* Ряд: ЛАПКИ · АЧИВКИ · ДРЕВО — сразу под ИГРАТЬ (дерево уменьшено, бейдж очков сохранён) */}
-                <motion.div className="mt-2.5 grid grid-cols-3 gap-2" {...menuPop(4)}>
-                  <MenuSmallBtn
+                {/* v0.0.66: ПРОКАЧКА — одна кнопка вместо ЛАПОК/ДЕРЕВА/ЛАВКИ/
+                    РЫНКА/ИНВЕНТАРЯ. Внутри хаба игрок тапом выбирает вкладку;
+                    бейджи: свободные очки дерева + новинки склада */}
+                <motion.div className="mt-2.5" {...menuPop(4)}>
+                  <button
+                    type="button"
                     onClick={() => {
                       audio.play('click')
-                      setOverlay('shop')
+                      setOverlay('upgrades')
                     }}
-                    icon={<PawPrint className="h-4 w-4" aria-hidden />}
-                    title={t(`paw.${equippedPaw}.name`)}
+                    aria-label={t('menu.upgrades')}
+                    className="relative flex min-h-11 w-full items-center justify-center gap-2 rounded-xl border-2 border-[#C979F0]/80 bg-[#2E1650] px-4 py-2.5 font-pixel text-sm font-bold text-[#EBD6FF] shadow-[0_3px_0_#170826] transition hover:bg-[#3A1D66] active:translate-y-[2px] active:shadow-[0_1px_0_#170826]"
                   >
-                    {t('menu.paws')}
-                  </MenuSmallBtn>
-                  <MenuSmallBtn
-                    onClick={() => {
-                      audio.play('click')
-                      setOverlay('ach')
-                    }}
-                    icon={<span aria-hidden className="text-sm">🏅</span>}
-                  >
-                    {t('menu.ach')}
-                  </MenuSmallBtn>
-                  <MenuSmallBtn
-                    accent={treePts > 0}
-                    onClick={() => {
-                      audio.play('click')
-                      setOverlay('tree')
-                    }}
-                    icon={<Network className="h-4 w-4" aria-hidden />}
-                    title={t('menu.tree')}
-                  >
-                    {t('menu.treeShort')}
+                    <Zap className="h-4.5 w-4.5 text-amber-400" aria-hidden />
+                    {t('menu.upgrades')}
                     {treePts > 0 && (
                       <span className="flex h-4.5 min-w-4.5 items-center justify-center rounded-full bg-[#5C8A3A] px-1 font-ui text-[10px] font-bold text-white">
                         {treePts}
                       </span>
                     )}
-                  </MenuSmallBtn>
+                    {invNewCount > 0 && (
+                      <span className="flex h-4.5 min-w-4.5 items-center justify-center rounded-full bg-[#B33A26] px-1 font-ui text-[10px] font-bold text-white">
+                        {invNewCount}
+                      </span>
+                    )}
+                  </button>
                 </motion.div>
 
-                {/* Ряд ниже: ЛИДЕРЫ · СОЗДАТЕЛИ */}
-                <motion.div className="mt-2 grid grid-cols-2 gap-2" {...menuPop(5)}>
-                  <MenuSmallBtn
+                {/* v0.0.66: ЕЩЁ — ачивки, лидеры, правила, создатели и настройки */}
+                <motion.div className="mt-2" {...menuPop(5)}>
+                  <button
+                    type="button"
                     onClick={() => {
                       audio.play('click')
-                      setOverlay('leaders')
+                      setOverlay('more')
                     }}
-                    icon={<Trophy className="h-4 w-4" aria-hidden />}
+                    aria-label={t('menu.more')}
+                    className="flex min-h-11 w-full items-center justify-center gap-2 rounded-xl border-2 border-[#C979F0]/45 bg-[#241040] px-4 py-2.5 font-pixel text-sm font-bold text-[#D8B4FE] shadow-[0_3px_0_#170826] transition hover:bg-[#2E1650] active:translate-y-[2px] active:shadow-[0_1px_0_#170826]"
                   >
-                    {t('menu.leaders')}
-                  </MenuSmallBtn>
-                  <MenuSmallBtn
-                    onClick={() => {
-                      audio.play('click')
-                      setOverlay('creators')
-                    }}
-                    icon={<Heart className="h-4 w-4" aria-hidden />}
-                  >
-                    {t('menu.creators')}
-                  </MenuSmallBtn>
-                </motion.div>
-
-                {/* Низ: ПРАВИЛА · НАСТРОЙКИ — вспомогательный ряд, выровнен с остальными */}
-                <motion.div className="mt-2 grid grid-cols-2 gap-2" {...menuPop(6)}>
-                  <MenuSmallBtn
-                    onClick={() => {
-                      audio.play('click')
-                      setOverlay('rules')
-                    }}
-                    icon={<BookOpen className="h-4 w-4" aria-hidden />}
-                  >
-                    {t('menu.rules')}
-                  </MenuSmallBtn>
-                  <MenuSmallBtn
-                    onClick={() => {
-                      audio.play('click')
-                      setOverlay('settings')
-                    }}
-                    icon={<Settings className="h-4 w-4" aria-hidden />}
-                  >
-                    {t('menu.settings')}
-                  </MenuSmallBtn>
+                    <LayoutGrid className="h-4 w-4 text-[#C979F0]" aria-hidden />
+                    {t('menu.more')}
+                  </button>
                 </motion.div>
 
                 {/* Установка PWA — когда приложение ещё не стоит */}
@@ -8792,7 +8883,7 @@ export function PopcornGame() {
               myName={nameRaw}
               lang={settings.lang}
               t={t}
-              onClose={() => setOverlay(null)}
+              onClose={closeOverlayBack}
             />
           )}
           {overlay === 'shop' && (
@@ -8807,20 +8898,20 @@ export function PopcornGame() {
               onBuy={buyPaw}
               onEquip={equipPaw}
               onBuyUpgrade={buyUpgrade}
-              onClose={() => setOverlay(null)}
+              onClose={closeOverlayBack}
             />
           )}
           {overlay === 'ach' && (
-            <AchievementsOverlay unlocked={unlockedAch} t={t} onClose={() => setOverlay(null)} />
+            <AchievementsOverlay unlocked={unlockedAch} t={t} onClose={closeOverlayBack} />
           )}
-          {overlay === 'creators' && <CreatorsOverlay t={t} onClose={() => setOverlay(null)} />}
-          {overlay === 'rules' && <RulesOverlay t={t} onClose={() => setOverlay(null)} />}
+          {overlay === 'creators' && <CreatorsOverlay t={t} onClose={closeOverlayBack} />}
+          {overlay === 'rules' && <RulesOverlay t={t} onClose={closeOverlayBack} />}
           {overlay === 'install' && (
             <InstallOverlay
               t={t}
               canNative={canInstall}
               onNative={() => void handleInstall()}
-              onClose={() => setOverlay(null)}
+              onClose={closeOverlayBack}
             />
           )}
           {overlay === 'tree' && (
@@ -8829,7 +8920,7 @@ export function PopcornGame() {
               tree={tree}
               points={treePts}
               totalXp={Math.max(0, Number(totalRaw) || 0)}
-              onClose={() => setOverlay(null)}
+              onClose={closeOverlayBack}
             />
           )}
         </AnimatePresence>
@@ -8853,7 +8944,7 @@ export function PopcornGame() {
               t={t}
               onSend={handleSendTrip}
               onClaim={handleClaimTrip}
-              onClose={() => setOverlay(null)}
+              onClose={closeOverlayBack}
             />
           )}
           {phase === 'start' && overlay === 'mshop' && (
@@ -8866,7 +8957,7 @@ export function PopcornGame() {
               onEquipHat={handleEquipHat}
               onBuyBag={handleBuyBag}
               onEquipBag={handleEquipBag}
-              onClose={() => setOverlay(null)}
+              onClose={closeOverlayBack}
             />
           )}
           {phase === 'start' && overlay === 'market' && (
@@ -8880,7 +8971,7 @@ export function PopcornGame() {
               t={t}
               onExchange={handleExchange}
               onBuyArtifact={handleBuyArtifact}
-              onClose={() => setOverlay(null)}
+              onClose={closeOverlayBack}
             />
           )}
           {/* ИНВЕНТАРЬ: меню и пауза (v0.0.59: мёртвая ветка 'chest' убрана —
@@ -8899,9 +8990,62 @@ export function PopcornGame() {
                 onEquipClaw={handleEquipClaw}
                 onUnequipClaw={handleUnequipClaw}
                 onBuyPage2={handleBuyPage2}
-                onClose={() => setOverlay(null)}
+                onClose={closeOverlayBack}
               />
             )}
+        </AnimatePresence>
+
+        {/* v0.0.66: хабы «ПРОКАЧКА» и «ЕЩЁ» — тап по вкладке открывает раздел,
+            закрытие раздела возвращает сюда; финальное закрытие — кнопка внизу */}
+        <AnimatePresence>
+          {phase === 'start' && overlay === 'upgrades' && (
+            <HubOverlay
+              titleKey="hub.upgrades.title"
+              hintKey="hub.upgrades.hint"
+              t={t}
+              tiles={[
+                { labelKey: 'hub.tab.paws', emoji: '🐾', onClick: () => openFromHub('upgrades', 'shop') },
+                {
+                  labelKey: 'hub.tab.tree',
+                  emoji: '🌳',
+                  badge: treePts,
+                  onClick: () => openFromHub('upgrades', 'tree'),
+                },
+                { labelKey: 'hub.tab.mshop', emoji: '🛍️', onClick: () => openFromHub('upgrades', 'mshop') },
+                { labelKey: 'hub.tab.market', emoji: '🏪', onClick: () => openFromHub('upgrades', 'market') },
+                {
+                  labelKey: 'hub.tab.inv',
+                  emoji: '🎒',
+                  badge: invNewCount,
+                  onClick: () => openFromHub('upgrades', 'inv'),
+                },
+              ]}
+              onClose={closeOverlayBack}
+            />
+          )}
+          {phase === 'start' && overlay === 'more' && (
+            <HubOverlay
+              titleKey="hub.more.title"
+              hintKey="hub.more.hint"
+              t={t}
+              tiles={[
+                { labelKey: 'hub.tab.ach', emoji: '🏅', onClick: () => openFromHub('more', 'ach') },
+                { labelKey: 'hub.tab.leaders', emoji: '🏆', onClick: () => openFromHub('more', 'leaders') },
+                { labelKey: 'hub.tab.rules', emoji: '📖', onClick: () => openFromHub('more', 'rules') },
+                {
+                  labelKey: 'hub.tab.creators',
+                  emoji: '💜',
+                  onClick: () => openFromHub('more', 'creators'),
+                },
+                {
+                  labelKey: 'hub.tab.settings',
+                  emoji: '⚙️',
+                  onClick: () => openFromHub('more', 'settings'),
+                },
+              ]}
+              onClose={closeOverlayBack}
+            />
+          )}
         </AnimatePresence>
 
         {/* Ник-гейт Ф0-1: спрашиваем имя после первого забега (поверх экрана
@@ -8946,7 +9090,7 @@ export function PopcornGame() {
               setNickEdit(true)
             }}
             t={t}
-            onClose={() => setOverlay(null)}
+            onClose={closeOverlayBack}
           />
         )}
       </AnimatePresence>

@@ -3,12 +3,16 @@
  *
  * Как работает:
  *  - Сундучки после этапа, кроме перка и подарка, роняют ПРЕДМЕТ
- *    (ошейник / браслет / венец) одной из четырёх редкостей;
+ *    (ошейник / браслет / венец / кольцо / баночка / талисман) одной из
+ *    семи редкостей — четыре базовые и три леопардовых вершины (0.0.66):
+ *    ЛЕОПАРД → ЗОЛОТОЙ ЛЕОПАРД → ФИОЛЕТОВЫЙ МЕГА-ЛЕОПАРД;
  *  - Предметы складываются на склад — сетка 4×9 = 36 ячеек; вторая
  *    страница (+36 ячеек, всего 72) покупается за монетки (0.0.54);
  *  - Простые предметы можно ПРОДАТЬ за монетки, редкие — НАДЕТЬ на лапку;
  *    три одинаковых — ПЕРЕПЛАВИТЬ в предмет ступенью выше (0.0.54);
- *  - Слоты лапки: ОШЕЙНИК (+монетки), БРАСЛЕТ (+опыт), ВЕНЕЦ (+алмазы путешествий).
+ *  - Слоты лапки: ОШЕЙНИК (+монетки), БРАСЛЕТ (+опыт), ВЕНЕЦ (+алмазы путешествий),
+ *    КОЛЬЦО (+удача — редкий лут выпадает чаще), БАНОЧКА (+бонус цвета),
+ *    ВОЛШЕБНАЯ ЛАПКА (талисман-мультибонус, квадрат слева вверху инвентаря).
  *    Надеть можно по одному предмету каждого вида; бонус действует сразу;
  *  - Артефакты ЛАВКИ (0.0.54) живут в инвентаре полоской на лапке:
  *    купленный артефакт надевается автоматически, можно снять/надеть
@@ -30,8 +34,30 @@ import { getMarketSnapshot, isArtifactId, type ArtifactId } from './market'
 
 /* ════════════════ Каталог предметов ════════════════ */
 
-export type ItemKind = 'collar' | 'bracelet' | 'crown'
-export type Rarity = 'common' | 'rare' | 'epic' | 'legendary'
+export type ItemKind =
+  | 'collar'
+  | 'bracelet'
+  | 'crown'
+  /** Кольцо (0.0.66): удача — редкий лут выпадает чаще */
+  | 'ring'
+  /** Баночка (0.0.66): цвет = редкость, даёт один бонус */
+  | 'jar'
+  /** Волшебная лапка (0.0.66): талисман с несколькими бонусами сразу */
+  | 'magic'
+
+/**
+ * Редкости (0.0.66): четыре базовые + три леопардовые вершины.
+ * Леопардовые считаются «супер-редкими»: в лут попадают с крошечным весом,
+ * а до вершины ветки можно дойти переплавкой 3→1.
+ */
+export type Rarity =
+  | 'common'
+  | 'rare'
+  | 'epic'
+  | 'legendary'
+  | 'leopard'
+  | 'leopard-gold'
+  | 'leopard-mega'
 
 export type InvItemId =
   | 'col-leather'
@@ -45,6 +71,30 @@ export type InvItemId =
   | 'crown-gold'
   | 'crown-diamond'
   | 'crown-ancient'
+  /* Кольца (0.0.66) */
+  | 'ring-silver'
+  | 'ring-amber'
+  | 'ring-emerald'
+  | 'ring-sunstone'
+  | 'ring-leopard'
+  | 'ring-leopard-gold'
+  | 'ring-leopard-mega'
+  /* Баночки (0.0.66) */
+  | 'jar-mint'
+  | 'jar-honey'
+  | 'jar-berry'
+  | 'jar-star'
+  | 'jar-leopard'
+  | 'jar-leopard-gold'
+  | 'jar-leopard-mega'
+  /* Волшебные талисманы (0.0.66) */
+  | 'magic-star'
+  | 'magic-moon'
+  | 'magic-comet'
+  | 'magic-aurora'
+  | 'magic-leopard'
+  | 'magic-leopard-gold'
+  | 'magic-leopard-mega'
 
 export interface InvDef {
   id: InvItemId
@@ -54,10 +104,25 @@ export interface InvDef {
   icon: string
   /** Цена продажи в монетках 🪙 */
   sell: number
-  /** Сила бонуса: 0.08 = +8% */
+  /** Сила базового бонуса: 0.08 = +8% (ошейник/браслет/венец) */
   bonus: number
   /** Вес в рулетке лута сундучков (чем реже, тем ценнее) */
   weight: number
+  /**
+   * Волшебные эффекты (0.0.66) — для колец, баночек и талисманов.
+   * Множители складываются между надетыми предметами; luck — удача
+   * (поднимает вес редких ступеней в рулетке лута, кап см. LUCK_CAP).
+   */
+  fx?: InvFx
+}
+
+/** Множители волшебного предмета: 1.08 = +8% */
+export interface InvFx {
+  coins?: number
+  xp?: number
+  gems?: number
+  /** Удача: вес редких ступеней лута растёт как luck^(ступень/2) */
+  luck?: number
 }
 
 /**
@@ -83,6 +148,34 @@ export const INV_DEFS: ReadonlyArray<InvDef> = [
      предмет ДЕШЕВЛЕ тройки исходников (1800 🪙 → 800) и была всегда невыгодна */
   { id: 'crown-diamond', kind: 'crown', rarity: 'legendary', icon: '/inventory/crown-diamond.png', sell: 1500, bonus: 0.15, weight: 2 },
   { id: 'crown-ancient', kind: 'crown', rarity: 'legendary', icon: '/inventory/crown-ancient.png', sell: 3800, bonus: 0.2, weight: 1 },
+
+  /* ═══ Кольца (0.0.66): удача — редкий лут выпадает чаще ═══ */
+  { id: 'ring-silver', kind: 'ring', rarity: 'common', icon: '/inventory/ring-silver.png', sell: 30, bonus: 0, weight: 20, fx: { luck: 1.05 } },
+  { id: 'ring-amber', kind: 'ring', rarity: 'rare', icon: '/inventory/ring-amber.png', sell: 90, bonus: 0, weight: 11, fx: { luck: 1.1, coins: 1.04 } },
+  { id: 'ring-emerald', kind: 'ring', rarity: 'epic', icon: '/inventory/ring-emerald.png', sell: 240, bonus: 0, weight: 5, fx: { luck: 1.18, xp: 1.06 } },
+  { id: 'ring-sunstone', kind: 'ring', rarity: 'legendary', icon: '/inventory/ring-sunstone.png', sell: 700, bonus: 0, weight: 2.5, fx: { luck: 1.28, coins: 1.08, xp: 1.08 } },
+  /* Леопардовые вершины: супер-редкие, но достижимы переплавкой 3→1 */
+  { id: 'ring-leopard', kind: 'ring', rarity: 'leopard', icon: '/inventory/ring-leopard.png', sell: 2000, bonus: 0, weight: 1, fx: { luck: 1.45, coins: 1.1, xp: 1.1, gems: 1.06 } },
+  { id: 'ring-leopard-gold', kind: 'ring', rarity: 'leopard-gold', icon: '/inventory/ring-leopard-gold.png', sell: 5000, bonus: 0, weight: 0.5, fx: { luck: 1.7, coins: 1.15, xp: 1.15, gems: 1.12 } },
+  { id: 'ring-leopard-mega', kind: 'ring', rarity: 'leopard-mega', icon: '/inventory/ring-leopard-mega.png', sell: 12000, bonus: 0, weight: 0.25, fx: { luck: 2.1, coins: 1.2, xp: 1.2, gems: 1.15 } },
+
+  /* ═══ Баночки (0.0.66): цвет = редкость, каждая даёт свой бонус ═══ */
+  { id: 'jar-mint', kind: 'jar', rarity: 'common', icon: '/inventory/jar-mint.png', sell: 25, bonus: 0, weight: 22, fx: { xp: 1.04 } },
+  { id: 'jar-honey', kind: 'jar', rarity: 'rare', icon: '/inventory/jar-honey.png', sell: 80, bonus: 0, weight: 12, fx: { coins: 1.07 } },
+  { id: 'jar-berry', kind: 'jar', rarity: 'epic', icon: '/inventory/jar-berry.png', sell: 220, bonus: 0, weight: 6, fx: { gems: 1.1 } },
+  { id: 'jar-star', kind: 'jar', rarity: 'legendary', icon: '/inventory/jar-star.png', sell: 650, bonus: 0, weight: 3, fx: { coins: 1.1, xp: 1.1 } },
+  { id: 'jar-leopard', kind: 'jar', rarity: 'leopard', icon: '/inventory/jar-leopard.png', sell: 1900, bonus: 0, weight: 1.2, fx: { coins: 1.12, xp: 1.12, gems: 1.08, luck: 1.15 } },
+  { id: 'jar-leopard-gold', kind: 'jar', rarity: 'leopard-gold', icon: '/inventory/jar-leopard-gold.png', sell: 4800, bonus: 0, weight: 0.5, fx: { coins: 1.18, xp: 1.18, gems: 1.12, luck: 1.3 } },
+  { id: 'jar-leopard-mega', kind: 'jar', rarity: 'leopard-mega', icon: '/inventory/jar-leopard-mega.png', sell: 11000, bonus: 0, weight: 0.25, fx: { coins: 1.25, xp: 1.25, gems: 1.18, luck: 1.6 } },
+
+  /* ═══ Волшебные талисманы (0.0.66): слот слева вверху инвентаря, мультибонус ═══ */
+  { id: 'magic-star', kind: 'magic', rarity: 'common', icon: '/inventory/magic-star.png', sell: 35, bonus: 0, weight: 20, fx: { coins: 1.03, xp: 1.03 } },
+  { id: 'magic-moon', kind: 'magic', rarity: 'rare', icon: '/inventory/magic-moon.png', sell: 95, bonus: 0, weight: 11, fx: { xp: 1.08, gems: 1.05 } },
+  { id: 'magic-comet', kind: 'magic', rarity: 'epic', icon: '/inventory/magic-comet.png', sell: 260, bonus: 0, weight: 5, fx: { coins: 1.09, xp: 1.09 } },
+  { id: 'magic-aurora', kind: 'magic', rarity: 'legendary', icon: '/inventory/magic-aurora.png', sell: 750, bonus: 0, weight: 2.5, fx: { coins: 1.12, xp: 1.12, gems: 1.1 } },
+  { id: 'magic-leopard', kind: 'magic', rarity: 'leopard', icon: '/inventory/magic-leopard.png', sell: 2200, bonus: 0, weight: 1, fx: { coins: 1.14, xp: 1.14, gems: 1.12, luck: 1.2 } },
+  { id: 'magic-leopard-gold', kind: 'magic', rarity: 'leopard-gold', icon: '/inventory/magic-leopard-gold.png', sell: 5500, bonus: 0, weight: 0.5, fx: { coins: 1.2, xp: 1.2, gems: 1.16, luck: 1.45 } },
+  { id: 'magic-leopard-mega', kind: 'magic', rarity: 'leopard-mega', icon: '/inventory/magic-leopard-mega.png', sell: 13000, bonus: 0, weight: 0.25, fx: { coins: 1.28, xp: 1.28, gems: 1.22, luck: 1.8 } },
 ]
 
 export const INV_MAP: Record<InvItemId, InvDef> = INV_DEFS.reduce(
@@ -96,8 +189,24 @@ export const INV_MAP: Record<InvItemId, InvDef> = INV_DEFS.reduce(
 export const isInvItemId = (v: unknown): v is InvItemId =>
   typeof v === 'string' && v in INV_MAP
 
-/** Все 11 лутовых предметов — для ачивки «Полный лут» */
-export const LOOT_IDS: ReadonlyArray<InvItemId> = INV_DEFS.map((d) => d.id)
+/**
+ * Базовые 11 лут-предметов — для ачивки «Полный лут».
+ * Новые ветки 0.0.66 (кольца/баночки/талисманы) в ачивку не входят —
+ * иначе она стала бы недостижимой для старых игроков.
+ */
+export const LOOT_IDS: ReadonlyArray<InvItemId> = [
+  'col-leather',
+  'col-red',
+  'col-spiked',
+  'col-diamond',
+  'bra-beads',
+  'bra-silver',
+  'bra-gold',
+  'bra-legend',
+  'crown-gold',
+  'crown-diamond',
+  'crown-ancient',
+]
 
 /**
  * Переплавка 3→1 (0.0.54): ступень выше той же ветки.
@@ -115,20 +224,68 @@ export const NEXT_TIER: Record<InvItemId, InvItemId | null> = {
   'crown-gold': 'crown-diamond',
   'crown-diamond': 'crown-ancient',
   'crown-ancient': null,
+  /* Кольца (0.0.66): до мега-вершины — 6 переплавок */
+  'ring-silver': 'ring-amber',
+  'ring-amber': 'ring-emerald',
+  'ring-emerald': 'ring-sunstone',
+  'ring-sunstone': 'ring-leopard',
+  'ring-leopard': 'ring-leopard-gold',
+  'ring-leopard-gold': 'ring-leopard-mega',
+  'ring-leopard-mega': null,
+  /* Баночки (0.0.66) */
+  'jar-mint': 'jar-honey',
+  'jar-honey': 'jar-berry',
+  'jar-berry': 'jar-star',
+  'jar-star': 'jar-leopard',
+  'jar-leopard': 'jar-leopard-gold',
+  'jar-leopard-gold': 'jar-leopard-mega',
+  'jar-leopard-mega': null,
+  /* Талисманы (0.0.66) */
+  'magic-star': 'magic-moon',
+  'magic-moon': 'magic-comet',
+  'magic-comet': 'magic-aurora',
+  'magic-aurora': 'magic-leopard',
+  'magic-leopard': 'magic-leopard-gold',
+  'magic-leopard-gold': 'magic-leopard-mega',
+  'magic-leopard-mega': null,
 }
 
-/** Цвет редкости (рамки/подписи) — в палитре игры, без синего */
+/** Цвет редкости (рамки/подписи) — в палитре игры, без синего.
+ *  Леопардовые вершины (0.0.66): оранжевый → золотой → фиолетовый мега */
 export const RARITY_COLOR: Record<Rarity, { border: string; text: string; bg: string }> = {
   common: { border: 'border-[#a97c50]', text: 'text-[#a97c50]', bg: 'bg-[#f3e2c8]' },
   rare: { border: 'border-[#3f8a5f]', text: 'text-[#3f8a5f]', bg: 'bg-[#e7f2e4]' },
   epic: { border: 'border-[#B33A26]', text: 'text-[#B33A26]', bg: 'bg-[#fbe9e4]' },
   legendary: { border: 'border-[#C979F0]', text: 'text-[#9A4ED6]', bg: 'bg-[#f6ecff]' },
+  leopard: { border: 'border-[#E8862E]', text: 'text-[#C96A1A]', bg: 'bg-[#FFF3E2]' },
+  'leopard-gold': { border: 'border-[#D9A21B]', text: 'text-[#A87410]', bg: 'bg-[#FFF8E0]' },
+  'leopard-mega': { border: 'border-[#9A4ED6]', text: 'text-[#7A29C9]', bg: 'bg-[#F6E9FF]' },
+}
+
+/** Порядок сортировки склада: самое редкое сверху (0 = первый)
+ *  0.0.66: леопардовые вершины выше легендарок */
+export const RARITY_RANK: Record<Rarity, number> = {
+  'leopard-mega': 0,
+  'leopard-gold': 1,
+  leopard: 2,
+  legendary: 3,
+  epic: 4,
+  rare: 5,
+  common: 6,
 }
 
 /* ════════════════ Коготки из нарезки (0.0.57) ════════════════ */
 
-/** Цвета коготков: морозный / солнечный / сумеречный / пантера */
-export type ClawId = 'claw-frost' | 'claw-sun' | 'claw-dusk' | 'claw-panther'
+/** Цвета коготков: морозный / солнечный / сумеречный / пантера
+ *  0.0.66: леопардовые вершины — леопард / золотой леопард / фиолетовый МЕГА-леопард */
+export type ClawId =
+  | 'claw-frost'
+  | 'claw-sun'
+  | 'claw-dusk'
+  | 'claw-panther'
+  | 'claw-leopard'
+  | 'claw-leopard-gold'
+  | 'claw-leopard-mega'
 
 export interface ClawDef {
   id: ClawId
@@ -148,13 +305,21 @@ export interface ClawDef {
  *  - СУМЕРЕЧНЫЙ (фиолетовый) → «девятая жизнь» дважды за забег;
  *  - КОГОТЬ СУПЕР-ПАНТЕРЫ (леопардовый, 5%) → мины безвредны
  *    на первых 10 этапах забега.
- * Слоты лапки закреплены за цветом: 4 квадратика под артефактами.
+ *  0.0.66 — леопардовые вершины (супер-редкие):
+ *  - КОГОТЬ ЛЕОПАРДА → голуби −40%, мины безвредны 20 этапов, +1 «девятая жизнь»;
+ *  - ЗОЛОТОЙ КОГОТЬ ЛЕОПАРДА → ещё сильнее + опыт ×1.25;
+ *  - ФИОЛЕТОВЫЙ МЕГА-КОГОТЬ → голуби −60%, мины безвредны ВЕСЬ забег,
+ *    3 «девятые жизни», опыт ×1.4.
+ * Слоты лапки закреплены за цветом: 7 квадратиков под артефактами.
  */
 export const CLAW_DEFS: ReadonlyArray<ClawDef> = [
   { id: 'claw-frost', rarity: 'common', icon: '/inventory/claw-frost.png', sell: 40, weight: 50 },
   { id: 'claw-sun', rarity: 'rare', icon: '/inventory/claw-sun.png', sell: 120, weight: 30 },
   { id: 'claw-dusk', rarity: 'epic', icon: '/inventory/claw-dusk.png', sell: 300, weight: 15 },
   { id: 'claw-panther', rarity: 'legendary', icon: '/inventory/claw-panther.png', sell: 1000, weight: 5 },
+  { id: 'claw-leopard', rarity: 'leopard', icon: '/inventory/claw-leopard.png', sell: 2500, weight: 2 },
+  { id: 'claw-leopard-gold', rarity: 'leopard-gold', icon: '/inventory/claw-leopard-gold.png', sell: 6000, weight: 0.8 },
+  { id: 'claw-leopard-mega', rarity: 'leopard-mega', icon: '/inventory/claw-leopard-mega.png', sell: 14000, weight: 0.3 },
 ]
 
 export const CLAW_MAP: Record<ClawId, ClawDef> = CLAW_DEFS.reduce(
@@ -171,14 +336,41 @@ export const isClawId = (v: unknown): v is ClawId =>
 /** Шанс коготка из одной нарезки (0.0.57, выбор игрока: щедрый вариант) */
 export const CLAW_DROP_CHANCE = 0.55
 
-const clawWeightTotal = CLAW_DEFS.reduce((s, d) => s + d.weight, 0)
+/** Индекс ступени редкости — для действия удачи (0.0.66) */
+const RARITY_INDEX: Record<Rarity, number> = {
+  common: 0,
+  rare: 1,
+  epic: 2,
+  legendary: 3,
+  leopard: 4,
+  'leopard-gold': 5,
+  'leopard-mega': 6,
+}
 
-/** Рулетка нарезки: null — коготок не выпал, иначе его определение */
+/** Кап удачи: даже полный мега-комплект не превращает лут в конфетти */
+export const LUCK_CAP = 2.2
+
+/**
+ * Вес предмета с учётом удачи: чем выше ступень, тем сильнее удача
+ * её поднимает. luck=1 — обычная рулетка без изменений.
+ */
+const luckWeight = (weight: number, rarity: Rarity, luck: number): number =>
+  weight * Math.pow(Math.min(Math.max(luck, 1), LUCK_CAP), RARITY_INDEX[rarity] / 2)
+
+/** Текущая удача игрока — по надетым кольцам/баночкам/талисманам */
+function currentLuck(): number {
+  return inventoryBonuses().luck
+}
+
+/** Рулетка нарезки: null — коготок не выпал, иначе его определение.
+ *  Удача (0.0.66) сдвигает рулетку к редким коготкам */
 export function rollClawDef(): ClawDef | null {
   if (Math.random() >= CLAW_DROP_CHANCE) return null
-  let r = Math.random() * clawWeightTotal
+  const luck = currentLuck()
+  const total = CLAW_DEFS.reduce((s, d) => s + luckWeight(d.weight, d.rarity, luck), 0)
+  let r = Math.random() * total
   for (const d of CLAW_DEFS) {
-    r -= d.weight
+    r -= luckWeight(d.weight, d.rarity, luck)
     if (r <= 0) return d
   }
   return CLAW_DEFS[0]
@@ -213,6 +405,12 @@ export interface InventoryState {
   bracelet: string | null
   /** Надетый венец (uid из items) */
   crown: string | null
+  /** Надетое кольцо (0.0.66) — удача и бонусы */
+  ring: string | null
+  /** Надетая баночка (0.0.66) — бонус цвета */
+  jar: string | null
+  /** Надетый талисман «волшебная лапка» (0.0.66) — мультибонус */
+  magic: string | null
   /** Надетые коготки: слот закреплён за цветом (0.0.57) */
   clawSlots: Partial<Record<ClawId, string>>
   /** Надетые артефакты ЛАВКИ (0.0.54) — бонус действует, пока надет */
@@ -245,6 +443,9 @@ export const DEFAULT_INVENTORY: InventoryState = {
   collar: null,
   bracelet: null,
   crown: null,
+  ring: null,
+  jar: null,
+  magic: null,
   clawSlots: {},
   arts: [],
   page2: false,
@@ -254,10 +455,28 @@ export const DEFAULT_INVENTORY: InventoryState = {
   recycled: 0,
 }
 
+/** Все слоты-«одёжки» на лапке: три базовых + кольцо/баночка/талисман (0.0.66) */
+export const EQUIP_KINDS: ReadonlyArray<ItemKind> = [
+  'collar',
+  'bracelet',
+  'crown',
+  'ring',
+  'jar',
+  'magic',
+]
+
 /** Вместимость склада игрока: 36 или 72 со второй страницей */
 export const storageCap = (s: InventoryState): number => (s.page2 ? INV_MAX : INV_CAPACITY)
 
-const RARITIES: Rarity[] = ['common', 'rare', 'epic', 'legendary']
+const RARITIES: Rarity[] = [
+  'common',
+  'rare',
+  'epic',
+  'legendary',
+  'leopard',
+  'leopard-gold',
+  'leopard-mega',
+]
 export const isRarity = (v: unknown): v is Rarity =>
   typeof v === 'string' && (RARITIES as string[]).includes(v)
 
@@ -313,6 +532,10 @@ export function loadInventory(): InventoryState {
       collar: eq(o.collar),
       bracelet: eq(o.bracelet),
       crown: eq(o.crown),
+      /* 0.0.66: новые слоты — у старых сейвов их просто нет (null) */
+      ring: eq(o.ring),
+      jar: eq(o.jar),
+      magic: eq(o.magic),
       clawSlots,
       arts,
       page2: o.page2 === true,
@@ -389,13 +612,14 @@ export interface DropResult {
   coins: number
 }
 
-const totalWeight = INV_DEFS.reduce((s, d) => s + d.weight, 0)
-
-/** Рулетка лута: взвешенно по каталогу (венцы — только легендарки, потому редкие) */
+/** Рулетка лута: взвешенно по каталогу. Удача (0.0.66) — надетые
+ *  кольца/баночки/талисманы поднимают вес редких ступеней.
+ *  Венцы и леопардовые вершины — только редкие ступени, потому особо ценные */
 export function rollInvDef(): InvDef {
-  let r = Math.random() * totalWeight
+  const luck = currentLuck()
+  let r = Math.random() * INV_DEFS.reduce((s, d) => s + luckWeight(d.weight, d.rarity, luck), 0)
   for (const d of INV_DEFS) {
-    r -= d.weight
+    r -= luckWeight(d.weight, d.rarity, luck)
     if (r <= 0) return d
   }
   return INV_DEFS[0]
@@ -419,18 +643,21 @@ export function dropInvItem(): DropResult {
   return { def, stored: true, coins: 0 }
 }
 
-/** Продать предмет или коготок со склада: возвращает монетки (0 — не найден) */
+/** Продать предмет или коготок со склада: возвращает монетки (0 — не найден).
+ *  Снятые при продаже слоты: базовые три + кольцо/баночка/талисман (0.0.66) */
 export function sellInvItem(uid: string): number {
   const cur = getInventorySnapshot()
   const item = cur.items.find((i) => i.uid === uid)
   if (item) {
     const coins = INV_MAP[item.id].sell
+    const cleared = {} as InventoryState
+    for (const k of EQUIP_KINDS) {
+      cleared[k] = cur[k] === uid ? null : cur[k]
+    }
     saveInventory({
       ...cur,
+      ...cleared,
       items: cur.items.filter((i) => i.uid !== uid),
-      collar: cur.collar === uid ? null : cur.collar,
-      bracelet: cur.bracelet === uid ? null : cur.bracelet,
-      crown: cur.crown === uid ? null : cur.crown,
       sold: cur.sold + 1,
     })
     return coins
@@ -477,11 +704,12 @@ export interface RecycleInfo {
 }
 
 /** Данные для кнопки переплавки по выбранному предмету.
-    Выбранный участвует всегда: если он надет — снимется при переплавке */
+    Выбранный участвует всегда: если он надет — снимется при переплавке.
+    0.0.66: надетыми считаются и новые слоты (кольцо/баночка/талисман) */
 export function recycleInfo(state: InventoryState, uid: string): RecycleInfo {
   const sel = state.items.find((i) => i.uid === uid)
   if (!sel) return { have: 0, next: null }
-  const equipped = new Set([state.collar, state.bracelet, state.crown])
+  const equipped = new Set(EQUIP_KINDS.map((k) => state[k]))
   const othersFree = state.items.filter(
     (i) => i.id === sel.id && !equipped.has(i.uid) && i.uid !== uid,
   ).length
@@ -506,19 +734,21 @@ export function recycleInvItem(uid: string): RecycleResult {
   if (!sel) return { ok: false }
   const nextId = NEXT_TIER[sel.id]
   if (!nextId) return { ok: false }
-  const equipped = new Set([cur.collar, cur.bracelet, cur.crown])
+  const equipped = new Set(EQUIP_KINDS.map((k) => cur[k]))
   const others = cur.items.filter((i) => i.id === sel.id && !equipped.has(i.uid) && i.uid !== uid)
   if (others.length < 2) return { ok: false }
   const gone = new Set([uid, others[0].uid, others[1].uid])
   const fresh: InvItem = { uid: newUid(), id: nextId, ts: Date.now() }
   const everSet = new Set<InvItemId>(cur.everHad)
   everSet.add(nextId)
+  const cleared = {} as InventoryState
+  for (const k of EQUIP_KINDS) {
+    cleared[k] = cur[k] === uid ? null : cur[k]
+  }
   saveInventory({
     ...cur,
+    ...cleared,
     items: [...cur.items.filter((i) => !gone.has(i.uid)), fresh],
-    collar: cur.collar === uid ? null : cur.collar,
-    bracelet: cur.bracelet === uid ? null : cur.bracelet,
-    crown: cur.crown === uid ? null : cur.crown,
     everHad: [...everSet],
     recycled: cur.recycled + 1,
   })
@@ -604,13 +834,13 @@ export function unequipClaw(id: ClawId): boolean {
 }
 
 export interface ClawBonuses {
-  /** Замедление воришек-голубей (0..0.6) — морозный коготок */
+  /** Замедление воришек-голубей (0..0.6) — морозный коготок и леопардовые */
   pigeonSlow: number
-  /** Множитель опыта — солнечный коготок */
+  /** Множитель опыта — солнечный коготок и золотые леопарды */
   xpMult: number
-  /** «Девятая жизнь» дважды за забег — сумеречный коготок */
+  /** «Девятая жизнь» раз за забег — сумеречный и леопардовые коготки */
   revives: number
-  /** Этапов иммунитета к минам с начала забега — коготь пантеры */
+  /** Этапов иммунитета к минам с начала забега — пантера и леопардовые */
   mineImmuneStages: number
 }
 
@@ -621,15 +851,33 @@ export const ZERO_CLAW_BONUS: ClawBonuses = {
   mineImmuneStages: 0,
 }
 
-/** Бонусы надетых коготков (0.0.57) */
+/**
+ * Эффекты каждого коготка (0.0.66): таблица вместо if-цепочек.
+ * При надевании нескольких эффекты складываются (замедление — берётся максимум).
+ */
+const CLAW_FX: Record<ClawId, ClawBonuses> = {
+  'claw-frost': { pigeonSlow: 0.25, xpMult: 1, revives: 0, mineImmuneStages: 0 },
+  'claw-sun': { pigeonSlow: 0, xpMult: 1.15, revives: 0, mineImmuneStages: 0 },
+  'claw-dusk': { pigeonSlow: 0, xpMult: 1, revives: 2, mineImmuneStages: 0 },
+  'claw-panther': { pigeonSlow: 0, xpMult: 1, revives: 0, mineImmuneStages: 10 },
+  /* Леопардовые вершины (0.0.66): сильнее и пантеры, и всех базовых */
+  'claw-leopard': { pigeonSlow: 0.4, xpMult: 1, revives: 1, mineImmuneStages: 20 },
+  'claw-leopard-gold': { pigeonSlow: 0.5, xpMult: 1.25, revives: 2, mineImmuneStages: 30 },
+  'claw-leopard-mega': { pigeonSlow: 0.6, xpMult: 1.4, revives: 3, mineImmuneStages: 999 },
+}
+
+/** Бонусы надетых коготков (0.0.57; 0.0.66 — стекание леопардовых с базовыми) */
 export function clawBonuses(state: InventoryState = getInventorySnapshot()): ClawBonuses {
-  const on = (id: ClawId): boolean => clawEquipped(state, id)
-  return {
-    pigeonSlow: on('claw-frost') ? 0.25 : 0,
-    xpMult: on('claw-sun') ? 1.15 : 1,
-    revives: on('claw-dusk') ? 2 : 0,
-    mineImmuneStages: on('claw-panther') ? 10 : 0,
+  const acc: ClawBonuses = { ...ZERO_CLAW_BONUS }
+  for (const d of CLAW_DEFS) {
+    if (!clawEquipped(state, d.id)) continue
+    const fx = CLAW_FX[d.id]
+    acc.pigeonSlow = Math.max(acc.pigeonSlow, fx.pigeonSlow)
+    acc.xpMult *= fx.xpMult
+    acc.revives += fx.revives
+    acc.mineImmuneStages += fx.mineImmuneStages
   }
+  return acc
 }
 
 /* ════════════════ Ачивки инвентаря ════════════════ */
@@ -658,23 +906,45 @@ export interface InvBonuses {
   xp: number
   /** Множитель алмазов путешествий (венец) */
   gems: number
+  /** Удача (0.0.66): кольца/баночки/талисманы — редкий лут выпадает чаще */
+  luck: number
 }
 
-export const ZERO_INV_BONUS: InvBonuses = { coins: 1, xp: 1, gems: 1 }
+export const ZERO_INV_BONUS: InvBonuses = { coins: 1, xp: 1, gems: 1, luck: 1 }
 
-/** Множители надетых предметов (по умолчанию 1 — ничего не надето) */
+/** Волшебные эффекты предмета: у базовых трёх выводятся из kind+bonus,
+ *  у новых веток (0.0.66) берутся из fx */
+export function defFx(d: InvDef): InvFx {
+  if (d.fx) return d.fx
+  switch (d.kind) {
+    case 'collar':
+      return { coins: 1 + d.bonus }
+    case 'bracelet':
+      return { xp: 1 + d.bonus }
+    case 'crown':
+      return { gems: 1 + d.bonus }
+    default:
+      return {}
+  }
+}
+
+/** Множители надетых предметов (по умолчанию 1 — ничего не надето).
+ *  0.0.66: учитываются и кольцо, и баночка, и талисман «волшебная лапка» */
 export function inventoryBonuses(state: InventoryState = getInventorySnapshot()): InvBonuses {
   const byUid = (uid: string | null): InvDef | null => {
     if (!uid) return null
     const item = state.items.find((i) => i.uid === uid)
     return item ? INV_MAP[item.id] : null
   }
-  const collar = byUid(state.collar)
-  const bracelet = byUid(state.bracelet)
-  const crown = byUid(state.crown)
-  return {
-    coins: collar ? 1 + collar.bonus : 1,
-    xp: bracelet ? 1 + bracelet.bonus : 1,
-    gems: crown ? 1 + crown.bonus : 1,
+  const out: InvBonuses = { ...ZERO_INV_BONUS }
+  for (const kind of EQUIP_KINDS) {
+    const def = byUid(state[kind])
+    if (!def) continue
+    const fx = defFx(def)
+    if (fx.coins) out.coins *= fx.coins
+    if (fx.xp) out.xp *= fx.xp
+    if (fx.gems) out.gems *= fx.gems
+    if (fx.luck) out.luck *= fx.luck
   }
+  return out
 }

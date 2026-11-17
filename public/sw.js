@@ -5,7 +5,7 @@
  *  - API /api/leaders не кэшируем — лидерборд всегда живой.
  */
 
-const VERSION = 'popcorn-v25'
+const VERSION = 'popcorn-v26'
 const CORE = [
   '/',
   '/manifest.json',
