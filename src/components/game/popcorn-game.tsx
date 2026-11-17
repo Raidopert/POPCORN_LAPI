@@ -1,6 +1,7 @@
 'use client'
 
 import { useCallback, useEffect, useMemo, useReducer, useRef, useState, useSyncExternalStore } from 'react'
+import { createPortal } from 'react-dom'
 import { AnimatePresence, motion } from 'framer-motion'
 import {
   Backpack,
@@ -115,8 +116,7 @@ import {
   lootAllHad,
   legendaryEquipped,
   markInventoryOpened,
-  recycleInfo,
-  recycleInvItem,
+  nextTierOf,
   rollClawDef,
   sellInvItem,
   storageCap,
@@ -134,11 +134,11 @@ import {
   type DropResult,
   type InventoryState,
   type InvBonuses,
-  type InvDef,
   type InvItem,
   type InvItemId,
   type ItemKind,
   type Rarity,
+  type SellResult,
 } from '@/lib/game/inventory'
 import {
   UPGRADES,
@@ -2000,8 +2000,8 @@ function InventoryOverlay({
   t: TranslateFn
   onEquip: (uid: string) => boolean
   onUnequip: (kind: ItemKind) => boolean
-  onSell: (uid: string) => number
-  onRecycle: (uid: string) => { ok: boolean; next?: InvDef }
+  /** v0.0.68: продажа возвращает монетки + возможно обмен 3→1 */
+  onSell: (uid: string) => SellResult
   onEquipArt: (id: ArtifactId) => boolean
   onUnequipArt: (id: ArtifactId) => boolean
   /** Коготки (0.0.57): надеть в слот своего цвета / снять */
@@ -2013,8 +2013,15 @@ function InventoryOverlay({
   const [selUid, setSelUid] = useState<string | null>(null)
   /* Продажа редкого — в два тапа: первый только предупреждает */
   const [sellArm, setSellArm] = useState(false)
-  /* Переплавка — тоже в два тапа (0.0.54) */
-  const [recycleArm, setRecycleArm] = useState(false)
+  /* ОБМЕН 3→1 (0.0.68): торжественная плашка «вещь классом лучше» */
+  const [tradeUpToast, setTradeUpToast] = useState<{
+    ts: number
+    name: string
+    icon: string
+    rarity: Rarity
+    stored: boolean
+    coins: number
+  } | null>(null)
   /* Страница склада: 0 или 1 (вторая — после покупки) */
   const [page, setPage] = useState(0)
   const [pageArm, setPageArm] = useState(false)
@@ -2026,6 +2033,13 @@ function InventoryOverlay({
     if (noteTimer.current) window.clearTimeout(noteTimer.current)
     noteTimer.current = window.setTimeout(() => setNote(null), 2200)
   }, [])
+
+  /* Плашка обмена гаснет сама через 3.4 с (перезапуск на каждый новый обмен) */
+  useEffect(() => {
+    if (!tradeUpToast) return
+    const id = window.setTimeout(() => setTradeUpToast(null), 3400)
+    return () => window.clearTimeout(id)
+  }, [tradeUpToast])
 
   /* v0.0.59: таймеры заметки и подтверждения страницы чистятся при закрытии
      оверлея — как в TreeOverlay и CreatorsOverlay, а раньше висели */
@@ -2065,12 +2079,13 @@ function InventoryOverlay({
       : EQUIP_KINDS.some((k) => inv[k] === sel.uid)
     : false
   const selIsNew = sel ? isNewItem(sel, inv.lastOpened) : false
-  const selRec = sel && !selClawId ? recycleInfo(inv, sel.uid) : null
+  /* ОБМЕН 3→1 (0.0.68): следующая ступень выбранного и сколько уже продано */
+  const selNext = sel ? nextTierOf(sel.id) : null
+  const selSold = sel ? inv.soldById[sel.id] || 0 : 0
 
   const pick = (uid: string | null): void => {
     setSelUid(uid)
     setSellArm(false)
-    setRecycleArm(false)
   }
 
   return (
@@ -2083,7 +2098,7 @@ function InventoryOverlay({
       aria-label={t('inv.title')}
     >
       <motion.div
-        className="my-auto w-full max-w-md rounded-2xl border-4 border-[#8a5330] bg-[#FFF6E6] p-3 text-center shadow-[0_18px_50px_rgba(0,0,0,0.55)] sm:p-4"
+        className="relative my-auto w-full max-w-md rounded-2xl border-4 border-[#8a5330] bg-[#FFF6E6] p-3 text-center shadow-[0_18px_50px_rgba(0,0,0,0.55)] sm:p-4"
         initial={{ scale: 0.92, y: 14 }}
         animate={{ scale: 1, y: 0 }}
         exit={{ scale: 0.95, opacity: 0, pointerEvents: 'none' }}
@@ -2537,7 +2552,6 @@ function InventoryOverlay({
                     if (selClawId ? onEquipClaw(sel.uid) : onEquip(sel.uid)) {
                       /* v0.0.67: надеваем — гасим взведённое подтверждение продажи */
                       setSellArm(false)
-                      setRecycleArm(false)
                       pick(sel.uid)
                     }
                   }}
@@ -2556,11 +2570,24 @@ function InventoryOverlay({
                     if (selEquipped) flash(t('inv.sellUnequips'))
                     return
                   }
-                  const got = onSell(sel.uid)
-                  if (got > 0) {
-                    flash(t('inv.toast.sell', { n: got }))
-                    pick(null)
+                  /* v0.0.68: продажа возвращает монетки + возможно обмен 3→1 */
+                  const res = onSell(sel.uid)
+                  if (res.coins > 0) {
+                    flash(t('inv.toast.sell', { n: res.coins }))
                   }
+                  if (res.tradeUp) {
+                    const tu = res.tradeUp
+                    setTradeUpToast({
+                      ts: Date.now(),
+                      name: t(`item.${tu.id}.name`),
+                      icon: tu.def.icon,
+                      rarity: tu.def.rarity,
+                      stored: tu.stored,
+                      coins: tu.coins,
+                    })
+                    if (!tu.stored) flash(t('inv.toast.full', { n: tu.coins }))
+                  }
+                  pick(null)
                 }}
                 className={`rounded-lg px-2 py-1.5 font-ui text-[11px] font-bold transition active:scale-95 ${
                   sellArm
@@ -2571,42 +2598,12 @@ function InventoryOverlay({
                 {sellArm ? t('inv.sellSure') : `${t('inv.sell')} · ${selDef.sell} 🪙`}
               </button>
             </div>
-            {/* Переплавка 3→1 (0.0.54): 3 одинаковых свободных → ступень выше.
-                Двухтапное подтверждение — как у продажи редкого */}
-            {selRec && selRec.next !== null && (
-              <button
-                type="button"
-                disabled={selRec.have < 3}
-                onClick={() => {
-                  if (!recycleArm) {
-                    setRecycleArm(true)
-                    return
-                  }
-                  const res = onRecycle(sel.uid)
-                  if (res.ok && res.next) {
-                    flash(t('inv.toast.recycle', { name: t(`item.${res.next.id}.name`) }))
-                    pick(null)
-                  }
-                }}
-                title={
-                  selRec.have < 3
-                    ? t('inv.recycleNeed', { n: 3 - selRec.have })
-                    : t(`item.${selRec.next}.name`)
-                }
-                className={`mt-1.5 w-full rounded-lg px-2 py-1.5 font-ui text-[11px] font-bold transition active:scale-[0.98] ${
-                  selRec.have < 3
-                    ? 'cursor-not-allowed border-2 border-dashed border-[#c9a97a] bg-[#fdf3e0] text-[#a97c50]'
-                    : recycleArm
-                      ? 'bg-[#B33A26] text-white shadow-[0_3px_0_#7e2a1b] hover:bg-[#c74430]'
-                      : 'border-2 border-[#8a5330] bg-[#f3e2c8] text-[#8a5330] hover:bg-[#eed7b4]'
-                }`}
-              >
-                {selRec.have < 3
-                  ? `${t('inv.recycle')} · ${t('inv.recycleNeed', { n: 3 - selRec.have })}`
-                  : recycleArm
-                    ? t('inv.sellSure')
-                    : t('inv.recycle')}
-              </button>
+            {/* ОБМЕН 3→1 (0.0.68): счётчик до следующего обмена вместо отдельной
+                кнопки переплавки — каждая 3-я продажа одинакового даёт класс выше */}
+            {sel && selNext && (
+              <p className="mt-1.5 font-ui text-[10px] font-bold text-[#8a5330]">
+                {t('inv.tradeLeft', { n: 3 - (selSold % 3) })}
+              </p>
             )}
           </div>
         )}
@@ -2617,6 +2614,49 @@ function InventoryOverlay({
             <p className="font-ui text-[11px] font-bold text-[#3f6b28]">{note}</p>
           )}
         </div>
+
+        {/* ОБМЕН 3→1 (0.0.68): торжественная плашка — через портал на body:
+            fixed к окну, видна при любом скролле склада (панель длинная) */}
+        {typeof document !== 'undefined' &&
+          createPortal(
+            <AnimatePresence>
+              {tradeUpToast && (
+                <motion.div
+                  key={`trade-${tradeUpToast.ts}`}
+                  className="fixed left-1/2 top-3 z-[70] -translate-x-1/2"
+                  initial={{ opacity: 0, y: -18, scale: 0.85 }}
+                  animate={{ opacity: 1, y: 0, scale: 1 }}
+                  exit={{ opacity: 0, y: -10, scale: 0.95 }}
+                  transition={{ type: 'spring', stiffness: 320, damping: 24 }}
+                >
+                  <div
+                    className={`flex items-center gap-2 rounded-full border-2 bg-[#2b1a0e]/95 px-4 py-2 shadow-[0_8px_24px_rgba(0,0,0,0.6),0_0_20px_rgba(255,193,7,0.35)] ${
+                      RARITY_COLOR[tradeUpToast.rarity].border
+                    }`}
+                  >
+                    <img
+                      src={tradeUpToast.icon}
+                      alt=""
+                      aria-hidden
+                      draggable={false}
+                      className="h-9 w-9 rounded-md border border-[#e3cba4] object-cover"
+                    />
+                    <div className="text-left">
+                      <div className="font-ui text-[9px] font-bold uppercase tracking-wider text-amber-300">
+                        ✨ {t('inv.tradeUp')} ✨
+                      </div>
+                      <div className="font-pixel text-[13px] font-bold leading-tight text-white sm:text-sm">
+                        {tradeUpToast.stored
+                          ? t('inv.lootToast', { name: tradeUpToast.name })
+                          : t('inv.toast.full', { n: tradeUpToast.coins })}
+                      </div>
+                    </div>
+                  </div>
+                </motion.div>
+              )}
+            </AnimatePresence>,
+            document.body,
+          )}
 
         <button
           type="button"
@@ -5850,21 +5890,19 @@ export function PopcornGame() {
 
   /** Продать предмет со склада: монетки падают в кошелёк.
       v0.0.67 БАГ-ФИКС: с 0.0.53 монетки НЕ начислялись (только звук) —
-      игрок терял предмет бесплатно; автопродажа при переполнении работала верно */
-  const handleSellInv = useCallback((uid: string): number => {
-    const got = sellInvItem(uid)
-    if (got > 0) {
-      addCoins(got)
+      игрок терял предмет бесплатно; автопродажа при переполнении работала верно.
+      v0.0.68: каждая 3-я продажа одинакового — ОБМЕН, вещь классом выше */
+  const handleSellInv = useCallback((uid: string): SellResult => {
+    const res = sellInvItem(uid)
+    if (res.coins > 0) {
+      addCoins(res.coins)
       audio.play('coin')
     } else audio.play('penalty')
-    return got
-  }, [])
-
-  /** Переплавить 3 одинаковых → предмет ступенью выше (0.0.54) */
-  const handleRecycleInv = useCallback((uid: string): { ok: boolean; next?: InvDef } => {
-    const res = recycleInvItem(uid)
-    if (res.ok) audio.play('perk')
-    else audio.play('penalty')
+    if (res.tradeUp) {
+      audio.play('perk')
+      /* склад был полон и обменная вещь сразу продалась — монетки в кошелёк */
+      if (!res.tradeUp.stored && res.tradeUp.coins > 0) addCoins(res.tradeUp.coins)
+    }
     return res
   }, [])
 
@@ -8998,7 +9036,6 @@ export function PopcornGame() {
                 onEquip={handleEquipInv}
                 onUnequip={handleUnequipInv}
                 onSell={handleSellInv}
-                onRecycle={handleRecycleInv}
                 onEquipArt={handleEquipArtInv}
                 onUnequipArt={handleUnequipArtInv}
                 onEquipClaw={handleEquipClaw}

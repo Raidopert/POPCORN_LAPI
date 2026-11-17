@@ -1,9 +1,10 @@
 /**
- * make-loot-icons.mjs — генерация 24 иконок лута 0.0.66 в стиле существующих:
+ * make-loot-icons.mjs — генерация иконок лута в стиле существующих:
  * плоские векторные фигуры на кремовом фоне #ffe9c9 со «искрами» по углам.
  *
  * Запуск: bun scripts/make-loot-icons.mjs
- * Результат: public/inventory/{ring-*,jar-*,magic-*,claw-leopard*}.png (256×256)
+ * Результат: public/inventory/*.png (256×256)
+ * 0.0.68: +4 иконки — col-leopard, bra-leopard, crown-rose, crown-leopard
  */
 import sharp from 'sharp'
 import { mkdir } from 'node:fs/promises'
@@ -135,6 +136,51 @@ function claw({ outer, inner, spots, tipGlow }) {
     ${one(172, 66, 0.82)}`)
 }
 
+/* ─── ОШЕЙНИКИ: ремешок с золотой пряжкой (0.0.68 — леопардовая вершина) ─── */
+function collar({ strap, strapDark, buckle, spots }) {
+  const spotDots = spots
+    ? `<circle cx="72" cy="122" r="6" fill="${spots}"/><circle cx="98" cy="136" r="5" fill="${spots}"/><circle cx="162" cy="120" r="6" fill="${spots}"/><circle cx="186" cy="134" r="5" fill="${spots}"/>`
+    : ''
+  return svgWrap(`
+    <g>
+      <rect x="28" y="104" width="200" height="48" rx="24" fill="${strapDark}"/>
+      <rect x="28" y="110" width="200" height="36" rx="18" fill="${strap}"/>
+      ${spotDots}
+      <circle cx="128" cy="128" r="27" fill="${buckle}" stroke="${strapDark}" stroke-width="6"/>
+      <circle cx="128" cy="128" r="11" fill="#fff3dc"/>
+    </g>`)
+}
+
+/* ─── БРАСЛЕТЫ: бусы по кругу со шнурком (0.0.68 — леопардовая вершина) ─── */
+function bracelet({ bead, beadDark, spots }) {
+  const beads = Array.from({ length: 8 }, (_, i) => {
+    const a = (i / 8) * Math.PI * 2
+    const x = 128 + Math.cos(a) * 58
+    const y = 138 + Math.sin(a) * 58
+    return `<circle cx="${x.toFixed(1)}" cy="${y.toFixed(1)}" r="17" fill="${bead}" stroke="${beadDark}" stroke-width="4"/>`
+  }).join('')
+  const spotDots = spots
+    ? `<circle cx="128" cy="80" r="4" fill="${spots}"/><circle cx="186" cy="138" r="4" fill="${spots}"/><circle cx="128" cy="196" r="4" fill="${spots}"/><circle cx="70" cy="138" r="4" fill="${spots}"/>`
+    : ''
+  return svgWrap(`<g>${beads}${spotDots}</g>`)
+}
+
+/* ─── ВЕНЦЫ: корона с тремя зубцами и самоцветами (0.0.68) ─── */
+function crown({ band, bandDark, gem, spots }) {
+  const spotDots = spots
+    ? `<circle cx="88" cy="168" r="6" fill="${spots}"/><circle cx="128" cy="178" r="6" fill="${spots}"/><circle cx="168" cy="168" r="6" fill="${spots}"/>`
+    : ''
+  return svgWrap(`
+    <g>
+      <path d="M60 186 L46 92 L94 134 L128 72 L162 134 L210 92 L196 186 Z" fill="${band}" stroke="${bandDark}" stroke-width="9" stroke-linejoin="round"/>
+      <rect x="56" y="178" width="144" height="22" rx="11" fill="${bandDark}"/>
+      ${spotDots}
+      <circle cx="128" cy="118" r="10" fill="${gem}" stroke="${bandDark}" stroke-width="4"/>
+      <circle cx="46" cy="92" r="9" fill="${gem}" stroke="${bandDark}" stroke-width="4"/>
+      <circle cx="210" cy="92" r="9" fill="${gem}" stroke="${bandDark}" stroke-width="4"/>
+    </g>`)
+}
+
 /* ─── Каталог иконок ─── */
 const ICONS = {
   /* Кольца */
@@ -165,6 +211,11 @@ const ICONS = {
   'claw-leopard': claw({ outer: '#6b4226', inner: '#e8862e', spots: '#4a2b10' }),
   'claw-leopard-gold': claw({ outer: '#8a5a12', inner: '#f4c542', spots: '#8a5a12' }),
   'claw-leopard-mega': claw({ outer: '#4a1f73', inner: '#b366f0', spots: '#2d1145', tipGlow: '#c77dff' }),
+  /* Ошейники/браслеты/венцы (0.0.68): леопардовые вершины + розовый венец */
+  'col-leopard': collar({ strap: '#E8862E', strapDark: '#A85A14', buckle: '#F4B942', spots: '#7A4A1F' }),
+  'bra-leopard': bracelet({ bead: '#E8862E', beadDark: '#A85A14', spots: '#7A4A1F' }),
+  'crown-rose': crown({ band: '#D94A56', bandDark: '#A83440', gem: '#F7A8B8' }),
+  'crown-leopard': crown({ band: '#E8862E', bandDark: '#A85A14', gem: '#F4B942', spots: '#7A4A1F' }),
 }
 
 await mkdir('public/inventory', { recursive: true })

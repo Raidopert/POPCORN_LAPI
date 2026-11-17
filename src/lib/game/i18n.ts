@@ -1991,12 +1991,12 @@ export const T: Record<string, Row> = {
     'Lege einen legendären Gegenstand an NANAS Pfote an',
     'Equipa un objeto legendario en la pata de NANA',
   ],
-  'ach.inv_recycle1.name': ['Переплавщик', 'Recycler', 'Einschmelzer', 'Fundidor'],
+  'ach.inv_recycle1.name': ['Мастер обмена', 'Trade Master', 'Tauschmeister', 'Maestro del Cambio'],
   'ach.inv_recycle1.desc': [
-    'Сдать 3 одинаковых предмета в переплавку',
-    'Melt 3 identical items into one better',
-    'Schmilze 3 gleiche Gegenstände zu einem besseren ein',
-    'Funde 3 objetos iguales en uno mejor',
+    'Продать 3 одинаковых — получить вещь классом лучше',
+    'Sell 3 identical items to get one of a better tier',
+    'Verkaufe 3 gleiche Gegenstände für ein besseres Stück',
+    'Vende 3 objetos iguales para obtener uno de clase superior',
   ],
 
   /* ---------- перки ----------
@@ -3559,10 +3559,10 @@ export const T: Record<string, Row> = {
   /* 0.0.53: инвентарь — лут из сундучков, лапка со слотами, склад 4×9 */
   'inv.title': ['ИНВЕНТАРЬ', 'INVENTORY', 'INVENTAR', 'INVENTARIO'],
   'inv.hint': [
-    'Лут из сундучков. Продавай, надевай, 3 одинаковых — в переплавку!',
-    'Loot from chests. Sell, equip, melt 3 alike into better!',
-    'Beute aus Truhen. Verkaufen, anlegen, 3 gleiche einschmelzen!',
-    'Botín de cofres. Vende, equipa, funde 3 iguales en algo mejor.',
+    'Лут из сундучков. Продавай, надевай, 3 одинаковых — вещь классом выше!',
+    'Loot from chests. Sell, equip — every 3 identicals trade up a tier!',
+    'Beute aus Truhen. Verkaufen, anlegen — 3 gleiche werden zu einer besseren Stufe!',
+    'Botín de cofres. Vende, equipa: 3 iguales se cambian por una clase superior.',
   ],
   'inv.pawTitle': ['Лапка NANA', "NANA's paw", 'NANAS Pfote', 'Pata de NANA'],
   'inv.slot.collar': ['Ошейник', 'Collar', 'Halsband', 'Collar'],
@@ -3611,10 +3611,15 @@ export const T: Record<string, Row> = {
   'inv.page2Arm': ['Тапни ещё раз — купишь за {{n}} 🪙', 'Tap again to buy for {{n}} 🪙', 'Noch einmal tippen: kaufen für {{n}} 🪙', 'Toca de nuevo para comprar por {{n}} 🪙'],
   'inv.noCoins': ['Мало монеток', 'Not enough coins', 'Zu wenig Münzen', 'Faltan monedas'],
   'inv.newBadge': ['НОВОЕ', 'NEW', 'NEU', 'NUEVO'],
-  'inv.recycle': ['СДАТЬ 3 →', 'MELT 3 →', '3 SCHMELZEN →', 'FUNDIR 3 →'],
-  'inv.recycleNeed': ['Нужно ещё {{n}} шт.', 'Need {{n}} more', 'Noch {{n}} fehlt', 'Faltan {{n}} más'],
-  'inv.recycleMax': ['Это лучшая ступень', 'Top tier already', 'Schon die Top-Stufe', 'Ya es el tope'],
-  'inv.toast.recycle': ['Переплавлено → {{name}}!', 'Melted into {{name}}!', 'Geschmolzen → {{name}}!', '¡Fundido en {{name}}!'],
+  /* 0.0.68: ОБМЕН 3→1 — каждая третья продажа одинакового даёт класс выше.
+     Отдельная кнопка переплавки ушла: теперь обмен живёт внутри продажи */
+  'inv.tradeLeft': [
+    '🔁 До обмена: продать ещё {{n}} одинаковых',
+    '🔁 {{n}} more identical to sell for a trade-up',
+    '🔁 Noch {{n}} gleiche verkaufen bis zum Tausch',
+    '🔁 Vende {{n}} iguales más para el cambio',
+  ],
+  'inv.tradeUp': ['ОБМЕН 3→1', 'TRADE 3→1', 'TRADE 3→1', 'CAMBIO 3→1'],
   /* 0.0.53: названия и бонусы предметов инвентаря */
   'item.col-leather.name': ['Кожаный ошейник', 'Leather Collar', 'Lederhalsband', 'Collar de Cuero'],
   'item.col-leather.bonus': [
@@ -3668,6 +3673,20 @@ export const T: Record<string, Row> = {
     'Jede Naht fängt Licht — Luxus schon von weitem sichtbar.',
     'Cada costura atrapa la luz — lujo que se ve de lejos.',
   ],
+  /* 0.0.68: леопардовая вершина ошейников */
+  'item.col-leopard.name': ['Ошейник Леопарда', 'Leopard Collar', 'Leopardenhalsband', 'Collar del Leopardo'],
+  'item.col-leopard.bonus': [
+    '+24% к монеткам: сундучки, попкорнины и золото',
+    '+24% coins: chests, big popcorn and gold',
+    '+24% Münzen: Truhen, großes Popcorn und Gold',
+    '+24% monedas: cofres, palomitas grandes y oro',
+  ],
+  'item.col-leopard.desc': [
+    'Пятнистая кожа и золотая пряжка — хозяина видно из самого дальнего куста.',
+    'Spotted leather, golden buckle — the owner stands out from any bush.',
+    'Geflecktes Leder, goldene Schnalle — der Besitzer fällt überall auf.',
+    'Cuero moteado y hebilla dorada: el dueño destaca desde cualquier arbusto.',
+  ],
   'item.bra-beads.name': ['Бусовый браслет', 'Bead Bracelet', 'Perlenarmband', 'Pulsera de Cuentas'],
   'item.bra-beads.bonus': [
     '+4% к опыту: сундучки и награда за этап',
@@ -3720,6 +3739,34 @@ export const T: Record<string, Row> = {
     'Der Rubin pulsiert im Takt jedes neuen Levels.',
     'El rubí late al ritmo de cada nuevo nivel.',
   ],
+  /* 0.0.68: леопардовая вершина браслетов */
+  'item.bra-leopard.name': ['Браслет Леопарда', 'Leopard Bracelet', 'Leopardenarmband', 'Pulsera del Leopardo'],
+  'item.bra-leopard.bonus': [
+    '+24% к опыту: сундучки и награда за этап',
+    '+24% XP: chests and stage rewards',
+    '+24% EP: Truhen und Etappenbonus',
+    '+24% XP: cofres y recompensa de etapa',
+  ],
+  'item.bra-leopard.desc': [
+    'Каждая бусина — как пятнышко на шкуре леопарда: опыт прилипает сам.',
+    'Each bead is like a leopard spot — wisdom just sticks to it.',
+    'Jede Perle wie ein Leopardenfleck — Erfahrung bleibt von selbst kleben.',
+    'Cada cuenta es como una mancha de leopardo: la experiencia se pega sola.',
+  ],
+  /* 0.0.68: розовый венец — новая первая ступень ветки венцов */
+  'item.crown-rose.name': ['Венец с розами', 'Rose Crown', 'Rosenkrone', 'Corona de Rosas'],
+  'item.crown-rose.bonus': [
+    '+12% алмазов из путешествий NANA',
+    "+12% gems from NANA's travels",
+    '+12% Diamanten aus NANAS Reisen',
+    '+12% diamantes de los viajes de NANA',
+  ],
+  'item.crown-rose.desc': [
+    'Три розы пахнут летним садом — первый венец каждой путешественницы.',
+    "Three roses smell of summer gardens — every traveler's first crown.",
+    'Drei Rosen duften nach Sommergarten — die erste Krone jeder Reisenden.',
+    'Tres rosas huelen a jardín de verano: la primera corona de toda viajera.',
+  ],
   'item.crown-gold.name': ['Золотой венец', 'Golden Crown', 'Goldene Krone', 'Corona Dorada'],
   'item.crown-gold.bonus': [
     '+10% алмазов из путешествий NANA',
@@ -3758,6 +3805,20 @@ export const T: Record<string, Row> = {
     'Worn long before popcorn was invented. It remembers everything.',
     'Getragen, lange bevor es Popcorn gab. Es erinnert sich an alles.',
     'Se usaba mucho antes de que inventaran las palomitas. Lo recuerda todo.',
+  ],
+  /* 0.0.68: леопардовая вершина венцов */
+  'item.crown-leopard.name': ['Венец Леопарда', 'Leopard Crown', 'Leopardenkrone', 'Corona del Leopardo'],
+  'item.crown-leopard.bonus': [
+    '+28% алмазов из путешествий NANA',
+    "+28% gems from NANA's travels",
+    '+28% Diamanten aus NANAS Reisen',
+    '+28% diamantes de los viajes de NANA',
+  ],
+  'item.crown-leopard.desc': [
+    'Пятнистое золото Леопарда — вершина венцов, мечта всей коллекции.',
+    "The leopard's spotted gold — the crown of crowns, the collector's dream.",
+    'Das gefleckte Gold des Leoparden — der Gipfel aller Kronen.',
+    'El oro moteado del leopardo: la cima de las coronas, sueño de todo coleccionista.',
   ],
   /* 0.0.57: коготки из бонус-нарезки */
   'item.claw-frost.name': ['Морозный коготок', 'Frost Claw', 'Frostklaue', 'Garra de Escarcha'],

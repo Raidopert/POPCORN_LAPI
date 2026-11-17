@@ -9,7 +9,8 @@
  *  - Предметы складываются на склад — сетка 4×9 = 36 ячеек; вторая
  *    страница (+36 ячеек, всего 72) покупается за монетки (0.0.54);
  *  - Простые предметы можно ПРОДАТЬ за монетки, редкие — НАДЕТЬ на лапку;
- *    три одинаковых — ПЕРЕПЛАВИТЬ в предмет ступенью выше (0.0.54);
+ *    ОБМЕН 3→1 (0.0.68): каждая третья ПРОДАЖА одинакового предмета рождает
+ *    вещь классом выше — прежняя отдельная «переплавка» ушла в продажу;
  *  - Слоты лапки: ОШЕЙНИК (+монетки), БРАСЛЕТ (+опыт), ВЕНЕЦ (+алмазы путешествий),
  *    КОЛЬЦО (+удача — редкий лут выпадает чаще), БАНОЧКА (+бонус цвета),
  *    ВОЛШЕБНАЯ ЛАПКА (талисман-мультибонус, квадрат слева вверху инвентаря).
@@ -24,7 +25,7 @@
  * кнопка ИНВЕНТАРЬ показывает бейдж с числом новинок.
  *
  * Ачивки инвентаря (0.0.54) считаются по everHad (все 11 лут-предметов)
- * и счётчикам sold/recycled; легендарка на лапке — по текущим слотам.
+ * и счётчикам sold/recycled (обмены 3→1); легендарка на лапке — по слотам.
  *
  * Хранится в localStorage одним JSON-объектом; изменения бродкастятся
  * событием INVENTORY_EVENT (useSyncExternalStore в UI).
@@ -64,13 +65,19 @@ export type InvItemId =
   | 'col-red'
   | 'col-spiked'
   | 'col-diamond'
+  /* 0.0.68: леопардовая вершина — минимум 5 предметов каждого вида */
+  | 'col-leopard'
   | 'bra-beads'
   | 'bra-silver'
   | 'bra-gold'
   | 'bra-legend'
+  | 'bra-leopard'
+  /* 0.0.68: розовый венец в начале ветки + леопардовая вершина */
+  | 'crown-rose'
   | 'crown-gold'
   | 'crown-diamond'
   | 'crown-ancient'
+  | 'crown-leopard'
   /* Кольца (0.0.66) */
   | 'ring-silver'
   | 'ring-amber'
@@ -137,17 +144,25 @@ export const INV_DEFS: ReadonlyArray<InvDef> = [
   { id: 'col-red', kind: 'collar', rarity: 'rare', icon: '/inventory/col-red.png', sell: 75, bonus: 0.08, weight: 12 },
   { id: 'col-spiked', kind: 'collar', rarity: 'epic', icon: '/inventory/col-spiked.png', sell: 200, bonus: 0.12, weight: 6 },
   { id: 'col-diamond', kind: 'collar', rarity: 'legendary', icon: '/inventory/col-diamond.png', sell: 600, bonus: 0.18, weight: 3 },
+  /* 0.0.68: леопардовая вершина ошейников */
+  { id: 'col-leopard', kind: 'collar', rarity: 'leopard', icon: '/inventory/col-leopard.png', sell: 1750, bonus: 0.24, weight: 1 },
   /* Браслеты */
   { id: 'bra-beads', kind: 'bracelet', rarity: 'common', icon: '/inventory/bra-beads.png', sell: 25, bonus: 0.04, weight: 22 },
   { id: 'bra-silver', kind: 'bracelet', rarity: 'rare', icon: '/inventory/bra-silver.png', sell: 75, bonus: 0.08, weight: 12 },
   { id: 'bra-gold', kind: 'bracelet', rarity: 'epic', icon: '/inventory/bra-gold.png', sell: 200, bonus: 0.12, weight: 6 },
   { id: 'bra-legend', kind: 'bracelet', rarity: 'legendary', icon: '/inventory/bra-legend.png', sell: 600, bonus: 0.18, weight: 3 },
-  /* Легендарные венцы */
+  /* 0.0.68: леопардовая вершина браслетов */
+  { id: 'bra-leopard', kind: 'bracelet', rarity: 'leopard', icon: '/inventory/bra-leopard.png', sell: 1750, bonus: 0.24, weight: 1 },
+  /* Венцы. 0.0.68: ветка расширена до 5 ступеней — розовый венец в начале
+     и леопардовая вершина в конце (обмен 3→1 теперь доходит до неё) */
+  { id: 'crown-rose', kind: 'crown', rarity: 'epic', icon: '/inventory/crown-rose.png', sell: 200, bonus: 0.12, weight: 6 },
   { id: 'crown-gold', kind: 'crown', rarity: 'legendary', icon: '/inventory/crown-gold.png', sell: 600, bonus: 0.1, weight: 4 },
   /* v0.0.59: sell верхних венцов поднят — раньше переплавка 3×венец давала
      предмет ДЕШЕВЛЕ тройки исходников (1800 🪙 → 800) и была всегда невыгодна */
   { id: 'crown-diamond', kind: 'crown', rarity: 'legendary', icon: '/inventory/crown-diamond.png', sell: 1500, bonus: 0.15, weight: 2 },
   { id: 'crown-ancient', kind: 'crown', rarity: 'legendary', icon: '/inventory/crown-ancient.png', sell: 3800, bonus: 0.2, weight: 1 },
+  /* 0.0.68: леопардовая вершина венцов */
+  { id: 'crown-leopard', kind: 'crown', rarity: 'leopard', icon: '/inventory/crown-leopard.png', sell: 10500, bonus: 0.28, weight: 0.8 },
 
   /* ═══ Кольца (0.0.66): удача — редкий лут выпадает чаще ═══ */
   { id: 'ring-silver', kind: 'ring', rarity: 'common', icon: '/inventory/ring-silver.png', sell: 30, bonus: 0, weight: 20, fx: { luck: 1.05 } },
@@ -216,14 +231,19 @@ export const NEXT_TIER: Record<InvItemId, InvItemId | null> = {
   'col-leather': 'col-red',
   'col-red': 'col-spiked',
   'col-spiked': 'col-diamond',
-  'col-diamond': null,
+  /* 0.0.68: ветки ошейников/браслетов/венцов доведены до леопардовых вершин */
+  'col-diamond': 'col-leopard',
+  'col-leopard': null,
   'bra-beads': 'bra-silver',
   'bra-silver': 'bra-gold',
   'bra-gold': 'bra-legend',
-  'bra-legend': null,
+  'bra-legend': 'bra-leopard',
+  'bra-leopard': null,
+  'crown-rose': 'crown-gold',
   'crown-gold': 'crown-diamond',
   'crown-diamond': 'crown-ancient',
-  'crown-ancient': null,
+  'crown-ancient': 'crown-leopard',
+  'crown-leopard': null,
   /* Кольца (0.0.66): до мега-вершины — 6 переплавок */
   'ring-silver': 'ring-amber',
   'ring-amber': 'ring-emerald',
@@ -248,6 +268,29 @@ export const NEXT_TIER: Record<InvItemId, InvItemId | null> = {
   'magic-leopard': 'magic-leopard-gold',
   'magic-leopard-gold': 'magic-leopard-mega',
   'magic-leopard-mega': null,
+}
+
+/**
+ * ОБМЕН 3→1 (0.0.68): каждая третья ПРОДАЖА одинакового рождает вещь
+ * классом выше той же ветки. У коготков — своя лестница до МЕГА-вершины.
+ */
+export const CLAW_NEXT_TIER: Record<ClawId, ClawId | null> = {
+  'claw-frost': 'claw-sun',
+  'claw-sun': 'claw-dusk',
+  'claw-dusk': 'claw-panther',
+  'claw-panther': 'claw-leopard',
+  'claw-leopard': 'claw-leopard-gold',
+  'claw-leopard-gold': 'claw-leopard-mega',
+  'claw-leopard-mega': null,
+}
+
+/** Любой лутовый id: предмет из сундучка или коготок из нарезки */
+export type AnyLootId = InvItemId | ClawId
+
+/** Следующая ступень ветки (null — вершина, обмен невозможен) */
+export function nextTierOf(id: AnyLootId): AnyLootId | null {
+  if (isInvItemId(id)) return NEXT_TIER[id]
+  return CLAW_NEXT_TIER[id]
 }
 
 /** Цвет редкости (рамки/подписи) — в палитре игры, без синего.
@@ -423,7 +466,9 @@ export interface InventoryState {
   everHad: InvItemId[]
   /** Продано предметов за всё время — ачивка «Торгаш» */
   sold: number
-  /** Переплавок за всё время — ачивка «Переплавщик» */
+  /** Продано по видам (0.0.68): каждый 3-й одинаковый — обмен на класс выше */
+  soldById: Record<string, number>
+  /** Обменов 3→1 за всё время — ачивка «Переплавщик» */
   recycled: number
 }
 
@@ -452,6 +497,7 @@ export const DEFAULT_INVENTORY: InventoryState = {
   lastOpened: 0,
   everHad: [],
   sold: 0,
+  soldById: {},
   recycled: 0,
 }
 
@@ -526,6 +572,14 @@ export function loadInventory(): InventoryState {
       Array.isArray(o.everHad) ? (o.everHad.filter(isInvItemId) as InvItemId[]) : [],
     )
     for (const it of items) everSet.add(it.id)
+    /* 0.0.68: счётчик продаж по видам — мягкая миграция старых сейвов */
+    const soldById: Record<string, number> = {}
+    if (o.soldById && typeof o.soldById === 'object') {
+      for (const [k, v] of Object.entries(o.soldById as Record<string, unknown>)) {
+        const n = Math.floor(Number(v) || 0)
+        if (n > 0) soldById[k] = n
+      }
+    }
     return {
       items,
       claws,
@@ -542,6 +596,7 @@ export function loadInventory(): InventoryState {
       lastOpened: Math.max(0, Math.floor(Number(o.lastOpened) || 0)),
       everHad: [...everSet],
       sold: Math.max(0, Math.floor(Number(o.sold) || 0)),
+      soldById,
       recycled: Math.max(0, Math.floor(Number(o.recycled) || 0)),
     }
   } catch {
@@ -643,9 +698,32 @@ export function dropInvItem(): DropResult {
   return { def, stored: true, coins: 0 }
 }
 
-/** Продать предмет или коготок со склада: возвращает монетки (0 — не найден).
- *  Снятые при продаже слоты: базовые три + кольцо/баночка/талисман (0.0.66) */
-export function sellInvItem(uid: string): number {
+/** Результат обмена 3→1 (0.0.68): вещь классом выше за 3-ю продажу одинакового */
+export interface SellTradeUp {
+  /** Что родилось (id и def — предмет или коготок) */
+  id: AnyLootId
+  def: InvDef | ClawDef
+  /** true — лег на склад; false — склад полон, сразу продан */
+  stored: boolean
+  /** Монетки, если вещь сразу продана (0, если хранится) */
+  coins: number
+}
+
+/** Результат продажи: монетки + возможно обмен 3→1 */
+export interface SellResult {
+  /** Монетки за сам предмет (0 — не найден) */
+  coins: number
+  /** Обмен: 3-я продажа одинакового — вещь классом выше */
+  tradeUp?: SellTradeUp
+}
+
+/**
+ * Продать предмет или коготок со склада (0 — не найден).
+ * Снятые при продаже слоты: базовые три + кольцо/баночка/талисман (0.0.66).
+ * ОБМЕН 3→1 (0.0.68): каждая третья продажа одинакового рождает вещь классом
+ * выше — продажа освободила ячейку, так что обмен не переполняет склад.
+ */
+export function sellInvItem(uid: string): SellResult {
   const cur = getInventorySnapshot()
   const item = cur.items.find((i) => i.uid === uid)
   if (item) {
@@ -654,26 +732,60 @@ export function sellInvItem(uid: string): number {
     for (const k of EQUIP_KINDS) {
       cleared[k] = cur[k] === uid ? null : cur[k]
     }
-    saveInventory({
+    const soldById = { ...cur.soldById, [item.id]: (cur.soldById[item.id] || 0) + 1 }
+    const base: InventoryState = {
       ...cur,
       ...cleared,
       items: cur.items.filter((i) => i.uid !== uid),
       sold: cur.sold + 1,
-    })
-    return coins
+      soldById,
+    }
+    return { coins, tradeUp: commitSellTrade(base, item.id) }
   }
   const claw = cur.claws.find((i) => i.uid === uid)
-  if (!claw) return 0
+  if (!claw) return { coins: 0 }
   const coins = CLAW_MAP[claw.id].sell
   const slots = { ...cur.clawSlots }
   if (slots[claw.id] === uid) delete slots[claw.id]
-  saveInventory({
+  const soldById = { ...cur.soldById, [claw.id]: (cur.soldById[claw.id] || 0) + 1 }
+  const base: InventoryState = {
     ...cur,
     claws: cur.claws.filter((i) => i.uid !== uid),
     clawSlots: slots,
     sold: cur.sold + 1,
-  })
-  return coins
+    soldById,
+  }
+  return { coins, tradeUp: commitSellTrade(base, claw.id) }
+}
+
+/** Сохранить продажу; если это был 3-й одинаковый — уронить вещь классом выше */
+function commitSellTrade(base: InventoryState, soldId: AnyLootId): SellTradeUp | undefined {
+  const nextId = (base.soldById[soldId] || 0) % 3 === 0 ? nextTierOf(soldId) : null
+  if (!nextId) {
+    saveInventory(base)
+    return undefined
+  }
+  const recycled = base.recycled + 1
+  if (isInvItemId(nextId)) {
+    const def = INV_MAP[nextId]
+    if (storageFull(base)) {
+      saveInventory(base)
+      return { id: nextId, def, stored: false, coins: def.sell }
+    }
+    const fresh: InvItem = { uid: newUid(), id: nextId, ts: Date.now() }
+    const everSet = new Set<InvItemId>(base.everHad)
+    everSet.add(nextId)
+    saveInventory({ ...base, items: [...base.items, fresh], everHad: [...everSet], recycled })
+    return { id: nextId, def, stored: true, coins: 0 }
+  }
+  const cdef = CLAW_MAP[nextId]
+  if (storageFull(base)) {
+    saveInventory(base)
+    return { id: nextId, def: cdef, stored: false, coins: cdef.sell }
+  }
+  const fresh: ClawItem = { uid: newUid(), id: nextId, ts: Date.now() }
+  saveInventory({ ...base, claws: [...base.claws, fresh], recycled })
+  return { id: nextId, def: cdef, stored: true, coins: 0 }
 }
 
 /** Надеть предмет по uid (снимает предыдущий того же слота) */
@@ -692,67 +804,6 @@ export function unequipInvSlot(kind: ItemKind): boolean {
   if (cur[kind] === null) return false
   saveInventory({ ...cur, [kind]: null } as InventoryState)
   return true
-}
-
-/* ════════════════ Переплавка 3→1 (0.0.54) ════════════════ */
-
-export interface RecycleInfo {
-  /** Сколько предметов ветки участвует: выбранный + до 2 свободных (1..3) */
-  have: number
-  /** Что получится (null — вершина ветки, переплавка невозможна) */
-  next: InvItemId | null
-}
-
-/** Данные для кнопки переплавки по выбранному предмету.
-    Выбранный участвует всегда: если он надет — снимется при переплавке.
-    0.0.66: надетыми считаются и новые слоты (кольцо/баночка/талисман) */
-export function recycleInfo(state: InventoryState, uid: string): RecycleInfo {
-  const sel = state.items.find((i) => i.uid === uid)
-  if (!sel) return { have: 0, next: null }
-  const equipped = new Set(EQUIP_KINDS.map((k) => state[k]))
-  const othersFree = state.items.filter(
-    (i) => i.id === sel.id && !equipped.has(i.uid) && i.uid !== uid,
-  ).length
-  return { have: 1 + Math.min(othersFree, 2), next: NEXT_TIER[sel.id] }
-}
-
-export interface RecycleResult {
-  ok: boolean
-  /** Предмет следующей ступени (для тоста) */
-  next?: InvDef
-}
-
-/**
- * Переплавить: выбранный предмет + 2 таких же свободных уходят,
- * взамен рождается предмет ступенью выше той же ветки.
- * Выбранный может быть надет — слот снимается автоматически.
- * 3 consumed → 1 added: склад не переполняется никогда.
- */
-export function recycleInvItem(uid: string): RecycleResult {
-  const cur = getInventorySnapshot()
-  const sel = cur.items.find((i) => i.uid === uid)
-  if (!sel) return { ok: false }
-  const nextId = NEXT_TIER[sel.id]
-  if (!nextId) return { ok: false }
-  const equipped = new Set(EQUIP_KINDS.map((k) => cur[k]))
-  const others = cur.items.filter((i) => i.id === sel.id && !equipped.has(i.uid) && i.uid !== uid)
-  if (others.length < 2) return { ok: false }
-  const gone = new Set([uid, others[0].uid, others[1].uid])
-  const fresh: InvItem = { uid: newUid(), id: nextId, ts: Date.now() }
-  const everSet = new Set<InvItemId>(cur.everHad)
-  everSet.add(nextId)
-  const cleared = {} as InventoryState
-  for (const k of EQUIP_KINDS) {
-    cleared[k] = cur[k] === uid ? null : cur[k]
-  }
-  saveInventory({
-    ...cur,
-    ...cleared,
-    items: [...cur.items.filter((i) => !gone.has(i.uid)), fresh],
-    everHad: [...everSet],
-    recycled: cur.recycled + 1,
-  })
-  return { ok: true, next: INV_MAP[nextId] }
 }
 
 /* ════════════════ Артефакты ЛАВКИ на лапке (0.0.54) ════════════════ */
