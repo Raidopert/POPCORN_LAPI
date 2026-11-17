@@ -5,7 +5,7 @@
  *  - API /api/leaders не кэшируем — лидерборд всегда живой.
  */
 
-const VERSION = 'popcorn-v26'
+const VERSION = 'popcorn-v27'
 const CORE = [
   '/',
   '/manifest.json',
@@ -33,6 +33,10 @@ const CORE = [
   '/posters/game/poster-4.webp',
   '/posters/game/poster-5.webp',
   '/posters/game/poster-6.webp',
+  /* v0.0.67: победный плакат (7) и трон босс-интро — без них офлайн-PWA
+     показывал пустые рамки на победе и перед боссом */
+  '/posters/game/poster-7.webp',
+  '/throne.webp',
 ]
 
 self.addEventListener('install', (event) => {

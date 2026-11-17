@@ -465,53 +465,111 @@ export function makeCornSprite(colorblind = false): Sprite {
 /* ================= Сундучок с перками (закрытый / открытый) ================= */
 
 export function makeChestSprite(open = false): Sprite {
-  const g = createGrid(18, 17)
+  /* v0.0.67: сундучок наряднее — доски с прожилками, золотые уголки с
+     заклёпками, замок со скважиной, а внутри открытого — сияние, искры
+     и золото с самоцветом (лутовая тема) */
+  const g = createGrid(20, 18)
   const wood = '#B07A3F'
   const woodLight = '#C98F4F'
   const woodDark = '#8A5330'
+  const woodDarker = '#6E4222'
   const band = '#6B421F'
   const gold = '#FFE066'
   const goldPale = '#FFF7C2'
   const goldDark = '#D99A1B'
+  const gem = '#C979F0'
+  const gemLight = '#EBB8FF'
+  const sparkle = '#FFFDF0'
   const edge = '#4A2A12'
 
   if (!open) {
-    // Крышка (полукруглая сверху)
-    fillRect(g, 4, 1, 13, 1, woodDark)
-    fillRect(g, 3, 2, 14, 2, wood)
-    fillRect(g, 2, 3, 15, 5, wood)
-    fillRect(g, 2, 6, 15, 6, woodDark) // стык крышки
-    // Корпус
-    fillRect(g, 1, 7, 16, 15, wood)
-    fillRect(g, 1, 7, 16, 8, woodLight) // блик сверху корпуса
+    // Крышка (полукруглая сверху) с бликом
+    fillRect(g, 4, 1, 15, 1, woodDark)
+    fillRect(g, 3, 2, 16, 2, wood)
+    fillRect(g, 2, 3, 17, 6, wood)
+    fillRect(g, 3, 2, 5, 3, woodLight) // блик слева на крышке
+    fillRect(g, 2, 4, 3, 5, woodLight)
+    fillRect(g, 2, 6, 17, 6, woodDark) // стык крышки
+    // Золотая окантовка стыка по краям
+    g[6][3] = gold
+    g[6][16] = gold
+    // Корпус с вертикальными досками
+    fillRect(g, 1, 7, 18, 15, wood)
+    fillRect(g, 1, 7, 18, 8, woodLight) // блик сверху корпуса
+    fillRect(g, 7, 10, 7, 14, woodDarker) // прожилка доски
+    fillRect(g, 12, 9, 12, 14, woodDarker)
     // Металлические полосы по краям
     fillRect(g, 2, 7, 3, 15, band)
-    fillRect(g, 14, 7, 15, 15, band)
-    // Замок по центру
-    fillRect(g, 8, 7, 9, 11, gold)
-    g[9][8] = edge
+    fillRect(g, 16, 7, 17, 15, band)
+    // Золотые заклёпки на полосах
+    g[8][2] = gold
+    g[11][3] = gold
+    g[14][2] = gold
+    g[8][17] = gold
+    g[11][16] = gold
+    g[14][17] = gold
+    // Золотые уголки снизу
+    fillRect(g, 1, 14, 2, 15, goldDark)
+    fillRect(g, 17, 14, 18, 15, goldDark)
+    // Замок по центру: золотая накладка со скважиной
+    fillRect(g, 8, 7, 11, 11, gold)
+    g[7][8] = goldPale
+    g[7][9] = goldPale
+    g[11][11] = goldDark
+    g[10][11] = goldDark
+    g[8][9] = edge // скважина
+    g[8][10] = edge
     g[9][9] = edge
-    g[10][8] = goldDark
-    g[10][9] = goldDark
+    g[9][10] = goldDark
+    // Блики-искры на крышке
+    g[3][13] = goldPale
+    g[4][6] = goldPale
   } else {
     // Открытая крышка, откинутая назад
-    fillRect(g, 3, 0, 14, 0, woodDark)
-    fillRect(g, 2, 1, 15, 2, wood)
-    // Светящееся нутро
-    fillRect(g, 2, 3, 15, 5, gold)
+    fillRect(g, 3, 0, 16, 0, woodDark)
+    fillRect(g, 2, 1, 17, 2, wood)
+    fillRect(g, 2, 1, 4, 2, woodLight)
+    // Светящееся нутро с сиянием
+    fillRect(g, 2, 3, 17, 5, gold)
     fillRect(g, 4, 3, 7, 4, goldPale)
-    g[3][10] = goldPale
-    g[5][12] = goldPale
-    g[5][5] = goldDark
-    // Корпус
-    fillRect(g, 1, 6, 16, 15, wood)
-    fillRect(g, 1, 6, 16, 7, woodLight)
+    fillRect(g, 10, 3, 13, 4, goldPale)
+    // Искры над сокровищем (крестовинки)
+    g[3][5] = sparkle
+    g[3][9] = goldPale
+    g[3][14] = sparkle
+    g[4][11] = goldPale
+    // Золото и самоцвет внутри
+    g[4][8] = goldDark
+    g[5][4] = goldDark
+    g[5][15] = goldDark
+    g[4][6] = gem
+    g[3][12] = gemLight
+    // Корпус с вертикальными досками
+    fillRect(g, 1, 6, 18, 15, wood)
+    fillRect(g, 1, 6, 18, 7, woodLight)
+    fillRect(g, 7, 9, 7, 14, woodDarker)
+    fillRect(g, 12, 9, 12, 14, woodDarker)
+    // Металлические полосы по краям
     fillRect(g, 2, 6, 3, 15, band)
-    fillRect(g, 14, 6, 15, 15, band)
-    // Передняя накладка замка
-    fillRect(g, 8, 6, 9, 9, gold)
-    g[8][8] = goldDark
-    g[8][9] = goldDark
+    fillRect(g, 16, 6, 17, 15, band)
+    // Золотые заклёпки на полосах
+    g[8][2] = gold
+    g[11][3] = gold
+    g[14][2] = gold
+    g[8][17] = gold
+    g[11][16] = gold
+    g[14][17] = gold
+    // Золотые уголки снизу
+    fillRect(g, 1, 14, 2, 15, goldDark)
+    fillRect(g, 17, 14, 18, 15, goldDark)
+    // Передняя накладка замка со скважиной
+    fillRect(g, 8, 6, 11, 9, gold)
+    g[6][8] = goldPale
+    g[6][9] = goldPale
+    g[9][11] = goldDark
+    g[8][9] = edge
+    g[8][10] = edge
+    g[7][9] = edge
   }
 
   outlineGrid(g, edge)

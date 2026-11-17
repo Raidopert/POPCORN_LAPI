@@ -1519,10 +1519,10 @@ export const T: Record<string, Row> = {
   ],
   'ach.curse5.name': ['Гладиатор', 'Gladiator', 'Gladiator', 'Gladiador'],
   'ach.curse5.desc': [
-    'Взять 5 проклятий из сундучков за всё время',
-    'Take 5 curses from chests all time',
-    '5 Flüche aus Truhen insgesamt',
-    'Toma 5 maldiciones de cofres en total',
+    'Взять 5 эффектов из сундучков за всё время',
+    'Take 5 effects from chests all time',
+    '5 Effekte aus Truhen insgesamt',
+    'Toma 5 efectos de cofres en total',
   ],
   'ach.bonus10.name': ['Везунчик', 'Lucky One', 'Glückspilz', 'Afortunado'],
   'ach.bonus10.desc': [
@@ -1842,12 +1842,12 @@ export const T: Record<string, Row> = {
     'Das Spiel 50 Mal besuchen',
     'Visita el juego 50 veces',
   ],
-  'ach.curse25.name': ['Проклятый кот', 'Cursed Cat', 'Verfluchte Katze', 'Gato Maldito'],
+  'ach.curse25.name': ['Кот под эффектом', 'Spellbound Cat', 'Verzauberte Katze', 'Gato Hechizado'],
   'ach.curse25.desc': [
-    'Взять 25 проклятий из сундучков за всё время',
-    'Take 25 curses from chests all time',
-    '25 Flüche aus Truhen insgesamt',
-    'Toma 25 maldiciones de cofres en total',
+    'Взять 25 эффектов из сундучков за всё время',
+    'Take 25 effects from chests all time',
+    '25 Effekte aus Truhen insgesamt',
+    'Toma 25 efectos de cofres en total',
   ],
   'ach.bonus25.name': ['Кладоискатель', 'Treasure Hunter', 'Schatzjäger', 'Cazador de Tesoros'],
   'ach.bonus25.desc': [
@@ -2002,7 +2002,7 @@ export const T: Record<string, Row> = {
   /* ---------- перки ----------
      v0.0.41: перки-перевороты (rot180/rot90), зеркало и «Ночная смена»
      удалены — инвертированное управление и полная тьма не нравятся игрокам */
-  'perk.tag.curse': ['☠ ПРОКЛЯТЬЕ', '☠ CURSE', '☠ FLUCH', '☠ MALDICIÓN'],
+  'perk.tag.curse': ['☠ ЭФФЕКТ', '☠ EFFECT', '☠ EFFEKT', '☠ EFECTO'],
   'perk.tag.bonus': ['✨ БОНУС', '✨ BONUS', '✨ BONUS', '✨ PREMIO'],
   'perk.grayscale.name': ['Чёрно-белое кино', 'Black & White', 'Schwarzweißkino', 'Cine Blanco y Negro'],
   'perk.grayscale.desc': [
@@ -3210,10 +3210,10 @@ export const T: Record<string, Row> = {
   'set.orient.landscape': ['Ландшафт', 'Landscape', 'Querformat', 'Horizontal'],
   'set.orient.auto': ['Авто', 'Auto', 'Auto', 'Auto'],
   'set.perksCurse': [
-    'Перки-испытания (проклятья)',
-    'Challenge perks (curses)',
-    'Herausforderungs-Perks (Flüche)',
-    'Perks de desafío (maldiciones)',
+    'Эффекты-испытания',
+    'Challenge effects',
+    'Herausforderungs-Effekte',
+    'Efectos de desafío',
   ],
   'set.perksBonus': ['Бонусные перки', 'Bonus perks', 'Bonus-Perks', 'Perks de bonus'],
   'set.pigeon': ['Голубь-воришка', 'Thieving pigeon', 'Klauernde Taube', 'Paloma ladrona'],
@@ -3589,6 +3589,12 @@ export const T: Record<string, Row> = {
   'inv.toast.equip': ['Надето!', 'Equipped!', 'Angelegt!', '¡Equipado!'],
   'inv.toast.unequip': ['Снято', 'Removed', 'Abgelegt', 'Quitado'],
   'inv.toast.sell': ['Продано за {{n}} 🪙', 'Sold for {{n}} 🪙', 'Für {{n}} 🪙 verkauft', 'Vendido por {{n}} 🪙'],
+  'inv.sellUnequips': [
+    'Надетый предмет снимется при продаже!',
+    'Equipped item will be removed when sold!',
+    'Angelegter Gegenstand wird beim Verkauf abgelegt!',
+    '¡El objeto equipado se quitará al venderlo!',
+  ],
   'inv.toast.full': [
     'Склад полон — предмет продан за {{n}} 🪙',
     'Stash full — item sold for {{n}} 🪙',

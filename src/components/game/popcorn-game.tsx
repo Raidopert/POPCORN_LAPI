@@ -760,7 +760,7 @@ function ChestImg({ open }: { open: boolean }) {
     ctx.clearRect(0, 0, c.width, c.height)
     ctx.drawImage(spr.canvas, 0, 0, c.width, c.height)
   }, [open])
-  return <canvas ref={ref} aria-hidden className="pixelated h-auto w-16 sm:w-20 [@media(max-height:520px)]:w-11 sm:[@media(max-height:520px)]:w-11" />
+  return <canvas ref={ref} aria-hidden className="pixelated h-auto w-[72px] sm:w-[92px] [@media(max-height:520px)]:w-11 sm:[@media(max-height:520px)]:w-11" />
 }
 
 /* ---------- КРУПНЫЙ ТАЙМЕР УРОВНЯ (0.0.55) ----------
@@ -2534,7 +2534,12 @@ function InventoryOverlay({
                 <button
                   type="button"
                   onClick={() => {
-                    if (selClawId ? onEquipClaw(sel.uid) : onEquip(sel.uid)) pick(sel.uid)
+                    if (selClawId ? onEquipClaw(sel.uid) : onEquip(sel.uid)) {
+                      /* v0.0.67: надеваем — гасим взведённое подтверждение продажи */
+                      setSellArm(false)
+                      setRecycleArm(false)
+                      pick(sel.uid)
+                    }
                   }}
                   className="rounded-lg bg-[#3f6b28] px-2 py-1.5 font-ui text-[11px] font-bold text-white shadow-[0_3px_0_#2c4d1c] transition hover:bg-[#4a7d31] active:translate-y-[2px] active:shadow-[0_1px_0_#2c4d1c]"
                 >
@@ -2544,13 +2549,18 @@ function InventoryOverlay({
               <button
                 type="button"
                 onClick={() => {
-                  /* Редкое и ценное — в два тапа: первый только спрашивает */
-                  if (selDef.rarity !== 'common' && !sellArm) {
+                  /* В два тапа: редкое — всегда, надетое — тоже (v0.0.67:
+                     надетый предмет снимется при продаже — без подтверждения нельзя) */
+                  if ((selDef.rarity !== 'common' || selEquipped) && !sellArm) {
                     setSellArm(true)
+                    if (selEquipped) flash(t('inv.sellUnequips'))
                     return
                   }
                   const got = onSell(sel.uid)
-                  if (got > 0) pick(null)
+                  if (got > 0) {
+                    flash(t('inv.toast.sell', { n: got }))
+                    pick(null)
+                  }
                 }}
                 className={`rounded-lg px-2 py-1.5 font-ui text-[11px] font-bold transition active:scale-95 ${
                   sellArm
@@ -5838,11 +5848,15 @@ export function PopcornGame() {
     return true
   }, [])
 
-  /** Продать предмет со склада: возвращает монетки за продажу */
+  /** Продать предмет со склада: монетки падают в кошелёк.
+      v0.0.67 БАГ-ФИКС: с 0.0.53 монетки НЕ начислялись (только звук) —
+      игрок терял предмет бесплатно; автопродажа при переполнении работала верно */
   const handleSellInv = useCallback((uid: string): number => {
     const got = sellInvItem(uid)
-    if (got > 0) audio.play('coin')
-    else audio.play('penalty')
+    if (got > 0) {
+      addCoins(got)
+      audio.play('coin')
+    } else audio.play('penalty')
     return got
   }, [])
 
@@ -7873,7 +7887,7 @@ export function PopcornGame() {
               exit={{ opacity: 0, y: -12, scale: 0.9 }}
               transition={{ type: 'spring', stiffness: 380, damping: 24 }}
             >
-              <span className="text-shadow-pixel rounded-full border-2 border-amber-300/70 bg-[#2b1a0e]/85 px-4 py-1.5 font-pixel text-lg font-bold text-amber-200 shadow-[0_6px_20px_rgba(0,0,0,0.5)]">
+              <span className="text-shadow-pixel rounded-full border-2 border-amber-300 bg-[#2b1a0e]/85 px-4 py-1.5 font-pixel text-lg font-bold text-amber-200 shadow-[0_6px_20px_rgba(0,0,0,0.5),0_0_18px_rgba(255,193,7,0.3)]">
                 🌊 {t('banner.wave', { n: waveToast })}
               </span>
             </motion.div>
@@ -8479,12 +8493,12 @@ export function PopcornGame() {
                               }
                               disabled={revealed}
                               onClick={() => openChest(i)}
-                              className={`flex flex-col items-center rounded-xl border-[3px] px-1 pb-1.5 pt-1.5 transition-colors [@media(max-height:520px)]:pb-1 [@media(max-height:520px)]:pt-1 ${
+                              className={`flex flex-col items-center rounded-xl border-[3px] px-1 pb-1.5 pt-1.5 transition-all [@media(max-height:520px)]:pb-1 [@media(max-height:520px)]:pt-1 ${
                                 isOpen
-                                  ? 'border-amber-400 bg-amber-100'
+                                  ? 'border-amber-400 bg-amber-100 shadow-[0_0_24px_rgba(255,193,7,0.55)]'
                                   : dimmed
                                     ? 'border-[#c9a97a] bg-[#f3e2c8] opacity-40'
-                                    : 'border-[#8a5330] bg-[#f3e2c8] hover:bg-[#eed7b4] active:scale-95'
+                                    : 'border-[#8a5330] bg-[#f3e2c8] shadow-[0_3px_0_rgba(74,42,18,0.28)] hover:bg-[#eed7b4] hover:shadow-[0_4px_16px_rgba(255,193,7,0.4)] active:scale-95'
                               }`}
                               animate={isOpen ? { rotate: [0, -6, 6, -3, 0], y: [0, -6, 0] } : {}}
                               transition={{ duration: 0.45 }}
@@ -8498,7 +8512,7 @@ export function PopcornGame() {
                                       {p.icon}
                                     </span>
                                     <span
-                                      className={`font-pixel text-[9px] font-bold leading-tight sm:text-[11px] ${
+                                      className={`font-pixel text-[11px] font-bold leading-tight sm:text-[13px] ${
                                         p.curse ? 'text-[#B33A26]' : 'text-[#3f6b28]'
                                       }`}
                                     >
@@ -8506,7 +8520,7 @@ export function PopcornGame() {
                                     </span>
                                   </span>
                                   <span
-                                    className={`mt-0.5 rounded-full px-1.5 py-px font-ui text-[8px] font-bold leading-tight sm:text-[9px] ${
+                                    className={`mt-0.5 rounded-full px-2 py-0.5 font-ui text-[10px] font-bold leading-tight sm:text-[11px] ${
                                       p.curse ? 'bg-red-200 text-red-800' : 'bg-emerald-200 text-emerald-800'
                                     }`}
                                   >
@@ -8514,7 +8528,7 @@ export function PopcornGame() {
                                   </span>
                                   {ex && (
                                     <span
-                                      className="mt-0.5 font-ui text-[9px] font-bold text-[#8a5a16]"
+                                      className="mt-0.5 font-ui text-[11px] font-bold text-[#8a5a16] sm:text-xs"
                                       title={
                                         ex.kind === 'coins'
                                           ? t('chest.bonusCoins', { n: ex.n })
@@ -8537,10 +8551,10 @@ export function PopcornGame() {
                                         alt=""
                                         aria-hidden
                                         draggable={false}
-                                        className="h-4 w-4 shrink-0 rounded-full object-cover"
+                                        className="h-5 w-5 shrink-0 rounded-full object-cover"
                                       />
                                       <span
-                                        className={`truncate font-ui text-[8px] font-bold leading-tight sm:text-[9px] ${
+                                        className={`truncate font-ui text-[10px] font-bold leading-tight sm:text-[11px] ${
                                           RARITY_COLOR[loot.def.rarity].text
                                         }`}
                                       >
@@ -8552,7 +8566,7 @@ export function PopcornGame() {
                                   )}
                                   {/* Полное описание — только у выбранного сундучка */}
                                   {isOpen && (
-                                    <span className="mt-1 break-words font-ui text-[9px] font-medium leading-tight text-[#5C3A1E] sm:text-[10px] [@media(max-height:520px)]:mt-0.5">
+                                    <span className="mt-1 break-words font-ui text-[11px] font-medium leading-snug text-[#5C3A1E] sm:text-xs [@media(max-height:520px)]:mt-0.5">
                                       {t(`perk.${p.id}.desc`)}
                                     </span>
                                   )}
@@ -8560,10 +8574,10 @@ export function PopcornGame() {
                               ) : (
                                 <>
                                   {/* ДО выбора — тайна: только номер и знак вопроса */}
-                                  <span className="mt-1 font-pixel text-[9px] font-bold leading-tight text-[#8a5330] sm:text-[11px]">
+                                  <span className="mt-1 font-pixel text-[11px] font-bold leading-tight text-[#8a5330] sm:text-[13px]">
                                     {t('chest.chest')} {i + 1}
                                   </span>
-                                  <span aria-hidden className="font-pixel text-lg font-bold leading-none text-[#c9a97a]">
+                                  <span aria-hidden className="font-pixel text-2xl font-bold leading-none text-[#c9a97a]">
                                     ?
                                   </span>
                                 </>
@@ -8586,10 +8600,10 @@ export function PopcornGame() {
                             exit={{ opacity: 0, y: -8 }}
                             transition={{ type: 'spring', stiffness: 300, damping: 22 }}
                           >
-                            <p className="break-words font-ui text-[11px] leading-snug text-[#5C3A1E]">
+                            <p className="break-words font-ui text-xs leading-snug text-[#5C3A1E] sm:text-sm">
                               {t(`perk.${chosen.id}.desc`)}
                             </p>
-                            <p className="mt-1 font-ui text-[10px] leading-tight text-[#8a5330]">
+                            <p className="mt-1 font-ui text-[11px] leading-tight text-[#8a5330] sm:text-xs">
                               {t('chest.quotaInfo', {
                                 n: runLevel,
                                 q: Math.round(
@@ -9128,8 +9142,8 @@ export function PopcornGame() {
             exit={{ opacity: 0, y: 12, scale: 0.95 }}
             transition={{ type: 'spring', stiffness: 320, damping: 24 }}
           >
-            <div className="max-w-[86vw] rounded-full border-2 border-red-300 bg-[#2b1a0e]/95 px-4 py-2 text-center shadow-[0_8px_24px_rgba(0,0,0,0.6)]">
-              <div className="font-pixel text-xs font-bold leading-tight text-red-200">
+            <div className="max-w-[86vw] rounded-full border-2 border-red-300 bg-[#2b1a0e]/95 px-4 py-2 text-center shadow-[0_8px_24px_rgba(0,0,0,0.6),0_0_18px_rgba(248,113,113,0.3)]">
+              <div className="font-pixel text-xs font-bold leading-tight text-red-200 sm:text-sm">
                 {t('lead.reject')}
               </div>
             </div>
@@ -9149,9 +9163,9 @@ export function PopcornGame() {
             exit={{ opacity: 0, y: 12, scale: 0.95 }}
             transition={{ type: 'spring', stiffness: 320, damping: 24 }}
           >
-            <div className="flex max-w-[86vw] items-center gap-2 rounded-full border-2 border-amber-300 bg-[#2b1a0e]/95 px-4 py-2 shadow-[0_8px_24px_rgba(0,0,0,0.6)]">
+            <div className="flex max-w-[86vw] items-center gap-2 rounded-full border-2 border-amber-300 bg-[#2b1a0e]/95 px-4 py-2 shadow-[0_8px_24px_rgba(0,0,0,0.6),0_0_18px_rgba(255,193,7,0.3)]">
               {/* 🎖 уже внутри строки char.levelUp — не дублируем эмодзи */}
-              <div className="font-pixel text-sm font-bold leading-tight text-amber-200">
+              <div className="font-pixel text-sm font-bold leading-tight text-amber-200 sm:text-base">
                 {charToastUnlocks.length > 0
                   ? t('char.levelUpUnlocks', { n: charToast, list: charToastUnlocks.join(', ') })
                   : t('char.levelUp', { n: charToast })}
@@ -9172,15 +9186,15 @@ export function PopcornGame() {
             exit={{ opacity: 0, y: 12, scale: 0.95 }}
             transition={{ type: 'spring', stiffness: 320, damping: 24 }}
           >
-            <div className="flex items-center gap-2 rounded-full border-2 border-amber-300 bg-[#2b1a0e]/95 px-4 py-2 shadow-[0_8px_24px_rgba(0,0,0,0.6)]">
-              <span aria-hidden className="text-xl">
+            <div className="flex items-center gap-2 rounded-full border-2 border-amber-300 bg-[#2b1a0e]/95 px-4 py-2 shadow-[0_8px_24px_rgba(0,0,0,0.6),0_0_20px_rgba(255,193,7,0.35)]">
+              <span aria-hidden className="text-2xl drop-shadow-[0_0_6px_rgba(255,193,7,0.6)]">
                 {achToast.icon}
               </span>
               <div>
-                <div className="font-ui text-[9px] font-bold uppercase tracking-wider text-amber-300">
+                <div className="font-ui text-[10px] font-bold uppercase tracking-wider text-amber-300">
                   {t('ach.toast')}
                 </div>
-                <div className="font-pixel text-sm font-bold leading-tight text-white">
+                <div className="font-pixel text-sm font-bold leading-tight text-white sm:text-base">
                   {achToast.name}
                 </div>
               </div>
