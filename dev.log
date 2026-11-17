@@ -1,46 +1,10 @@
 ▲ Next.js 16.4.5 (Turbopack)
 - Local:         http://localhost:3000
-- Network:       http://21.0.3.94:3000
+- Network:       http://21.0.8.74:3000
 - Environments: .env
 ✓ Ready in 267ms
-✓ Running next.config.ts took 32ms
-Attention: Next.js now collects completely anonymous telemetry regarding usage.
-This information is used to shape Next.js' roadmap and prioritize features.
-You can learn more, including how to opt-out if you'd not like to participate in this anonymous program, by visiting the following URL:
-https://nextjs.org/telemetry
+✓ Running next.config.ts took 36ms
 
-
-○ Compiling / ...
- GET / 200 in 40ms (next.js: 1.2ms, application-code: 39ms)
- GET / 200 in 407ms (next.js: 128ms, application-code: 279ms)
- GET / 200 in 29ms (next.js: 1.0ms, application-code: 28ms)
- GET / 200 in 27ms (next.js: 0.7ms, application-code: 26ms)
- POST /api/sessions 200 in 123ms (next.js: 37ms, application-code: 86ms)
-⚠ Blocked cross-origin request to Next.js dev resource /__nextjs_font/geist-latin.woff2 from "preview-chat-92f0a0a1-137a-411e-926d-67dcf93533f8.space-z.ai".
-Cross-origin access to Next.js dev resources is blocked by default for safety.
-
-To allow this host in development, add it to "allowedDevOrigins" in next.config.js and restart the dev server:
-
-// next.config.js
-module.exports = {
-  allowedDevOrigins: ['preview-chat-92f0a0a1-137a-411e-926d-67dcf93533f8.space-z.ai'],
-}
-
-Read more: https://nextjs.org/docs/app/api-reference/config/next-config-js/allowedDevOrigins
- GET /api/leaders?device=4dfb54fa-82d5-4e1f-b018-0bec4c710f32 200 in 31ms (next.js: 19ms, application-code: 11ms)
- POST /api/leaders/start 200 in 28ms (next.js: 18ms, application-code: 10ms)
- POST /api/leaders 200 in 29ms (next.js: 1.3ms, application-code: 28ms)
- GET / 200 in 41ms (next.js: 1.4ms, application-code: 40ms)
- POST /api/sessions 200 in 14ms (next.js: 1.5ms, application-code: 12ms)
- GET / 200 in 41ms (next.js: 1.4ms, application-code: 40ms)
- POST /api/sessions 200 in 12ms (next.js: 0.8ms, application-code: 11ms)
- GET / 200 in 34ms (next.js: 0.9ms, application-code: 34ms)
- POST /api/sessions 200 in 9ms (next.js: 0.9ms, application-code: 8ms)
- GET / 200 in 39ms (next.js: 1.1ms, application-code: 38ms)
- POST /api/sessions 200 in 9ms (next.js: 0.9ms, application-code: 8ms)
- GET / 200 in 34ms (next.js: 1.0ms, application-code: 33ms)
- POST /api/sessions 200 in 11ms (next.js: 1.2ms, application-code: 10ms)
- GET / 200 in 36ms (next.js: 1.0ms, application-code: 35ms)
- GET / 200 in 31ms (next.js: 0.8ms, application-code: 30ms)
- GET / 200 in 30ms (next.js: 0.7ms, application-code: 29ms)
- POST /api/sessions 200 in 13ms (next.js: 1.0ms, application-code: 12ms)
+ GET / 200 in 339ms (next.js: 107ms, application-code: 232ms)
+ GET / 200 in 47ms (next.js: 0.9ms, application-code: 46ms)
+ GET / 200 in 30ms (next.js: 0.9ms, application-code: 29ms)
