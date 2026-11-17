@@ -17,6 +17,12 @@
  *    deviceId: спам start/submit режется до обращения к базе.
  *
  * Секрет — env LEADERBOARD_SECRET (в dev есть fallback).
+ *
+ * v0.0.71 (правила VK Mini Apps):
+ *  - cleanNick — фильтр нецензурных ников (п. 2.5.2: пользовательский контент
+ *    должен модерироваться; таблица лидеров — публичное место);
+ *  - verifyVKParams — проверка подписи параметров запуска VK (п. 1.2.2:
+ *    HMAC-SHA256 отсортированных параметров с VK_APP_SECRET, base64url).
  */
 
 import { createHash, createHmac, timingSafeEqual } from 'node:crypto'
@@ -109,11 +115,84 @@ export function cleanDevice(raw: unknown): string | null {
   return /^[A-Za-z0-9_-]{8,64}$/.test(d) ? d : null
 }
 
-/** Ник: без управляющих символов, до 24 знаков, пустой → «Котик» */
+/* ---------- модерация ников (п. 2.5.2) ---------- */
+
+/** Корни нецензурных слов и грубых оскорблений (RU + EN), по включению */
+const PROFANITY_ROOTS = [
+  'хуй', 'хуе', 'хуи', 'хуё', 'хуя', 'пизд', 'бля', 'сука', 'суки',
+  'еба', 'ебе', 'ёба', 'ёбе', 'еба', 'трахнут', 'мудак', 'мудац',
+  'гандон', 'гондон', 'пидор', 'пидар', 'пидрас', 'залуп', 'дроч',
+  'шлюх', 'шалав', 'долбоеб', 'долбаёб', 'долбоз', 'хер', 'лох ',
+  'fuck', 'sh1t', 'shit', 'cunt', 'bitch', 'whore', 'slut', 'dick ',
+  'asshole', 'nigg', 'fagg', 'wanker', 'bastard',
+]
+
+/** Визуальные подмены латиницы/цифр кириллицей (p→р, 0→о, @→а…) */
+const VISUAL_LEET: Record<string, string> = {
+  a: 'а', c: 'с', e: 'е', o: 'о', p: 'р', y: 'у', x: 'х',
+  '0': 'о', '1': 'и', '3': 'з', '4': 'ч', '6': 'б', '@': 'а',
+}
+/** Транслитерация латиницы (p→п, z→з, d→д…) — «p1zda» = «пизда» */
+const TRANSLIT: Record<string, string> = {
+  a: 'а', b: 'б', c: 'к', d: 'д', e: 'е', g: 'г', i: 'и', k: 'к',
+  l: 'л', m: 'м', n: 'н', o: 'о', p: 'п', r: 'р', s: 'с', t: 'т',
+  u: 'у', v: 'в', y: 'ы', z: 'з',
+  '0': 'о', '1': 'и', '3': 'з', '4': 'ч', '6': 'б', '@': 'а',
+}
+
+function applyMap(s: string, map: Record<string, string>): string {
+  return s.replace(/[a-z0-9@]/g, (ch) => map[ch] ?? ch)
+}
+
+/** true — ник содержит нецензурное слово (нельзя в публичный топ).
+    Проверяем исходник, визуальные подмены и транслит */
+function isProfane(name: string): boolean {
+  const lower = name.toLowerCase().replace(/ё/g, 'е')
+  /* Ещё вариант со снятыми разделителями — «f.u.c.k», «ху-й» */
+  const stripped = lower.replace(/[^a-z0-9а-я]/g, '')
+  const variants = [lower, stripped, applyMap(lower, VISUAL_LEET), applyMap(lower, TRANSLIT)]
+  return PROFANITY_ROOTS.some((root) => variants.some((v) => v.includes(root)))
+}
+
+/** Ник: без управляющих символов, до 24 знаков, пустой или нецензурный → «Котик» */
 export function cleanNick(raw: unknown): string {
   let name = typeof raw === 'string' ? raw : ''
   name = name.replace(/[\u0000-\u001f\u007f]/g, '').trim().slice(0, 24)
-  return name || 'Котик'
+  if (!name || isProfane(name)) return 'Котик'
+  return name
+}
+
+/* ---------- подпись параметров запуска VK (п. 1.2.2) ---------- */
+
+/**
+ * Проверка подписи vk_* параметров запуска мини-приложения.
+ * Схема VK: HMAC-SHA256 от отсортированного `key=value&...` (без sign/sig),
+ * ключ VK_APP_SECRET, кодировка base64url.
+ *
+ * Мягкий режим: секрет не настроен (env отсутствует) или vk-полей нет в запросе
+ * (клиент вне VK) → true. Подпись есть, но не сходится → false (запрос подделан).
+ */
+export function verifyVKParams(vk: unknown): boolean {
+  const appSecret = process.env.VK_APP_SECRET
+  if (!appSecret) return true
+  if (vk === undefined || vk === null) return true
+  if (typeof vk !== 'object') return false
+  const rec = vk as Record<string, unknown>
+  const sign = rec.sign
+  if (typeof sign !== 'string' || !sign) return false
+  const flat: Record<string, string> = {}
+  for (const [k, v] of Object.entries(rec)) {
+    if (k === 'sign' || k === 'sig' || v === undefined || v === null) continue
+    flat[k] = String(v)
+  }
+  const qs = Object.keys(flat)
+    .sort()
+    .map((k) => `${k}=${flat[k]}`)
+    .join('&')
+  const expected = createHmac('sha256', appSecret).update(qs).digest('base64url')
+  const a = Buffer.from(expected)
+  const b = Buffer.from(sign)
+  return a.length === b.length && timingSafeEqual(a, b)
 }
 
 /** Потолок очков для уровня: честная игра не выбьет его даже с максимальными

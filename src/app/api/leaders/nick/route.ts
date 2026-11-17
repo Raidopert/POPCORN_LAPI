@@ -18,7 +18,7 @@
 
 import { NextResponse } from 'next/server'
 import { claimNick } from '@/lib/leaders-db'
-import { cleanDevice, cleanNick, ipHashOf, rateLimit } from '@/lib/leaderboard-guard'
+import { cleanDevice, cleanNick, ipHashOf, rateLimit, verifyVKParams } from '@/lib/leaderboard-guard'
 
 export const runtime = 'nodejs'
 export const dynamic = 'force-dynamic'
@@ -37,6 +37,11 @@ export async function POST(req: Request) {
   const device = cleanDevice(body.device)
   if (!device || typeof body.name !== 'string' || !body.name.trim()) {
     return NextResponse.json({ ok: false }, { status: 400 })
+  }
+
+  /* Подпись параметров запуска VK (п. 1.2.2 правил VK): битая подпись — 403 */
+  if (!verifyVKParams(body.vk)) {
+    return NextResponse.json({ ok: false, reason: 'sign' }, { status: 403 })
   }
 
   const ip = ipHashOf(req)

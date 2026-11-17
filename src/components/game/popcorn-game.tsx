@@ -226,6 +226,8 @@ import {
   type MarketState,
 } from '@/lib/game/market'
 import { GAME_VERSION_LABEL } from '@/lib/game/version'
+/* VK BRIDGE (0.0.71): init/ViewHide/реклама/подпись — правила VK 2.2.1/2.2.5/4.2.1/1.2.2 */
+import { getVKLaunchParams, initVK, isVKEnv, onVKViewVisibility, showRewardedAd } from '@/lib/game/vk'
 import { unlockNamesForRange, type LevelUnlock } from '@/lib/game/unlocks'
 import { tFor, LANGS, LOCALES, type Lang, type TranslateFn } from '@/lib/game/i18n'
 import {
@@ -3874,6 +3876,16 @@ function CreatorsOverlay({ t, onClose }: { t: TranslateFn; onClose: () => void }
           </div>
         </div>
 
+        {/* ПРИВАТНОСТЬ (0.0.71): правила VK 1.1.2/1.1.10 — что храним и как удалить */}
+        <div className="mt-2 rounded-xl bg-[#fdf3e0] px-3 py-2 ring-1 ring-[#e3cba4]">
+          <p className="font-ui text-[11px] font-bold uppercase tracking-wide text-[#8a5330]">
+            {t('creators.privacy')}
+          </p>
+          <p className="mt-1 font-ui text-[11px] leading-snug text-[#5C3A1E]">
+            {t('creators.privacyText')}
+          </p>
+        </div>
+
         {/* Донаты: QR + номер карты МИР (тап — копирование) */}
         <div className="mt-3 rounded-xl border-2 border-amber-300 bg-gradient-to-b from-amber-50 to-[#fdf3e0] px-3 py-3">
           <p className="font-pixel text-sm font-bold text-[#B33A26]">{t('creators.support')}</p>
@@ -4933,7 +4945,7 @@ function NickDialog({
       const res = await fetch('/api/leaders/nick', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ device: getDeviceId(), name }),
+        body: JSON.stringify({ device: getDeviceId(), name, vk: getVKLaunchParams() ?? undefined }),
       })
       if (res.status === 409) {
         setTaken(true)
@@ -5324,6 +5336,12 @@ export function PopcornGame() {
   /* ---------- БОССОВЫЕ БАНОЧКИ (0.0.69): тост дропа с босса ---------- */
   const [jarToast, setJarToast] = useState<DropResult | null>(null)
   const jarToastTimerRef = useRef<number | null>(null)
+  /* ---------- REWARDED-РЕКЛАМА (0.0.71): бонус за просмотр (VK 4.2.1/5.1.5) ---------- */
+  const [adBusy, setAdBusy] = useState(false)
+  const [adReward, setAdReward] = useState<DropResult | null>(null)
+  const [adNote, setAdNote] = useState<'' | 'cool' | 'skip' | 'off'>('')
+  /* VKWebAppViewHide глушит звук сам; restore возвращает USER-настройку звука (VK 2.2.5) */
+  const vkAutoMutedRef = useRef(false)
   /* ---------- Ф0-2: туториал первого забега ----------
      Логика живёт в ref (onStats создаётся один раз и видит актуальные данные),
      tutStep — только для рендера облачка. Шаги: 1 палец · 2 зёрна ·
@@ -6925,6 +6943,7 @@ export function PopcornGame() {
                 secs: runSecs,
                 runId: tok?.runId ?? '',
                 token: tok?.token ?? '',
+                vk: getVKLaunchParams() ?? undefined,
               }),
             })
               .then((res) => {
@@ -7155,9 +7174,25 @@ export function PopcornGame() {
     /* v0.0.59: окно потеряло фокус (Alt-Tab, клик в другое окно на десктопе) —
        та же пауза: раньше таймер уровня и playSecs продолжали тикать */
     window.addEventListener('blur', doPause)
+    /* VK BRIDGE (0.0.71): init при старте + ViewHide → звук выкл и пауза,
+       ViewRestore → вернуть пользовательскую громкость (правила VK 2.2.1/2.2.5) */
+    void initVK()
+    const unVK = onVKViewVisibility((hidden) => {
+      if (hidden) {
+        if (!audio.muted) {
+          vkAutoMutedRef.current = true
+          audio.setMuted(true)
+        }
+        doPause()
+      } else if (vkAutoMutedRef.current) {
+        vkAutoMutedRef.current = false
+        audio.setMuted(mutedRef.current)
+      }
+    })
     return () => {
       document.removeEventListener('visibilitychange', onVisibility)
       window.removeEventListener('blur', doPause)
+      unVK()
     }
   }, [])
 
@@ -7334,7 +7369,7 @@ export function PopcornGame() {
     runTokenPromiseRef.current = fetch('/api/leaders/start', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ device: getDeviceId() }),
+      body: JSON.stringify({ device: getDeviceId(), vk: getVKLaunchParams() ?? undefined }),
     })
       .then((r) => (r.ok ? r.json() : null))
       .then((d: { ok?: boolean; runId?: string; token?: string; startedAt?: number } | null) => {
@@ -7526,6 +7561,40 @@ export function PopcornGame() {
     }
     setPhase('start')
   }, [unlockOrientation])
+
+  /* ---------- БОНУС ЗА РЕКЛАМУ (0.0.71): вознаграждаемая VK-реклама ----------
+     Правила VK 4.2.1 (монетизация каталога игр) и 5.1.5 (rewarded только по
+     целевому вызову за явно обозначенный бонус; не основная механика ценностей
+     — лут и так падает в игре). Кулдаун 3 минуты; вне VK кнопка скрыта (2.3.6) */
+  const AD_TS_KEY = 'popcorn-ad-ts'
+  const AD_COOLDOWN_MS = 3 * 60_000
+  const watchAdForLoot = useCallback(async () => {
+    if (adBusy || !isVKEnv()) return
+    audio.play('click')
+    const last = Number(window.localStorage.getItem(AD_TS_KEY) || '0')
+    if (Number.isFinite(last) && Date.now() - last < AD_COOLDOWN_MS) {
+      setAdNote('cool')
+      audio.play('penalty')
+      return
+    }
+    setAdBusy(true)
+    setAdNote('')
+    const res = await showRewardedAd()
+    setAdBusy(false)
+    if (res === 'completed') {
+      window.localStorage.setItem(AD_TS_KEY, String(Date.now()))
+      /* Награда: случайный лут инвентаря (как из сундука). Склад полон —
+         автопродажа в монетки, честно и без потери */
+      const drop = dropInvItem()
+      if (!drop.stored) addCoins(drop.coins)
+      setAdReward(drop)
+      audio.play('perk')
+    } else if (res === 'skipped') {
+      setAdNote('skip')
+    } else {
+      setAdNote('off')
+    }
+  }, [adBusy])
 
   /** «КОНЕЦ ИГРЫ» по воле игрока: завершаем забег как ПОБЕДУ — с победным
       экраном результата и плакатом №7. Очки идут в рекорд и мировую таблицу. */
@@ -8458,7 +8527,8 @@ export function PopcornGame() {
                     aria-label={GAME_VERSION_LABEL}
                     className="pointer-events-none shrink-0 font-ui text-[9px] font-semibold lowercase tracking-wide text-[#D8B4FE]/50"
                   >
-                    {GAME_VERSION_LABEL}
+                    {/* 0+ (0.0.71): правила VK 2.1.5 — возрастная отметка в меню */}
+                    {GAME_VERSION_LABEL} · 0+
                   </span>
                 </div>
                 </div>
@@ -8981,6 +9051,30 @@ export function PopcornGame() {
 
                 {/* ЗАКРЕПЛЁННЫЙ низ: «ЕЩЁ РАЗ» видна без прокрутки на любом экране */}
                 <div className="shrink-0 space-y-2 border-t-2 border-[#e3cba4] bg-[#fdf3e0] px-4 py-3 pb-[max(0.75rem,env(safe-area-inset-bottom))]">
+                  {/* РЕКЛАМА ЗА БАНОЧКУ (0.0.71): VK 4.2.1 — только внутри VK,
+                      опциональный бонус с кулдауном; вне VK скрыта (2.3.6) */}
+                  {isVKEnv() && !adReward && (
+                    <button
+                      type="button"
+                      onClick={() => void watchAdForLoot()}
+                      disabled={adBusy}
+                      className="flex min-h-9 w-full items-center justify-center gap-2 rounded-xl border-2 border-[#e2954a] bg-[#fff7e8] px-3 py-1.5 font-pixel text-[11px] font-bold text-[#B06A2A] transition hover:bg-[#ffedda] active:scale-[0.98] disabled:opacity-60"
+                    >
+                      {adBusy ? '🎬 …' : t('over.ad')}
+                    </button>
+                  )}
+                  {adReward && (
+                    <p className="rounded-lg bg-amber-100 px-2 py-1.5 text-center font-ui text-[11px] font-bold text-[#8a5330]">
+                      {adReward.stored
+                        ? t('over.adJar', { name: t(`item.${adReward.def.id}.name`) })
+                        : t('over.adCoins', { n: adReward.coins })}
+                    </p>
+                  )}
+                  {adNote !== '' && (
+                    <p className="text-center font-ui text-[11px] font-semibold text-[#8a5330]">
+                      {t(adNote === 'cool' ? 'ad.cool' : adNote === 'skip' ? 'ad.skip' : 'ad.off')}
+                    </p>
+                  )}
                   {result.canRevive && <GameButton onClick={reviveRun}>{t('over.revive')}</GameButton>}
                   <GameButton onClick={startGame}>
                     <span className="inline-flex items-center justify-center gap-2">

@@ -2394,10 +2394,10 @@ export const T: Record<string, Row> = {
 
   /* ---------- v0.0.43: ОНЛИФАНСИЙ — босс-лев пугает с краю поля ---------- */
   'cameo.caption': [
-    'ОНЛИФАНСИЙ НАБЛЮДАЕТ…',
-    'ONLYFANSIUS IS WATCHING…',
-    'ONLYFANSIUS SIEHT ZU…',
-    'ONLYFANSIUS TE OBSERVA…',
+    'ГРОМОВЛАСИЙ НАБЛЮДАЕТ…',
+    'THUNDERMANE IS WATCHING…',
+    'DONNERMÄHNE SIEHT ZU…',
+    'MELATRUENO TE OBSERVA…',
   ],
 
   /* ---------- интро босса: карточка «КАК ПОБЕДИТЬ?» (0.0.42) ---------- */
@@ -2424,16 +2424,16 @@ export const T: Record<string, Row> = {
     '¡La paloma mega cuelga sobre tu taza y la PICA! El cuerpo es invulnerable: golpea justo EN LOS OJOS: son dos y diminutos. ¡Cada golpe preciso quita una vida al pájaro!',
   ],
   'bossintro.gypsy': [
-    'Цыганская рука крадёт зёрна с поля и швыряет их В ТЕБЯ — уводи лапку из круга-телеграфа, попадание минус сердечко! Бей по ладони АКТИВНЫМ махом лапки: зерно ей безразлично, а шлепки отнимают жизни.',
-    'The gypsy hand steals kernels off the floor and flings them AT YOU — steer the paw out of the warning circle, a hit costs a heart! Slap the palm with an ACTIVE paw swing: kernels don’t hurt her, but your slaps do.',
-    'Die Zigeunerhand klaut Körner vom Feld und wirft sie NACH DIR — führ die Pfote aus dem Warnkreis, ein Treffer kostet ein Herz! Klatsche mit AKTIVEM Pfotenschwung auf die Handfläche: Körner stören sie nicht, aber deine Schläge schon.',
-    '¡La mano gitana roba granos del suelo y los lanza HACIA TI — saca la patita del círculo de aviso: un golpe cuesta un corazón! Dale palmadas a la palma con un barrido ACTIVO: los granos no la dañan, pero tus golpes sí.',
+    'Ловкая рука крадёт зёрна с поля и швыряет их В ТЕБЯ — уводи лапку из круга-телеграфа, попадание минус сердечко! Бей по ладони АКТИВНЫМ махом лапки: зерно ей безразлично, а шлепки отнимают жизни.',
+    'The sneaky hand steals kernels off the floor and flings them AT YOU — steer the paw out of the warning circle, a hit costs a heart! Slap the palm with an ACTIVE paw swing: kernels don’t hurt it, but your slaps do.',
+    'Die Flinke Hand klaut Körner vom Feld und wirft sie NACH DIR — führ die Pfote aus dem Warnkreis, ein Treffer kostet ein Herz! Klatsche mit AKTIVEM Pfotenschwung auf die Handfläche: Körner stören sie nicht, aber deine Schläge schon.',
+    '¡La mano tramposa roba granos del suelo y los lanza HACIA TI — saca la patita del círculo de aviso: un golpe cuesta un corazón! Dale palmadas a la palma con un barrido ACTIVO: los granos no la dañan, pero tus golpes sí.',
   ],
   'bossintro.lion': [
-    'ОНЛИФАНСИЙ — ФИНАЛЬНЫЙ БОСС со всеми механиками! Рвётся к корзине и гребёт попкорн; РЁВ закрывает гриву-щит: зёрна отскакивают, лапку сносит волной. А ещё бьёт КОГТЯМИ СВЕРХУ — уводи лапку из круга-телеграфа! Пинай зёрна резким махом в морду: вне рёва каждый удар отнимает жизнь у зверя.',
-    'ONLYFANSIUS — the FINAL BOSS with ALL the tricks! He charges the cup and scoops popcorn; his ROAR raises a mane-shield: kernels bounce off and the blast sweeps your paw away. And he strikes CLAWS FROM ABOVE — steer the paw out of the warning circle! Flick kernels into his muzzle with a sharp swing: outside the roar every hit costs the beast a life.',
-    'ONLYFANSIUS — der ENDBOSS mit ALLEN Tricks! Er stürmt zum Becher und schaufelt Popcorn; sein BRÜLLEN hebt den Mähneschild: Körner prallen ab, die Welle schleudert die Pfote fort. Und er schlägt KRALLEN VON OBEN — führ die Pfote aus dem Warnkreis! Schleudere Körner mit kurem Schwung auf die Schnauze: außerhalb des Brüllens kostet jeder Treffer ein Leben.',
-    'ONLYFANSIUS — el JEFE FINAL con TODAS las mañas! Embiste contra la taza y atrapa palomitas; su RUGIDO levanta la melena-escudo: los granos rebotan y la onda barre tu patita. Y golpea con GARRAS DESDE ARRIBA — saca la patita del círculo de aviso! Lanza granos al hocico con un golpe seco: fuera del rugido, cada golpe quita una vida a la bestia.',
+    'ГРОМОВЛАСИЙ — ФИНАЛЬНЫЙ БОСС со всеми механиками! Рвётся к корзине и гребёт попкорн; РЁВ закрывает гриву-щит: зёрна отскакивают, лапку сносит волной. А ещё бьёт КОГТЯМИ СВЕРХУ — уводи лапку из круга-телеграфа! Пинай зёрна резким махом в морду: вне рёва каждый удар отнимает жизнь у зверя.',
+    'THUNDERMANE — the FINAL BOSS with ALL the tricks! He charges the cup and scoops popcorn; his ROAR raises a mane-shield: kernels bounce off and the blast sweeps your paw away. And he strikes CLAWS FROM ABOVE — steer the paw out of the warning circle! Flick kernels into his muzzle with a sharp swing: outside the roar every hit costs the beast a life.',
+    'DONNERMÄHNE — der ENDBOSS mit ALLEN Tricks! Er stürmt zum Becher und schaufelt Popcorn; sein BRÜLLEN hebt den Mähneschild: Körner prallen ab, die Welle schleudert die Pfote fort. Und er schlägt KRALLEN VON OBEN — führ die Pfote aus dem Warnkreis! Schleudere Körner mit kurem Schwung auf die Schnauze: außerhalb des Brüllens kostet jeder Treffer ein Leben.',
+    '¡MELATRUENO — el JEFE FINAL con TODAS las mañas! Embiste contra la taza y atrapa palomitas; su RUGIDO levanta la melena-escudo: los granos rebotan y la onda barre tu patita. Y golpea con GARRAS DESDE ARRIBA — saca la patita del círculo de aviso! Lanza granos al hocico con un golpe seco: fuera del rugido, cada golpe quita una vida a la bestia.',
   ],
   'hud.shields': ['Щиты от мин: {{n}}', 'Mine shields: {{n}}', 'Minenschilde: {{n}}', 'Escudos antaminas: {{n}}'],
   'hud.hearts': ['Сердечки: {{n}} из {{m}}', 'Hearts: {{n}} of {{m}}', 'Herzen: {{n}} von {{m}}', 'Corazones: {{n}} de {{m}}'],
@@ -2509,6 +2509,39 @@ export const T: Record<string, Row> = {
     '❤️ SEGUNDA OPORTUNIDAD · +15 SEG',
   ],
   'over.share': ['ПОДЕЛИТЬСЯ РЕКОРДОМ', 'SHARE RECORD', 'REKORD TEILEN', 'COMPARTIR RÉCORD'],
+  /* v0.0.71: вознаграждаемая реклама (правила VK 4.2.1/5.1.5) — опциональный
+     бонус по целевому вызову, кулдаун 3 минуты, вне VK кнопка скрыта */
+  'over.ad': ['🎬 БАНОЧКА ЗА РЕКЛАМУ', '🎬 JAR FOR AN AD', '🎬 GLAS FÜR WERBUNG', '🎬 FRASCO POR ANUNCIO'],
+  'over.adJar': [
+    '🎬 За просмотр рекламы: {{name}} — уже на складе!',
+    '🎬 For watching the ad: {{name}} — added to storage!',
+    '🎬 Fürs Anschauen: {{name}} — im Lager!',
+    '🎬 Por ver el anuncio: ¡{{name}} — en el almacén!',
+  ],
+  'over.adCoins': [
+    '🎬 За просмотр рекламы: склад полон — +{{n}} 🪙',
+    '🎬 For watching the ad: storage full — +{{n}} 🪙',
+    '🎬 Fürs Anschauen: Lager voll — +{{n}} 🪙',
+    '🎬 Por ver el anuncio: almacén lleno — +{{n}} 🪙',
+  ],
+  'ad.cool': [
+    'Реклама будет доступна через пару минут — играй, кайфуй!',
+    'The ad will be back in a couple of minutes — keep playing!',
+    'Die Werbung ist in ein paar Minuten wieder da — spiel weiter!',
+    'El anuncio volverá en un par de minutos: ¡sigue jugando!',
+  ],
+  'ad.skip': [
+    'Досмотри ролик до конца — и баночка твоя!',
+    'Watch the video to the end — the jar is yours!',
+    'Schau das Video zu Ende — das Glas ist dein!',
+    '¡Mira el video hasta el final y el frasco es tuyo!',
+  ],
+  'ad.off': [
+    'Реклама сейчас недоступна — попробуй позже.',
+    'Ads are unavailable right now — try again later.',
+    'Werbung ist gerade nicht verfügbar — später versuchen.',
+    'Los anuncios no están disponibles ahora: inténtalo más tarde.',
+  ],
   'share.text': [
     'Я набрал {{s}} очков (уровень {{l}}) в POPCORN PAWS! 🐱🍿',
     'I scored {{s}} points (level {{l}}) in POPCORN PAWS! 🐱🍿',
@@ -2670,6 +2703,15 @@ export const T: Record<string, Row> = {
   'creators.author': ['Автор и правообладатель', 'Author & copyright holder', 'Autor & Urheber', 'Autor y propietario'],
   'creators.muse': ['муза и соавтор', 'muse & co-author', 'Muse & Mitautorin', 'musa y coautora'],
   'creators.contact': ['Связаться с автором:', 'Contact the author:', 'Autor kontaktieren:', 'Contacta al autor:'],
+  /* v0.0.71: приватность — правила VK 1.1.2/1.1.10 (цели обработки данных
+     и свободное удаление по запросу) */
+  'creators.privacy': ['Приватность', 'Privacy', 'Datenschutz', 'Privacidad'],
+  'creators.privacyText': [
+    'Игра хранит только твой ник и рекорды — для таблицы лидеров. Персональные данные не собираются. Захочешь удалить свои данные — напиши автору в VK или на почту, удалим в течение суток.',
+    'The game stores only your nickname and records — for the leaderboard. No personal data is collected. To delete your data, message the author on VK or email — we will delete it within 24 hours.',
+    'Das Spiel speichert nur deinen Namen und Rekorde — für die Bestenliste. Keine persönlichen Daten. Zum Löschen deiner Daten schreib dem Autor in VK oder per E-Mail — wir löschen innerhalb von 24 Stunden.',
+    'El juego guarda solo tu apodo y récords, para la tabla de líderes. No se recogen datos personales. Para borrar tus datos, escribe al autor por VK o correo: los borraremos en 24 horas.',
+  ],
   'creators.support': ['💛 ПОДДЕРЖАТЬ АВТОРА', '💛 SUPPORT THE AUTHOR', '💛 AUTOR UNTERSTÜTZEN', '💛 APOYA AL AUTOR'],
   'creators.donateHint': [
     'Наведи камеру банковского приложения на QR — банк спросит, сколько перевести. Или тапни по номеру карты, чтобы скопировать.',
@@ -3382,7 +3424,7 @@ export const T: Record<string, Row> = {
   ],
   'hud.boss': ['МАЛЫШ', 'KID', 'KNIRPS', 'PEQUE'],
   /* ---------- v0.0.33: ЛЬВ и КУНИЦА ЛАНА — боссы чередуются каждые 10 уровней ---------- */
-  'banner.bossLion': ['🦁 ОНЛИФАНСИЙ ИДЁТ!', '🦁 ONLYFANSIUS ATTACKS!', '🦁 ONLYFANSIUS KOMMT!', '¡🦁 ONLYFANSIUS ATACA!'],
+  'banner.bossLion': ['🦁 ГРОМОВЛАСИЙ ИДЁТ!', '🦁 THUNDERMANE ATTACKS!', '🦁 DONNERMÄHNE KOMMT!', '¡🦁 MELATRUENO ATACA!'],
   'banner.bossMarten': ['🦡 КУНИЦА ЛАНА!', '🦡 LANA THE MARTEN!', '🦡 MARDER LANA!', '🦡 LA MARTA LANA!'],
   'txt.bossWarnLion': [
     'В РЁВЕ ГРИВА-ЩИТ: ЗЁРНА ОТСКОЧАТ — БЕЙ ПОСЛЕ!',
@@ -3428,7 +3470,7 @@ export const T: Record<string, Row> = {
   /* v0.0.39: ЦЫГАНСКАЯ РУКА — четвёртый босс (каждый 20-й уровень): сгребает
      рассыпанные зёрна с поля и кидает их В ЭКРАН — минус сердечко и стан лапки.
      Саму руку шлёпать лапкой — это и есть урон */
-  'banner.bossGypsy': ['💍 ЦЫГАНСКАЯ РУКА!', '💍 GYPSY HAND!', '💍 ZIGEUNERHAND!', '¡💍 MANO GITANA!'],
+  'banner.bossGypsy': ['💍 ЛОВКАЯ РУКА!', '💍 SNEAKY HAND!', '💍 FLINKE HAND!', '¡💍 MANO TRAMPOSA!'],
   'txt.bossWarnGypsy': [
     'ОНА КРАДЁТ ЗЁРНА С ПОЛА И КИДАЕТ ИХ В ЭКРАН! ШЛЁПАЙ ЛАПКОЙ ПО РУКЕ!',
     'SHE STEALS KERNELS OFF THE FLOOR AND THROWS THEM AT YOU! SLAP THE HAND!',
@@ -3461,25 +3503,25 @@ export const T: Record<string, Row> = {
   ],
   'ach.gypsyBoss1.name': ['Рука повержена', 'Hand Downed', 'Hand Besiegt', 'Mano Derribada'],
   'ach.gypsyBoss1.desc': [
-    'Победить ЦЫГАНСКУЮ РУКУ: крадёт зёрна и кидает их в тебя — шлёпай её лапкой!',
-    'Defeat the GYPSY HAND: she steals kernels and hurls them at you — slap her!',
-    'Die ZIGEUNERHAND besiegen: Sie stiehlt Körner — klatsch sie weg!',
-    'Vence a la MANO GITANA: roba granos y te los tira: ¡manotéala!',
+    'Победить ЛОВКУЮ РУКУ: крадёт зёрна и кидает их в тебя — шлёпай её лапкой!',
+    'Defeat the SNEAKY HAND: she steals kernels and hurls them at you — slap her!',
+    'Die FLINKE HAND besiegen: Sie stiehlt Körner — klatsch sie weg!',
+    'Vence a la MANO TRAMPOSA: roba granos y te los tira: ¡manotéala!',
   ],
   /* Ачивки боссов 0.0.33+: раньше показывался сырой ключ — теперь все 4 языка */
   'ach.lion1.name': ['Царь попкорна', 'Popcorn King', 'Popcorn-König', 'Rey del Palomitas'],
   'ach.onlyWitness.name': ['Свидетель', 'The Witness', 'Der Zeuge', 'El Testigo'],
   'ach.onlyWitness.desc': [
-    'Онлифансий высунул гигантскую когтистую лапу на уровнях 7/13/18 — и ты не запаниковал!',
-    'OnlyFansius thrust his giant clawed paw in at levels 7/13/18 — and you kept your cool!',
-    'OnlyFansius schob seine Riesenpranke bei Level 7/13/18 herein — und du bliebst cool!',
-    'OnlyFansius metió su pata gigante con garras en los niveles 7/13/18 — ¡y no te acobardaste!',
+    'Громовласий высунул гигантскую когтистую лапу на уровнях 7/13/18 — и ты не запаниковал!',
+    'Thundermane thrust his giant clawed paw in at levels 7/13/18 — and you kept your cool!',
+    'Donnermähne schob seine Riesenpranke bei Level 7/13/18 herein — und du bliebst cool!',
+    'Melatrueno metió su pata gigante con garras en los niveles 7/13/18 — ¡y no te acobardaste!',
   ],
   'ach.lion1.desc': [
-    'Победить ОНЛИФАНСИЯ: грива-щит отбивает зёрна — бей после рёва!',
-    'Defeat ONLYFANSIUS: his mane deflects kernels — strike after the roar!',
-    'ONLYFANSIUS besiegen: Die Mähne wehrt Körner ab — triff nach dem Brüllen!',
-    'Vencer a ONLYFANSIUS: su meléna rebota granos: ¡ataca tras el rugido!',
+    'Победить ГРОМОВЛАСИЯ: грива-щит отбивает зёрна — бей после рёва!',
+    'Defeat THUNDERMANE: his mane deflects kernels — strike after the roar!',
+    'DONNERMÄHNE besiegen: Die Mähne wehrt Körner ab — triff nach dem Brüllen!',
+    'Vencer a MELATRUENO: su meléna rebota granos: ¡ataca tras el rugido!',
   ],
   'ach.marten1.name': ['Лана поймана', 'Lana Caught', 'Lana Gefangen', 'Lana Atrapada'],
   'ach.marten1.desc': [
@@ -3498,10 +3540,10 @@ export const T: Record<string, Row> = {
   /* 0.0.50: ключи для menagerie/xpRun250/xpRun750 — раньше выводились как сырые ach.xxx */
   'ach.menagerie.name': ['Фильм про зверей', 'Animal Movie', 'Tierfilm', 'Película de Animales'],
   'ach.menagerie.desc': [
-    'Победить МАЛЫША и КУНИЦУ ЛАНУ за один забег (Онлифансий подождёт!)',
-    'Defeat the KID boss and LANA THE MARTEN in one run (OnlyFansius will wait!)',
-    'Besiege den Knirps und den Marder LANA in einem Lauf (OnlyFansius wartet!)',
-    'Vence al Niño y a la marta LANA en una partida (¡OnlyFansius puede esperar!)',
+    'Победить МАЛЫША и КУНИЦУ ЛАНУ за один забег (Громовласий подождёт!)',
+    'Defeat the KID boss and LANA THE MARTEN in one run (Thundermane will wait!)',
+    'Besiege den Knirps und den Marder LANA in einem Lauf (Donnermähne wartet!)',
+    'Vence al Niño y a la marta LANA en una partida (¡Melatrueno puede esperar!)',
   ],
   'ach.xpRun250.name': ['Опытный студент', 'Seasoned Student', 'Erfahrener Student', 'Estudiante Experto'],
   'ach.xpRun250.desc': [
@@ -3522,9 +3564,9 @@ export const T: Record<string, Row> = {
   'txt.pawCut': ['РЕЗ!', 'SLICE!', 'SCHNITT!', '¡CORTE!'],
   'txt.lanaDodge': ['УВЕРНУЛАСЬ!', 'TOO SLICK!', 'ZU FLINK!', '¡ESCURRIDIZA!'],
   'txt.lootBack': ['ОБРАТНО!', 'GIVEN BACK!', 'ZURÜCK!', '¡DEVUELTO!'],
-  'txt.bossDownLion': ['ОНЛИФАНСИЙ ПОВЕРЖЕН! +{{n}}', 'ONLYFANSIUS DEFEATED! +{{n}}', 'ONLYFANSIUS BESIEGT! +{{n}}', '¡ONLYFANSIUS DERROTADO! +{{n}}'],
+  'txt.bossDownLion': ['ГРОМОВЛАСИЙ ПОВЕРЖЕН! +{{n}}', 'THUNDERMANE DEFEATED! +{{n}}', 'DONNERMÄHNE BESIEGT! +{{n}}', '¡MELATRUENO DERROTADO! +{{n}}'],
   'txt.bossDownMarten': ['ЛАНА ПОЙМАНА! +{{n}}', 'LANA CAUGHT! +{{n}}', 'LANA GEFANGEN! +{{n}}', '¡LANA ATRAPADA! +{{n}}'],
-  'hud.bossLion': ['ОНЛИФАНСИЙ', 'ONLYFANSIUS', 'ONLYFANSIUS', 'ONLYFANSIUS'],
+  'hud.bossLion': ['ГРОМОВЛАСИЙ', 'THUNDERMANE', 'DONNERMÄHNE', 'MELATRUENO'],
   'hud.bossMarten': ['ЛАНА', 'LANA', 'LANA', 'LANA'],
   'hud.bossPigeon': ['ГОЛУБЬ', 'PIGEON', 'TAUBE', 'PALOMA'],
   'hud.bossGypsy': ['РУКА', 'HAND', 'HAND', 'MANO'],
@@ -4168,7 +4210,7 @@ export const T: Record<string, Row> = {
     'Eine Mähne am Glasboden — das Fieberflammen brennt länger.',
     'Una melena en el fondo del frasco: la llama de la Fiebre arde más.',
   ],
-  'item.jar-gypsy.name': ['Баночка цыгана', 'Gypsy Jar', 'Zigeunerglas', 'Frasco del Gitano'],
+  'item.jar-gypsy.name': ['Баночка ловкача', 'Sly Jar', 'Schelmenglas', 'Frasco del Tramposo'],
   'item.jar-gypsy.bonus': [
     'Золотые зёрна выпадают в 1.6 раза чаще',
     'Golden grains 1.6× more often',
@@ -4176,10 +4218,10 @@ export const T: Record<string, Row> = {
     'Granitos dorados 1,6× más a menudo',
   ],
   'item.jar-gypsy.desc': [
-    'Тайный рассол цыгана: золото само сыплется в стаканчик.',
-    "The gypsy's secret brine: gold pours itself into the cup.",
-    'Des Zigeuners geheime Lake: Gold fällt von selbst in den Becher.',
-    'La salmuera secreta del gitano: el oro cae solo en la copa.',
+    'Тайный рассол ловкача: золото само сыплется в стаканчик.',
+    "The trickster's secret brine: gold pours itself into the cup.",
+    'Des Schelms geheime Lake: Gold fällt von selbst in den Becher.',
+    'La salmuera secreta del tramposo: el oro cae solo en la copa.',
   ],
   'item.jar-marten.name': ['Баночка Ланы', "Lana's Jar", 'Lanas Glas', 'Frasco de Lana'],
   'item.jar-marten.bonus': [

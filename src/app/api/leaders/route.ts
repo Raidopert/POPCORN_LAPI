@@ -39,6 +39,7 @@ import {
   rateLimit,
   STARTS_PER_HOUR,
   SUBMITS_PER_HOUR,
+  verifyVKParams,
 } from '@/lib/leaderboard-guard'
 
 export const runtime = 'nodejs'
@@ -73,6 +74,12 @@ export async function POST(req: Request) {
     body = (await req.json()) as Record<string, unknown>
   } catch {
     return NextResponse.json({ ok: false }, { status: 400 })
+  }
+
+  /* Подпись параметров запуска VK (п. 1.2.2 правил VK): битая подпись — 403.
+     Вне VK / без настроенного VK_APP_SECRET запрос проходит как раньше */
+  if (!verifyVKParams(body.vk)) {
+    return NextResponse.json({ ok: false, reason: 'sign' }, { status: 403 })
   }
 
   /* Санитизация входа: device из безопасного алфавита, очки в разумных пределах */
