@@ -44,7 +44,8 @@ const eslintConfig = [...nextCoreWebVitals, ...nextTypescript, {
     "no-useless-escape": "off",
   },
 }, {
-  ignores: ["node_modules/**", ".next/**", "out/**", "build/**", "next-env.d.ts", "examples/**", "skills"]
+  /* v0.0.72: + офлайн-сборки и тулчейн установщиков (генерённый код не линтуем) */
+  ignores: ["node_modules/**", ".next/**", ".next-export/**", "out/**", "build/**", "next-env.d.ts", "examples/**", "skills", "desktop-build/**", "android-build/**", "desktop/**", "android/**", ".tools/**", ".api-stash/**", "branding/**"]
 }];
 
 export default eslintConfig;

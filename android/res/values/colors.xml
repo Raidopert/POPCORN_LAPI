@@ -1,0 +1,5 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!-- Фон boot-экрана игры (тёмно-бордовый) -->
+    <color name="boot_bg">#1C0517</color>
+</resources>

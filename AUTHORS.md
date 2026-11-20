@@ -5,7 +5,8 @@
 **RaidoPert** — единственный автор и правообладатель проекта.
 
 - **Проект:** «Кошачий попкорнный Беспредел» (Cat Popcorn Mayhem)
-- **Версия:** pre-alpha 0.0.3 (бейдж версии виден в главном меню игры)
+- **Версия:** pre-alpha 0.0.72 (бейдж версии виден в главном меню игры)
+- **Студия:** Raido Pert Studio (ᚱ ᛈ)
 - **GitHub:** <https://github.com/Raidopert/POPCORN_LAPI>
 - **Прод (играть онлайн):** <https://popcorn-lapi.vercel.app>
 

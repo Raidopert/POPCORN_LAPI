@@ -1,10 +1,10 @@
 {
   "name": "popcorn-lapi",
-  "version": "0.0.70",
+  "version": "0.0.72",
   "private": true,
-  "author": "Raidopert",
+  "author": "Raido Pert Studio",
   "license": "UNLICENSED",
-  "description": "Кошачий попкорнный Беспредел (Cat Popcorn Mayhem) — 8-битный рогалик-аркада. (c) Raidopert, см. LICENSE",
+  "description": "Кошачий попкорнный Беспредел (Cat Popcorn Mayhem) — 8-битный рогалик-аркада. (c) Raido Pert Studio, см. LICENSE",
   "scripts": {
     "dev": "next dev -p 3000 2>&1 | tee dev.log",
     "dev:win": "next dev -p 3000",

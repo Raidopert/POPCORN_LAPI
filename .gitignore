@@ -2,3 +2,12 @@ skills/
 node_modules/
 .next/
 tool-results/
+.tools/
+desktop-build/
+android-build/
+.api-stash/
+out/
+.next-export/
+public/downloads/
+branding/*.bmp.tmp
+desktop/app-electron/web/
