@@ -109,3 +109,6 @@
  GET / 200 in 25ms (next.js: 5ms, proxy.ts: 3ms, application-code: 17ms)
 ✓ Compiled in 116ms
  GET /studio 200 in 261ms (next.js: 35ms, proxy.ts: 4ms, application-code: 222ms)
+ GET / 200 in 37ms (next.js: 4ms, proxy.ts: 3ms, application-code: 29ms)
+ POST /api/sessions 200 in 17ms (next.js: 1.1ms, application-code: 16ms)
+ GET /studio 200 in 98ms (next.js: 4ms, proxy.ts: 6ms, application-code: 88ms)
