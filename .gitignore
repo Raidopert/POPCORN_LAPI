@@ -11,3 +11,13 @@ out/
 public/downloads/
 branding/*.bmp.tmp
 desktop/app-electron/web/
+
+# runtime / session artifacts (не для репозитория)
+dev.log
+*.log
+db/*.db
+db/*.db-journal
+next-env.d.ts
+public/site-preview/
+agent-ctx/
+upload/
