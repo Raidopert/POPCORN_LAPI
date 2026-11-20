@@ -7,7 +7,7 @@
 > Автор: **RaidoPert** · ВК: <https://vk.ru/raido_pert> ·
 > e-mail: <raidopert@gmail.com> ·
 > GitHub: <https://github.com/Raidopert/POPCORN_LAPI> ·
-> Прод: <https://raidopert.ru>
+> Прод: <https://play.raidopert.ru>
 
 ## Донаты уже сейчас 💛 (доступно с версии 0.0.3)
 

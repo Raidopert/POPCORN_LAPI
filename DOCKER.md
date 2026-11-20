@@ -169,5 +169,6 @@ docker compose logs -f game
 
 ---
 
-Автор игры — **Raidopert** · Прод: <https://raidopert.ru> ·
+Автор игры — **Raidopert** · Прод: <https://play.raidopert.ru> ·
+Сайт студии: <https://raidopert.ru> ·
 Лицензия — см. [LICENSE](./LICENSE) · Об авторе — см. [AUTHORS.md](./AUTHORS.md)

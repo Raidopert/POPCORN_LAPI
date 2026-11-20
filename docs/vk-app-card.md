@@ -74,8 +74,8 @@
 
 | Что | Файл | Размер |
 |---|---|---|
-| Иконка приложения | скачать https://raidopert.ru/vk/icon-200.png | 200×200 |
-| Обложка (моб.) | https://raidopert.ru/vk/cover-1216x604.png | 1216×604 |
+| Иконка приложения | скачать https://play.raidopert.ru/vk/icon-200.png | 200×200 |
+| Обложка (моб.) | https://play.raidopert.ru/vk/cover-1216x604.png | 1216×604 |
 | Скриншот desktop | `public/screenshots/desktop-1280x720.png` | 1280×720 |
 | Скриншот меню (моб.) | `public/screenshots/menu-720x1280.png` | 720×1280 |
 | Скриншот игры (моб.) | `public/screenshots/play-720x1280.png` | 720×1280 |

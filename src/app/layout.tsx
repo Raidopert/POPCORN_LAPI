@@ -23,7 +23,7 @@ const pixelSans = Handjet({
 });
 
 export const metadata: Metadata = {
-  metadataBase: new URL("https://raidopert.ru"),
+  metadataBase: new URL("https://play.raidopert.ru"),
   title: "POPCORN PAWS — 8-битный рогалик-аркада",
   description:
     "Рогалик-аркада: собирай попкорн лапкой куницы в стаканчик, выполняй норму уровня и открывай сундучки со случайными перками — бонусы и волшебные эффекты! 8-битная музыка ускоряется к концу уровня. Играй бесплатно в браузере на смартфоне и ПК.",
@@ -46,7 +46,7 @@ export const metadata: Metadata = {
     title: "POPCORN PAWS — 8-битный рогалик-аркада",
     description:
       "Собирай попкорн лапкой куницы, уворачивайся от мин-кукурузы и ставь рекорды. Играй бесплатно прямо в браузере!",
-    url: "https://raidopert.ru",
+    url: "https://play.raidopert.ru",
     siteName: "POPCORN PAWS",
     locale: "ru_RU",
     type: "website",
