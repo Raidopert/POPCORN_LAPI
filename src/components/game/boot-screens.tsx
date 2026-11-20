@@ -61,8 +61,8 @@ export function BootScreens() {
           aria-label="Перейти к дисклеймеру"
         >
           <img
-            src="/boot/logo.jpg"
-            alt="Логотип Raido Pert Studio — фиолетовый леопардовый значок с рунами ᚱ ᛈ"
+            src="/boot/logo-kitten-v1.jpg"
+            alt="Логотип Raido Pert Studio — рыжий котёнок в короне с попкорном в золотом лавровом венке"
             className="w-[min(74vw,44vh)] h-[min(74vw,44vh)] object-contain drop-shadow-[0_18px_50px_rgba(0,0,0,0.55)]"
             style={{ animation: 'rps-boot-logo 0.7s ease-out both' }}
           />
