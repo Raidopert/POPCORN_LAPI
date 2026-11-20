@@ -34,6 +34,12 @@ import {
 } from "lucide-react";
 import { GAME_VERSION } from "@/lib/game/version";
 import { DEVLOG } from "@/lib/studio/devlog";
+import {
+  CONCEPT_IMAGES,
+  MARKET_NOTES,
+  ROADMAP_DIRECTIONS,
+  ROADMAP_PLAN,
+} from "@/lib/studio/roadmap";
 import { CopyButton } from "@/components/studio/copy-button";
 
 export const metadata: Metadata = {
@@ -127,6 +133,7 @@ export default function StudioPage() {
             <a className="hover:text-[#F4D489] transition-colors" href="#download">Скачать</a>
             <a className="hover:text-[#F4D489] transition-colors" href="#about">О студии</a>
             <a className="hover:text-[#F4D489] transition-colors" href="#devlog">Devlog</a>
+            <a className="hover:text-[#F4D489] transition-colors" href="#roadmap">План</a>
             <a className="hover:text-[#F4D489] transition-colors" href="#presskit">Press-kit</a>
             <a className="hover:text-[#F4D489] transition-colors" href="#contacts">Контакты</a>
           </nav>
@@ -489,6 +496,103 @@ export default function StudioPage() {
               github.com/Raidopert/POPCORN_LAPI/releases
             </a>
           </p>
+        </section>
+
+        {/* ПЛАН РАЗВИТИЯ — roadmap, заготовки контента и концепт-арты */}
+        <section
+          id="roadmap"
+          aria-labelledby="roadmap-title"
+          className="border-y border-[#E8B95C]/20 bg-[#2a0923]/60 scroll-mt-20"
+        >
+          <div className="mx-auto max-w-5xl w-full px-4 py-14">
+            <h2 id="roadmap-title" className="text-3xl sm:text-4xl font-bold rps-gold-text mb-2" style={pixel}>
+              ПЛАН РАЗВИТИЯ
+            </h2>
+            <p className="text-[#F2E3CF]/80 mb-8">
+              Куда растёт POPCORN PAWS: направления уже заготовлены в коде
+              (реестры контента и флаги фич), концепт-арты нарисованы в стиле
+              игры. Всё ниже — планы, а не обещания: игра остаётся бесплатной,
+              честной и 0+.
+            </p>
+
+            <div className="grid gap-4 sm:grid-cols-2 mb-10">
+              {ROADMAP_DIRECTIONS.map((d) => (
+                <article key={d.title} className="rps-panel rounded-2xl p-5 sm:p-6 flex flex-col gap-3">
+                  <div className="flex items-center gap-3">
+                    <span className="text-3xl" aria-hidden>{d.icon}</span>
+                    <h3 className="text-lg font-bold text-[#F4D489]">{d.title}</h3>
+                  </div>
+                  <p className="text-[#F2E3CF]/85 text-sm sm:text-base">{d.text}</p>
+                  <code className="text-xs text-[#E8B95C]/80 mt-auto break-all">
+                    заготовка: {d.stub}
+                  </code>
+                </article>
+              ))}
+            </div>
+
+            <h3 className="text-xl sm:text-2xl font-bold rps-gold-text mb-4" style={pixel}>
+              Дорожная карта по версиям
+            </h3>
+            <div className="flex flex-col gap-3 mb-10">
+              {ROADMAP_PLAN.map((r) => (
+                <article
+                  key={r.version}
+                  className="rps-panel rounded-2xl p-4 sm:p-5 flex flex-col sm:flex-row gap-3 sm:gap-6"
+                >
+                  <div className="sm:w-28 shrink-0">
+                    <span className="text-xl font-bold rps-gold-text" style={pixel}>{r.version}</span>
+                  </div>
+                  <div className="flex flex-col gap-2 min-w-0">
+                    <h4 className="font-bold text-[#F4D489]">{r.title}</h4>
+                    <ul className="text-sm text-[#F2E3CF]/85 flex flex-col gap-1">
+                      {r.items.map((it) => (
+                        <li key={it} className="flex gap-2">
+                          <span className="text-[#E8B95C]" aria-hidden>—</span>
+                          <span>{it}</span>
+                        </li>
+                      ))}
+                    </ul>
+                  </div>
+                </article>
+              ))}
+            </div>
+
+            <h3 className="text-xl sm:text-2xl font-bold rps-gold-text mb-4" style={pixel}>
+              Концепт-заготовки
+            </h3>
+            <p className="text-sm text-[#F2E3CF]/75 mb-6">
+              Эскизы нарисованы процедурно — тем же способом, каким игра рисует
+              свои спрайты (scripts/gen-concepts-pixel.py). Это референсы для
+              будущих спрайтов и комнат, а не финальный арт.
+            </p>
+            <div className="grid gap-4 sm:grid-cols-2 mb-10">
+              {CONCEPT_IMAGES.map((img) => (
+                <figure key={img.src} className="rps-panel rounded-2xl overflow-hidden flex flex-col">
+                  <Image
+                    src={img.src}
+                    alt={`Концепт-заготовка POPCORN PAWS: ${img.caption}`}
+                    width={1344}
+                    height={768}
+                    className="w-full h-auto"
+                    sizes="(max-width: 640px) 100vw, 480px"
+                  />
+                  <figcaption className="p-4 text-sm text-[#F2E3CF]/80">{img.caption}</figcaption>
+                </figure>
+              ))}
+            </div>
+
+            <h3 className="text-xl sm:text-2xl font-bold rps-gold-text mb-4" style={pixel}>
+              Сравнение с рынком
+            </h3>
+            <div className="flex flex-col gap-3">
+              {MARKET_NOTES.map((m) => (
+                <article key={m.who} className="rps-panel rounded-2xl p-4 sm:p-5">
+                  <h4 className="font-bold text-[#F4D489] mb-1">{m.who}</h4>
+                  <p className="text-sm text-[#F2E3CF]/85">{m.lesson}</p>
+                </article>
+              ))}
+            </div>
+          </div>
         </section>
 
         {/* PRESS-KIT — материалы для прессы и блогеров */}
