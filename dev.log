@@ -41,3 +41,19 @@
  GET /studio 200 in 71ms (next.js: 4ms, proxy.ts: 5ms, application-code: 62ms)
  GET / 200 in 53ms (next.js: 3ms, proxy.ts: 6ms, application-code: 45ms)
  POST /api/sessions 200 in 53ms (next.js: 2ms, application-code: 51ms)
+ GET / 200 in 63ms (next.js: 3ms, proxy.ts: 4ms, application-code: 57ms)
+ GET / 200 in 61ms (next.js: 4ms, proxy.ts: 4ms, application-code: 53ms)
+ GET / 200 in 59ms (next.js: 7ms, proxy.ts: 4ms, application-code: 48ms)
+ POST /api/sessions 200 in 18ms (next.js: 1.1ms, application-code: 16ms)
+✓ Compiled in 153ms
+ GET / 200 in 118ms (next.js: 9ms, proxy.ts: 4ms, application-code: 105ms)
+✓ Compiled in 195ms
+✓ Compiled in 630ms
+ GET / 200 in 646ms (next.js: 607ms, proxy.ts: 6ms, application-code: 32ms)
+ GET / 200 in 63ms (next.js: 5ms, proxy.ts: 4ms, application-code: 55ms)
+ GET / 200 in 33ms (next.js: 7ms, proxy.ts: 3ms, application-code: 23ms)
+ GET / 200 in 39ms (next.js: 11ms, proxy.ts: 3ms, application-code: 24ms)
+ GET / 200 in 32ms (next.js: 7ms, proxy.ts: 4ms, application-code: 20ms)
+ GET /studio 200 in 336ms (next.js: 30ms, proxy.ts: 4ms, application-code: 302ms)
+ GET /studio 200 in 253ms (next.js: 63ms, proxy.ts: 4ms, application-code: 186ms)
+ GET /studio 200 in 87ms (next.js: 16ms, proxy.ts: 5ms, application-code: 66ms)
