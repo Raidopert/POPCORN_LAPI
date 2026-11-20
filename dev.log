@@ -71,3 +71,41 @@
  GET / 200 in 40ms (next.js: 6ms, proxy.ts: 3ms, application-code: 31ms)
  GET / 200 in 59ms (next.js: 6ms, proxy.ts: 6ms, application-code: 47ms)
  GET / 200 in 30ms (next.js: 4ms, proxy.ts: 2ms, application-code: 24ms)
+ GET / 200 in 38ms (next.js: 4ms, proxy.ts: 6ms, application-code: 29ms)
+ GET / 200 in 37ms (next.js: 5ms, proxy.ts: 3ms, application-code: 29ms)
+ GET / 200 in 36ms (next.js: 5ms, proxy.ts: 3ms, application-code: 28ms)
+ POST /api/sessions 200 in 19ms (next.js: 1.1ms, application-code: 18ms)
+ GET / 200 in 41ms (next.js: 4ms, proxy.ts: 4ms, application-code: 33ms)
+ POST /api/sessions 200 in 11ms (next.js: 0.9ms, application-code: 10ms)
+ GET / 200 in 36ms (next.js: 11ms, proxy.ts: 3ms, application-code: 21ms)
+ GET / 200 in 44ms (next.js: 5ms, proxy.ts: 22ms, application-code: 17ms)
+ GET / 200 in 44ms (next.js: 6ms, proxy.ts: 4ms, application-code: 33ms)
+ GET / 200 in 43ms (next.js: 4ms, proxy.ts: 23ms, application-code: 15ms)
+ GET / 200 in 47ms (next.js: 8ms, proxy.ts: 4ms, application-code: 34ms)
+ GET / 200 in 46ms (next.js: 22ms, proxy.ts: 5ms, application-code: 19ms)
+ GET / 200 in 52ms (next.js: 8ms, proxy.ts: 4ms, application-code: 40ms)
+ GET / 200 in 48ms (next.js: 25ms, proxy.ts: 5ms, application-code: 18ms)
+ GET / 200 in 46ms (next.js: 8ms, proxy.ts: 4ms, application-code: 35ms)
+ GET / 200 in 43ms (next.js: 23ms, proxy.ts: 4ms, application-code: 16ms)
+  Turbopack has seen frequent file updates and is waiting for the filesystem to settle (0.5s elapsed so far; last modified: "/home/z/my-project/build-tools.zip").
+  Turbopack has seen frequent file updates and is waiting for the filesystem to settle (1.5s elapsed so far; last modified: "/home/z/my-project/build-tools.zip").
+  Turbopack has seen frequent file updates and is waiting for the filesystem to settle (0.5s elapsed so far; last modified: "/home/z/my-project/platform-34.zip").
+  Turbopack has seen frequent file updates and is waiting for the filesystem to settle (1.5s elapsed so far; last modified: "/home/z/my-project/platform-34.zip").
+✓ Compiled in 147ms
+✓ Compiled in 129ms
+ GET / 200 in 33ms (next.js: 8ms, proxy.ts: 4ms, application-code: 21ms)
+✓ Compiled in 253ms
+ GET / 200 in 27ms (next.js: 7ms, proxy.ts: 3ms, application-code: 17ms)
+✓ Compiled in 82ms
+ GET / 200 in 39ms (next.js: 6ms, proxy.ts: 4ms, application-code: 29ms)
+✓ Compiled in 80ms
+ GET / 200 in 30ms (next.js: 7ms, proxy.ts: 4ms, application-code: 19ms)
+✓ Compiled in 311ms
+ GET / 200 in 31ms (next.js: 9ms, proxy.ts: 3ms, application-code: 19ms)
+ GET / 200 in 32ms (next.js: 10ms, proxy.ts: 4ms, application-code: 18ms)
+ GET / 200 in 26ms (next.js: 4ms, proxy.ts: 5ms, application-code: 18ms)
+ GET / 200 in 25ms (next.js: 5ms, proxy.ts: 3ms, application-code: 17ms)
+ GET / 200 in 34ms (next.js: 6ms, proxy.ts: 3ms, application-code: 25ms)
+ GET / 200 in 25ms (next.js: 5ms, proxy.ts: 3ms, application-code: 17ms)
+✓ Compiled in 116ms
+ GET /studio 200 in 261ms (next.js: 35ms, proxy.ts: 4ms, application-code: 222ms)
