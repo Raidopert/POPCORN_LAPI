@@ -227,7 +227,7 @@ import {
 } from '@/lib/game/market'
 import { GAME_VERSION_LABEL } from '@/lib/game/version'
 /* VK BRIDGE (0.0.71): init/ViewHide/реклама/подпись — правила VK 2.2.1/2.2.5/4.2.1/1.2.2 */
-import { getVKLaunchParams, initVK, isVKEnv, onVKViewVisibility, showRewardedAd } from '@/lib/game/vk'
+import { getVKSignedParams, initVK, isVKEnv, onVKViewVisibility, showRewardedAd } from '@/lib/game/vk'
 import { unlockNamesForRange, type LevelUnlock } from '@/lib/game/unlocks'
 import { tFor, LANGS, LOCALES, type Lang, type TranslateFn } from '@/lib/game/i18n'
 import {
@@ -4945,7 +4945,7 @@ function NickDialog({
       const res = await fetch('/api/leaders/nick', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ device: getDeviceId(), name, vk: getVKLaunchParams() ?? undefined }),
+        body: JSON.stringify({ device: getDeviceId(), name, vk: getVKSignedParams() ?? undefined }),
       })
       if (res.status === 409) {
         setTaken(true)
@@ -6943,7 +6943,7 @@ export function PopcornGame() {
                 secs: runSecs,
                 runId: tok?.runId ?? '',
                 token: tok?.token ?? '',
-                vk: getVKLaunchParams() ?? undefined,
+                vk: getVKSignedParams() ?? undefined,
               }),
             })
               .then((res) => {
@@ -7369,7 +7369,7 @@ export function PopcornGame() {
     runTokenPromiseRef.current = fetch('/api/leaders/start', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ device: getDeviceId(), vk: getVKLaunchParams() ?? undefined }),
+      body: JSON.stringify({ device: getDeviceId(), vk: getVKSignedParams() ?? undefined }),
     })
       .then((r) => (r.ok ? r.json() : null))
       .then((d: { ok?: boolean; runId?: string; token?: string; startedAt?: number } | null) => {

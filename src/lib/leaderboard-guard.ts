@@ -164,10 +164,47 @@ export function cleanNick(raw: unknown): string {
 
 /* ---------- подпись параметров запуска VK (п. 1.2.2) ---------- */
 
+/** PHP http_build_query (RFC1738): пробел → '+', спецсимволы → %XX */
+function phpUrlEncode(s: string): string {
+  return encodeURIComponent(s)
+    .replace(/[!'()*]/g, (c) => '%' + c.charCodeAt(0).toString(16).toUpperCase())
+    .replace(/%20/g, '+')
+}
+
+/** HMAC-SHA256(base64url) от отсортированного «key=value&...» */
+function vkSignOf(secret: string, flat: Record<string, string>, encode: boolean): string {
+  const qs = Object.keys(flat)
+    .sort()
+    .map((k) => `${k}=${encode ? phpUrlEncode(flat[k]) : flat[k]}`)
+    .join('&')
+  return createHmac('sha256', secret).update(qs).digest('base64url')
+}
+
+/** Timing-safe сравнение двух строк одинаковой природы (base64url без паддинга) */
+function safeEqB64(a: string, b: string): boolean {
+  const ba = Buffer.from(a.replace(/=+$/, ''))
+  const bb = Buffer.from(b.replace(/=+$/, ''))
+  return ba.length === bb.length && timingSafeEqual(ba, bb)
+}
+
 /**
- * Проверка подписи vk_* параметров запуска мини-приложения.
- * Схема VK: HMAC-SHA256 от отсортированного `key=value&...` (без sign/sig),
- * ключ VK_APP_SECRET, кодировка base64url.
+ * Проверка подписи параметров запуска VK Mini App.
+ * Схема VK: отсортированный `key=value&...` → HMAC-SHA256 с VK_APP_SECRET →
+ * base64url. Нюанс, который ломал проверку в проде (0.0.74):
+ *
+ *   1) VK подписывает ПАРАМЕТРЫ URL ЗАПУСКА, а клиент раньше присылал объект
+ *      из VKWebAppGetLaunchParams — у него фиксированный набор полей, часть
+ *      vk_*-параметров конкретной точки входа (vk_is_recommended, vk_https…)
+ *      там отсутствует → строка для HMAC не совпадает → 403 у КАЖДОГО
+ *      VK-игрока, рекорды «не сохраняются». Клиент теперь присылает свежий
+ *      парс window.location.search (см. getVKSignedParams в lib/game/vk.ts).
+ *   2) Официальные примеры VK различаются: в одних в строку идут только
+ *      vk_*-параметры, в других — ВСЕ параметры без sign; в примерах PHP
+ *      значения проходят через http_build_query (URL-кодирование).
+ *
+ * Поэтому считаем подпись в четырёх канонических вариантах (vk_*-фильтр /
+ * все поля × raw / php-кодирование) и принимаем любой совпавший —
+ * подделать её без секрета по-прежнему невозможно.
  *
  * Мягкий режим: секрет не настроен (env отсутствует) или vk-полей нет в запросе
  * (клиент вне VK) → true. Подпись есть, но не сходится → false (запрос подделан).
@@ -180,19 +217,19 @@ export function verifyVKParams(vk: unknown): boolean {
   const rec = vk as Record<string, unknown>
   const sign = rec.sign
   if (typeof sign !== 'string' || !sign) return false
-  const flat: Record<string, string> = {}
+  const flatVK: Record<string, string> = {}
+  const flatAll: Record<string, string> = {}
   for (const [k, v] of Object.entries(rec)) {
     if (k === 'sign' || k === 'sig' || v === undefined || v === null) continue
-    flat[k] = String(v)
+    flatAll[k] = String(v)
+    if (k.startsWith('vk_')) flatVK[k] = String(v)
   }
-  const qs = Object.keys(flat)
-    .sort()
-    .map((k) => `${k}=${flat[k]}`)
-    .join('&')
-  const expected = createHmac('sha256', appSecret).update(qs).digest('base64url')
-  const a = Buffer.from(expected)
-  const b = Buffer.from(sign)
-  return a.length === b.length && timingSafeEqual(a, b)
+  return (
+    safeEqB64(vkSignOf(appSecret, flatVK, false), sign) ||
+    safeEqB64(vkSignOf(appSecret, flatVK, true), sign) ||
+    safeEqB64(vkSignOf(appSecret, flatAll, false), sign) ||
+    safeEqB64(vkSignOf(appSecret, flatAll, true), sign)
+  )
 }
 
 /** Потолок очков для уровня: честная игра не выбьет его даже с максимальными

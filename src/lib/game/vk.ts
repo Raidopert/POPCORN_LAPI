@@ -45,6 +45,40 @@ export function getVKLaunchParams(): VKLaunchParams | null {
   return launchParams
 }
 
+/**
+ * Параметры запуска для ПРОВЕРКИ ПОДПИСИ на сервере (0.0.74).
+ *
+ * VK подписывает ровно параметры URL запуска. VKWebAppGetLaunchParams
+ * возвращает фиксированный набор полей: часть vk_*-параметров конкретной
+ * точки входа (vk_is_recommended, vk_https, utm-хвосты…) в нём отсутствует,
+ * из-за чего строка для HMAC на сервере не совпадала и каждый сабмит из
+ * VK получал 403 «sign» — мировой рекорд не засчитывался.
+ *
+ * Поэтому для подписи парсим window.location.search заново (источник правды)
+ * и кэшируем один раз: за сессию параметры запуска не меняются.
+ * Вне VK / без vk-параметров — отдаём кэш bridge (обычно null).
+ */
+let urlSignParams: VKLaunchParams | null | undefined
+export function getVKSignedParams(): VKLaunchParams | null {
+  if (typeof window === 'undefined') return null
+  if (urlSignParams !== undefined) return urlSignParams
+  const q = window.location.search
+  if (q && q !== '?') {
+    const out: VKLaunchParams = {}
+    let has = false
+    for (const [k, v] of new URLSearchParams(q)) {
+      out[k] = v
+      if (k.startsWith('vk_') || k === 'sign') has = true
+    }
+    if (has) {
+      urlSignParams = out
+      return out
+    }
+  }
+  urlSignParams = launchParams
+  return launchParams
+}
+
 /* --- видимость вью (ViewHide/ViewRestore) --- */
 
 type ViewHandler = (hidden: boolean) => void
