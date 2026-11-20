@@ -169,5 +169,5 @@ docker compose logs -f game
 
 ---
 
-Автор игры — **Raidopert** · Прод: <https://popcorn-lapi.vercel.app> ·
+Автор игры — **Raidopert** · Прод: <https://raidopert.ru> ·
 Лицензия — см. [LICENSE](./LICENSE) · Об авторе — см. [AUTHORS.md](./AUTHORS.md)

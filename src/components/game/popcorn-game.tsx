@@ -5118,7 +5118,7 @@ async function shareResult(
     c.fillText(t('share.cardLevel', { l: level, b: best }), 300, 532)
     c.fillStyle = '#E24B3B'
     c.font = '600 28px "Handjet", system-ui, sans-serif'
-    c.fillText(url.replace(/^https?:\/\//, '') || 'popcorn-lapi.vercel.app', 300, 574)
+    c.fillText(url.replace(/^https?:\/\//, '') || 'raidopert.ru', 300, 574)
 
     const blob = await new Promise<Blob | null>((resolve) => card.toBlob(resolve, 'image/png'))
     const file = blob ? new File([blob], 'popcorn-record.png', { type: 'image/png' }) : null
