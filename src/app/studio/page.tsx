@@ -43,10 +43,10 @@ export const metadata: Metadata = {
     type: "website",
     images: [
       {
-        url: "https://raidopert.ru/boot/logo.jpg",
-        width: 768,
-        height: 768,
-        alt: "Логотип Raido Pert Studio — фиолетовый леопардовый круг с рунами",
+        url: "https://raidopert.ru/boot/logo-3d.jpg",
+        width: 1024,
+        height: 1024,
+        alt: "Герб Raido Pert Studio — фиолетовый леопард в золотом щите с короной и рунами",
       },
     ],
   },
@@ -89,8 +89,8 @@ export default function StudioPage() {
       <header className="sticky top-0 z-40 border-b border-[#E8B95C]/25 backdrop-blur-md bg-[#1c0517]/80">
         <div className="mx-auto max-w-5xl w-full px-4 py-3 flex items-center gap-3">
           <Image
-            src="/boot/logo.jpg"
-            alt="Логотип Raido Pert Studio"
+            src="/boot/logo-3d.jpg"
+            alt="Герб Raido Pert Studio — фиолетовый леопард в золотом щите"
             width={44}
             height={44}
             className="rounded-full border border-[#E8B95C]/60"
@@ -121,8 +121,8 @@ export default function StudioPage() {
               ᚱ &nbsp;ᛈ&nbsp; РАЙДО · ПЕРТ &nbsp;ᛈ&nbsp; ᚱ
             </p>
             <Image
-              src="/boot/logo.jpg"
-              alt="Эмблема студии Raido Pert — фиолетовый леопардовый круг с золотой монограммой"
+              src="/boot/logo-3d.jpg"
+              alt="Герб студии Raido Pert — фиолетовый леопард в золотом щите с короной и золотыми рунами"
               width={192}
               height={192}
               priority
