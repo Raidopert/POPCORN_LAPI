@@ -26,6 +26,8 @@ export interface OnlineLeader {
   score: number
   level: number
   date: number
+  /** Аватар котика из лавки стиля (v0.0.75); старые строки — дефолт "kitten" */
+  avatar?: string
 }
 
 export interface WorldStats {
@@ -169,7 +171,7 @@ export async function fetchTopLeaders(limit = 20): Promise<OnlineLeader[] | null
       where: { bestScore: { gt: 0 } },
       orderBy: [{ bestScore: 'desc' }, { updatedAt: 'asc' }],
       take: limit,
-      select: { nick: true, bestScore: true, bestLevel: true, bestAt: true, updatedAt: true, device: true },
+      select: { nick: true, avatar: true, bestScore: true, bestLevel: true, bestAt: true, updatedAt: true, device: true },
     })
     /* Группируем ники без учёта регистра: коллизия → суффикс у всех носителей */
     const dup = new Map<string, number>()
@@ -185,6 +187,7 @@ export async function fetchTopLeaders(limit = 20): Promise<OnlineLeader[] | null
         score: r.bestScore,
         level: r.bestLevel,
         date: (r.bestAt ?? r.updatedAt).getTime(),
+        avatar: r.avatar || 'kitten',
       }
     })
   } catch (err) {
@@ -315,6 +318,8 @@ export interface SubmitArgs {
   nick: string
   score: number
   level: number
+  /** Аватар из лавки стиля (v0.0.75) — валидируется маршрутом, дефолт "kitten" */
+  avatar?: string
   /** Секунды чистой игры (клиентские, зажимаются серверным таймингом забега) */
   secs?: number
 }
@@ -383,6 +388,7 @@ export async function submitLeaderRun(a: SubmitArgs): Promise<SubmitResult> {
           data: {
             device: a.device,
             nick: a.nick,
+            avatar: a.avatar ?? 'kitten',
             bestScore: a.score,
             bestLevel: a.level,
             bestAt: a.score > 0 ? new Date(now) : null,
@@ -395,6 +401,7 @@ export async function submitLeaderRun(a: SubmitArgs): Promise<SubmitResult> {
           where: { device: a.device },
           data: {
             nick: a.nick,
+            ...(a.avatar ? { avatar: a.avatar } : {}),
             runs: { increment: 1 },
             bestScore: Math.max(p.bestScore, a.score),
             bestLevel: Math.max(p.bestLevel, a.level),

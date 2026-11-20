@@ -29,6 +29,7 @@ import {
   playerRank,
   submitLeaderRun,
 } from '@/lib/leaders-db'
+import { isAvatarId } from '@/lib/game/style'
 import {
   cleanDevice,
   cleanNick,
@@ -99,7 +100,9 @@ export async function POST(req: Request) {
     return NextResponse.json({ ok: false, reason: 'rate' }, { status: 429 })
   }
 
-  /* Полная проверка защиты + зачёт (токен, тайминги, одноразовость) */
+  /* Полная проверка защиты + зачёт (токен, тайминги, одноразовость).
+     v0.0.75: аватар из лавки стиля — только id из каталога, иначе дефолт */
+  const avatar = isAvatarId(body.avatar) ? body.avatar : undefined
   const out = await submitLeaderRun({
     runId,
     token: body.token,
@@ -107,6 +110,7 @@ export async function POST(req: Request) {
     nick: cleanNick(body.name),
     score: clean.score,
     level: clean.level,
+    avatar,
     secs: typeof body.secs === 'number' ? body.secs : undefined,
   })
 

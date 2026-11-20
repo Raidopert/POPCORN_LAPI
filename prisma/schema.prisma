@@ -49,6 +49,8 @@ model LeaderPlayer {
   id        String    @id @default(cuid())
   device    String    @unique
   nick      String    @default("Котик")
+  /** Аватар котика из лавки стиля (v0.0.75) — id из AVATARS, дефолт «kitten» */
+  avatar    String    @default("kitten")
   bestScore Int       @default(0)
   bestLevel Int       @default(0)
   bestAt    DateTime?

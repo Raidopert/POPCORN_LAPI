@@ -150,7 +150,7 @@ export function showRewardedAd(): Promise<AdResult> {
     /* VK присылает VKWebAppShowNativeAdsResult c data.result 'completed'/'skipped' */
     listener = (event) => {
       if (event?.detail?.type !== 'VKWebAppShowNativeAdsResult') return
-      const res = (event.detail.data as { result?: string } | undefined)?.result
+      const res = (event.detail.data as unknown as { result?: string } | undefined)?.result
       if (res === 'skipped') finish('skipped')
       else finish('completed')
     }
@@ -158,7 +158,7 @@ export function showRewardedAd(): Promise<AdResult> {
     /* Страховка от вечного висения: 60 c без ответа — считаем сбой */
     const hangGuard = window.setTimeout(() => finish('failed'), 60_000)
     void b
-      .send('VKWebAppShowNativeAds', { ad_format: 'rewarded' })
+      .send('VKWebAppShowNativeAds', { ad_format: 'reward' })
       .then(() => {
         /* На части платформ событие-результат не приходит — промис
            разрешается после закрытия рекламы; даём событию 250 мс фору */

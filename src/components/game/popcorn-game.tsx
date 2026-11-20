@@ -92,6 +92,7 @@ import {
   getCoins,
   getTotalXp,
   migrateXpBank,
+  type CharLevelInfo,
 } from '@/lib/game/meta'
 import {
   DEFAULT_INVENTORY,
@@ -225,6 +226,27 @@ import {
   type MarketBonuses,
   type MarketState,
 } from '@/lib/game/market'
+/* ЛАВКА СТИЛЯ (v0.0.75): аватары, рамки, фоны и цвета меню за зёрнышки */
+import {
+  AVATARS,
+  BGS,
+  DEFAULT_STYLE,
+  FRAMES,
+  THEMES,
+  avatarSrc,
+  buyStyleItem,
+  equipStyleItem,
+  getStyleSnapshot,
+  isEquipped,
+  isOwned,
+  subscribeStyle,
+  type AvatarId,
+  type BgId,
+  type FrameId,
+  type StyleKind,
+  type StyleState,
+  type ThemeId,
+} from '@/lib/game/style'
 import { GAME_VERSION_LABEL } from '@/lib/game/version'
 /* VK BRIDGE (0.0.71): init/ViewHide/реклама/подпись — правила VK 2.2.1/2.2.5/4.2.1/1.2.2 */
 import { getVKSignedParams, initVK, isVKEnv, onVKViewVisibility, showRewardedAd } from '@/lib/game/vk'
@@ -324,6 +346,8 @@ interface OnlineLeader {
   score: number
   level: number
   date: number
+  /** Аватар из лавки стиля (v0.0.75) — id из каталога, "kitten" по умолчанию */
+  avatar?: string
 }
 
 /** Событие браузера «установить приложение» (PWA) */
@@ -440,6 +464,8 @@ interface LeaderEntry {
   date: number
   /** Ник игрока (старые записи без ника — показываем текущий ник устройства) */
   name?: string
+  /** Аватар из лавки стиля (v0.0.75) — старые записи без аватара рисуют дефолт */
+  avatar?: string
 }
 
 const CONFETTI_COLORS = ['#E24B3B', '#FFE066', '#7BC47F', '#F2A65A', '#FFF6EC', '#E89A6B']
@@ -572,13 +598,17 @@ function GameButton({
   disabled?: boolean
   className?: string
   shine?: boolean
-  tone?: 'red' | 'violet'
+  tone?: 'red' | 'violet' | 'accent'
   primary?: boolean
 }) {
   const tones = {
     red: 'bg-[#E24B3B] shadow-[0_5px_0_#9c2f22] hover:bg-[#ef5a4a] active:shadow-[0_2px_0_#9c2f22]',
     violet:
       'bg-gradient-to-b from-[#C93BE4] to-[#9B2FC0] shadow-[0_5px_0_#631B7E] hover:from-[#D44EF0] hover:to-[#A83BD0] active:shadow-[0_2px_0_#631B7E]',
+    /* v0.0.75: акцентная тема лавки стиля — цвет идёт из CSS-переменных
+       pp-theme (мятный/закатный/розовый/полночь) */
+    accent:
+      'bg-[var(--pp-accent)] shadow-[0_5px_0_var(--pp-accent-deep)] hover:brightness-110 active:shadow-[0_2px_0_var(--pp-accent-deep)]',
   } as const
   return (
     <button
@@ -1608,22 +1638,51 @@ const ARTIFACT_ICON: Record<ArtifactId, string> = {
   rattle: '/artifacts/rattle.png',
 }
 
+/* ═══════════════ ЛАВКА СТИЛЯ (v0.0.75): тратим зёрнышки 🌾 ═══════════════ */
+
+/** Цветной свотч акцентной темы (мини-квадрат с двумя цветами темы) */
+const THEME_SWATCH: Record<ThemeId, { a: string; b: string }> = {
+  classic: { a: '#E24B3B', b: '#2E1650' },
+  mint: { a: '#2fae7d', b: '#16352c' },
+  sunset: { a: '#f2793a', b: '#4a1d2c' },
+  bubble: { a: '#e05fa8', b: '#431539' },
+  midnight: { a: '#5a7cff', b: '#131a38' },
+}
+
+/** Мини-превью фона меню (мини-квадрат с градиентом) */
+const BG_SWATCH: Record<BgId, string> = {
+  classic: 'linear-gradient(180deg,#2E1650,#1d0f38)',
+  popcorn:
+    'radial-gradient(circle at 30% 30%, rgba(255,216,107,.5) 0 18%, transparent 20%), linear-gradient(180deg,#33184f,#1d0f38)',
+  mint: 'linear-gradient(180deg,#123a33,#0c241f)',
+  night:
+    'radial-gradient(2px 2px at 30% 30%, #fff 50%, transparent 51%), radial-gradient(2px 2px at 70% 60%, #fff9 50%, transparent 51%), linear-gradient(180deg,#0c0c24,#161033)',
+  sunset: 'linear-gradient(180deg,#5c2a1d,#3a1830)',
+  bubble:
+    'radial-gradient(circle at 35% 35%, rgba(255,143,199,.55) 0 22%, transparent 24%), linear-gradient(180deg,#4a1a3f,#2a1030)',
+}
+
 function MarketOverlay({
   marten,
   coins,
   xp,
   market,
+  style,
   catLevel,
   eqArts,
   t,
   onExchange,
   onBuyArtifact,
+  onStyleAction,
+  initialTab = 'swap',
   onClose,
 }: {
   marten: MartenState
   coins: number
   xp: number
   market: MarketState
+  /** Лавка стиля: аватар/рамка/фон/тема + купленное (v0.0.75) */
+  style: StyleState
   /** Уровень котика 🎖: часть артефактов закрыта замком (v0.0.33) */
   catLevel: number
   /** Надетые артефакты инвентаря (0.0.54) — чип «Надето» в карточке */
@@ -1631,9 +1690,13 @@ function MarketOverlay({
   t: TranslateFn
   onExchange: (from: Currency, to: Currency, amount: number) => boolean
   onBuyArtifact: (id: ArtifactId) => void
+  /** Купить (не куплено) или надеть (куплено) предмет стиля (v0.0.75) */
+  onStyleAction: (kind: StyleKind, id: AvatarId | FrameId | BgId | ThemeId) => void
+  /** Какая вкладка открыта при входе (тап по аватару в меню → СТИЛЬ) */
+  initialTab?: 'swap' | 'artifacts' | 'style'
   onClose: () => void
 }) {
-  const [tab, setTab] = useState<'swap' | 'artifacts'>('swap')
+  const [tab, setTab] = useState<'swap' | 'artifacts' | 'style'>(initialTab ?? 'swap')
   const [from, setFrom] = useState<Currency>('grains')
   const [to, setTo] = useState<Currency>('coins')
   /** Доля кошелька на обмен: 0.1..1 (кнопки 10% / 25% / 50% / MAX) */
@@ -1704,13 +1767,14 @@ function MarketOverlay({
           ))}
         </div>
 
-        {/* Табы: обмен / артефакты */}
-        <div className="mt-3 grid grid-cols-2 gap-1" role="tablist" aria-label={t('market.title')}>
+        {/* Табы: обмен / артефакты / стиль */}
+        <div className="mt-3 grid grid-cols-3 gap-1" role="tablist" aria-label={t('market.title')}>
           {(
             [
               ['swap', '🔁', 'market.tabSwap'],
               ['artifacts', '🏺', 'market.tabArtifacts'],
-            ] as Array<['swap' | 'artifacts', string, string]>
+              ['style', '🎨', 'market.tabStyle'],
+            ] as Array<['swap' | 'artifacts' | 'style', string, string]>
           ).map(([id, icon, key]) => (
             <button
               key={id}
@@ -1846,7 +1910,7 @@ function MarketOverlay({
               {got}
             </GameButton>
           </div>
-        ) : (
+        ) : tab === 'artifacts' ? (
           /* Артефакты: постоянные усиления за алмазы */
           <ul
             className={`mt-3 max-h-[36vh] space-y-2 overflow-y-auto pr-1 text-left sm:max-h-60 ${OVERLAY_SCROLL}`}
@@ -1931,6 +1995,473 @@ function MarketOverlay({
               )
             })}
           </ul>
+        ) : (
+          /* ЛАВКА СТИЛЯ (v0.0.75): аватары, рамки, фоны и цвета за зёрнышки */
+          <StyleShop style={style} grains={market.grains} t={t} onAction={onStyleAction} />
+        )}
+
+        <button
+          type="button"
+          onClick={onClose}
+          className="mt-3 w-full rounded-xl border-2 border-[#8a5330] bg-[#f3e2c8] px-4 py-2 font-pixel text-sm font-bold text-[#8a5330] transition hover:bg-[#eed7b4] active:scale-[0.98]"
+        >
+          {t('shop.close')}
+        </button>
+      </motion.div>
+    </motion.div>
+  )
+}
+
+/* ---------- ЛАВКА СТИЛЬ (v0.0.75) ---------- */
+
+/** Состояние ячейки стиля: чип цены / «Надето» / галка «куплено» */
+function StyleChip({
+  owned,
+  equipped,
+  price,
+  canAfford,
+  t,
+}: {
+  owned: boolean
+  equipped: boolean
+  price: number
+  canAfford: boolean
+  t: TranslateFn
+}) {
+  if (equipped) {
+    return (
+      <span className="rounded-full bg-amber-400 px-2 py-0.5 font-ui text-[10px] font-bold text-[#5C3A1E]">
+        {t('market.ownedOn')}
+      </span>
+    )
+  }
+  if (owned) {
+    return (
+      <span className="rounded-full bg-[#5C8A3A] px-2 py-0.5 font-ui text-[10px] font-bold text-white">
+        {t('style.equip')}
+      </span>
+    )
+  }
+  return (
+    <span
+      className={`rounded-full px-2 py-0.5 font-ui text-[10px] font-bold ${
+        canAfford ? 'bg-[#E24B3B] text-white' : 'bg-[#d9c6a8] text-[#6b5233]'
+      }`}
+    >
+      🌾 {price}
+    </span>
+  )
+}
+
+function StyleShop({
+  style,
+  grains,
+  t,
+  onAction,
+}: {
+  style: StyleState
+  grains: number
+  t: TranslateFn
+  onAction: (kind: StyleKind, id: AvatarId | FrameId | BgId | ThemeId) => void
+}) {
+  const cellCls = (equipped: boolean): string =>
+    `flex flex-col items-center gap-1 rounded-xl border-2 p-2 transition active:scale-95 ${
+      equipped
+        ? 'border-amber-400 bg-amber-50'
+        : 'border-[#e3cba4] bg-[#fdf3e0] hover:bg-[#f3e2c8]'
+    }`
+
+  return (
+    <div
+      className={`mt-3 max-h-[42vh] overflow-y-auto pr-1 text-left sm:max-h-80 ${OVERLAY_SCROLL}`}
+    >
+      <p className="mb-2 font-ui text-[11px] font-medium leading-snug text-[#8a5330]">
+        {t('style.subtitle')}
+      </p>
+
+      {/* Аватары */}
+      <div className="font-ui text-[10px] font-bold uppercase tracking-wide text-[#a97c50]">
+        {t('style.h.avatars')}
+      </div>
+      <div className="mt-1 grid grid-cols-4 gap-1.5">
+        {AVATARS.map(({ id, price }) => {
+          const owned = isOwned(style, 'avatar', id)
+          const equipped = isEquipped(style, 'avatar', id)
+          return (
+            <button
+              key={id}
+              type="button"
+              aria-pressed={equipped}
+              title={
+                owned
+                  ? t('style.buyHint', { n: price })
+                  : t('style.lockedHint', { n: price })
+              }
+              onClick={() => onAction('avatar', id)}
+              className={cellCls(equipped)}
+            >
+              <AvatarBadge id={id} frame={style.frame} size={44} />
+              <span className="w-full truncate text-center font-pixel text-[10px] font-bold leading-none text-[#5C3A1E]">
+                {t(`avatar.${id}.name`)}
+              </span>
+              <StyleChip
+                owned={owned}
+                equipped={equipped}
+                price={price}
+                canAfford={grains >= price}
+                t={t}
+              />
+            </button>
+          )
+        })}
+      </div>
+
+      {/* Рамки — превью на текущем аватаре */}
+      <div className="mt-3 font-ui text-[10px] font-bold uppercase tracking-wide text-[#a97c50]">
+        {t('style.h.frames')}
+      </div>
+      <div className="mt-1 grid grid-cols-4 gap-1.5">
+        {FRAMES.map(({ id, price }) => {
+          const owned = isOwned(style, 'frame', id)
+          const equipped = isEquipped(style, 'frame', id)
+          return (
+            <button
+              key={id}
+              type="button"
+              aria-pressed={equipped}
+              title={
+                owned
+                  ? t('style.buyHint', { n: price })
+                  : t('style.lockedHint', { n: price })
+              }
+              onClick={() => onAction('frame', id)}
+              className={cellCls(equipped)}
+            >
+              <AvatarBadge id={style.avatar} frame={id} size={44} />
+              <span className="w-full truncate text-center font-pixel text-[10px] font-bold leading-none text-[#5C3A1E]">
+                {t(`frame.${id}.name`)}
+              </span>
+              <StyleChip
+                owned={owned}
+                equipped={equipped}
+                price={price}
+                canAfford={grains >= price}
+                t={t}
+              />
+            </button>
+          )
+        })}
+      </div>
+
+      {/* Фоны меню */}
+      <div className="mt-3 font-ui text-[10px] font-bold uppercase tracking-wide text-[#a97c50]">
+        {t('style.h.bgs')}
+      </div>
+      <div className="mt-1 grid grid-cols-3 gap-1.5">
+        {BGS.map(({ id, price }) => {
+          const owned = isOwned(style, 'bg', id)
+          const equipped = isEquipped(style, 'bg', id)
+          return (
+            <button
+              key={id}
+              type="button"
+              aria-pressed={equipped}
+              title={
+                owned
+                  ? t('style.buyHint', { n: price })
+                  : t('style.lockedHint', { n: price })
+              }
+              onClick={() => onAction('bg', id)}
+              className={cellCls(equipped)}
+            >
+              <span
+                aria-hidden
+                className="h-9 w-full rounded-lg border border-[#e3cba4]"
+                style={{ background: BG_SWATCH[id] }}
+              />
+              <span className="w-full truncate text-center font-pixel text-[10px] font-bold leading-none text-[#5C3A1E]">
+                {t(`bg.${id}.name`)}
+              </span>
+              <StyleChip
+                owned={owned}
+                equipped={equipped}
+                price={price}
+                canAfford={grains >= price}
+                t={t}
+              />
+            </button>
+          )
+        })}
+      </div>
+
+      {/* Цвета меню */}
+      <div className="mt-3 font-ui text-[10px] font-bold uppercase tracking-wide text-[#a97c50]">
+        {t('style.h.themes')}
+      </div>
+      <div className="mt-1 grid grid-cols-3 gap-1.5">
+        {THEMES.map(({ id, price }) => {
+          const owned = isOwned(style, 'theme', id)
+          const equipped = isEquipped(style, 'theme', id)
+          const sw = THEME_SWATCH[id]
+          return (
+            <button
+              key={id}
+              type="button"
+              aria-pressed={equipped}
+              title={
+                owned
+                  ? t('style.buyHint', { n: price })
+                  : t('style.lockedHint', { n: price })
+              }
+              onClick={() => onAction('theme', id)}
+              className={cellCls(equipped)}
+            >
+              <span
+                aria-hidden
+                className="h-9 w-full overflow-hidden rounded-lg border border-[#e3cba4]"
+                style={{ background: sw.b }}
+              >
+                <span className="mt-2.5 ml-1.5 block h-4 w-9 rounded-full" style={{ background: sw.a }} />
+              </span>
+              <span className="w-full truncate text-center font-pixel text-[10px] font-bold leading-none text-[#5C3A1E]">
+                {t(`theme.${id}.name`)}
+              </span>
+              <StyleChip
+                owned={owned}
+                equipped={equipped}
+                price={price}
+                canAfford={grains >= price}
+                t={t}
+              />
+            </button>
+          )
+        })}
+      </div>
+    </div>
+  )
+}
+
+/* ---------- ПУТЬ КОТИКА (v0.0.75): линия уровней с наградами ---------- */
+
+/** Веха пути: уровень и что на нём открывается (узлы древа + артефакты рынка) */
+interface PathMilestone {
+  level: number
+  items: ReadonlyArray<{ icon: string; labelKey: string }>
+}
+
+/** Собрать вехи из древа (reqLevel, иконки) и артефактов рынка — единый каталог */
+const PATH_MILESTONES: ReadonlyArray<PathMilestone> = (() => {
+  const by = new Map<number, Array<{ icon: string; labelKey: string }>>()
+  /* 0.0.75: вехи — ВСЁ, что открывается уровнем: лапки, апгрейды, древо, артефакты */
+  for (const p of PAWS) {
+    const l = p.reqLevel ?? 1
+    if (l <= 1) continue // базовая лапка есть у всех — не веха
+    const arr = by.get(l) ?? []
+    arr.push({ icon: '🐾', labelKey: `paw.${p.id}.name` })
+    by.set(l, arr)
+  }
+  for (const u of UPGRADES) {
+    const l = u.reqLevel ?? 1
+    if (l <= 1) continue
+    const arr = by.get(l) ?? []
+    arr.push({ icon: u.icon ?? '🛍️', labelKey: `upg.${u.id}.name` })
+    by.set(l, arr)
+  }
+  for (const n of TREE_NODES) {
+    const arr = by.get(n.reqLevel) ?? []
+    arr.push({ icon: n.icon, labelKey: `tree.${n.id}.name` })
+    by.set(n.reqLevel, arr)
+  }
+  for (const a of ARTIFACTS) {
+    const arr = by.get(a.reqLevel ?? 1) ?? []
+    arr.push({ icon: '🏺', labelKey: `artifact.${a.id}.name` })
+    by.set(a.reqLevel ?? 1, arr)
+  }
+  return [...by.entries()]
+    .sort((x, y) => x[0] - y[0])
+    .map(([level, items]) => ({ level, items }))
+})()
+
+function PathOverlay({
+  charInfo,
+  t,
+  avatarId,
+  frameId,
+  onClose,
+}: {
+  charInfo: CharLevelInfo
+  t: TranslateFn
+  avatarId: AvatarId
+  frameId: FrameId
+  onClose: () => void
+}) {
+  const lvl = charInfo.level
+  /* Вехи с уровня 2 (на 1-м ничего не открывается) и до последнего узла древа */
+  const milestones = PATH_MILESTONES.filter((m) => m.level >= 2)
+  const maxMilestone = milestones[milestones.length - 1]?.level ?? 2
+  const next = milestones.find((m) => m.level > lvl)
+  const xpToNext = next ? charInfo.need - charInfo.into : 0
+
+  return (
+    <motion.div
+      className="absolute inset-0 z-40 flex items-center justify-center overflow-y-auto bg-black/70 p-4"
+      initial={{ opacity: 0 }}
+      animate={{ opacity: 1 }}
+      exit={{ opacity: 0, pointerEvents: 'none' }}
+    >
+      <motion.div
+        className="my-auto w-full max-w-md rounded-2xl border-4 border-[#8a5330] bg-[#FFF6E6] p-4 text-center shadow-[0_18px_50px_rgba(0,0,0,0.55)] sm:p-5"
+        initial={{ scale: 0.92, y: 14 }}
+        animate={{ scale: 1, y: 0 }}
+        exit={{ scale: 0.95, opacity: 0, pointerEvents: 'none' }}
+        transition={{ type: 'spring', stiffness: 260, damping: 22 }}
+      >
+        <div aria-hidden className="text-3xl">
+          🎖🛣️
+        </div>
+        <h2 className="mt-0.5 font-pixel text-xl font-bold text-[#B33A26]">{t('path.title')}</h2>
+        <p className="mt-1 font-ui text-xs font-medium text-[#8a5330]">{t('path.subtitle')}</p>
+
+        {/* Прогресс текущего уровня */}
+        <div className="mt-3 rounded-xl border-2 border-[#e3cba4] bg-[#fdf3e0] px-3 py-2.5 text-left">
+          <div className="flex items-baseline justify-between gap-2">
+            <span className="font-pixel text-sm font-bold text-[#5C3A1E]">
+              {t('path.xpNow', { n: lvl, a: charInfo.into, b: charInfo.need })}
+            </span>
+            {next && (
+              <span className="font-ui text-[10px] font-bold text-[#a97c50]">
+                {t('path.nextIn', { n: next.level, a: xpToNext })}
+              </span>
+            )}
+          </div>
+          <div className="mt-1.5 h-3 overflow-hidden rounded-full bg-[#e3cba4]" role="progressbar" aria-valuenow={Math.round((charInfo.into / Math.max(1, charInfo.need)) * 100)} aria-valuemin={0} aria-valuemax={100}>
+            <div
+              className="h-full rounded-full bg-gradient-to-r from-amber-400 to-[#E24B3B] transition-all duration-700"
+              style={{
+                width: `${Math.min(100, Math.round((charInfo.into / Math.max(1, charInfo.need)) * 100))}%`,
+              }}
+            />
+          </div>
+        </div>
+
+        {/* Линия пути: вехи с карточками наград, зигзагом вверх-вниз */}
+        <div className={`mt-4 overflow-x-auto pb-1 ${OVERLAY_SCROLL}`}>
+          <div className="relative mx-auto flex min-w-max items-stretch gap-0 px-2">
+            {/* Центральная линия */}
+            <span
+              aria-hidden
+              className="pointer-events-none absolute left-0 right-0 top-1/2 h-1 -translate-y-1/2 rounded-full bg-[#e3cba4]"
+            />
+            {/* Пройденная часть линии */}
+            <span
+              aria-hidden
+              className="pointer-events-none absolute left-0 top-1/2 h-1 -translate-y-1/2 rounded-full bg-gradient-to-r from-amber-400 to-[#E24B3B]"
+              style={{
+                width: `${Math.min(
+                  100,
+                  ((Math.min(lvl, maxMilestone) - 1) / Math.max(1, maxMilestone - 1)) * 100,
+                )}%`,
+              }}
+            />
+
+            {/* «Ты здесь»: аватар игрока на линии */}
+            <div className="relative flex w-16 flex-col items-center justify-center self-stretch">
+              <span className="relative z-10 -translate-y-1/2">
+                <AvatarBadge id={avatarId} frame={frameId} size={40} />
+              </span>
+              <span className="absolute top-[calc(50%+22px)] z-10 whitespace-nowrap rounded-full bg-[#E24B3B] px-1.5 py-0.5 font-pixel text-[9px] font-bold text-white">
+                {t('path.now')}
+              </span>
+            </div>
+
+            {milestones.map((m, i) => {
+              const done = m.level <= lvl
+              const isNext = next?.level === m.level
+              /* Зигзаг: чётные карточки над линией, нечётные — под */
+              const above = i % 2 === 0
+              return (
+                <div key={m.level} className="relative flex w-24 flex-col items-center" style={{ minHeight: 150 }}>
+                  {/* Верхняя половина: карточка + ножка (для чётных) */}
+                  {above ? (
+                    <div className="flex flex-1 flex-col items-center justify-end pb-0">
+                      <div
+                        className={`z-10 w-[92px] rounded-lg border-2 p-1.5 text-center ${
+                          done
+                            ? 'border-amber-400 bg-amber-50'
+                            : isNext
+                              ? 'border-[#E24B3B] bg-[#ffe9e2]'
+                              : 'border-dashed border-[#d9c6a8] bg-[#fdf3e0] opacity-75'
+                        }`}
+                        title={t(done ? 'path.done' : 'path.lvl', done ? undefined : { n: m.level })}
+                      >
+                        <div className="flex items-center justify-center gap-0.5 text-base leading-none">
+                          {m.items.map((it) => (
+                            <span key={it.labelKey} aria-hidden>
+                              {it.icon}
+                            </span>
+                          ))}
+                        </div>
+                        <div className="mt-0.5 line-clamp-2 font-ui text-[9px] font-bold leading-tight text-[#5C3A1E]">
+                          {m.items.map((it) => t(it.labelKey)).join(', ')}
+                        </div>
+                      </div>
+                      <span aria-hidden className={`w-0.5 flex-1 ${done ? 'bg-amber-400' : 'bg-[#d9c6a8]'}`} />
+                    </div>
+                  ) : (
+                    <div className="flex-1" />
+                  )}
+
+                  {/* Узел на линии */}
+                  <span
+                    className={`z-10 flex h-8 w-8 shrink-0 items-center justify-center rounded-full border-2 font-pixel text-[10px] font-bold ${
+                      done
+                        ? 'border-amber-500 bg-amber-400 text-[#5C3A1E]'
+                        : isNext
+                          ? 'animate-pulse border-[#E24B3B] bg-white text-[#B33A26]'
+                          : 'border-dashed border-[#a97c50] bg-[#fdf3e0] text-[#a97c50]'
+                    }`}
+                    aria-label={t('path.lvl', { n: m.level })}
+                  >
+                    {m.level}
+                  </span>
+
+                  {/* Нижняя половина: ножка + карточка (для нечётных) */}
+                  {!above ? (
+                    <div className="flex flex-1 flex-col items-center">
+                      <span aria-hidden className={`w-0.5 flex-1 ${done ? 'bg-amber-400' : 'bg-[#d9c6a8]'}`} />
+                      <div
+                        className={`z-10 w-[92px] rounded-lg border-2 p-1.5 text-center ${
+                          done
+                            ? 'border-amber-400 bg-amber-50'
+                            : isNext
+                              ? 'border-[#E24B3B] bg-[#ffe9e2]'
+                              : 'border-dashed border-[#d9c6a8] bg-[#fdf3e0] opacity-75'
+                        }`}
+                        title={t(done ? 'path.done' : 'path.lvl', done ? undefined : { n: m.level })}
+                      >
+                        <div className="flex items-center justify-center gap-0.5 text-base leading-none">
+                          {m.items.map((it) => (
+                            <span key={it.labelKey} aria-hidden>
+                              {it.icon}
+                            </span>
+                          ))}
+                        </div>
+                        <div className="mt-0.5 line-clamp-2 font-ui text-[9px] font-bold leading-tight text-[#5C3A1E]">
+                          {m.items.map((it) => t(it.labelKey)).join(', ')}
+                        </div>
+                      </div>
+                    </div>
+                  ) : (
+                    <div className="flex-1" />
+                  )}
+                </div>
+              )
+            })}
+          </div>
+        </div>
+
+        {lvl > maxMilestone && (
+          <p className="mt-3 font-ui text-[11px] font-bold text-[#3f6b28]">{t('path.more')}</p>
         )}
 
         <button
@@ -2937,6 +3468,37 @@ function ShopOverlay({
   )
 }
 
+/** Аватар из ненадёжной строки → безопасный id каталога (мусор → дефолт) */
+function safeAvatar(v: unknown): AvatarId {
+  return typeof v === 'string' && AVATARS.some((a) => a.id === v) ? (v as AvatarId) : 'kitten'
+}
+
+/** Аватар котика с рамкой (рамка только если куплена и надета) */
+function AvatarBadge({
+  id,
+  frame,
+  size,
+}: {
+  id: AvatarId
+  frame: FrameId
+  size: number
+}) {
+  return (
+    <span
+      className={`pp-frame pp-frame-${frame} shrink-0`}
+      style={{ width: size, height: size }}
+      aria-hidden
+    >
+      <img
+        src={avatarSrc(id)}
+        alt=""
+        draggable={false}
+        className="h-full w-full object-cover"
+      />
+    </span>
+  )
+}
+
 /** Топ-10 на устройстве + мировая таблица (если подключена база) */
 function LeadersOverlay({
   leaders,
@@ -3098,6 +3660,8 @@ function LeadersOverlay({
                     <span aria-hidden className="w-7 text-center font-pixel text-sm">
                       {i < 3 ? ['🥇', '🥈', '🥉'][i] : i + 1}
                     </span>
+                    {/* v0.0.75: аватар котика с рамкой */}
+                    <AvatarBadge id={safeAvatar(e.avatar)} frame="none" size={30} />
                     {/* Ник игрока: старые записи без ника показываем под текущим ником устройства */}
                     <span className="min-w-0 flex-1 text-left">
                       <span className="block truncate font-pixel text-sm font-bold text-[#5C3A1E]">
@@ -3150,6 +3714,8 @@ function LeadersOverlay({
                   <span aria-hidden className="w-7 text-center font-pixel text-sm">
                     {i < 3 ? ['🥇', '🥈', '🥉'][i] : i + 1}
                   </span>
+                  {/* v0.0.75: аватар котика с рамкой из мирового топа */}
+                  <AvatarBadge id={safeAvatar(e.avatar)} frame="none" size={30} />
                   {/* Имя котика + уровень и дата постановки рекорда — как в локальном списке */}
                   <span className="min-w-0 flex-1 text-left">
                     <span className="block truncate font-pixel text-sm font-bold text-[#5C3A1E]">
@@ -5449,8 +6015,11 @@ export function PopcornGame() {
     | 'inv'
     | 'upgrades'
     | 'more'
+    | 'path'
     | null
   >(null)
+  /* v0.0.75: с какой вкладки открывать рынок (тап по аватару → СТИЛЬ) */
+  const [marketTab, setMarketTab] = useState<'swap' | 'artifacts' | 'style'>('swap')
   /* v0.0.66: хаб «ПРОКАЧКА»/«ЕЩЁ» — из него вкладки открываются, и ✕
      возвращает НЕ в меню, а обратно в хаб. null = открыто прямо из меню */
   const [hubReturn, setHubReturn] = useState<'upgrades' | 'more' | null>(null)
@@ -5616,10 +6185,39 @@ export function PopcornGame() {
       .catch(() => {})
   }, [])
 
+  /* ===== ЛАВКА СТИЛЬ (v0.0.75): купить за 🌾 (не куплено) или надеть (куплено) ===== */
+  const handleStyleAction = useCallback(
+    (kind: StyleKind, id: AvatarId | FrameId | BgId | ThemeId): void => {
+      const cur = getStyleSnapshot()
+      if (isOwned(cur, kind, id)) {
+        audio.play('click')
+        equipStyleItem(kind, id)
+      } else if (buyStyleItem(kind, id)) {
+        audio.play('perk')
+      } else {
+        audio.play('penalty')
+      }
+    },
+    [],
+  )
+  /* Тап по аватару в меню — лавка стиля с вкладкой СТИЛЬ */
+  const openStyleShop = useCallback((): void => {
+    audio.play('click')
+    setMarketTab('style')
+    setOverlay('market')
+  }, [])
+
   /* ===== Куница NANA: растёт от пройденных уровней и времени в игре ===== */
   const marten = useSyncExternalStore(subscribeMarten, getMartenSnapshot, () => DEFAULT_MARTEN)
   /* ===== РЫНОК: зерновой сейф, артефакты и счётчик кликов ===== */
   const market = useSyncExternalStore(subscribeMarket, getMarketSnapshot, () => DEFAULT_MARKET)
+  /* ===== ЛАВКА СТИЛЯ (0.0.75): аватар, рамка, фон и цвет меню ===== */
+  const style = useSyncExternalStore(subscribeStyle, getStyleSnapshot, () => DEFAULT_STYLE)
+  /* Аватар в ref — для колбэков отправки рекорда без перезапуска эффектов */
+  const styleRef = useRef<StyleState>(DEFAULT_STYLE)
+  useEffect(() => {
+    styleRef.current = style
+  }, [style])
   /* ===== ИНВЕНТАРЬ (0.0.53): лут из сундучков и надетые предметы ===== */
   const inv = useSyncExternalStore(subscribeInventory, getInventorySnapshot, () => DEFAULT_INVENTORY)
   const [martenCheer, setMartenCheer] = useState(false)
@@ -6892,7 +7490,13 @@ export function PopcornGame() {
         const defNick = tFor(settingsRef.current.lang)('nick.default')
         const nick = (window.localStorage.getItem(NAME_KEY) || defNick).trim() || defNick
         /* Опыт уже зачислен по ходу забега (onStats) — здесь только список лидеров */
-        const entry: LeaderEntry = { score: r.score, level: r.level, date: Date.now(), name: nick }
+        const entry: LeaderEntry = {
+          score: r.score,
+          level: r.level,
+          date: Date.now(),
+          name: nick,
+          avatar: styleRef.current.avatar,
+        }
         let list: LeaderEntry[] = []
         try {
           const parsed: unknown = JSON.parse(window.localStorage.getItem(LEADERS_KEY) ?? '[]')
@@ -6940,6 +7544,7 @@ export function PopcornGame() {
                 name: nick,
                 score: r.score,
                 level: r.level,
+                avatar: styleRef.current.avatar,
                 secs: runSecs,
                 runId: tok?.runId ?? '',
                 token: tok?.token ?? '',
@@ -8128,18 +8733,23 @@ export function PopcornGame() {
               {/* Леопардовые обои фона (0.0.45) + падающие зёрна за карточкой */}
               <div aria-hidden className="leopard-wall pointer-events-none absolute inset-0" />
               <MenuBackdrop />
-              {/* Карточка меню: яркая леопардовая РАМКА + фиолетовая панель с деликатным
-                  узором (0.0.45) — вместо бежевой. Кнопки те же, что и были */}
+              {/* Карточка меню: яркая леопардовая РАМКА + панель с темой игрока (0.0.75:
+                  фон и цвет подменяются купленным стилем). Кнопки те же, что и были */}
               <motion.div
-                className="leopard-frame relative my-auto w-full max-w-sm rounded-[22px] p-2.5 text-center shadow-[0_18px_50px_rgba(0,0,0,0.65)] [@media(max-height:700px)]:p-1.5 sm:p-3"
+                className={`leopard-frame relative my-auto w-full max-w-sm rounded-[22px] p-2.5 text-center shadow-[0_18px_50px_rgba(0,0,0,0.65)] pp-theme pp-theme-${style.theme} [@media(max-height:700px)]:p-1.5 sm:p-3`}
                 initial={{ scale: 0.92, y: 14 }}
                 animate={{ scale: 1, y: 0 }}
                 exit={{ scale: 0.95, y: 10, opacity: 0, pointerEvents: 'none' }}
                 transition={{ type: 'spring', stiffness: 260, damping: 22 }}
               >
-                <div className="relative overflow-hidden rounded-2xl bg-gradient-to-b from-[#2A1348] via-[#231040] to-[#170826] p-4 [@media(max-height:700px)]:p-3 sm:p-6">
-                  {/* Деликатный леопардовый узор по фону панели */}
-                  <span aria-hidden className="leopard-soft pointer-events-none absolute inset-0" />
+                <div className={`relative overflow-hidden rounded-2xl pp-bg pp-bg-${style.bg} p-4 [@media(max-height:700px)]:p-3 sm:p-6`}>
+                  {/* Деликатный леопардовый узор по фону панели (на купленных
+                      фонах приглушается — тема не должна спорить с узором) */}
+                  <span
+                    aria-hidden
+                    className="leopard-soft pointer-events-none absolute inset-0"
+                    style={style.bg !== 'classic' || style.theme !== 'classic' ? { opacity: 0.025 } : undefined}
+                  />
                   <div className="relative">
                 {/* Живая куница NANA + панель управления справа (путешествия, маркет) */}
                 <motion.div {...menuPop(0)} className="relative mx-auto w-full max-w-[21rem]">
@@ -8386,12 +8996,15 @@ export function PopcornGame() {
                     <Popcorn className="h-3.5 w-3.5 text-amber-500" aria-hidden />
                     {t('menu.xp', { n: xp })}
                   </div>
-                  {/* Стаж котика: мета-прогресс — уровень + тонкая полоска внутри уровня */}
-                  <div
-                    className="inline-flex items-center gap-1 rounded-full bg-[#2E1650] px-2.5 py-1 font-ui text-[11px] font-semibold text-[#EBD6FF] ring-2 ring-[#C979F0]/40"
+                  {/* Стаж котика: аватар с рамкой (тап — лавка стиля) + уровень и полоска */}
+                  <button
+                    type="button"
+                    onClick={openStyleShop}
+                    className="inline-flex items-center gap-1.5 rounded-full bg-[#2E1650] px-2.5 py-1 font-ui text-[11px] font-semibold text-[#EBD6FF] ring-2 ring-[#C979F0]/40 transition hover:bg-[#3A1D66] active:scale-95"
                     aria-label={t('menu.charLevel', { n: charInfo.level })}
-                    title={t('menu.charLevelHint')}
+                    title={t('menu.avatarHint')}
                   >
+                    <AvatarBadge id={style.avatar} frame={style.frame} size={26} />
                     {t('menu.charLevel', { n: charInfo.level })}
                     <span
                       aria-hidden
@@ -8404,7 +9017,7 @@ export function PopcornGame() {
                         }}
                       />
                     </span>
-                  </div>
+                  </button>
                   {/* Ник теперь меняется в настройках (шестерёнка) */}
                 </motion.div>
 
@@ -8415,7 +9028,7 @@ export function PopcornGame() {
                       aria-hidden
                       className="play-pulse pointer-events-none absolute inset-0 rounded-xl"
                     />
-                    <GameButton onClick={startGame} shine tone="violet" primary>
+                    <GameButton onClick={startGame} shine tone="accent" primary>
                       {t('menu.play')}
                     </GameButton>
                   </div>
@@ -8451,7 +9064,7 @@ export function PopcornGame() {
                       setOverlay('upgrades')
                     }}
                     aria-label={t('menu.upgrades')}
-                    className="relative flex min-h-11 w-full items-center justify-center gap-2 rounded-xl border-2 border-[#C979F0]/80 bg-[#2E1650] px-4 py-2.5 font-pixel text-sm font-bold text-[#EBD6FF] shadow-[0_3px_0_#170826] transition hover:bg-[#3A1D66] active:translate-y-[2px] active:shadow-[0_1px_0_#170826]"
+                    className="relative flex min-h-11 w-full items-center justify-center gap-2 rounded-xl border-2 border-[var(--pp-ring)] bg-[var(--pp-panel)] px-4 py-2.5 font-pixel text-sm font-bold text-[#EBD6FF] shadow-[0_3px_0_#170826] transition hover:brightness-125 active:translate-y-[2px] active:shadow-[0_1px_0_#170826]"
                   >
                     <Zap className="h-4.5 w-4.5 text-amber-400" aria-hidden />
                     {t('menu.upgrades')}
@@ -8477,7 +9090,7 @@ export function PopcornGame() {
                       setOverlay('more')
                     }}
                     aria-label={t('menu.more')}
-                    className="flex min-h-11 w-full items-center justify-center gap-2 rounded-xl border-2 border-[#C979F0]/45 bg-[#241040] px-4 py-2.5 font-pixel text-sm font-bold text-[#D8B4FE] shadow-[0_3px_0_#170826] transition hover:bg-[#2E1650] active:translate-y-[2px] active:shadow-[0_1px_0_#170826]"
+                    className="flex min-h-11 w-full items-center justify-center gap-2 rounded-xl border-2 border-[var(--pp-ring)] bg-[var(--pp-panel-deep)] px-4 py-2.5 font-pixel text-sm font-bold text-[#D8B4FE] shadow-[0_3px_0_#170826] transition hover:brightness-125 active:translate-y-[2px] active:shadow-[0_1px_0_#170826]"
                   >
                     <LayoutGrid className="h-4 w-4 text-[#C979F0]" aria-hidden />
                     {t('menu.more')}
@@ -9151,6 +9764,16 @@ export function PopcornGame() {
               onClose={closeOverlayBack}
             />
           )}
+          {/* v0.0.75: ПУТЬ КОТИКА — шкала опыта с наградами уровней */}
+          {overlay === 'path' && (
+            <PathOverlay
+              charInfo={charInfo}
+              t={t}
+              avatarId={style.avatar}
+              frameId={style.frame}
+              onClose={closeOverlayBack}
+            />
+          )}
         </AnimatePresence>
 
         {/* v0.0.60: ПУШ о поддержке — поверх всех оверлеев (z-60), закрывается только ОК */}
@@ -9194,11 +9817,14 @@ export function PopcornGame() {
               coins={coins}
               xp={xp}
               market={market}
+              style={style}
               catLevel={charInfo.level}
               eqArts={eqArts}
+              initialTab={marketTab}
               t={t}
               onExchange={handleExchange}
               onBuyArtifact={handleBuyArtifact}
+              onStyleAction={handleStyleAction}
               onClose={closeOverlayBack}
             />
           )}
@@ -9245,6 +9871,11 @@ export function PopcornGame() {
                   emoji: '🎒',
                   badge: invNewCount,
                   onClick: () => openFromHub('upgrades', 'inv'),
+                },
+                {
+                  labelKey: 'hub.tab.path',
+                  emoji: '🎖',
+                  onClick: () => openFromHub('upgrades', 'path'),
                 },
               ]}
               onClose={closeOverlayBack}
