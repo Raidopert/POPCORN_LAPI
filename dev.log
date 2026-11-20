@@ -57,3 +57,4 @@
  GET /studio 200 in 336ms (next.js: 30ms, proxy.ts: 4ms, application-code: 302ms)
  GET /studio 200 in 253ms (next.js: 63ms, proxy.ts: 4ms, application-code: 186ms)
  GET /studio 200 in 87ms (next.js: 16ms, proxy.ts: 5ms, application-code: 66ms)
+ GET / 200 in 58ms (next.js: 20ms, proxy.ts: 4ms, application-code: 34ms)
