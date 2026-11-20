@@ -1,6 +1,6 @@
-# POPCORN PAWS — Android APK (v0.0.72)
+# POPCORN PAWS — Android APK (v0.0.74)
 
-Package `ru.raidopert.popcornpaws`, versionCode 72, versionName 0.0.72, minSdk 24 / targetSdk 34.
+Package `ru.raidopert.popcornpaws`, versionCode 74, versionName 0.0.74, minSdk 24 / targetSdk 34.
 Разрешений нет вообще (включая INTERNET) — приложение полностью автономно: офлайн-статика игры
 (`desktop-build/web/`) встроена в APK (`assets/`) и раздаётся `PawWebViewClient` (чистый android.webkit)
 по адресу `https://appassets.androidplatform.net/assets/...`; внешние адреса блокируются.
@@ -17,7 +17,7 @@ mkdir -p android-build/assets && cp -r desktop-build/web/* android-build/assets/
 $BT/aapt2 compile --dir android/res -o android-build/res.zip
 $BT/aapt2 link -o android-build/base-unsigned.apk -I $AJ --manifest android/AndroidManifest.xml \
   -A android-build/assets --min-sdk-version 24 --target-sdk-version 34 \
-  --version-code 72 --version-name 0.0.72 --auto-add-overlay android-build/res.zip
+  --version-code 72 --version-name 0.0.74 --auto-add-overlay android-build/res.zip
 mkdir -p android-build/obj && $JAVA_BIN/javac -nowarn -source 11 -target 11 -cp $AJ \
   -d android-build/obj $(find android/java -name '*.java')
 mkdir -p android-build/dex && $BT/d8 --release --lib $AJ --min-api 24 \
@@ -26,8 +26,8 @@ python3 -c "import zipfile; z=zipfile.ZipFile('android-build/base-unsigned.apk',
 $BT/zipalign -f 4 android-build/base-unsigned.apk android-build/base-aligned.apk
 $BT/apksigner sign --ks android/keystore/popcorn-release.jks --ks-key-alias popcorn \
   --ks-pass pass:popcornpaws2026 --key-pass pass:popcornpaws2026 \
-  --out android-build/POPCORN-PAWS-0.0.72.apk android-build/base-aligned.apk
-$BT/apksigner verify --print-certs android-build/POPCORN-PAWS-0.0.72.apk
+  --out android-build/POPCORN-PAWS-0.0.74.apk android-build/base-aligned.apk
+$BT/apksigner verify --print-certs android-build/POPCORN-PAWS-0.0.74.apk
 ```
 
 Keystore: `android/keystore/popcorn-release.jks`, alias `popcorn`, пароли (store и key): `popcornpaws2026`.

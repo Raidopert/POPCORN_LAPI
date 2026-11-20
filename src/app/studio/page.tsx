@@ -15,12 +15,15 @@ import {
   Cat,
   Download,
   ExternalLink,
+  FileDown,
   Gamepad2,
   Github,
   Heart,
+  ImageDown,
   Mail,
   Monitor,
   Music,
+  Newspaper,
   PawPrint,
   Phone,
   Send,
@@ -30,6 +33,8 @@ import {
   Users,
 } from "lucide-react";
 import { GAME_VERSION } from "@/lib/game/version";
+import { DEVLOG } from "@/lib/studio/devlog";
+import { CopyButton } from "@/components/studio/copy-button";
 
 export const metadata: Metadata = {
   title: "Raido Pert Studio (ᚱ ᛈ) — игры, сделанные ради кошек",
@@ -62,6 +67,21 @@ const RELEASES_URL = "https://github.com/Raidopert/POPCORN_LAPI/releases";
 const LATEST_RELEASE_URL = "https://github.com/Raidopert/POPCORN_LAPI/releases/latest";
 const LICENSE_URL =
   "https://github.com/Raidopert/POPCORN_LAPI/blob/main/LICENSE";
+
+/** Прямые ссылки на установщики в релизе v0.0.74 (GitHub Releases) */
+const EXE_URL =
+  "https://github.com/Raidopert/POPCORN_LAPI/releases/download/v0.0.74/POPCORN-PAWS-Setup-0.0.74.exe";
+const APK_URL =
+  "https://github.com/Raidopert/POPCORN_LAPI/releases/download/v0.0.74/POPCORN-PAWS-0.0.74.apk";
+
+/** Пресс-кит: файлы лежат в public/studio/presskit/ */
+const PRESSKIT_DIR = "/studio/presskit";
+
+/** Тексты для прессы — те же, что внутри PRESS-KIT.txt */
+const PRESS_SHORT =
+  "POPCORN PAWS «Кошачий попкорнный Беспредел» — 8-битный рогалик-аркада про рыжих котиков, куницу и рассыпанный попкорн. Бесплатно, 0+.";
+const PRESS_LONG =
+  "POPCORN PAWS — бесконечный 8-битный рогалик-аркада про рыжих котиков и рассыпанный попкорн. Куница Лана таскает вкусняшки с кухни, а котики мешают ей как могут: бесконечные уровни, боссы каждые пять уровней (Малыш, Мега-Голубь, Лана-воровка, Лев и финальный Онлифансий), сундучки с перками, прокачка, леопардовый лут, боссовые баночки с эффектами и обмен 3→1: продай три одинаковых — получи вещь классом выше. Рекорды летят в мировую таблицу лидеров, чиптюн ускоряется к концу уровня. Игра сделана при помощи ИИ: код, графика и музыка — с ИИ-инструментами, идеи, стиль и любовь к котикам — только наши. Никого не хотим обидеть — только развеселить. Всё ради кошек. И немного ради попкорна.";
 
 export default function StudioPage() {
   return (
@@ -102,10 +122,18 @@ export default function StudioPage() {
           <span className="font-bold tracking-wide text-lg rps-gold-text" style={pixel}>
             RAIDO PERT STUDIO
           </span>
-          <nav aria-label="Разделы сайта" className="ml-auto hidden sm:flex items-center gap-4 text-sm">
+          <nav aria-label="Разделы сайта" className="ml-auto hidden lg:flex items-center gap-4 text-sm">
             <a className="hover:text-[#F4D489] transition-colors" href="#games">Игры</a>
             <a className="hover:text-[#F4D489] transition-colors" href="#download">Скачать</a>
             <a className="hover:text-[#F4D489] transition-colors" href="#about">О студии</a>
+            <a className="hover:text-[#F4D489] transition-colors" href="#devlog">Devlog</a>
+            <a className="hover:text-[#F4D489] transition-colors" href="#presskit">Press-kit</a>
+            <a className="hover:text-[#F4D489] transition-colors" href="#contacts">Контакты</a>
+          </nav>
+          <nav aria-label="Разделы сайта — компактно" className="ml-auto hidden sm:flex lg:hidden items-center gap-4 text-sm">
+            <a className="hover:text-[#F4D489] transition-colors" href="#games">Игры</a>
+            <a className="hover:text-[#F4D489] transition-colors" href="#download">Скачать</a>
+            <a className="hover:text-[#F4D489] transition-colors" href="#devlog">Devlog</a>
             <a className="hover:text-[#F4D489] transition-colors" href="#contacts">Контакты</a>
           </nav>
           <a
@@ -263,8 +291,8 @@ export default function StudioPage() {
             </h2>
             <p className="text-[#F2E3CF]/80 mb-8">
               POPCORN PAWS v{GAME_VERSION} — на компьютер и на телефон.
-              Установщики лежат на странице релиза GitHub: открой её и забери
-              файл из блока «Assets».
+              Кнопки качают файлы напрямую из последнего релиза GitHub —
+              искать в блоке «Assets» не нужно.
             </p>
 
             <div className="grid gap-6 md:grid-cols-2">
@@ -283,24 +311,23 @@ export default function StudioPage() {
                   работает офлайн, без браузера.
                 </p>
                 <div className="flex flex-wrap gap-2 text-xs">
-                  {["Windows 10/11 · 64-бит", ".exe установщик", "Офлайн"].map((t) => (
+                  {["Windows 10/11 · 64-бит", ".exe · ~97 МБ", "Офлайн"].map((t) => (
                     <span key={t} className="rounded-full bg-[#2a0923] border border-[#E8B95C]/30 px-2.5 py-1">
                       {t}
                     </span>
                   ))}
                 </div>
                 <a
-                  href={LATEST_RELEASE_URL}
-                  target="_blank"
-                  rel="noopener noreferrer"
+                  href={EXE_URL}
                   className="mt-auto inline-flex items-center justify-center gap-2 rounded-xl bg-[#E24B3B] hover:bg-[#c93f31] px-4 py-3 font-bold transition-colors"
                 >
                   <Download className="size-4" aria-hidden />
                   Скачать для ПК (.exe)
-                  <ExternalLink className="size-3.5 opacity-70" aria-hidden />
                 </a>
                 <p className="text-xs text-[#F2E3CF]/60">
-                  Файл .exe — в блоке «Assets» на странице релиза.
+                  Если Windows покажет синее окно SmartScreen — «Подробнее» →
+                  «Выполнить в любом случае». Так бывает у новых независимых
+                  игр без платной подписи кода.
                 </p>
               </article>
 
@@ -319,24 +346,23 @@ export default function StudioPage() {
                   сохраняются на устройстве.
                 </p>
                 <div className="flex flex-wrap gap-2 text-xs">
-                  {["Android 8.0+", ".apk установщик", "Офлайн"].map((t) => (
+                  {["Android 8.0+", ".apk · ~16 МБ", "Офлайн", "Без разрешений"].map((t) => (
                     <span key={t} className="rounded-full bg-[#2a0923] border border-[#E8B95C]/30 px-2.5 py-1">
                       {t}
                     </span>
                   ))}
                 </div>
                 <a
-                  href={LATEST_RELEASE_URL}
-                  target="_blank"
-                  rel="noopener noreferrer"
+                  href={APK_URL}
                   className="mt-auto inline-flex items-center justify-center gap-2 rounded-xl bg-[#E24B3B] hover:bg-[#c93f31] px-4 py-3 font-bold transition-colors"
                 >
                   <Download className="size-4" aria-hidden />
                   Скачать для Android (.apk)
-                  <ExternalLink className="size-3.5 opacity-70" aria-hidden />
                 </a>
                 <p className="text-xs text-[#F2E3CF]/60">
-                  Файл .apk — в блоке «Assets» на странице релиза.
+                  Android спросит «разрешить установку из этого источника» —
+                  это нормально для .apk не из магазина. Приложение без
+                  единого разрешения: не ходит в сеть и ничего не читает.
                 </p>
               </article>
             </div>
@@ -408,6 +434,231 @@ export default function StudioPage() {
                   </div>
                 ))}
               </div>
+            </div>
+          </div>
+        </section>
+
+        {/* DEVLOG — история разработки */}
+        <section id="devlog" aria-labelledby="devlog-title" className="mx-auto max-w-5xl w-full px-4 py-14 scroll-mt-20">
+          <h2 id="devlog-title" className="text-3xl sm:text-4xl font-bold rps-gold-text mb-2" style={pixel}>
+            DEVLOG
+          </h2>
+          <p className="text-[#F2E3CF]/80 mb-8">
+            Настоящая история разработки POPCORN PAWS — из git-тегов и
+            релизов. От первого босса до сайта студии — за неделю.
+          </p>
+
+          <div className="flex flex-col gap-4">
+            {DEVLOG.map((e) => (
+              <article
+                key={e.version}
+                className="rps-panel rounded-2xl p-5 sm:p-6 flex flex-col sm:flex-row gap-4 sm:gap-6"
+              >
+                <div className="sm:w-44 shrink-0 flex sm:flex-col items-baseline sm:items-start gap-2">
+                  <span
+                    className="text-2xl font-bold rps-gold-text"
+                    style={pixel}
+                  >
+                    {e.version}
+                  </span>
+                  <time dateTime={e.date.split(".").reverse().join("-")} className="text-sm text-[#F2E3CF]/60">
+                    {e.date}
+                  </time>
+                </div>
+                <div className="flex flex-col gap-2 min-w-0">
+                  <h3 className="text-lg font-bold text-[#F4D489]">{e.title}</h3>
+                  <p className="text-[#F2E3CF]/85">{e.text}</p>
+                  <div className="flex flex-wrap gap-2 text-xs">
+                    {e.tags.map((t) => (
+                      <span
+                        key={t}
+                        className="rounded-full bg-[#2a0923] border border-[#E8B95C]/30 px-2.5 py-1 text-[#E8B95C]"
+                      >
+                        #{t}
+                      </span>
+                    ))}
+                  </div>
+                </div>
+              </article>
+            ))}
+          </div>
+
+          <p className="text-center text-xs text-[#F2E3CF]/55 mt-6">
+            Полная история коммитов:{" "}
+            <a className="rps-a" href={RELEASES_URL} target="_blank" rel="noopener noreferrer">
+              github.com/Raidopert/POPCORN_LAPI/releases
+            </a>
+          </p>
+        </section>
+
+        {/* PRESS-KIT — материалы для прессы и блогеров */}
+        <section id="presskit" aria-labelledby="presskit-title" className="border-y border-[#E8B95C]/20 bg-[#2a0923]/60 scroll-mt-20">
+          <div className="mx-auto max-w-5xl w-full px-4 py-14">
+            <h2 id="presskit-title" className="text-3xl sm:text-4xl font-bold rps-gold-text mb-2" style={pixel}>
+              PRESS-KIT
+            </h2>
+            <p className="text-[#F2E3CF]/80 mb-8">
+              Пишете обзор, делаете видео или пост? Всё нужное — здесь:
+              факты, тексты, логотипы и скриншоты. Забирайте свободно, автора
+              указывайте — Raido Pert Studio.
+            </p>
+
+            {/* весь пакет одним архивом */}
+            <div className="rps-panel rounded-2xl p-5 sm:p-6 mb-6 flex flex-col sm:flex-row items-center gap-4">
+              <FileDown className="size-8 text-[#E8B95C] shrink-0" aria-hidden />
+              <p className="flex-1 text-[#F2E3CF]/85 text-center sm:text-left">
+                <span className="font-bold text-[#E8B95C]">Всё одним архивом:</span>{" "}
+                логотипы, скриншоты, факт-лист и тексты —{" "}
+                <span className="font-mono text-sm">popcorn-paws-presskit-0.0.74.zip</span> (~2,8 МБ).
+              </p>
+              <a
+                href={`${PRESSKIT_DIR}/popcorn-paws-presskit-0.0.74.zip`}
+                download
+                className="shrink-0 inline-flex items-center gap-2 rounded-xl bg-[#E24B3B] hover:bg-[#c93f31] px-4 py-2.5 font-bold transition-colors"
+              >
+                <FileDown className="size-4" aria-hidden />
+                Скачать архив
+              </a>
+            </div>
+
+            <div className="grid gap-6 md:grid-cols-2">
+              {/* Факт-лист + тексты */}
+              <div className="rps-panel rounded-2xl p-6 flex flex-col gap-4">
+                <h3 className="text-xl font-bold text-[#E8B95C]" style={pixel}>
+                  ФАКТ-ЛИСТ
+                </h3>
+                <dl className="grid grid-cols-[auto_1fr] gap-x-4 gap-y-2 text-sm">
+                  {[
+                    ["Игра", "POPCORN PAWS «Кошачий попкорнный Беспредел»"],
+                    ["Жанр", "рогалик-аркада, 8-бит"],
+                    ["Платформы", "браузер/PWA, VK Mini App, Windows, Android"],
+                    ["Версия", `0.0.74 (20.11.2026)`],
+                    ["Цена", "бесплатно, без внутриигровых покупок"],
+                    ["Рейтинг", "0+"],
+                    ["Студия", "Raido Pert Studio — RaidoPert + Kate HeyNANAhey"],
+                  ].map(([k, v]) => (
+                    <div key={k} className="contents">
+                      <dt className="font-bold text-[#E8B95C] whitespace-nowrap">{k}</dt>
+                      <dd className="text-[#F2E3CF]/85">{v}</dd>
+                    </div>
+                  ))}
+                </dl>
+              </div>
+
+              <div className="rps-panel rounded-2xl p-6 flex flex-col gap-4">
+                <h3 className="text-xl font-bold text-[#E8B95C]" style={pixel}>
+                  ТЕКСТЫ ДЛЯ ПУБЛИКАЦИЙ
+                </h3>
+                <div className="flex flex-col gap-3">
+                  <p className="text-sm text-[#F2E3CF]/85">
+                    <span className="font-bold text-[#F4D489]">Короткое:</span>{" "}
+                    {PRESS_SHORT}
+                  </p>
+                  <CopyButton text={PRESS_SHORT} label="Скопировать короткое" />
+                  <p className="text-sm text-[#F2E3CF]/85">
+                    <span className="font-bold text-[#F4D489]">Длинное:</span>{" "}
+                    {PRESS_LONG}
+                  </p>
+                  <CopyButton text={PRESS_LONG} label="Скопировать длинное" />
+                </div>
+              </div>
+            </div>
+
+            {/* Логотипы */}
+            <h3 className="text-xl font-bold text-[#E8B95C] mt-10 mb-4" style={pixel}>
+              ЛОГОТИПЫ
+            </h3>
+            <div className="grid gap-4 sm:grid-cols-3">
+              {[
+                {
+                  file: "logo-full-1024.png",
+                  title: "Логотип в венке",
+                  d: "круглый, с лаврами",
+                },
+                {
+                  file: "logo-art-1024.png",
+                  title: "Арт логотипа",
+                  d: "котёнок крупно",
+                },
+                {
+                  file: "icon-badge-1024.png",
+                  title: "Иконка приложения",
+                  d: "квадрат со скруглением",
+                },
+              ].map(({ file, title, d }) => (
+                <figure key={file} className="rps-panel rounded-2xl p-4 flex flex-col items-center gap-3 text-center">
+                  <Image
+                    src={`${PRESSKIT_DIR}/${file}`}
+                    alt={`${title} Raido Pert Studio — ${d}`}
+                    width={112}
+                    height={112}
+                    className="rounded-xl border border-[#E8B95C]/40"
+                  />
+                  <figcaption className="flex flex-col gap-0.5">
+                    <span className="font-bold text-sm">{title}</span>
+                    <span className="text-xs text-[#F2E3CF]/65">
+                      {d} · PNG 1024×1024
+                    </span>
+                  </figcaption>
+                  <a
+                    href={`${PRESSKIT_DIR}/${file}`}
+                    download
+                    className="inline-flex items-center gap-1.5 rounded-lg border border-[#E8B95C]/50 px-3 py-1.5 text-sm font-bold hover:bg-[#E8B95C]/10 transition-colors"
+                  >
+                    <FileDown className="size-4" aria-hidden />
+                    Скачать PNG
+                  </a>
+                </figure>
+              ))}
+            </div>
+
+            {/* Скриншоты */}
+            <h3 className="text-xl font-bold text-[#E8B95C] mt-10 mb-4" style={pixel}>
+              СКРИНШОТЫ
+            </h3>
+            <div className="grid gap-4 sm:grid-cols-3">
+              {[
+                {
+                  file: "desktop-1280x720.png",
+                  w: 1280,
+                  h: 720,
+                  title: "Геймплей на ПК",
+                },
+                {
+                  file: "menu-720x1280.png",
+                  w: 720,
+                  h: 1280,
+                  title: "Меню на телефоне",
+                },
+                {
+                  file: "play-720x1280.png",
+                  w: 720,
+                  h: 1280,
+                  title: "Геймплей на телефоне",
+                },
+              ].map(({ file, w, h, title }) => (
+                <figure key={file} className="rps-panel rounded-2xl p-4 flex flex-col items-center gap-3 text-center">
+                  <Image
+                    src={`/screenshots/${file}`}
+                    alt={`POPCORN PAWS: ${title}`}
+                    width={w}
+                    height={h}
+                    className="w-full h-auto rounded-xl border border-[#E8B95C]/40"
+                  />
+                  <figcaption className="flex flex-col gap-0.5">
+                    <span className="font-bold text-sm">{title}</span>
+                    <span className="text-xs text-[#F2E3CF]/65">PNG {w}×{h}</span>
+                  </figcaption>
+                  <a
+                    href={`/screenshots/${file}`}
+                    download
+                    className="inline-flex items-center gap-1.5 rounded-lg border border-[#E8B95C]/50 px-3 py-1.5 text-sm font-bold hover:bg-[#E8B95C]/10 transition-colors"
+                  >
+                    <ImageDown className="size-4" aria-hidden />
+                    Скачать
+                  </a>
+                </figure>
+              ))}
             </div>
           </div>
         </section>

@@ -2,7 +2,7 @@
 ; POPCORN PAWS — NSIS-инсталлятор
 ; Кошачий попкорнный Беспредел
 ; (c) 2025–2026 Raido Pert Studio
-; Версия 0.0.72
+; Версия 0.0.74
 ; ============================================================
 
 Unicode true
@@ -19,19 +19,19 @@ SetCompressor /SOLID lzma
 !define MUI_ABORTWARNING
 
 Name "POPCORN PAWS"
-OutFile "/home/z/my-project/desktop-build/POPCORN-PAWS-Setup-0.0.72.exe"
+OutFile "/home/z/my-project/desktop-build/POPCORN-PAWS-Setup-0.0.74.exe"
 InstallDir "$PROGRAMFILES64\Raido Pert Studio\POPCORN PAWS"
 InstallDirRegKey HKLM "Software\Microsoft\Windows\CurrentVersion\Uninstall\POPCORNPAWS" "InstallLocation"
 RequestExecutionLevel admin
 
 ; --- Версия и метаданные установщика ---
-VIProductVersion "0.0.72.0"
+VIProductVersion "0.0.74.0"
 VIAddVersionKey "ProductName"     "POPCORN PAWS"
 VIAddVersionKey "CompanyName"     "Raido Pert Studio"
 VIAddVersionKey "LegalCopyright"  "© 2025–2026 Raido Pert Studio"
 VIAddVersionKey "FileDescription" "POPCORN PAWS — Кошачий попкорнный Беспредел"
-VIAddVersionKey "FileVersion"     "0.0.72.0"
-VIAddVersionKey "ProductVersion"  "0.0.72.0"
+VIAddVersionKey "FileVersion"     "0.0.74.0"
+VIAddVersionKey "ProductVersion"  "0.0.74.0"
 
 ; --- Страницы установщика ---
 !define MUI_FINISHPAGE_RUN "$INSTDIR\PopcornPaws.exe"
@@ -79,7 +79,7 @@ Section "Install"
 
   ; Регистрация в «Установка и удаление программ»
   WriteRegStr HKLM "Software\Microsoft\Windows\CurrentVersion\Uninstall\POPCORNPAWS" "DisplayName"     "POPCORN PAWS (Кошачий попкорнный Беспредел)"
-  WriteRegStr HKLM "Software\Microsoft\Windows\CurrentVersion\Uninstall\POPCORNPAWS" "DisplayVersion"  "0.0.72"
+  WriteRegStr HKLM "Software\Microsoft\Windows\CurrentVersion\Uninstall\POPCORNPAWS" "DisplayVersion"  "0.0.74"
   WriteRegStr HKLM "Software\Microsoft\Windows\CurrentVersion\Uninstall\POPCORNPAWS" "Publisher"       "Raido Pert Studio"
   WriteRegStr HKLM "Software\Microsoft\Windows\CurrentVersion\Uninstall\POPCORNPAWS" "DisplayIcon"     "$INSTDIR\PopcornPaws.exe"
   WriteRegStr HKLM "Software\Microsoft\Windows\CurrentVersion\Uninstall\POPCORNPAWS" "UninstallString" "$INSTDIR\Uninstall.exe"
