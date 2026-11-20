@@ -62,6 +62,7 @@ const POSTGRES_DDL: readonly string[] = [
     "id" TEXT NOT NULL,
     "device" TEXT NOT NULL,
     "nick" TEXT NOT NULL DEFAULT 'Котик',
+    "avatar" TEXT NOT NULL DEFAULT 'kitten',
     "bestScore" INTEGER NOT NULL DEFAULT 0,
     "bestLevel" INTEGER NOT NULL DEFAULT 0,
     "bestAt" TIMESTAMP(3),
@@ -72,6 +73,7 @@ const POSTGRES_DDL: readonly string[] = [
   )`,
   /* миграция уже существующей прод-таблицы (CREATE IF NOT EXISTS её не трогает) */
   `ALTER TABLE "LeaderPlayer" ADD COLUMN IF NOT EXISTS "bestAt" TIMESTAMP(3)`,
+  `ALTER TABLE "LeaderPlayer" ADD COLUMN IF NOT EXISTS "avatar" TEXT NOT NULL DEFAULT 'kitten'`,
   `CREATE UNIQUE INDEX IF NOT EXISTS "LeaderPlayer_device_key" ON "LeaderPlayer"("device")`,
   `CREATE INDEX IF NOT EXISTS "LeaderPlayer_bestScore_idx" ON "LeaderPlayer"("bestScore")`,
 

@@ -70,9 +70,9 @@ const LICENSE_URL =
 
 /** Прямые ссылки на установщики в релизе v0.0.74 (GitHub Releases) */
 const EXE_URL =
-  "https://github.com/Raidopert/POPCORN_LAPI/releases/download/v0.0.74/POPCORN-PAWS-Setup-0.0.74.exe";
+  "https://github.com/Raidopert/POPCORN_LAPI/releases/download/v0.0.75/POPCORN-PAWS-Setup-0.0.75.exe";
 const APK_URL =
-  "https://github.com/Raidopert/POPCORN_LAPI/releases/download/v0.0.74/POPCORN-PAWS-0.0.74.apk";
+  "https://github.com/Raidopert/POPCORN_LAPI/releases/download/v0.0.75/POPCORN-PAWS-0.0.75.apk";
 
 /** Пресс-кит: файлы лежат в public/studio/presskit/ */
 const PRESSKIT_DIR = "/studio/presskit";
@@ -311,7 +311,7 @@ export default function StudioPage() {
                   работает офлайн, без браузера.
                 </p>
                 <div className="flex flex-wrap gap-2 text-xs">
-                  {["Windows 10/11 · 64-бит", ".exe · ~97 МБ", "Офлайн"].map((t) => (
+                  {["Windows 10/11 · 64-бит", ".exe · ~93 МБ", "Офлайн"].map((t) => (
                     <span key={t} className="rounded-full bg-[#2a0923] border border-[#E8B95C]/30 px-2.5 py-1">
                       {t}
                     </span>
@@ -509,10 +509,10 @@ export default function StudioPage() {
               <p className="flex-1 text-[#F2E3CF]/85 text-center sm:text-left">
                 <span className="font-bold text-[#E8B95C]">Всё одним архивом:</span>{" "}
                 логотипы, скриншоты, факт-лист и тексты —{" "}
-                <span className="font-mono text-sm">popcorn-paws-presskit-0.0.74.zip</span> (~2,8 МБ).
+                <span className="font-mono text-sm">popcorn-paws-presskit-0.0.75.zip</span> (~2,8 МБ).
               </p>
               <a
-                href={`${PRESSKIT_DIR}/popcorn-paws-presskit-0.0.74.zip`}
+                href={`${PRESSKIT_DIR}/popcorn-paws-presskit-0.0.75.zip`}
                 download
                 className="shrink-0 inline-flex items-center gap-2 rounded-xl bg-[#E24B3B] hover:bg-[#c93f31] px-4 py-2.5 font-bold transition-colors"
               >
@@ -532,7 +532,7 @@ export default function StudioPage() {
                     ["Игра", "POPCORN PAWS «Кошачий попкорнный Беспредел»"],
                     ["Жанр", "рогалик-аркада, 8-бит"],
                     ["Платформы", "браузер/PWA, VK Mini App, Windows, Android"],
-                    ["Версия", `0.0.74 (20.11.2026)`],
+                    ["Версия", `0.0.75 (20.11.2026)`],
                     ["Цена", "бесплатно, без внутриигровых покупок"],
                     ["Рейтинг", "0+"],
                     ["Студия", "Raido Pert Studio — RaidoPert + Kate HeyNANAhey"],
