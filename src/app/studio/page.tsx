@@ -19,14 +19,17 @@ import {
   Github,
   Heart,
   Mail,
+  Monitor,
   Music,
   PawPrint,
   Phone,
   Send,
   ShieldCheck,
+  Smartphone,
   Sparkles,
   Users,
 } from "lucide-react";
+import { GAME_VERSION } from "@/lib/game/version";
 
 export const metadata: Metadata = {
   title: "Raido Pert Studio (ᚱ ᛈ) — игры, сделанные ради кошек",
@@ -56,6 +59,7 @@ const pixel = { fontFamily: "var(--font-pixel)" } as const;
 
 const GAMES_URL = "https://play.raidopert.ru";
 const RELEASES_URL = "https://github.com/Raidopert/POPCORN_LAPI/releases";
+const LATEST_RELEASE_URL = "https://github.com/Raidopert/POPCORN_LAPI/releases/latest";
 const LICENSE_URL =
   "https://github.com/Raidopert/POPCORN_LAPI/blob/main/LICENSE";
 
@@ -100,12 +104,20 @@ export default function StudioPage() {
           </span>
           <nav aria-label="Разделы сайта" className="ml-auto hidden sm:flex items-center gap-4 text-sm">
             <a className="hover:text-[#F4D489] transition-colors" href="#games">Игры</a>
+            <a className="hover:text-[#F4D489] transition-colors" href="#download">Скачать</a>
             <a className="hover:text-[#F4D489] transition-colors" href="#about">О студии</a>
             <a className="hover:text-[#F4D489] transition-colors" href="#contacts">Контакты</a>
           </nav>
           <a
+            href="#download"
+            aria-label="Скачать игру"
+            className="ml-auto sm:hidden inline-flex items-center justify-center rounded-xl border border-[#E8B95C]/60 hover:bg-[#E8B95C]/10 p-2.5 transition-colors"
+          >
+            <Download className="size-5" aria-hidden />
+          </a>
+          <a
             href={GAMES_URL}
-            className="ml-auto sm:ml-4 inline-flex items-center gap-2 rounded-xl bg-[#E24B3B] hover:bg-[#c93f31] px-3 py-2 text-sm font-bold transition-colors"
+            className="sm:ml-4 inline-flex items-center gap-2 rounded-xl bg-[#E24B3B] hover:bg-[#c93f31] px-3 py-2 text-sm font-bold transition-colors"
           >
             <Gamepad2 className="size-4" aria-hidden />
             Играть
@@ -167,7 +179,7 @@ export default function StudioPage() {
         </section>
 
         {/* ИГРЫ */}
-        <section id="games" aria-labelledby="games-title" className="mx-auto max-w-5xl w-full px-4 py-14">
+        <section id="games" aria-labelledby="games-title" className="mx-auto max-w-5xl w-full px-4 py-14 scroll-mt-20">
           <h2 id="games-title" className="text-3xl sm:text-4xl font-bold rps-gold-text mb-2" style={pixel}>
             НАШИ ИГРЫ
           </h2>
@@ -213,12 +225,11 @@ export default function StudioPage() {
                     Играть онлайн
                   </a>
                   <a
-                    href={RELEASES_URL}
+                    href="#download"
                     className="inline-flex items-center gap-2 rounded-xl border border-[#E8B95C]/60 hover:bg-[#E8B95C]/10 px-4 py-2.5 font-bold transition-colors"
                   >
                     <Download className="size-4" aria-hidden />
-                    Установщики (exe / apk)
-                    <ExternalLink className="size-3.5 opacity-70" aria-hidden />
+                    Скачать (ПК / Android)
                   </a>
                 </div>
               </div>
@@ -244,8 +255,119 @@ export default function StudioPage() {
           </div>
         </section>
 
+        {/* СКАЧАТЬ */}
+        <section id="download" aria-labelledby="download-title" className="border-y border-[#E8B95C]/20 bg-[#2a0923]/60 scroll-mt-20">
+          <div className="mx-auto max-w-5xl w-full px-4 py-14">
+            <h2 id="download-title" className="text-3xl sm:text-4xl font-bold rps-gold-text mb-2" style={pixel}>
+              СКАЧАТЬ
+            </h2>
+            <p className="text-[#F2E3CF]/80 mb-8">
+              POPCORN PAWS v{GAME_VERSION} — на компьютер и на телефон.
+              Установщики лежат на странице релиза GitHub: открой её и забери
+              файл из блока «Assets».
+            </p>
+
+            <div className="grid gap-6 md:grid-cols-2">
+              {/* ПК — Windows */}
+              <article className="rps-panel rounded-2xl p-6 flex flex-col gap-3">
+                <div className="flex items-center gap-3">
+                  <span className="rounded-xl bg-[#2a0923] border border-[#E8B95C]/40 p-2.5">
+                    <Monitor className="size-6 text-[#E8B95C]" aria-hidden />
+                  </span>
+                  <h3 className="text-xl font-bold text-[#E8B95C]" style={pixel}>
+                    НА КОМПЬЮТЕР
+                  </h3>
+                </div>
+                <p className="text-[#F2E3CF]/85">
+                  Установщик .exe для Windows: ярлык на рабочем столе, игра
+                  работает офлайн, без браузера.
+                </p>
+                <div className="flex flex-wrap gap-2 text-xs">
+                  {["Windows 10/11 · 64-бит", ".exe установщик", "Офлайн"].map((t) => (
+                    <span key={t} className="rounded-full bg-[#2a0923] border border-[#E8B95C]/30 px-2.5 py-1">
+                      {t}
+                    </span>
+                  ))}
+                </div>
+                <a
+                  href={LATEST_RELEASE_URL}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="mt-auto inline-flex items-center justify-center gap-2 rounded-xl bg-[#E24B3B] hover:bg-[#c93f31] px-4 py-3 font-bold transition-colors"
+                >
+                  <Download className="size-4" aria-hidden />
+                  Скачать для ПК (.exe)
+                  <ExternalLink className="size-3.5 opacity-70" aria-hidden />
+                </a>
+                <p className="text-xs text-[#F2E3CF]/60">
+                  Файл .exe — в блоке «Assets» на странице релиза.
+                </p>
+              </article>
+
+              {/* Телефон — Android */}
+              <article className="rps-panel rounded-2xl p-6 flex flex-col gap-3">
+                <div className="flex items-center gap-3">
+                  <span className="rounded-xl bg-[#2a0923] border border-[#E8B95C]/40 p-2.5">
+                    <Smartphone className="size-6 text-[#E8B95C]" aria-hidden />
+                  </span>
+                  <h3 className="text-xl font-bold text-[#E8B95C]" style={pixel}>
+                    НА ТЕЛЕФОН
+                  </h3>
+                </div>
+                <p className="text-[#F2E3CF]/85">
+                  Установщик .apk для Android: игра всегда под рукой, рекорды
+                  сохраняются на устройстве.
+                </p>
+                <div className="flex flex-wrap gap-2 text-xs">
+                  {["Android 8.0+", ".apk установщик", "Офлайн"].map((t) => (
+                    <span key={t} className="rounded-full bg-[#2a0923] border border-[#E8B95C]/30 px-2.5 py-1">
+                      {t}
+                    </span>
+                  ))}
+                </div>
+                <a
+                  href={LATEST_RELEASE_URL}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="mt-auto inline-flex items-center justify-center gap-2 rounded-xl bg-[#E24B3B] hover:bg-[#c93f31] px-4 py-3 font-bold transition-colors"
+                >
+                  <Download className="size-4" aria-hidden />
+                  Скачать для Android (.apk)
+                  <ExternalLink className="size-3.5 opacity-70" aria-hidden />
+                </a>
+                <p className="text-xs text-[#F2E3CF]/60">
+                  Файл .apk — в блоке «Assets» на странице релиза.
+                </p>
+              </article>
+            </div>
+
+            {/* Онлайн / PWA — без установки */}
+            <div className="rps-panel rounded-2xl mt-6 p-5 flex flex-col sm:flex-row items-center gap-4">
+              <Gamepad2 className="size-7 text-[#E8B95C] shrink-0" aria-hidden />
+              <p className="text-[#F2E3CF]/85 flex-1 text-center sm:text-left">
+                <span className="font-bold text-[#E8B95C]">Не хотите ничего скачивать?</span>{" "}
+                Играйте прямо в браузере. А на телефоне можно «Добавить на главный
+                экран» — получится значок, как у обычного приложения (PWA).
+              </p>
+              <a
+                href={GAMES_URL}
+                className="shrink-0 inline-flex items-center gap-2 rounded-xl border border-[#E8B95C]/60 hover:bg-[#E8B95C]/10 px-4 py-2.5 font-bold transition-colors"
+              >
+                Играть онлайн
+              </a>
+            </div>
+
+            <p className="text-center text-xs text-[#F2E3CF]/55 mt-4">
+              История версий и все релизы:{" "}
+              <a className="rps-a" href={RELEASES_URL} target="_blank" rel="noopener noreferrer">
+                github.com/Raidopert/POPCORN_LAPI/releases
+              </a>
+            </p>
+          </div>
+        </section>
+
         {/* О СТУДИИ */}
-        <section id="about" aria-labelledby="about-title" className="border-y border-[#E8B95C]/20 bg-[#2a0923]/60">
+        <section id="about" aria-labelledby="about-title" className="border-y border-[#E8B95C]/20 bg-[#2a0923]/60 scroll-mt-20">
           <div className="mx-auto max-w-5xl w-full px-4 py-14">
             <h2 id="about-title" className="text-3xl sm:text-4xl font-bold rps-gold-text mb-6" style={pixel}>
               О СТУДИИ
@@ -304,7 +426,7 @@ export default function StudioPage() {
         </section>
 
         {/* КОНТАКТЫ */}
-        <section id="contacts" aria-labelledby="contacts-title" className="mx-auto max-w-5xl w-full px-4 pb-16">
+        <section id="contacts" aria-labelledby="contacts-title" className="mx-auto max-w-5xl w-full px-4 pb-16 scroll-mt-20">
           <h2 id="contacts-title" className="text-3xl sm:text-4xl font-bold rps-gold-text mb-6" style={pixel}>
             КОНТАКТЫ
           </h2>
