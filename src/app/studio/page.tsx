@@ -271,22 +271,65 @@ export default function StudioPage() {
               </div>
             </article>
 
-            {/* ПЛЕЙСХОЛДЕРЫ */}
+            {/* КОТО-ЛУТ — слот «ПРОЕКТ №2» (игра статикой в public/koto-lut/) */}
             <div className="flex flex-col gap-6">
-              {[1, 2].map((n) => (
-                <article
-                  key={n}
-                  className="rps-panel rounded-2xl border-dashed p-6 flex flex-col items-center justify-center gap-3 text-center min-h-[180px]"
-                >
-                  <PawPrint className="size-8 text-[#E8B95C]/70" aria-hidden />
-                  <h3 className="text-xl font-bold text-[#E8B95C]" style={pixel}>
-                    ПРОЕКТ №{n + 1}
+              <article className="rps-panel rounded-2xl overflow-hidden flex flex-col">
+                <Image
+                  src="/koto-lut/card-1280x720.png"
+                  alt="Кото-Лут: кот Рыбец на троне, рыцарь-слуга и элитный враг на Солнечных Полях"
+                  width={1280}
+                  height={720}
+                  className="w-full h-auto"
+                />
+                <div className="p-5 sm:p-6 flex flex-col gap-3 flex-1">
+                  <h3 className="text-2xl font-bold text-[#E8B95C]" style={pixel}>
+                    КОТО-ЛУТ
                   </h3>
-                  <p className="text-sm text-[#F2E3CF]/80">
-                    Ещё одна кошачья затея — в разработке. Скоро расскажем подробнее.
+                  <p className="font-bold">«Лут героя» — айдл-рейд и extract-гача</p>
+                  <p className="text-[#F2E3CF]/85">
+                    Бой идёт сам: рыцарь рубит мобов, а кот Рыбец даёт ауры и комментирует
+                    всё происходящее. Из боссов извлекаются духи-обереги с честными
+                    гарантиями, монеты уходят на барахолку Мурзика, альбом двора собирает
+                    коллекцию. Девять вкладок: арена, гача, колесо рыб, кузница и чиптюн.
                   </p>
-                </article>
-              ))}
+                  <div className="flex flex-wrap gap-2 text-xs">
+                    {["Айдл-рейд", "Extract-гача", "Сейв локальный", "Браузерная · 0+"].map(
+                      (t) => (
+                        <span key={t} className="rounded-full bg-[#2a0923] border border-[#E8B95C]/30 px-2.5 py-1">
+                          {t}
+                        </span>
+                      )
+                    )}
+                  </div>
+                  <div className="flex flex-wrap gap-3 mt-auto pt-2">
+                    <a
+                      href="/koto-lut/index.html"
+                      className="inline-flex items-center gap-2 rounded-xl bg-[#E24B3B] hover:bg-[#c93f31] px-4 py-2.5 font-bold transition-colors"
+                    >
+                      <Gamepad2 className="size-4" aria-hidden />
+                      Играть онлайн
+                    </a>
+                    <a
+                      href="https://github.com/Raidopert/koto-lut"
+                      className="inline-flex items-center gap-2 rounded-xl border border-[#E8B95C]/60 hover:bg-[#E8B95C]/10 px-4 py-2.5 font-bold transition-colors"
+                    >
+                      <Github className="size-4" aria-hidden />
+                      Исходники
+                    </a>
+                  </div>
+                </div>
+              </article>
+
+              {/* ПЛЕЙСХОЛДЕР №3 */}
+              <article className="rps-panel rounded-2xl border-dashed p-6 flex flex-col items-center justify-center gap-3 text-center min-h-[180px]">
+                <PawPrint className="size-8 text-[#E8B95C]/70" aria-hidden />
+                <h3 className="text-xl font-bold text-[#E8B95C]" style={pixel}>
+                  ПРОЕКТ №3
+                </h3>
+                <p className="text-sm text-[#F2E3CF]/80">
+                  Ещё одна кошачья затея — в разработке. Скоро расскажем подробнее.
+                </p>
+              </article>
             </div>
           </div>
         </section>
