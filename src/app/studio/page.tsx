@@ -228,7 +228,7 @@ export default function StudioPage() {
             <article className="rps-panel rounded-2xl overflow-hidden flex flex-col md:col-span-2">
               <Image
                 src="/screenshots/desktop-1280x720.png"
-                alt="POPCORN PAWS: геймплей — куница собирает попкорн на кухне"
+                alt="POPCORN PAWS: главное меню — живая куница NANA в комнате, логотип P.O.P."
                 width={1280}
                 height={720}
                 className="w-full h-auto"
@@ -300,7 +300,9 @@ export default function StudioPage() {
             <p className="text-[#F2E3CF]/80 mb-8">
               POPCORN PAWS v{GAME_VERSION} — на компьютер и на телефон.
               Кнопки качают файлы напрямую из последнего релиза GitHub —
-              искать в блоке «Assets» не нужно.
+              искать в блоке «Assets» не нужно. Онлайн-версия всегда свежая
+              (v{GAME_VERSION}); установщики — из релиза v0.0.75, обновим
+              в следующей сборке.
             </p>
 
             <div className="grid gap-6 md:grid-cols-2">
@@ -595,10 +597,10 @@ export default function StudioPage() {
               <p className="flex-1 text-[#F2E3CF]/85 text-center sm:text-left">
                 <span className="font-bold text-[#E8B95C]">Всё одним архивом:</span>{" "}
                 логотипы, скриншоты, факт-лист и тексты —{" "}
-                <span className="font-mono text-sm">popcorn-paws-presskit-0.0.75.zip</span> (~2,8 МБ).
+                <span className="font-mono text-sm">popcorn-paws-presskit-0.0.76.zip</span> (~4,1 МБ).
               </p>
               <a
-                href={`${PRESSKIT_DIR}/popcorn-paws-presskit-0.0.75.zip`}
+                href={`${PRESSKIT_DIR}/popcorn-paws-presskit-0.0.76.zip`}
                 download
                 className="shrink-0 inline-flex items-center gap-2 rounded-xl bg-[#E24B3B] hover:bg-[#c93f31] px-4 py-2.5 font-bold transition-colors"
               >
@@ -618,7 +620,7 @@ export default function StudioPage() {
                     ["Игра", "POPCORN PAWS «Кошачий попкорнный Беспредел»"],
                     ["Жанр", "рогалик-аркада, 8-бит"],
                     ["Платформы", "браузер/PWA, VK Mini App, Windows, Android"],
-                    ["Версия", `0.0.75 (20.11.2026)`],
+                    ["Версия", `${GAME_VERSION} (21.11.2026) — браузер/PWA и VK; установщики — v0.0.75`],
                     ["Цена", "бесплатно, без внутриигровых покупок"],
                     ["Рейтинг", "0+"],
                     ["Студия", "Raido Pert Studio — RaidoPert + Kate HeyNANAhey"],
@@ -654,10 +656,16 @@ export default function StudioPage() {
             <h3 className="text-xl font-bold text-[#E8B95C] mt-10 mb-4" style={pixel}>
               СКРИНШОТЫ
             </h3>
-            <div className="grid gap-4 sm:grid-cols-3">
+            <div className="grid gap-4 sm:grid-cols-2">
               {[
                 {
                   file: "desktop-1280x720.png",
+                  w: 1280,
+                  h: 720,
+                  title: "Меню на ПК",
+                },
+                {
+                  file: "desktop-play-1280x720.png",
                   w: 1280,
                   h: 720,
                   title: "Геймплей на ПК",

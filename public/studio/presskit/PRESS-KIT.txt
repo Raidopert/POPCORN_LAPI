@@ -10,7 +10,8 @@ Raido Pert Studio (ᚱ ᛈ) — raidopert.ru
   Жанр:          рогалик-аркада, 8-бит
   Платформы:     браузер / PWA, VK Mini App, Windows (.exe),
                  Android (.apk)
-  Версия:        0.0.75 (20.11.2026), пре-альфа — с 13.11.2026
+  Версия:        0.0.76 (21.11.2026) — браузер/PWA и VK; установщики
+                 Windows/Android — релиз v0.0.75, пре-альфа — с 13.11.2026
   Цена:          бесплатно, внутриигровых покупок нет
   Рейтинг:       0+ — может играть кто угодно
   Движок:        Next.js 16, Web Audio чиптюн
@@ -55,7 +56,8 @@ Raido Pert Studio (ᚱ ᛈ) — raidopert.ru
   logo-full-1024.png    логотип в золотом лавровом венке
   logo-art-1024.png     арт логотипа (котёнок с попкорном)
   icon-badge-1024.png   иконка приложения
-  screenshots/desktop-1280x720.png   геймплей на десктопе
+  screenshots/desktop-1280x720.png   меню на десктопе (стиль v0.0.76)
+  screenshots/desktop-play-1280x720.png   геймплей на десктопе
   screenshots/menu-720x1280.png      меню на телефоне
   screenshots/play-720x1280.png      геймплей на телефоне
 
