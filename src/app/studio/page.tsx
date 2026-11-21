@@ -1,5 +1,5 @@
 /**
- * САЙТ СТУДИИ RAIDO PERT (ᚱ ᛈ) (v0.0.74)
+ * САЙТ СТУДИИ RAIDO PERT (ᚱ ᛈ) (v0.0.76)
  *
  * Лендинг студии: кто мы, наши игры, контакты.
  * В проде открывается на https://raidopert.ru (см. src/proxy.ts —
@@ -11,6 +11,7 @@
 
 import type { Metadata } from "next";
 import Image from "next/image";
+import Link from "next/link";
 import {
   Cat,
   Download,
@@ -23,7 +24,6 @@ import {
   Mail,
   Monitor,
   Music,
-  Newspaper,
   PawPrint,
   Phone,
   Send,
@@ -33,13 +33,6 @@ import {
   Users,
 } from "lucide-react";
 import { GAME_VERSION } from "@/lib/game/version";
-import { DEVLOG } from "@/lib/studio/devlog";
-import {
-  CONCEPT_IMAGES,
-  MARKET_NOTES,
-  ROADMAP_DIRECTIONS,
-  ROADMAP_PLAN,
-} from "@/lib/studio/roadmap";
 import { CopyButton } from "@/components/studio/copy-button";
 
 export const metadata: Metadata = {
@@ -70,15 +63,23 @@ const pixel = { fontFamily: "var(--font-pixel)" } as const;
 
 const GAMES_URL = "https://play.raidopert.ru";
 const RELEASES_URL = "https://github.com/Raidopert/POPCORN_LAPI/releases";
-const LATEST_RELEASE_URL = "https://github.com/Raidopert/POPCORN_LAPI/releases/latest";
 const LICENSE_URL =
   "https://github.com/Raidopert/POPCORN_LAPI/blob/main/LICENSE";
 
-/** Прямые ссылки на установщики в релизе v0.0.74 (GitHub Releases) */
+/** Прямые ссылки на установщики в релизе v0.0.75 (GitHub Releases) */
 const EXE_URL =
   "https://github.com/Raidopert/POPCORN_LAPI/releases/download/v0.0.75/POPCORN-PAWS-Setup-0.0.75.exe";
 const APK_URL =
   "https://github.com/Raidopert/POPCORN_LAPI/releases/download/v0.0.75/POPCORN-PAWS-0.0.75.apk";
+
+/** CatScribbles — вторая программа студии (P2P доска для рисования) */
+const CS_WEB_URL = "/catscribbles/";
+const CS_REPO_URL = "https://github.com/Raidopert/catscribbles";
+const CS_RELEASES_URL = "https://github.com/Raidopert/catscribbles/releases";
+const CS_EXE_URL =
+  "https://github.com/Raidopert/catscribbles/releases/download/v0.1.0/CATSCRIBBLES-Setup-0.1.0.exe";
+const CS_APK_URL =
+  "https://github.com/Raidopert/catscribbles/releases/download/v0.1.0/CatScribbles-0.1.0.apk";
 
 /** Пресс-кит: файлы лежат в public/studio/presskit/ */
 const PRESSKIT_DIR = "/studio/presskit";
@@ -133,8 +134,7 @@ export default function StudioPage() {
             <a className="hover:text-[#F4D489] transition-colors" href="#download">Скачать</a>
             <a className="hover:text-[#F4D489] transition-colors" href="#about">О студии</a>
             <a className="hover:text-[#F4D489] transition-colors" href="#programs">Программы</a>
-            <a className="hover:text-[#F4D489] transition-colors" href="#devlog">Devlog</a>
-            <a className="hover:text-[#F4D489] transition-colors" href="#roadmap">План</a>
+            <Link className="hover:text-[#F4D489] transition-colors" href="/studio/internal">Разработка</Link>
             <a className="hover:text-[#F4D489] transition-colors" href="#presskit">Press-kit</a>
             <a className="hover:text-[#F4D489] transition-colors" href="#contacts">Контакты</a>
           </nav>
@@ -142,7 +142,6 @@ export default function StudioPage() {
             <a className="hover:text-[#F4D489] transition-colors" href="#games">Игры</a>
             <a className="hover:text-[#F4D489] transition-colors" href="#download">Скачать</a>
             <a className="hover:text-[#F4D489] transition-colors" href="#programs">Программы</a>
-            <a className="hover:text-[#F4D489] transition-colors" href="#devlog">Devlog</a>
             <a className="hover:text-[#F4D489] transition-colors" href="#contacts">Контакты</a>
           </nav>
           <a
@@ -392,6 +391,45 @@ export default function StudioPage() {
               </a>
             </div>
 
+            {/* CatScribbles — вторая программа студии, тоже с установщиками */}
+            <div className="rps-panel rounded-2xl mt-6 p-5 flex flex-col sm:flex-row items-center gap-4">
+              <Image
+                src="/catscribbles/icon-192.png"
+                alt="Иконка CatScribbles — неоновая закорючка"
+                width={44}
+                height={44}
+                className="rounded-xl border border-[#E8B95C]/40 shrink-0"
+              />
+              <p className="text-[#F2E3CF]/85 flex-1 text-center sm:text-left">
+                <span className="font-bold text-[#E8B95C]">CatScribbles (КошачьиЗакорючки)</span>{" "}
+                — P2P доска для совместного рисования. Установщики тоже есть:
+                Windows и Android, плюс веб-версия без установки.
+              </p>
+              <div className="shrink-0 flex flex-wrap justify-center gap-2">
+                <a
+                  href={CS_EXE_URL}
+                  className="inline-flex items-center gap-1.5 rounded-xl border border-[#E8B95C]/60 hover:bg-[#E8B95C]/10 px-3 py-2 text-sm font-bold transition-colors"
+                >
+                  <Download className="size-4" aria-hidden />
+                  .exe
+                </a>
+                <a
+                  href={CS_APK_URL}
+                  className="inline-flex items-center gap-1.5 rounded-xl border border-[#E8B95C]/60 hover:bg-[#E8B95C]/10 px-3 py-2 text-sm font-bold transition-colors"
+                >
+                  <Download className="size-4" aria-hidden />
+                  .apk
+                </a>
+                <a
+                  href={CS_WEB_URL}
+                  className="inline-flex items-center gap-1.5 rounded-xl border border-[#E8B95C]/60 hover:bg-[#E8B95C]/10 px-3 py-2 text-sm font-bold transition-colors"
+                >
+                  <ExternalLink className="size-4" aria-hidden />
+                  Открыть
+                </a>
+              </div>
+            </div>
+
             <p className="text-center text-xs text-[#F2E3CF]/55 mt-4">
               История версий и все релизы:{" "}
               <a className="rps-a" href={RELEASES_URL} target="_blank" rel="noopener noreferrer">
@@ -458,39 +496,70 @@ export default function StudioPage() {
             </p>
 
             <div className="grid gap-6 md:grid-cols-2">
-              {/* CATSCRATCHES */}
+              {/* CATSCRIBBLES */}
               <article className="rps-panel rounded-2xl p-6 flex flex-col gap-3">
                 <div className="flex items-center gap-3">
-                  <span className="flex size-12 shrink-0 items-center justify-center rounded-2xl border border-[#E8B95C]/40 bg-[#2a0923]">
-                    <Cat className="size-6 text-[#E8B95C]" aria-hidden />
-                  </span>
-                  <h3 className="text-2xl font-bold text-[#E8B95C]" style={pixel}>
-                    CATSCRATCHES
-                  </h3>
+                  <Image
+                    src="/catscribbles/icon-192.png"
+                    alt="Иконка CatScribbles — неоновая закорючка-спираль на тёмном фоне"
+                    width={48}
+                    height={48}
+                    className="rounded-2xl border border-[#E8B95C]/40 shrink-0"
+                  />
+                  <div className="flex flex-col">
+                    <h3 className="text-2xl font-bold text-[#E8B95C]" style={pixel}>
+                      CATSCRIBBLES
+                    </h3>
+                    <span className="text-xs text-[#F2E3CF]/60">КошачьиЗакорючки · v0.1.0</span>
+                  </div>
                 </div>
                 <p className="text-[#F2E3CF]/85">
-                  Приложение студии за пределами игр. Проект стартовал —
-                  репозиторий уже создан на GitHub. Описание, скриншоты и
-                  сборки появятся в этом разделе по мере разработки.
+                  P2P-доска для совместного рисования в реальном времени: один
+                  создаёт комнату, второй входит по коду, ссылке или QR — и оба
+                  рисуют одновременно или по очереди. Без регистрации и без
+                  сервера — комнаты эфемерные, штрихи идут напрямую между
+                  устройствами.
                 </p>
                 <div className="flex flex-wrap gap-2 text-xs">
-                  {["Приложение", "В разработке", "Raido Pert Studio"].map((t) => (
+                  {["Приложение", "P2P · WebRTC", "До 8 участников", "Релиз v0.1.0"].map((t) => (
                     <span key={t} className="rounded-full bg-[#2a0923] border border-[#E8B95C]/30 px-2.5 py-1">
                       {t}
                     </span>
                   ))}
                 </div>
-                <div className="mt-auto pt-2">
+                <div className="mt-auto pt-2 flex flex-wrap gap-2">
                   <a
-                    href="https://github.com/Raidopert/Catscratches"
-                    target="_blank"
-                    rel="noopener noreferrer"
+                    href={CS_WEB_URL}
+                    className="inline-flex items-center gap-2 rounded-xl bg-[#E24B3B] hover:bg-[#c93f31] px-4 py-2.5 font-bold transition-colors"
+                  >
+                    <ExternalLink className="size-4" aria-hidden />
+                    Открыть веб-версию
+                  </a>
+                  <a
+                    href={CS_EXE_URL}
                     className="inline-flex items-center gap-2 rounded-xl border border-[#E8B95C]/60 hover:bg-[#E8B95C]/10 px-4 py-2.5 font-bold transition-colors"
                   >
-                    <Github className="size-4" aria-hidden />
-                    Репозиторий на GitHub
+                    <Download className="size-4" aria-hidden />
+                    Windows (.exe)
+                  </a>
+                  <a
+                    href={CS_APK_URL}
+                    className="inline-flex items-center gap-2 rounded-xl border border-[#E8B95C]/60 hover:bg-[#E8B95C]/10 px-4 py-2.5 font-bold transition-colors"
+                  >
+                    <Download className="size-4" aria-hidden />
+                    Android (.apk)
                   </a>
                 </div>
+                <p className="text-xs text-[#F2E3CF]/60">
+                  Репозиторий и исходники:{" "}
+                  <a className="rps-a" href={CS_REPO_URL} target="_blank" rel="noopener noreferrer">
+                    github.com/Raidopert/catscribbles
+                  </a>
+                  {" · "}
+                  <a className="rps-a" href={CS_RELEASES_URL} target="_blank" rel="noopener noreferrer">
+                    все релизы
+                  </a>
+                </p>
               </article>
 
               {/* Плейсхолдер под следующие программы */}
@@ -507,156 +576,6 @@ export default function StudioPage() {
           </div>
         </section>
 
-        {/* DEVLOG — история разработки */}
-        <section id="devlog" aria-labelledby="devlog-title" className="mx-auto max-w-5xl w-full px-4 py-14 scroll-mt-20">
-          <h2 id="devlog-title" className="text-3xl sm:text-4xl font-bold rps-gold-text mb-2" style={pixel}>
-            DEVLOG
-          </h2>
-          <p className="text-[#F2E3CF]/80 mb-8">
-            Настоящая история разработки POPCORN PAWS — из git-тегов и
-            релизов. От первого босса до сайта студии — за неделю.
-          </p>
-
-          <div className="flex flex-col gap-4">
-            {DEVLOG.map((e) => (
-              <article
-                key={e.version}
-                className="rps-panel rounded-2xl p-5 sm:p-6 flex flex-col sm:flex-row gap-4 sm:gap-6"
-              >
-                <div className="sm:w-44 shrink-0 flex sm:flex-col items-baseline sm:items-start gap-2">
-                  <span
-                    className="text-2xl font-bold rps-gold-text"
-                    style={pixel}
-                  >
-                    {e.version}
-                  </span>
-                  <time dateTime={e.date.split(".").reverse().join("-")} className="text-sm text-[#F2E3CF]/60">
-                    {e.date}
-                  </time>
-                </div>
-                <div className="flex flex-col gap-2 min-w-0">
-                  <h3 className="text-lg font-bold text-[#F4D489]">{e.title}</h3>
-                  <p className="text-[#F2E3CF]/85">{e.text}</p>
-                  <div className="flex flex-wrap gap-2 text-xs">
-                    {e.tags.map((t) => (
-                      <span
-                        key={t}
-                        className="rounded-full bg-[#2a0923] border border-[#E8B95C]/30 px-2.5 py-1 text-[#E8B95C]"
-                      >
-                        #{t}
-                      </span>
-                    ))}
-                  </div>
-                </div>
-              </article>
-            ))}
-          </div>
-
-          <p className="text-center text-xs text-[#F2E3CF]/55 mt-6">
-            Полная история коммитов:{" "}
-            <a className="rps-a" href={RELEASES_URL} target="_blank" rel="noopener noreferrer">
-              github.com/Raidopert/POPCORN_LAPI/releases
-            </a>
-          </p>
-        </section>
-
-        {/* ПЛАН РАЗВИТИЯ — roadmap, заготовки контента и концепт-арты */}
-        <section
-          id="roadmap"
-          aria-labelledby="roadmap-title"
-          className="border-y border-[#E8B95C]/20 bg-[#2a0923]/60 scroll-mt-20"
-        >
-          <div className="mx-auto max-w-5xl w-full px-4 py-14">
-            <h2 id="roadmap-title" className="text-3xl sm:text-4xl font-bold rps-gold-text mb-2" style={pixel}>
-              ПЛАН РАЗВИТИЯ
-            </h2>
-            <p className="text-[#F2E3CF]/80 mb-8">
-              Куда растёт POPCORN PAWS: направления уже заготовлены в коде
-              (реестры контента и флаги фич), концепт-арты нарисованы в стиле
-              игры. Всё ниже — планы, а не обещания: игра остаётся бесплатной,
-              честной и 0+.
-            </p>
-
-            <div className="grid gap-4 sm:grid-cols-2 mb-10">
-              {ROADMAP_DIRECTIONS.map((d) => (
-                <article key={d.title} className="rps-panel rounded-2xl p-5 sm:p-6 flex flex-col gap-3">
-                  <div className="flex items-center gap-3">
-                    <span className="text-3xl" aria-hidden>{d.icon}</span>
-                    <h3 className="text-lg font-bold text-[#F4D489]">{d.title}</h3>
-                  </div>
-                  <p className="text-[#F2E3CF]/85 text-sm sm:text-base">{d.text}</p>
-                  <code className="text-xs text-[#E8B95C]/80 mt-auto break-all">
-                    заготовка: {d.stub}
-                  </code>
-                </article>
-              ))}
-            </div>
-
-            <h3 className="text-xl sm:text-2xl font-bold rps-gold-text mb-4" style={pixel}>
-              Дорожная карта по версиям
-            </h3>
-            <div className="flex flex-col gap-3 mb-10">
-              {ROADMAP_PLAN.map((r) => (
-                <article
-                  key={r.version}
-                  className="rps-panel rounded-2xl p-4 sm:p-5 flex flex-col sm:flex-row gap-3 sm:gap-6"
-                >
-                  <div className="sm:w-28 shrink-0">
-                    <span className="text-xl font-bold rps-gold-text" style={pixel}>{r.version}</span>
-                  </div>
-                  <div className="flex flex-col gap-2 min-w-0">
-                    <h4 className="font-bold text-[#F4D489]">{r.title}</h4>
-                    <ul className="text-sm text-[#F2E3CF]/85 flex flex-col gap-1">
-                      {r.items.map((it) => (
-                        <li key={it} className="flex gap-2">
-                          <span className="text-[#E8B95C]" aria-hidden>—</span>
-                          <span>{it}</span>
-                        </li>
-                      ))}
-                    </ul>
-                  </div>
-                </article>
-              ))}
-            </div>
-
-            <h3 className="text-xl sm:text-2xl font-bold rps-gold-text mb-4" style={pixel}>
-              Концепт-заготовки
-            </h3>
-            <p className="text-sm text-[#F2E3CF]/75 mb-6">
-              Эскизы нарисованы процедурно — тем же способом, каким игра рисует
-              свои спрайты (scripts/gen-concepts-pixel.py). Это референсы для
-              будущих спрайтов и комнат, а не финальный арт.
-            </p>
-            <div className="grid gap-4 sm:grid-cols-2 mb-10">
-              {CONCEPT_IMAGES.map((img) => (
-                <figure key={img.src} className="rps-panel rounded-2xl overflow-hidden flex flex-col">
-                  <Image
-                    src={img.src}
-                    alt={`Концепт-заготовка POPCORN PAWS: ${img.caption}`}
-                    width={1344}
-                    height={768}
-                    className="w-full h-auto"
-                    sizes="(max-width: 640px) 100vw, 480px"
-                  />
-                  <figcaption className="p-4 text-sm text-[#F2E3CF]/80">{img.caption}</figcaption>
-                </figure>
-              ))}
-            </div>
-
-            <h3 className="text-xl sm:text-2xl font-bold rps-gold-text mb-4" style={pixel}>
-              Сравнение с рынком
-            </h3>
-            <div className="flex flex-col gap-3">
-              {MARKET_NOTES.map((m) => (
-                <article key={m.who} className="rps-panel rounded-2xl p-4 sm:p-5">
-                  <h4 className="font-bold text-[#F4D489] mb-1">{m.who}</h4>
-                  <p className="text-sm text-[#F2E3CF]/85">{m.lesson}</p>
-                </article>
-              ))}
-            </div>
-          </div>
-        </section>
-
         {/* PRESS-KIT — материалы для прессы и блогеров */}
         <section id="presskit" aria-labelledby="presskit-title" className="border-y border-[#E8B95C]/20 bg-[#2a0923]/60 scroll-mt-20">
           <div className="mx-auto max-w-5xl w-full px-4 py-14">
@@ -665,8 +584,9 @@ export default function StudioPage() {
             </h2>
             <p className="text-[#F2E3CF]/80 mb-8">
               Пишете обзор, делаете видео или пост? Всё нужное — здесь:
-              факты, тексты, логотипы и скриншоты. Забирайте свободно, автора
-              указывайте — Raido Pert Studio.
+              факты, тексты и скриншоты. Логотипы в полном размере живут
+              на странице <Link className="rps-a" href="/studio/internal">«Разработка»</Link>.
+              Забирайте свободно, автора указывайте — Raido Pert Studio.
             </p>
 
             {/* весь пакет одним архивом */}
@@ -728,54 +648,6 @@ export default function StudioPage() {
                   <CopyButton text={PRESS_LONG} label="Скопировать длинное" />
                 </div>
               </div>
-            </div>
-
-            {/* Логотипы */}
-            <h3 className="text-xl font-bold text-[#E8B95C] mt-10 mb-4" style={pixel}>
-              ЛОГОТИПЫ
-            </h3>
-            <div className="grid gap-4 sm:grid-cols-3">
-              {[
-                {
-                  file: "logo-full-1024.png",
-                  title: "Логотип в венке",
-                  d: "круглый, с лаврами",
-                },
-                {
-                  file: "logo-art-1024.png",
-                  title: "Арт логотипа",
-                  d: "котёнок крупно",
-                },
-                {
-                  file: "icon-badge-1024.png",
-                  title: "Иконка приложения",
-                  d: "квадрат со скруглением",
-                },
-              ].map(({ file, title, d }) => (
-                <figure key={file} className="rps-panel rounded-2xl p-4 flex flex-col items-center gap-3 text-center">
-                  <Image
-                    src={`${PRESSKIT_DIR}/${file}`}
-                    alt={`${title} Raido Pert Studio — ${d}`}
-                    width={112}
-                    height={112}
-                    className="rounded-xl border border-[#E8B95C]/40"
-                  />
-                  <figcaption className="flex flex-col gap-0.5">
-                    <span className="font-bold text-sm">{title}</span>
-                    <span className="text-xs text-[#F2E3CF]/65">
-                      {d} · PNG 1024×1024
-                    </span>
-                  </figcaption>
-                  <a
-                    href={`${PRESSKIT_DIR}/${file}`}
-                    download
-                    className="inline-flex items-center gap-1.5 rounded-lg border border-[#E8B95C]/50 px-3 py-1.5 text-sm font-bold hover:bg-[#E8B95C]/10 transition-colors"
-                  >
-                    <FileDown className="size-4" aria-hidden />
-                    Скачать PNG
-                  </a>
-                </figure>
-              ))}
             </div>
 
             {/* Скриншоты */}
@@ -917,6 +789,8 @@ export default function StudioPage() {
             <a className="rps-a" href={GAMES_URL}>play.raidopert.ru</a>
             {" · "}
             <a className="rps-a" href={LICENSE_URL}>лицензия</a>
+            {" · "}
+            <Link className="rps-a" href="/studio/internal">разработка</Link>
           </p>
         </div>
       </footer>

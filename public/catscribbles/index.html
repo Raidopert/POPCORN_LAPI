@@ -1,0 +1,639 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover">
+<meta name="theme-color" content="#0a0d12">
+<meta name="description" content="Совместная доска для рисования в реальном времени. Нарисуй заметку и отправь ссылку — друг откроет её позже и увидит.">
+<link rel="manifest" href="./manifest.webmanifest">
+<link rel="icon" type="image/png" sizes="192x192" href="./icon-192.png">
+<link rel="icon" type="image/png" sizes="512x512" href="./icon-512.png">
+<link rel="apple-touch-icon" href="./apple-touch-icon.png">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="CatScribbles">
+<title>CatScribbles — КошачьиЗакорючки · совместная доска для рисования | raidopert.ru</title>
+<style>
+  /* ============ Тема ============ */
+  :root{
+    --bg-0:#0a0d12;
+    --bg-1:#11161f;
+    --bg-2:#161d28;
+    --bg-3:#1c2533;
+    --border:#2a3447;
+    --border-soft:#222c3d;
+    --text:#e6edf3;
+    --text-mute:#8b98a8;
+    --text-dim:#5d6878;
+    --cyan:#00e5ff;
+    --magenta:#ff2bd6;
+    --green:#00ff88;
+    --amber:#ffb800;
+    --violet:#a78bff;
+    --danger:#ff5470;
+    --shadow:0 8px 32px rgba(0,0,0,.45);
+    --glow-cyan:0 0 14px rgba(0,229,255,.45);
+    --glow-magenta:0 0 14px rgba(255,43,214,.45);
+    --safe-top:env(safe-area-inset-top,0px);
+    --safe-bottom:env(safe-area-inset-bottom,0px);
+    --safe-left:env(safe-area-inset-left,0px);
+    --safe-right:env(safe-area-inset-right,0px);
+  }
+  *{box-sizing:border-box;-webkit-tap-highlight-color:transparent}
+  html,body{margin:0;padding:0;height:100%;width:100%;overflow:hidden;background:var(--bg-0);color:var(--text);
+    font-family:'Inter',system-ui,-apple-system,'Segoe UI',Roboto,sans-serif;font-size:15px;line-height:1.5;
+    -webkit-font-smoothing:antialiased;-moz-osx-font-smoothing:grayscale}
+  body{overscroll-behavior:none;-webkit-touch-callout:none;-webkit-user-select:none;user-select:none;
+    -webkit-tap-highlight-color:transparent}
+  /* Поля ввода — выделение текста нужно */
+  input,textarea,button{ -webkit-user-select:auto;user-select:auto }
+  /* SVG-иконки и canvas — тоже без callout (долгий тап на iOS) */
+  canvas,svg{ -webkit-touch-callout:none }
+  button,input,select{font-family:inherit;color:inherit}
+  ::selection{background:rgba(0,229,255,.35)}
+
+  /* ============ Лендинг ============ */
+  #landing{
+    position:fixed;inset:0;display:flex;flex-direction:column;align-items:center;justify-content:center;
+    padding:max(20px,var(--safe-top)) 16px max(20px,var(--safe-bottom));
+    background:
+      radial-gradient(900px 600px at 15% 10%,rgba(0,229,255,.10),transparent 60%),
+      radial-gradient(800px 600px at 90% 90%,rgba(255,43,214,.10),transparent 60%),
+      var(--bg-0);
+    overflow:auto
+  }
+  .brand{display:flex;align-items:center;gap:12px;margin-bottom:clamp(18px,4vh,32px)}
+  .brand .logo{
+    width:clamp(50px,11vw,68px);height:clamp(50px,11vw,68px);border-radius:16px;
+    background:#0a0d12;border:1px solid rgba(0,229,255,.32);
+    display:flex;align-items:center;justify-content:center;
+    box-shadow:var(--glow-cyan),inset 0 0 14px rgba(0,229,255,.10);
+    flex-shrink:0
+  }
+  .brand .logo .cs{
+    font-weight:900;font-size:clamp(1.5rem,5.2vw,2rem);letter-spacing:-.05em;line-height:1;
+    color:#eafdff;text-shadow:0 0 4px #00e5ff,0 0 10px #00e5ff,0 0 22px rgba(0,229,255,.7),0 0 36px rgba(255,43,214,.4)
+  }
+  .brand .titles h1{
+    margin:0;font-size:clamp(1.4rem,4.5vw,2rem);font-weight:800;letter-spacing:-.02em;
+    background:linear-gradient(90deg,var(--cyan),var(--magenta));
+    -webkit-background-clip:text;background-clip:text;color:transparent
+  }
+  .brand .titles p{margin:2px 0 0;color:var(--text-mute);font-size:clamp(.8rem,2.5vw,.95rem)}
+
+  .card{
+    width:100%;max-width:440px;background:var(--bg-1);border:1px solid var(--border);
+    border-radius:18px;padding:clamp(18px,4vw,26px);box-shadow:var(--shadow)
+  }
+  .tabs{display:flex;gap:6px;background:var(--bg-2);border-radius:12px;padding:5px;margin-bottom:18px}
+  .tabs button{
+    flex:1;padding:10px 12px;border:0;background:transparent;color:var(--text-mute);
+    font-weight:600;font-size:.95rem;border-radius:8px;cursor:pointer;transition:.15s
+  }
+  .tabs button.active{background:linear-gradient(135deg,rgba(0,229,255,.18),rgba(255,43,214,.18));
+    color:var(--text);box-shadow:inset 0 0 0 1px rgba(0,229,255,.25)}
+
+  .field{margin-bottom:14px}
+  .field label{display:block;font-size:.82rem;color:var(--text-mute);margin-bottom:6px;font-weight:500}
+  .field input{
+    width:100%;padding:12px 14px;background:var(--bg-2);border:1px solid var(--border-soft);
+    border-radius:10px;font-size:1rem;color:var(--text);outline:none;transition:.15s
+  }
+  .field input:focus{border-color:var(--cyan);box-shadow:0 0 0 3px rgba(0,229,255,.18)}
+  .field input::placeholder{color:var(--text-dim)}
+
+  .btn{
+    display:inline-flex;align-items:center;justify-content:center;gap:8px;
+    padding:12px 18px;border:0;border-radius:10px;font-weight:700;font-size:.95rem;
+    cursor:pointer;transition:.15s;width:100%
+  }
+  .btn-primary{background:linear-gradient(135deg,var(--cyan),var(--magenta));color:#0a0d12;
+    box-shadow:var(--glow-cyan)}
+  .btn-primary:hover{filter:brightness(1.1)}
+  .btn-primary:active{transform:translateY(1px)}
+  .btn-secondary{background:var(--bg-3);color:var(--text);border:1px solid var(--border)}
+  .btn-secondary:hover{background:var(--bg-2)}
+  .btn-ghost{background:transparent;color:var(--text-mute);border:1px solid var(--border-soft)}
+  .btn-ghost:hover{color:var(--text);border-color:var(--border)}
+
+  .hint{margin-top:14px;font-size:.82rem;color:var(--text-dim);text-align:center;line-height:1.5}
+  .hint b{color:var(--text-mute)}
+  .features{display:grid;grid-template-columns:repeat(2,1fr);gap:8px;margin-top:14px}
+  .features div{background:var(--bg-2);border:1px solid var(--border-soft);border-radius:10px;
+    padding:10px 12px;font-size:.82rem;color:var(--text-mute);display:flex;align-items:center;gap:8px}
+  .features div svg{width:16px;height:16px;color:var(--cyan);flex-shrink:0}
+
+  /* Недавние заметки (локальный список) */
+  .recent-rooms{margin-top:16px;text-align:left}
+  .recent-title{font-size:.78rem;color:var(--text-dim);text-transform:uppercase;letter-spacing:.06em;
+    margin-bottom:8px;text-align:center}
+  .recent-list{display:flex;flex-direction:column;gap:6px}
+  .recent-item{display:flex;align-items:center;gap:10px;background:var(--bg-2);border:1px solid var(--border-soft);
+    border-radius:10px;padding:8px 12px;cursor:pointer;transition:.15s}
+  .recent-item:hover{border-color:var(--cyan);background:var(--bg-3)}
+  .recent-item .ri-code{font-family:ui-monospace,Menlo,monospace;font-weight:700;color:var(--cyan);font-size:.9rem}
+  .recent-item .ri-when{margin-left:auto;font-size:.72rem;color:var(--text-dim)}
+  .recent-item .ri-arrow{color:var(--text-dim)}
+  .recent-item:hover .ri-arrow{color:var(--cyan)}
+
+  /* ============ Модалка шеринг ============ */
+  .modal-backdrop{
+    position:fixed;inset:0;background:rgba(5,7,10,.78);backdrop-filter:blur(6px);
+    display:flex;align-items:center;justify-content:center;padding:20px;z-index:100;
+    opacity:0;pointer-events:none;transition:.2s
+  }
+  .modal-backdrop.show{opacity:1;pointer-events:auto}
+  .modal{
+    width:100%;max-width:380px;background:var(--bg-1);border:1px solid var(--border);
+    border-radius:18px;padding:24px;box-shadow:var(--shadow);transform:scale(.95);transition:.2s
+  }
+  .modal-backdrop.show .modal{transform:scale(1)}
+  .modal h3{margin:0 0 16px;font-size:1.15rem;font-weight:700;text-align:center}
+  .share-row{display:flex;align-items:center;gap:10px;background:var(--bg-2);border:1px solid var(--border-soft);
+    border-radius:10px;padding:10px 12px;margin-bottom:10px}
+  .share-row .label{font-size:.78rem;color:var(--text-dim);min-width:46px}
+  .share-row .value{flex:1;font-family:ui-monospace,'SF Mono',Menlo,monospace;font-size:.92rem;
+    color:var(--text);overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+  .share-row button{background:var(--bg-3);border:1px solid var(--border);color:var(--text);
+    padding:6px 10px;border-radius:8px;font-size:.78rem;cursor:pointer;font-weight:600;flex-shrink:0}
+  .share-row button:hover{background:var(--cyan);color:#0a0d12;border-color:var(--cyan)}
+  #qr-wrap{display:flex;justify-content:center;margin:18px 0;background:#fff;padding:14px;border-radius:12px}
+  #qr-wrap canvas,#qr-wrap img{display:block;border-radius:4px}
+  .modal .btn{margin-top:6px}
+
+  /* ============ Комната ============ */
+  #room{position:fixed;inset:0;display:none;flex-direction:column;background:var(--bg-0)}
+  #room.active{display:flex}
+
+  /* Верхняя панель */
+  .topbar{
+    display:flex;align-items:center;gap:10px;padding:8px 12px;
+    padding-top:calc(8px + var(--safe-top));padding-left:calc(12px + var(--safe-left));
+    padding-right:calc(12px + var(--safe-right));
+    background:var(--bg-1);border-bottom:1px solid var(--border);flex-shrink:0;z-index:10
+  }
+  .topbar .room-badge{
+    display:flex;align-items:center;gap:8px;background:var(--bg-2);border:1px solid var(--border-soft);
+    padding:6px 10px;border-radius:8px;font-family:ui-monospace,Menlo,monospace;font-weight:700;
+    font-size:.85rem;color:var(--cyan);cursor:pointer;transition:.15s
+  }
+  .topbar .room-badge:hover{border-color:var(--cyan)}
+  .topbar .room-badge .dot-live{width:7px;height:7px;border-radius:50%;background:var(--green);
+    box-shadow:0 0 6px var(--green);transition:.2s}
+  .topbar .room-badge.saving .dot-live{background:var(--amber);box-shadow:0 0 6px var(--amber);animation:dot-pulse 1s infinite}
+  .topbar .room-badge.err .dot-live{background:var(--danger);box-shadow:0 0 6px var(--danger)}
+  @keyframes dot-pulse{0%,100%{opacity:1}50%{opacity:.25}}
+  .topbar .spacer{flex:1}
+  .participants{display:flex;align-items:center;gap:-4px}
+  .avatar{
+    width:30px;height:30px;border-radius:50%;display:flex;align-items:center;justify-content:center;
+    font-weight:700;font-size:.78rem;color:#0a0d12;border:2px solid var(--bg-1);margin-left:-8px;
+    position:relative;flex-shrink:0
+  }
+  .avatar:first-child{margin-left:0}
+  .avatar.host::after{content:'';position:absolute;bottom:-2px;right:-2px;width:10px;height:10px;
+    border-radius:50%;background:var(--amber);border:2px solid var(--bg-1)}
+  .icon-btn{
+    width:36px;height:36px;border-radius:9px;background:var(--bg-2);border:1px solid var(--border-soft);
+    color:var(--text-mute);cursor:pointer;display:flex;align-items:center;justify-content:center;
+    transition:.15s;flex-shrink:0;padding:0
+  }
+  .icon-btn:hover{color:var(--text);border-color:var(--border)}
+  .icon-btn.danger:hover{color:var(--danger);border-color:var(--danger)}
+  .icon-btn svg{width:18px;height:18px}
+
+  /* Зона холста */
+  .stage{
+    flex:1;position:relative;overflow:hidden;
+    touch-action:none; /* iOS: запретить жесты/скролл, иначе pointerup рвётся */
+    background:
+      linear-gradient(var(--border-soft) 1px,transparent 1px) 0 0/24px 24px,
+      linear-gradient(90deg,var(--border-soft) 1px,transparent 1px) 0 0/24px 24px,
+      var(--bg-1);
+    background-blend-mode:normal
+  }
+  .stage canvas{position:absolute;inset:0;width:100%;height:100%;touch-action:none;display:block}
+  #canvas-live{pointer-events:none}
+
+  /* Индикатор режима / хода */
+  .turn-indicator{
+    position:absolute;top:12px;left:50%;transform:translateX(-50%);
+    background:var(--bg-2);border:1px solid var(--border);border-radius:999px;
+    padding:6px 14px;font-size:.82rem;font-weight:600;display:flex;align-items:center;gap:8px;
+    box-shadow:var(--shadow);z-index:5;white-space:nowrap;max-width:90vw;overflow:hidden;text-overflow:ellipsis
+  }
+  .turn-indicator .dot{width:8px;height:8px;border-radius:50%;background:var(--cyan);box-shadow:0 0 6px var(--cyan)}
+  .turn-indicator.waiting{color:var(--text-mute)}
+  .turn-indicator.waiting .dot{background:var(--amber);box-shadow:0 0 6px var(--amber)}
+  .turn-indicator.you{border-color:var(--cyan);box-shadow:var(--glow-cyan)}
+
+  /* Заблокировано (не ваш ход) */
+  .lock-overlay{
+    position:absolute;inset:0;display:none;align-items:flex-end;justify-content:center;
+    padding-bottom:calc(120px + var(--safe-bottom));pointer-events:none;z-index:4
+  }
+  .lock-overlay.show{display:flex}
+  .lock-overlay div{
+    background:rgba(255,184,0,.12);border:1px solid rgba(255,184,0,.4);color:var(--amber);
+    padding:8px 16px;border-radius:999px;font-size:.85rem;font-weight:600;backdrop-filter:blur(6px)
+  }
+
+  /* Текстовый инпут на холсте */
+  .text-input{
+    position:absolute;background:transparent;border:1px dashed var(--cyan);color:var(--cyan);
+    padding:2px 6px;outline:none;border-radius:4px;z-index:6;font-family:inherit;
+    box-shadow:0 0 0 3px rgba(0,229,255,.15)
+  }
+
+  /* Тулбар */
+  .toolbar{
+    position:relative;flex-shrink:0;background:var(--bg-1);border-top:1px solid var(--border);
+    padding:8px 10px;padding-bottom:calc(8px + var(--safe-bottom));
+    padding-left:calc(10px + var(--safe-left));padding-right:calc(10px + var(--safe-right));
+    display:flex;flex-wrap:wrap;align-items:center;justify-content:center;gap:6px;
+    overflow:visible;z-index:10
+  }
+  .tool-group{display:flex;align-items:center;gap:4px;background:var(--bg-2);border:1px solid var(--border-soft);
+    border-radius:10px;padding:4px;flex-shrink:0}
+  .tool-btn{
+    width:40px;height:40px;border-radius:8px;background:transparent;border:0;color:var(--text-mute);
+    cursor:pointer;display:flex;align-items:center;justify-content:center;transition:.15s;padding:0;flex-shrink:0
+  }
+  .tool-btn:hover{color:var(--text);background:var(--bg-3)}
+  .tool-btn.active{background:linear-gradient(135deg,var(--cyan),var(--magenta));color:#0a0d12;
+    box-shadow:var(--glow-cyan)}
+  .tool-btn svg{width:20px;height:20px}
+  .tool-btn[disabled]{opacity:.35;cursor:not-allowed}
+
+  /* «⋯ Ещё» — поповер с редкими действиями (undo/redo/download/clear/слой) */
+  .more-menu{
+    position:absolute;bottom:calc(100% + 6px);right:10px;
+    display:none;flex-direction:column;gap:6px;align-items:stretch;
+    background:var(--bg-2);border:1px solid var(--border);border-radius:12px;padding:8px;
+    box-shadow:var(--shadow);z-index:25;min-width:120px
+  }
+  .more-menu.show{display:flex}
+  .more-menu .tool-group{background:var(--bg-3)}
+  .more-menu .layer-select{width:100%}
+
+  .color-swatches{display:flex;gap:5px;align-items:center;padding:0 4px;flex-shrink:0;flex-wrap:wrap;max-width:240px;justify-content:center}
+  .swatch{width:28px;height:28px;border-radius:50%;cursor:pointer;border:2px solid var(--bg-1);
+    box-shadow:0 0 0 1px var(--border-soft);transition:.15s;padding:0;flex-shrink:0}
+  .swatch:hover{transform:scale(1.1)}
+  .swatch.active{box-shadow:0 0 0 2px var(--text),0 0 10px currentColor}
+  .color-picker-wrap{
+    width:28px;height:28px;border-radius:50%;overflow:hidden;border:2px solid var(--bg-1);
+    box-shadow:0 0 0 1px var(--border-soft);position:relative;cursor:pointer;flex-shrink:0
+  }
+  .color-picker-wrap input{position:absolute;inset:-4px;width:calc(100% + 8px);height:calc(100% + 8px);
+    border:0;padding:0;background:transparent;cursor:pointer}
+
+  .size-control{display:flex;align-items:center;gap:8px;padding:0 8px;flex-shrink:0}
+  .size-control input[type=range]{
+    width:76px;-webkit-appearance:none;appearance:none;height:4px;border-radius:2px;
+    background:var(--bg-3);outline:none
+  }
+  .size-control input[type=range]::-webkit-slider-thumb{-webkit-appearance:none;appearance:none;
+    width:16px;height:16px;border-radius:50%;background:var(--cyan);cursor:pointer;
+    box-shadow:var(--glow-cyan)}
+  .size-control input[type=range]::-moz-range-thumb{width:16px;height:16px;border-radius:50%;
+    background:var(--cyan);cursor:pointer;border:0;box-shadow:var(--glow-cyan)}
+  .size-dot{background:var(--text);border-radius:50%;flex-shrink:0;transition:.15s}
+
+  .layer-select{
+    background:var(--bg-2);border:1px solid var(--border-soft);color:var(--text);border-radius:8px;
+    padding:8px 10px;font-size:.82rem;cursor:pointer;outline:none;flex-shrink:0
+  }
+
+  /* Toast */
+  #toast{
+    position:fixed;bottom:calc(90px + var(--safe-bottom));left:50%;transform:translateX(-50%) translateY(20px);
+    background:var(--bg-3);border:1px solid var(--border);color:var(--text);
+    padding:10px 16px;border-radius:999px;font-size:.88rem;box-shadow:var(--shadow);
+    opacity:0;pointer-events:none;transition:.25s;z-index:200;max-width:90vw;text-align:center
+  }
+  #toast.show{opacity:1;transform:translateX(-50%) translateY(0)}
+  #toast.error{border-color:var(--danger);color:var(--danger)}
+  #toast.success{border-color:var(--green);color:var(--green)}
+
+  /* Статус подключения */
+  .conn-status{
+    position:absolute;bottom:8px;right:8px;display:flex;align-items:center;gap:6px;
+    background:var(--bg-2);border:1px solid var(--border-soft);border-radius:999px;
+    padding:4px 10px;font-size:.72rem;color:var(--text-mute);z-index:5
+  }
+  .conn-status .dot{width:7px;height:7px;border-radius:50%;background:var(--text-dim);transition:.2s}
+  .conn-status.connecting .dot{background:var(--amber);box-shadow:0 0 6px var(--amber)}
+  .conn-status.online .dot{background:var(--green);box-shadow:0 0 6px var(--green)}
+  .conn-status.error .dot{background:var(--danger);box-shadow:0 0 6px var(--danger)}
+  .conn-status.reconnecting{color:var(--amber);border-color:rgba(255,184,0,.4)}
+  .conn-status.reconnecting .dot{background:var(--amber);box-shadow:0 0 6px var(--amber);animation:dot-pulse 1s infinite}
+
+  /* Подсказка на пустом холсте */
+  .empty-hint{
+    position:absolute;left:50%;top:46%;transform:translate(-50%,-50%);
+    max-width:min(86vw,420px);text-align:center;color:var(--text-mute);
+    pointer-events:none;z-index:3;display:none;padding:0 16px
+  }
+  .empty-hint.show{display:block}
+  .empty-hint .emoji{font-size:clamp(2.2rem,7vw,3.2rem);display:block;margin-bottom:10px;filter:drop-shadow(0 0 10px rgba(0,229,255,.4))}
+  .empty-hint .t1{font-size:clamp(1rem,3.6vw,1.2rem);font-weight:700;color:var(--text);margin-bottom:6px}
+  .empty-hint .t2{font-size:.88rem;line-height:1.5}
+  .empty-hint .t2 b{color:var(--cyan)}
+
+  /* Онбординг (разовая карточка) */
+  #onboard{
+    position:fixed;left:50%;top:50%;transform:translate(-50%,-50%);
+    width:min(92vw,380px);background:var(--bg-1);border:1px solid var(--border);
+    border-radius:18px;padding:clamp(18px,4vw,24px);box-shadow:var(--shadow);z-index:300;
+    text-align:center;color:var(--text);animation:ob-in .25s ease
+  }
+  @keyframes ob-in{from{opacity:0;transform:translate(-50%,-46%) scale(.96)}to{opacity:1;transform:translate(-50%,-50%) scale(1)}}
+  #onboard .ob-emoji{font-size:2.6rem;margin-bottom:6px;filter:drop-shadow(0 0 10px rgba(0,229,255,.4))}
+  #onboard .ob-title{font-size:1.1rem;font-weight:700;margin-bottom:14px;color:var(--cyan)}
+  #onboard .ob-steps{text-align:left;margin:0 auto 18px;padding-left:18px;max-width:300px;
+    font-size:.92rem;line-height:1.5;color:var(--text-mute)}
+  #onboard .ob-steps li{margin-bottom:8px}
+  #onboard .ob-steps b{color:var(--text)}
+  #onboard .ob-ok{width:100%;padding:12px;border:0;border-radius:10px;font-size:1rem;font-weight:700;cursor:pointer}
+
+  /* Десктоп */
+  @media (min-width:1024px){
+    .toolbar{flex-direction:column;flex-wrap:nowrap;align-items:stretch;gap:8px;padding:10px;width:64px;
+      border-top:0;border-right:1px solid var(--border);overflow-y:auto;overflow-x:hidden}
+    .tool-group{flex-direction:column;padding:4px}
+    .color-swatches{flex-wrap:wrap;justify-content:center;max-width:48px}
+    .size-control{flex-direction:column;padding:4px 0}
+    .size-control input[type=range]{width:4px;height:80px;writing-mode:bt-lr;
+      -webkit-appearance:slider-vertical;appearance:slider-vertical}
+    .layer-select{font-size:.7rem;padding:6px 4px;text-align:center}
+    /* На десктопе «⋯ Ещё» не нужен — меню всегда развёрнуто в сайдбаре */
+    .more-menu{position:static;display:flex;width:100%;align-self:stretch;align-items:stretch;
+      right:auto;bottom:auto;background:transparent;border:0;padding:0;box-shadow:none;min-width:0}
+    .more-menu .tool-group{background:var(--bg-2);width:100%;justify-content:center}
+    #btn-more{display:none}
+    .stage{margin-left:0}
+    #room{flex-direction:row}
+    .topbar{flex-direction:column;width:64px;height:100%;border-bottom:0;border-right:1px solid var(--border);
+      padding:10px 8px;gap:10px}
+    .topbar .room-badge{flex-direction:column;gap:4px;padding:8px 4px;text-align:center;font-size:.7rem}
+    .topbar .spacer{flex:0}
+    .participants{flex-direction:column;gap:-4px}
+    .avatar{margin-left:0;margin-top:-6px}
+    .avatar:first-child{margin-top:0}
+    .icon-btn{width:38px;height:38px}
+    .turn-indicator{top:14px;left:calc(64px + 14px);transform:none}
+    .conn-status{bottom:14px;right:14px}
+    .lock-overlay{padding-bottom:60px}
+  }
+  @media (min-width:1280px){
+    .toolbar{width:72px}
+    .topbar{width:72px}
+    .turn-indicator{left:calc(72px + 14px)}
+  }
+
+  /* Скрытое */
+  [hidden]{display:none !important}
+  .spin{animation:spin 1s linear infinite}
+  @keyframes spin{to{transform:rotate(360deg)}}
+  /* Boot: модули ещё грузятся */
+  .btn.booting{opacity:.55;cursor:wait;animation:cs-boot-pulse 1.2s ease-in-out infinite}
+  @keyframes cs-boot-pulse{0%,100%{opacity:.55}50%{opacity:.3}}
+  /* Debug-бар: диагностика P2P/sync на устройстве */
+  #debug-bar{position:fixed;left:6px;bottom:6px;z-index:60;max-width:96vw;background:rgba(8,10,14,.94);color:#5fffd4;font:600 11px/1.35 ui-monospace,SFMono-Regular,Menlo,monospace;padding:5px 7px;border-radius:6px;border:1px solid rgba(0,255,200,.28);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;display:none}
+  #debug-bar.show{display:block}
+  #debug-bar b{color:#ffd25f}
+  #debug-bar i{color:#ff6b6b;font-style:normal}
+</style>
+</head>
+<body>
+
+<!-- ============ ЛЕНДИНГ ============ -->
+<section id="landing">
+  <div class="brand">
+    <div class="logo"><span class="cs">CS</span></div>
+    <div class="titles">
+      <h1>CatScribbles</h1>
+      <p>КошачьиЗакорючки · совместная доска для рисования</p>
+    </div>
+  </div>
+
+  <div class="card">
+    <div class="tabs">
+      <button id="tab-create" class="active" data-tab="create">Создать</button>
+      <button id="tab-join" data-tab="join">Войти</button>
+    </div>
+
+    <!-- Создать -->
+    <div id="pane-create" class="pane">
+      <div class="field">
+        <label for="create-nick">Ваш никнейм (необязательно)</label>
+        <input id="create-nick" type="text" maxlength="20" placeholder="Например, Alex" autocomplete="off">
+      </div>
+      <button id="btn-create" class="btn btn-primary">
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><path d="M12 5v14M5 12h14"/></svg>
+        Создать комнату
+      </button>
+    </div>
+
+    <!-- Войти -->
+    <div id="pane-join" class="pane" hidden>
+      <div class="field">
+        <label for="join-code">Код комнаты</label>
+        <input id="join-code" type="text" maxlength="12" placeholder="CS-XXXX" autocomplete="off" style="text-transform:uppercase;font-family:ui-monospace,Menlo,monospace;letter-spacing:.05em">
+      </div>
+      <div class="field">
+        <label for="join-nick">Ваш никнейм (необязательно)</label>
+        <input id="join-nick" type="text" maxlength="20" placeholder="Например, Mia" autocomplete="off">
+      </div>
+      <button id="btn-join" class="btn btn-primary">
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12h14M12 5l7 7-7 7"/></svg>
+        Войти в комнату
+      </button>
+    </div>
+
+    <div class="features">
+      <div><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M13 2L3 14h9l-1 8 10-12h-9l1-8z"/></svg>Без сервера</div>
+      <div><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87M16 3.13a4 4 0 0 1 0 7.75"/></svg>До 8 человек</div>
+      <div><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><rect x="2" y="3" width="20" height="14" rx="2"/><path d="M8 21h8M12 17v4"/></svg>ПК и мобилки</div>
+      <div><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><rect x="3" y="11" width="18" height="11" rx="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg>Без регистрации</div>
+    </div>
+
+    <p class="hint">Живой режим — через <b>P2P WebRTC</b> напрямую между устройствами, сигналинг и хранение — на <b>Supabase</b>. <b>Рисунок не теряется</b>, когда вы закрываете приложение: один нарисовал заметку, второй открыл ту же ссылку позже — и увидел её. Без регистрации.</p>
+
+    <div class="recent-rooms" id="recent-rooms" hidden>
+      <div class="recent-title">Недавние заметки</div>
+      <div class="recent-list" id="recent-list"></div>
+    </div>
+  </div>
+</section>
+
+<!-- ============ МОДАЛКА ШЕРИНГА ============ -->
+<div id="share-modal" class="modal-backdrop">
+  <div class="modal">
+    <h3>Поделитесь ссылкой</h3>
+    <div class="share-row">
+      <span class="label">Код</span>
+      <span id="share-code" class="value">—</span>
+      <button data-copy="share-code">Копир.</button>
+    </div>
+    <div class="share-row">
+      <span class="label">Ссылка</span>
+      <span id="share-link" class="value">—</span>
+      <button data-copy="share-link">Копир.</button>
+    </div>
+    <div id="qr-wrap"></div>
+    <p class="hint" id="share-hint">Покажите код или QR второму человеку. На телефоне QR удобно сканировать камерой.</p>
+    <button id="share-close" class="btn btn-primary">Готово</button>
+  </div>
+</div>
+
+<!-- ============ КОМНАТА ============ -->
+<section id="room">
+  <!-- Верхняя панель -->
+  <div class="topbar">
+    <div class="room-badge" id="room-badge" title="Нажмите, чтобы поделиться">
+      <span class="dot-live"></span>
+      <span id="room-code-display">—</span>
+    </div>
+    <div class="spacer"></div>
+    <div class="participants" id="participants"></div>
+    <button class="icon-btn" id="btn-share" title="Поделиться">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="18" cy="5" r="3"/><circle cx="6" cy="12" r="3"/><circle cx="18" cy="19" r="3"/><path d="M8.6 13.5l6.8 4M15.4 6.5l-6.8 4"/></svg>
+    </button>
+    <button class="icon-btn" id="btn-save" title="Сохранить заметку">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z"/><path d="M17 21v-8H7v8M7 3v5h8"/></svg>
+    </button>
+    <button class="icon-btn" id="btn-mode" title="Режим: одновременно / по очереди" hidden>
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M17 1l4 4-4 4"/><path d="M3 11V9a4 4 0 0 1 4-4h14"/><path d="M7 23l-4-4 4-4"/><path d="M21 13v2a4 4 0 0 1-4 4H3"/></svg>
+    </button>
+    <button class="icon-btn" id="btn-next" title="Передать ход" hidden>
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M5 4l10 8-10 8z" transform="rotate(-90 12 12)"/></svg>
+    </button>
+    <button class="icon-btn danger" id="btn-leave" title="Выйти">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/><path d="M16 17l5-5-5-5M21 12H9"/></svg>
+    </button>
+  </div>
+
+  <!-- Холст -->
+  <div class="stage" id="stage">
+    <canvas id="canvas-main"></canvas>
+    <canvas id="canvas-live"></canvas>
+    <div class="turn-indicator" id="turn-indicator">
+      <span class="dot"></span><span id="turn-text">Подключение…</span>
+    </div>
+    <div class="lock-overlay" id="lock-overlay"><div>Не ваш ход — дождитесь передачи</div></div>
+    <div class="conn-status connecting" id="conn-status"><span class="dot"></span><span id="conn-text">Поиск пиров…</span></div>
+    <div class="empty-hint" id="empty-hint">
+      <span class="emoji">✏️</span>
+      <div class="t1">Здесь пусто — рисуйте!</div>
+      <div class="t2">Нарисуйте что-нибудь и отправьте ссылку другу. Рисунок <b>сохраняется автоматически</b> — друг откроет ссылку позже и увидит вашу заметку, даже если вы уже закрыли приложение.</div>
+    </div>
+  </div>
+
+  <!-- Тулбар -->
+  <div class="toolbar" id="toolbar">
+    <div class="tool-group">
+      <button class="tool-btn active" data-tool="pen" title="Перо">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 19l7-7 3 3-7 7-3-3z"/><path d="M18 13l-1.5-7.5L2 2l3.5 14.5L13 18l5-5z"/></svg>
+      </button>
+      <button class="tool-btn" data-tool="eraser" title="Ластик">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M20 20H7L3 16a2 2 0 0 1 0-3l9-9a2 2 0 0 1 3 0l6 6a2 2 0 0 1 0 3l-7 7"/><path d="M9 11l5 5"/></svg>
+      </button>
+      <button class="tool-btn" data-tool="text" title="Текст">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 7V4h16v3M9 20h6M12 4v16"/></svg>
+      </button>
+    </div>
+
+    <div class="color-swatches" id="swatches"></div>
+    <div class="color-picker-wrap" title="Свой цвет">
+      <input type="color" id="color-input" value="#00e5ff">
+    </div>
+
+    <div class="size-control">
+      <div class="size-dot" id="size-dot" style="width:6px;height:6px"></div>
+      <input type="range" id="size-range" min="1" max="48" value="4">
+    </div>
+
+    <button class="tool-btn" id="btn-more" title="Ещё (отменить / повторить / скачать / слой)">
+      <svg viewBox="0 0 24 24" fill="currentColor" stroke="none"><circle cx="12" cy="5" r="1.8"/><circle cx="12" cy="12" r="1.8"/><circle cx="12" cy="19" r="1.8"/></svg>
+    </button>
+
+    <div class="more-menu" id="more-menu">
+      <div class="tool-group">
+        <button class="tool-btn" id="btn-undo" title="Отменить" disabled>
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 7v6h6"/><path d="M21 17a9 9 0 0 0-9-9 9 9 0 0 0-6 2.3L3 13"/></svg>
+        </button>
+        <button class="tool-btn" id="btn-redo" title="Повторить" disabled>
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 7v6h-6"/><path d="M3 17a9 9 0 0 1 9-9 9 9 0 0 1 6 2.3L21 13"/></svg>
+        </button>
+      </div>
+
+      <div class="tool-group">
+        <button class="tool-btn" id="btn-download" title="Скачать PNG">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4M7 10l5 5 5-5M12 15V3"/></svg>
+        </button>
+        <button class="tool-btn" id="btn-svg" title="Скачать SVG (вектор)">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 4h16v16H4z"/><path d="M7 16c3 0 3-8 6-8s3 8 6 8"/></svg>
+        </button>
+        <button class="tool-btn" id="btn-clear" title="Очистить холст (хост)" disabled>
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 6h18M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/></svg>
+        </button>
+      </div>
+
+      <select class="layer-select" id="layer-select" title="Слой">
+        <option value="0">Слой 1</option>
+        <option value="1">Слой 2</option>
+        <option value="2">Слой 3</option>
+      </select>
+    </div>
+  </div>
+</section>
+
+<div id="toast"></div>
+<div id="debug-bar"></div>
+
+<script>
+// Boot guard: работает даже если app.js (ES-модуль) не загрузился.
+// Превращает молчаливую мёртвую кнопку в понятное сообщение о причине.
+(function(){
+  window.__csReady = false;
+  function btn(id){ return document.getElementById(id); }
+  [btn('btn-create'), btn('btn-join')].forEach(function(b){
+    if (b) { b.disabled = true; b.classList.add('booting'); }
+  });
+  function fail(msg){
+    var t = document.getElementById('toast');
+    if (!t) return;
+    t.textContent = msg;
+    t.className = 'error show';
+    t.style.maxWidth = 'min(92vw, 460px)';
+    t.style.whiteSpace = 'normal';
+    t.style.lineHeight = '1.45';
+  }
+  setTimeout(function(){
+    if (window.__csReady) return;
+    var p = location.protocol, h = location.hostname, o = location.origin;
+    if (p === 'file:') {
+      fail('Файл открыт напрямую (file://). WebRTC и ES-модули здесь не работают — это ограничение браузера, не баг приложения. Запустите локальный сервер: python3 -m http.server 8765 — и откройте http://localhost:8765/. Либо задеплойте на Vercel (https://).');
+    } else if (p === 'http:' && h !== 'localhost' && h !== '127.0.0.1') {
+      fail('Страница открыта по HTTP. WebRTC требует защищённого контекста (HTTPS или localhost). Задеплойте на Vercel — адрес начнётся с https://, и приложение заработает.');
+    } else if (o === 'null' || p === 'about:' || p === 'blob:') {
+      fail('Страница открыта в изолированном контексте (песочница/превью без источника). WebRTC заблокирован. Откройте приложение по прямой HTTPS-ссылке.');
+    } else {
+      fail('Не удалось загрузить модули за 10 секунд. Нет интернета или CDN заблокирован. Проверьте сеть и обновите страницу.');
+    }
+  }, 10000);
+})();
+</script>
+<script>
+// PWA: регистрация service worker (офлайн-оболочка + установка на главный экран)
+if ('serviceWorker' in navigator) {
+  window.addEventListener('load', () => {
+    navigator.serviceWorker.register('./sw.js').catch(() => {});
+  });
+}
+</script>
+<script type="module" src="./app.js?v=13"></script>
+</body>
+</html>
