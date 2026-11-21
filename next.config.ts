@@ -17,6 +17,12 @@ const nextConfig: NextConfig = {
   /* v0.0.72: dev-ресурсы (HMR/шрифты) для 127.0.0.1 — иначе hydration в браузере
      проверки не подцепляется к SSR-оверлеям */
   allowedDevOrigins: ["127.0.0.1", "localhost"],
+  /* CatScribbles: веб-версия приложения лежит статикой в public/catscribbles/.
+     Роут /catscribbles (src/app/catscribbles/page.tsx) делает redirect на
+     /catscribbles/index.html — относительные ссылки приложения
+     (app.js, иконки, манифест) резолвятся правильно. Rewrite здесь не
+     годится: он не меняет URL браузера и ломает относительные пути.
+     rewrites в режиме офлайн-экспорта запрещены — поэтому роут. */
   ...(isExport
     ? {
         output: "export",
