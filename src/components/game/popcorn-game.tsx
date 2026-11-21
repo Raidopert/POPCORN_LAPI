@@ -2305,6 +2305,58 @@ function PathOverlay({
   const next = milestones.find((m) => m.level > lvl)
   const xpToNext = next ? charInfo.need - charInfo.into : 0
 
+  /* v0.0.79: «Ты здесь» стоит на АКТУАЛЬНОЙ позиции шкалы.
+     Дробный уровень = уровень котика + доля накопленного опыта внутри уровня —
+     он линейно ложится между узлами вех, поэтому маркер проходит каждый узел
+     ровно в момент достижения его уровня (полная зависимость от стажа) */
+  const COL_W = 96 /* w-24 — колонки вех */
+  const PAD_X = 8 /* px-2 контейнера линии */
+  const nodeXs = milestones.map((_, k) => PAD_X + k * COL_W + COL_W / 2)
+  const lastIdx = milestones.length - 1
+  const frac = Math.min(1, Math.max(0, charInfo.into / Math.max(1, charInfo.need)))
+  const vLevel = lvl + frac
+  let markerX = PAD_X
+  if (lastIdx >= 0) {
+    const firstLvl = milestones[0].level
+    if (vLevel <= firstLvl) {
+      /* уровень ещё ниже первой вехи — от старта линии к первому узлу */
+      const t0 = firstLvl > 1 ? (vLevel - 1) / (firstLvl - 1) : 1
+      markerX = PAD_X + (nodeXs[0] - PAD_X) * Math.min(1, Math.max(0, t0))
+    } else if (vLevel >= maxMilestone) {
+      markerX = nodeXs[lastIdx]
+    } else {
+      markerX = nodeXs[lastIdx]
+      for (let k = 0; k < lastIdx; k++) {
+        const a = milestones[k].level
+        const b = milestones[k + 1].level
+        if (vLevel >= a && vLevel < b) {
+          markerX = nodeXs[k] + (nodeXs[k + 1] - nodeXs[k]) * ((vLevel - a) / (b - a))
+          break
+        }
+      }
+    }
+  }
+  markerX = Math.max(20, markerX)
+  /* Подпись кладём с той стороны линии, где у ближней вехи нет карточки */
+  let nearIdx = 0
+  let nearBest = Infinity
+  for (let k = 0; k <= lastIdx; k++) {
+    const d = Math.abs(markerX - nodeXs[k])
+    if (d < nearBest) {
+      nearBest = d
+      nearIdx = k
+    }
+  }
+  const labelAbove = lastIdx >= 0 && nearIdx % 2 === 1
+
+  /* Актуальность видно сразу: при открытии (и при росте опыта) подводим прокрутку к маркеру */
+  const pathScrollRef = useRef<HTMLDivElement | null>(null)
+  useEffect(() => {
+    const wrap = pathScrollRef.current?.parentElement
+    if (!wrap) return
+    wrap.scrollLeft = Math.max(0, markerX - wrap.clientWidth / 2)
+  }, [markerX])
+
   return (
     <motion.div
       className="absolute inset-0 z-40 flex items-center justify-center overflow-y-auto bg-black/70 p-4"
@@ -2355,24 +2407,25 @@ function PathOverlay({
               aria-hidden
               className="pointer-events-none absolute left-0 right-0 top-1/2 h-1 -translate-y-1/2 rounded-full bg-[#e3cba4]"
             />
-            {/* Пройденная часть линии */}
+            {/* Пройденная часть линии — ровно до актуальной позиции (уровень + доля опыта) */}
             <span
               aria-hidden
               className="pointer-events-none absolute left-0 top-1/2 h-1 -translate-y-1/2 rounded-full bg-gradient-to-r from-amber-400 to-[#E24B3B]"
-              style={{
-                width: `${Math.min(
-                  100,
-                  ((Math.min(lvl, maxMilestone) - 1) / Math.max(1, maxMilestone - 1)) * 100,
-                )}%`,
-              }}
+              style={{ width: `${Math.max(0, markerX - 2)}px` }}
             />
 
-            {/* «Ты здесь»: аватар игрока на линии */}
-            <div className="relative flex w-16 flex-col items-center justify-center self-stretch">
-              <span className="relative z-10 -translate-y-1/2">
-                <AvatarBadge id={avatarId} frame={frameId} size={40} />
-              </span>
-              <span className="absolute top-[calc(50%+22px)] z-10 whitespace-nowrap rounded-full bg-[#E24B3B] px-1.5 py-0.5 font-pixel text-[9px] font-bold text-white">
+            {/* «Ты здесь»: аватар стоит на актуальной позиции шкалы —
+                каждый узел проходится ровно в момент достижения его уровня */}
+            <div
+              className="pointer-events-none absolute z-20 h-10 w-10"
+              style={{ left: `${markerX - 20}px`, top: 'calc(50% - 20px)' }}
+            >
+              <AvatarBadge id={avatarId} frame={frameId} size={40} />
+              <span
+                className={`absolute left-1/2 z-10 -translate-x-1/2 whitespace-nowrap rounded-full bg-[#E24B3B] px-1.5 py-0.5 font-pixel text-[9px] font-bold text-white ${
+                  labelAbove ? 'bottom-[calc(100%+3px)]' : 'top-[calc(100%+3px)]'
+                }`}
+              >
                 {t('path.now')}
               </span>
             </div>
