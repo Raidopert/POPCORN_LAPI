@@ -144,6 +144,7 @@ export type AchId =
   | 'inv_legend1'
   | 'inv_recycle1'
   | 'clawPanther'
+  | 'taster4'
 
 export interface AchDef {
   id: AchId
@@ -157,6 +158,8 @@ export const ACHIEVEMENTS: AchDef[] = [
   { id: 'score100', name: 'Первая сотня', desc: 'Набрать 100 очков за один забег', icon: '💯' },
   { id: 'combo10', name: 'Комбо-мастер', desc: 'Серия из 10 сдач подряд без мины', icon: '🔥' },
   { id: 'golden1', name: 'Золотая лапка', desc: 'Поймать золотое зерно (+50 очков)', icon: '✨' },
+  /* 0.0.77 «Виды попкорна»: гурман — по 10 каждого нового сорта */
+  { id: 'taster4', name: 'Гурман', desc: 'Поймать по 10 штук каждого нового вида: сырное, шоколад, лёд и перчик', icon: '🍽️' },
   { id: 'pigeon1', name: 'Птицебой', desc: 'Повалить голубя-воришку ударами лапки', icon: '🐦' },
   { id: 'level5', name: 'Киношка', desc: 'Дойти до 5-го уровня', icon: '🎬' },
   { id: 'level10', name: 'Мастер попкорна', desc: 'Дойти до 10-го уровня', icon: '🏆' },

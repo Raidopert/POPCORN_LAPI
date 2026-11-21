@@ -73,6 +73,13 @@ export interface EngineStats {
   runGrains: number
   /** Сосок 🍼 подобрано за забег (перк «Соски-малышки») */
   runNipples: number
+  /** 0.0.77: поймано за забег по новым видам (ачивка «Гурман») */
+  cheeseCount: number
+  chocoCount: number
+  iceCount: number
+  pepperCount: number
+  /** 0.0.77 шоколад: сколько секунд ещё липкая лапка (0 — не активна) */
+  stickyLeft: number
   /** Мин поймано (со шком) за забег */
   minesHit: number
   /** Сколько мин за забег погасили щиты */
@@ -178,11 +185,23 @@ export interface EngineCallbacks {
   onBossIntroDismiss?(): void
 }
 
-export type PieceKind = 'popcorn' | 'caramel' | 'butter' | 'golden' | 'corn' | 'nipple'
+export type PieceKind =
+  | 'popcorn'
+  | 'caramel'
+  | 'butter'
+  | 'golden'
+  | 'corn'
+  | 'nipple'
+  | 'cheese'
+  | 'choco'
+  | 'ice'
+  | 'pepper'
 
 /** Очки за зёрна (экономика 0.0.31 — вдвое строже, запрос игрока «все очки
     уменьшить»): белое +5 · карамель +10 · масляное +15 · золотое +25 ·
     соска (перк «Соски-малышки») +20.
+    0.0.77 «Виды попкорна»: сырное/шоколад/лёд +15, перчик +30 (эпик-риск:
+    пропустил фитиль — сгорел и минус сердце).
     Цифры по-прежнему чистые — читать легко, но набивать стало вдвое труднее */
 export const KIND_POINTS: Record<Exclude<PieceKind, 'corn'>, number> = {
   popcorn: 5,
@@ -190,17 +209,26 @@ export const KIND_POINTS: Record<Exclude<PieceKind, 'corn'>, number> = {
   butter: 15,
   golden: 25,
   nipple: 20,
+  cheese: 15,
+  choco: 15,
+  ice: 15,
+  pepper: 30,
 }
 
 /** Относительный размер зерна на поле: чем ценнее — тем мельче.
     Белое +1 — крупное и заметное, золотое +5 — крохотное, но яркое.
-    Соска — самая крупная: её видно издалека (и малышам удобнее) */
+    Соска — самая крупная: её видно издалека (и малышам удобнее).
+    Перчик чуть мельче масляного — и на поле его видно по кольцу огня */
 const KIND_SCALE: Record<Exclude<PieceKind, 'corn'>, number> = {
   popcorn: 1,
   caramel: 0.84,
   butter: 0.72,
   golden: 0.58,
   nipple: 1.06,
+  cheese: 0.8,
+  choco: 0.76,
+  ice: 0.76,
+  pepper: 0.66,
 }
 
 const FEVER_SECONDS = 3
@@ -209,6 +237,16 @@ const FEVER_MINE_CHANCE = 0.3
 /** Компенсация этапу, прерванному ВНЕЗАПНОЙ лихорадкой: к остатку таймера
     добавляем +3 сек — перерыв на бонус не должен съедать время этапа */
 const FEVER_RESUME_BONUS = 3
+
+/* --- ВИДЫ ПОПКОРНА (0.0.77): сырное/шоколад/лёд/перчик --- */
+/** Перчик: сколько секунд зерно горит на поле; фитиль сгорел — «жгучий!» минус сердце */
+const PEPPER_FUSE = 7
+/** Сырное: серия из N сырных, сданных ПОДРЯД (без чужих зёрен между), даёт ×2 на 2 сек */
+const CHEESE_STREAK_NEED = 3
+const CHEESE_BOOST_SECS = 2
+/** Шоколад: усиление захвата лапки на N секунд после поимки */
+const CHOCO_STICKY_SECS = 3
+const CHOCO_STICKY_GRAB = 1.15
 
 /* --- ПОДАРОЧНЫЕ КОРОБКИ (0.0.41): маленький приз прямо во время забега.
     Появляются случайно на обычных уровнях, ловятся лапкой:
@@ -416,6 +454,8 @@ interface FieldPiece {
   /** Скорость летящего зерна (пинок лапкой в босс-бою): 0/undefined — лежит спокойно */
   vx?: number
   vy?: number
+  /** 0.0.77 перчик: сколько секунд ещё горит фитиль (0/undefined — вечное) */
+  life?: number
 }
 
 /** БОЛЬШАЯ ПОПКОРНИНА: жирный приз, который живёт секунды и пытается убежать */
@@ -830,6 +870,12 @@ export class PopcornEngine {
   private caramelChance = 0.04
   /** Шанс масляного зерна (+3): с 3-го уровня */
   private butterChance = 0
+  /** 0.0.77: шансы новых видов — сырное с 2-го, шоколад с 3-го,
+      лёд с 4-го, перчик с 6-го уровня; растут медленно, кап умеренный */
+  private cheeseChance = 0
+  private chocoChance = 0
+  private iceChance = 0
+  private pepperChance = 0
   private baseWaveDelay = 0.82
   private waveDelay = -1
   private pendingClear = -1
@@ -852,8 +898,17 @@ export class PopcornEngine {
 
   /* --- комбо: серия удачных сдач без мины --- */
   private streak = 0
+  /* 0.0.77 сырное: сколько сырных зёрен сдано ПОДРЯД (чужое зерно сбрасывает) */
+  private cheeseStreak = 0
+  /* 0.0.77 шоколад: сколько секунд ещё действует липкий захват */
+  private stickyLeft = 0
   /* --- счётчики забега для достижений --- */
   private goldenCount = 0
+  /** 0.0.77: поймано за забег по новым видам (ачивка «Гурман») */
+  private cheeseCount = 0
+  private chocoCount = 0
+  private iceCount = 0
+  private pepperCount = 0
   private pigeonsRun = 0
   /** Зёрен/сосок подобрано за забег (пожизненные ачивки) */
   private runGrains = 0
@@ -1027,6 +1082,11 @@ export class PopcornEngine {
     butter: Sprite
     golden: Sprite
     goldenGlow: Sprite
+    /** 0.0.77: новые виды — сырное/шоколад/лёд/перчик */
+    cheese: Sprite
+    choco: Sprite
+    ice: Sprite
+    pepper: Sprite
     /** 4 варианта гладкой звезды-мины (?mine=1..4 — выбор арт-варианта) */
     mines: Sprite[]
     minesCB: Sprite[]
@@ -1055,6 +1115,10 @@ export class PopcornEngine {
       caramel: makeSmoothPopcornSprite('caramel'),
       butter: makeSmoothPopcornSprite('butter'),
       golden: makeSmoothPopcornSprite('golden'),
+      cheese: makeSmoothPopcornSprite('cheese'),
+      choco: makeSmoothPopcornSprite('choco'),
+      ice: makeSmoothPopcornSprite('ice'),
+      pepper: makeSmoothPopcornSprite('pepper'),
       goldenGlow: makeGlowSprite('#FFE066'),
       mines: [0, 1, 2, 3].map((k) => makeMineSprite(k, false)),
       minesCB: [0, 1, 2, 3].map((k) => makeMineSprite(k, true)),
@@ -1166,6 +1230,13 @@ export class PopcornEngine {
     this.comboArmorLeft = Math.max(0, Math.floor(this.tree.comboArmor ?? 0))
     this.goldCoinsRun = 0
     this.goldenCount = 0
+    /* 0.0.77: счётчики новых видов — с нуля на новом забеге */
+    this.cheeseCount = 0
+    this.chocoCount = 0
+    this.iceCount = 0
+    this.pepperCount = 0
+    this.cheeseStreak = 0
+    this.stickyLeft = 0
     this.pigeonsRun = 0
     this.runGrains = 0
     this.runNipples = 0
@@ -1294,6 +1365,12 @@ export class PopcornEngine {
     /* Разнообразие зёрен: карамель и масло появляются с ростом уровня */
     this.caramelChance = Math.min(0.2, 0.04 + (this.lvl - 1) * 0.014)
     this.butterChance = this.lvl >= 3 ? Math.min(0.1, 0.015 + (this.lvl - 3) * 0.007) : 0
+    /* 0.0.77 «Виды попкорна»: новые сорта выходят по нарастающей —
+       сырное с 2-го, шоколад с 3-го, лёд с 4-го, жгучий перчик с 6-го */
+    this.cheeseChance = this.lvl >= 2 ? Math.min(0.1, 0.03 + (this.lvl - 2) * 0.008) : 0
+    this.chocoChance = this.lvl >= 3 ? Math.min(0.1, 0.025 + (this.lvl - 3) * 0.007) : 0
+    this.iceChance = this.lvl >= 4 ? Math.min(0.08, 0.02 + (this.lvl - 4) * 0.006) : 0
+    this.pepperChance = this.lvl >= 6 ? Math.min(0.06, 0.015 + (this.lvl - 6) * 0.005) : 0
     this.baseWaveDelay = Math.max(0.28, 0.8 - (level - 1) * 0.03)
 
     this.phase = 'playing'
@@ -1313,6 +1390,8 @@ export class PopcornEngine {
     this.freezeLeft = 0
     this.multLeft = 0
     this.multValue = 1
+    this.stickyLeft = 0
+    this.cheeseStreak = 0
     this.hoverLeft =
       this.perk === 'hover' ? HOVER_BASE_SECONDS + (this.tree.hoverPlus ?? 0) : 0
     this.pieces = []
@@ -1620,6 +1699,8 @@ export class PopcornEngine {
     this.freezeLeft = 0
     this.multLeft = 0
     this.multValue = 1
+    this.stickyLeft = 0
+    this.cheeseStreak = 0
     this.seeds = []
     this.lionSlams = []
     this.banner = { text: '', t: 99 }
@@ -1826,21 +1907,52 @@ export class PopcornEngine {
 
   private spawnWave(): void {
     /* Точный состав волны: норма зёрен + мины (ступень каждые 5 уровней).
-       Внутри «вкусной» нормы — смесь: белое/карамель/масло/золото. */
+       Внутри «вкусной» нормы — смесь: белое/карамель/масло/золото,
+       с 0.0.77 ещё и сырное/шоколад/лёд/перчик */
     const kinds: PieceKind[] = []
     for (let i = 0; i < this.popPerWave; i++) {
       const r = Math.random()
       const cB = this.goldenChance
       const cC = cB + this.caramelChance
       const cM = cC + this.butterChance
-      kinds.push(r < cB ? 'golden' : r < cC ? 'caramel' : r < cM ? 'butter' : 'popcorn')
+      const cCh = cM + this.cheeseChance
+      const cCo = cCh + this.chocoChance
+      const cI = cCo + this.iceChance
+      const cP = cI + this.pepperChance
+      kinds.push(
+        r < cB
+          ? 'golden'
+          : r < cC
+            ? 'caramel'
+            : r < cM
+              ? 'butter'
+              : r < cCh
+                ? 'cheese'
+                : r < cCo
+                  ? 'choco'
+                  : r < cI
+                    ? 'ice'
+                    : r < cP
+                      ? 'pepper'
+                      : 'popcorn',
+      )
     }
     for (let i = 0; i < this.cornPerWave; i++) kinds.push('corn')
-    /* «Соски-малышки»: все обычные зёрна — соски (золотые остаются золотыми) */
+    /* «Соски-малышки»: все обычные зёрна — соски (золотые остаются золотыми,
+       0.0.77: и новые виды тоже превращаются — «малышки» не жгут) */
     if (this.perk === 'milky') {
       for (let i = 0; i < kinds.length; i++) {
         const k = kinds[i]
-        if (k === 'popcorn' || k === 'caramel' || k === 'butter') kinds[i] = 'nipple'
+        if (
+          k === 'popcorn' ||
+          k === 'caramel' ||
+          k === 'butter' ||
+          k === 'cheese' ||
+          k === 'choco' ||
+          k === 'ice' ||
+          k === 'pepper'
+        )
+          kinds[i] = 'nipple'
       }
     }
     for (let i = kinds.length - 1; i > 0; i--) {
@@ -1884,6 +1996,8 @@ export class PopcornEngine {
       // Мины стоят угрожающе неподвижно, зёрна лениво покачиваются-крутятся
       spin: kind === 'corn' ? 0 : (Math.random() < 0.5 ? -1 : 1) * (0.25 + Math.random() * 0.5),
       dA: Math.random() * Math.PI * 2,
+      /* 0.0.77 перчик: фитиль — 7 секунд на поимку, потом «жгучий!» */
+      life: kind === 'pepper' ? PEPPER_FUSE : undefined,
     })
   }
 
@@ -1931,13 +2045,15 @@ export class PopcornEngine {
     this.streak = 0
   }
 
-  /** Радиус подбора лапки: перки + скин + древо («Магнит» +8% за уровень) */
+  /** Радиус подбора лапки: перки + скин + древо («Магнит» +8% за уровень).
+      0.0.77 шоколад: липкое зерно на 3 секунды делает лапку клейче (+15%) */
   private get grabR(): number {
     return (
       (this.perk === 'bigpaw' ? 58 : this.perk === 'smallpaw' ? 34 : 44) *
       this.u *
       (this.pawBonus.grabR ?? 1) *
-      (1 + (this.tree.grabR01 ?? 0))
+      (1 + (this.tree.grabR01 ?? 0)) *
+      (this.stickyLeft > 0 ? CHOCO_STICKY_GRAB : 1)
     )
   }
 
@@ -2294,6 +2410,31 @@ export class PopcornEngine {
     // Радиус подбора зависит от перка лапки, скина и древа (геттер grabR)
     const grabR = this.grabR
 
+    /* 0.0.77 перчик: фитиль горит — зёрна с истёкшим сроком «жгут» лапку:
+       красный пшик, минус сердце. Идёт по ВСЕМ перцам, даже когда лапка в шоке */
+    if (this.pepperChance > 0 && this.pieces.some((p) => p.kind === 'pepper')) {
+      for (let i = this.pieces.length - 1; i >= 0; i--) {
+        const p = this.pieces[i]
+        if (p.kind !== 'pepper' || p.life === undefined) continue
+        p.life -= dt
+        if (p.life > 0) continue
+        this.pieces.splice(i, 1)
+        this.crumbs(p.x, p.y, '#FF7A5E', 10)
+        audio.play('penalty')
+        this.texts.push({
+          x: p.x,
+          y: p.y - 14 * this.u,
+          text: this.L('txt.pepperburn'),
+          color: '#FF9A82',
+          t: 0,
+          dur: 1.1,
+          size: 22 * this.u,
+        })
+        this.loseHeart('pepper')
+      }
+      this.emitStats()
+    }
+
     // Подбор попкорна / ловушка-кукуруза. В шоке лапка ничего не берёт
     // и мины не задевает — стоит столбом, пока не отпустит
     for (let i = this.pieces.length - 1; i >= 0; i--) {
@@ -2430,6 +2571,11 @@ export class PopcornEngine {
         this.runGrains++
         if (p.kind === 'nipple') this.runNipples++
         if (p.kind === 'golden') this.goldenCount++
+        /* 0.0.77: счётчики новых видов (ачивка «Гурман») */
+        if (p.kind === 'cheese') this.cheeseCount++
+        if (p.kind === 'choco') this.chocoCount++
+        if (p.kind === 'ice') this.iceCount++
+        if (p.kind === 'pepper') this.pepperCount++
         this.paw.pulse = 1
         this.crumbs(
           p.x,
@@ -2442,9 +2588,28 @@ export class PopcornEngine {
                 ? '#FFED9C'
                 : p.kind === 'nipple'
                   ? '#FFC2D9'
-                  : '#FFF3D6',
+                  : p.kind === 'cheese'
+                    ? '#F6C445'
+                    : p.kind === 'choco'
+                      ? '#8A5432'
+                      : p.kind === 'ice'
+                        ? '#9ADCF0'
+                        : p.kind === 'pepper'
+                          ? '#E04B3A'
+                          : '#FFF3D6',
           6,
         )
+        /* 0.0.77 эффекты поимки:
+           ШОКОЛАД — липкая лапка: +15% радиуса захвата на 3 секунды;
+           ЛЁД — мороз на таймер: 2 секунды этап не тикает (как подарок-фриз) */
+        if (p.kind === 'choco') {
+          this.stickyLeft = CHOCO_STICKY_SECS
+          audio.play('plop')
+        }
+        if (p.kind === 'ice') {
+          this.freezeLeft = Math.max(this.freezeLeft, 2)
+          audio.play('freeze')
+        }
         audio.play(p.kind === 'golden' ? 'golden' : 'pickup')
         this.buzz(p.kind === 'golden' ? 18 : 8)
       }
@@ -2466,10 +2631,26 @@ export class PopcornEngine {
         let base = 0
         let hasGold = false
         let goldN = 0
+        let cheeseN = 0
         for (const c of this.carried) {
           base += KIND_POINTS[c.kind]
           hasGold = hasGold || c.kind === 'golden'
           if (c.kind === 'golden') goldN++
+          if (c.kind === 'cheese') cheeseN++
+        }
+        /* 0.0.77 сырное комбо: 3 сырных ПОДРЯД (горсть целиком из сырных) —
+           ×2 на 2 секунды. Чужое зерно в сдаче сбрасывает сырную серию */
+        if (cheeseN > 0 && cheeseN === this.carried.length) {
+          this.cheeseStreak++
+          if (this.cheeseStreak >= CHEESE_STREAK_NEED) {
+            this.cheeseStreak = 0
+            this.multValue = Math.max(this.multValue, 2)
+            this.multLeft = CHEESE_BOOST_SECS
+            this.banner = { text: this.L('banner.cheeseboost'), t: 0 }
+            audio.play('mult')
+          }
+        } else if (cheeseN === 0) {
+          this.cheeseStreak = 0
         }
         this.streak++
         const cm = this.comboMult
@@ -2661,6 +2842,8 @@ export class PopcornEngine {
       this.multLeft = Math.max(0, this.multLeft - dt)
       if (this.multLeft <= 0) this.multValue = 1
     }
+    /* 0.0.77 шоколад: липкая лапка тикает вниз вместе с остальными бустами */
+    if (this.stickyLeft > 0) this.stickyLeft = Math.max(0, this.stickyLeft - dt)
     if (this.snowHintT > 0) this.snowHintT = Math.max(0, this.snowHintT - dt)
     if (this.hoverLeft > 0) this.hoverLeft = Math.max(0, this.hoverLeft - dt)
     if (this.freezeLeft > 0) {
@@ -2831,9 +3014,10 @@ export class PopcornEngine {
     this.cb.onEnd?.({ score: Math.floor(this.score), level: this.lvl, reason })
   }
 
-  /** Потеря сердечка: мина, повторный клюв голубя, касание босса-малыша или
-      шлепок зерном цыганки о экран. Ноль — поражение */
-  private loseHeart(where: 'mine' | 'pigeon' | 'boss' | 'gypsy'): void {
+  /** Потеря сердечка: мина, повторный клюв голубя, касание босса-малыша,
+      шлепок зерном цыганки о экран или сгоревший фитиль перчика.
+      Ноль — поражение */
+  private loseHeart(where: 'mine' | 'pigeon' | 'boss' | 'gypsy' | 'pepper'): void {
     if (this.phase !== 'playing' || this.hearts <= 0) return
     const u = this.u
     this.hearts--
@@ -2841,13 +3025,13 @@ export class PopcornEngine {
     const hx =
       where === 'boss'
         ? (this.boss?.x ?? this.paw.x)
-        : where === 'mine' || where === 'gypsy'
+        : where === 'mine' || where === 'gypsy' || where === 'pepper'
           ? this.paw.x
           : this.cup.x
     const hy =
       where === 'boss'
         ? (this.boss?.y ?? this.paw.y)
-        : where === 'mine' || where === 'gypsy'
+        : where === 'mine' || where === 'gypsy' || where === 'pepper'
           ? this.paw.y - 64 * u
           : this.cup.y - this.cupH * 1.5
     this.texts.push({
@@ -5102,7 +5286,7 @@ export class PopcornEngine {
       : this.feverAfter >= 0
         ? this.lastFeverGained
         : 0
-    const key = `${this.score}|${this.lvl}|${this.quota}|${this.collected}|${this.carried.length}|${sec}|${this.paused}|${this.streak}|${this.goldenCount}|${this.pigeonsRun}|${fever}|${feverGained}|${this.wave}|${this.shieldLeft}|${this.runGrains}|${this.runNipples}|${this.minesHit}|${this.shieldSaves}|${this.hearts}|${this.maxHearts}|${this.bigCaught}|${this.bigCaramelRun}|${this.bigCherryRun}|${this.bigGrapeRun}|${this.bossCoinsRun}|${this.goldCoinsRun}|${this.bossKillsRun}|${this.bossKidKillsRun}|${this.bossLionKillsRun}|${this.bossMartenKillsRun}|${this.bossPigeonKillsRun}|${this.bossGypsyKillsRun}|${this.bossCleanLast ? 1 : 0}|${this.boss ? `${this.boss.hp}/${this.boss.maxHp}` : '-'}|${Math.ceil(this.freezeLeft)}|${this.multLeft > 0 ? this.multValue : 0}|${Math.ceil(this.multLeft)}|${this.giftsRun}`
+    const key = `${this.score}|${this.lvl}|${this.quota}|${this.collected}|${this.carried.length}|${sec}|${this.paused}|${this.streak}|${this.goldenCount}|${this.pigeonsRun}|${fever}|${feverGained}|${this.wave}|${this.shieldLeft}|${this.runGrains}|${this.runNipples}|${this.cheeseCount}|${this.chocoCount}|${this.iceCount}|${this.pepperCount}|${Math.ceil(this.stickyLeft)}|${this.minesHit}|${this.shieldSaves}|${this.hearts}|${this.maxHearts}|${this.bigCaught}|${this.bigCaramelRun}|${this.bigCherryRun}|${this.bigGrapeRun}|${this.bossCoinsRun}|${this.goldCoinsRun}|${this.bossKillsRun}|${this.bossKidKillsRun}|${this.bossLionKillsRun}|${this.bossMartenKillsRun}|${this.bossPigeonKillsRun}|${this.bossGypsyKillsRun}|${this.bossCleanLast ? 1 : 0}|${this.boss ? `${this.boss.hp}/${this.boss.maxHp}` : '-'}|${Math.ceil(this.freezeLeft)}|${this.multLeft > 0 ? this.multValue : 0}|${Math.ceil(this.multLeft)}|${this.giftsRun}`
     if (!force && key === this.lastStatsKey) return
     this.lastStatsKey = key
     this.cb.onStats({
@@ -5125,6 +5309,11 @@ export class PopcornEngine {
       shields: this.shieldLeft,
       runGrains: this.runGrains,
       runNipples: this.runNipples,
+      cheeseCount: this.cheeseCount,
+      chocoCount: this.chocoCount,
+      iceCount: this.iceCount,
+      pepperCount: this.pepperCount,
+      stickyLeft: Math.ceil(this.stickyLeft),
       minesHit: this.minesHit,
       shieldSaves: this.shieldSaves,
       hearts: this.hearts,
@@ -6380,6 +6569,21 @@ export class PopcornEngine {
         ctx.restore()
       }
 
+      /* 0.0.77 перчик: оранжевое кольцо-фитиль. В последние 2 секунды
+         пульс резко учащается — «сейчас жакнет!» */
+      if (p.kind === 'pepper' && this.perfTier < 2) {
+        const urgent = (p.life ?? PEPPER_FUSE) <= 2
+        const pulse = 0.5 + 0.5 * Math.sin(ts * (urgent ? 0.02 : 0.007) + p.phase * 2)
+        ctx.save()
+        ctx.globalAlpha = 0.24 + 0.22 * pulse
+        ctx.strokeStyle = urgent ? '#FFD166' : '#FF8A4E'
+        ctx.lineWidth = Math.max(1.5, 2 * u)
+        ctx.beginPath()
+        ctx.arc(p.x, y, (15 + 4 * pulse) * u, 0, Math.PI * 2)
+        ctx.stroke()
+        ctx.restore()
+      }
+
       const sprite = p.kind === 'corn'
         ? (this.opts.colorblind ? this.sp.minesCB : this.sp.mines)[this.opts.mineVariant] ??
           this.sp.mines[0]
@@ -6391,7 +6595,15 @@ export class PopcornEngine {
               ? this.sp.butter
               : p.kind === 'nipple'
                 ? this.sp.nipple
-                : this.sp.popcorn
+                : p.kind === 'cheese'
+                  ? this.sp.cheese
+                  : p.kind === 'choco'
+                    ? this.sp.choco
+                    : p.kind === 'ice'
+                      ? this.sp.ice
+                      : p.kind === 'pepper'
+                        ? this.sp.pepper
+                        : this.sp.popcorn
       drawSprite(ctx, sprite, p.x, y, scale, { rot: p.rot })
       // Золотое зерно светится: готовый радиальный спрайт поверх зерна
       // с globalCompositeOperation='lighter' — свечение почти бесплатно,
@@ -6508,7 +6720,15 @@ export class PopcornEngine {
               ? this.sp.butter
               : f.kind === 'nipple'
                 ? this.sp.nipple
-                : this.sp.popcorn,
+                : f.kind === 'cheese'
+                  ? this.sp.cheese
+                  : f.kind === 'choco'
+                    ? this.sp.choco
+                    : f.kind === 'ice'
+                      ? this.sp.ice
+                      : f.kind === 'pepper'
+                        ? this.sp.pepper
+                        : this.sp.popcorn,
         x,
         y,
         2.6 * u * this.popScale * (KIND_SCALE[f.kind] ?? 1) * (1 - 0.45 * q),
@@ -6574,7 +6794,15 @@ export class PopcornEngine {
               ? this.sp.butter
               : c.kind === 'nipple'
                 ? this.sp.nipple
-                : this.sp.popcorn
+                : c.kind === 'cheese'
+                  ? this.sp.cheese
+                  : c.kind === 'choco'
+                    ? this.sp.choco
+                    : c.kind === 'ice'
+                      ? this.sp.ice
+                      : c.kind === 'pepper'
+                        ? this.sp.pepper
+                        : this.sp.popcorn
       drawSprite(ctx, spr, px + wig, y, 2.3 * u * this.popScale * (KIND_SCALE[c.kind] ?? 1), {
         rot: Math.sin(ts * 0.006 + i) * 0.12,
       })

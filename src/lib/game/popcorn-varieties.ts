@@ -44,32 +44,33 @@ export interface PopcornVariety {
   note?: string
 }
 
-/** Виды, которые УЖЕ в движке (референс для баланса). */
+/** Виды, которые УЖЕ в движке (референс для баланса).
+    0.0.77: партия «Виды попкорна» — сырное/шоколад/лёд/перчик в спавне */
 export const RELEASED_VARIETIES: PopcornVariety[] = [
   { id: 'classic', rarity: 'common', weight: 1, points: 5, effect: 'none', hue: '#fff7ea', note: 'текущий popcorn из engine.ts' },
   { id: 'caramel', rarity: 'common', weight: 1, points: 10, effect: 'none', hue: '#e09a4e', note: 'текущий caramel' },
   { id: 'butter', rarity: 'common', weight: 1, points: 15, effect: 'none', hue: '#f2c14e', note: 'текущий butter' },
   { id: 'golden', rarity: 'epic', weight: 1, points: 25, effect: 'none', hue: '#ffd54a', note: 'текущий golden, мельче и реже' },
+  {
+    id: 'cheese', rarity: 'rare', weight: 1, points: 15, effect: 'combo', hue: '#f6c445', from: '0.0.77',
+    note: '3 сырных подряд в сдаче — ×2 на 2с (подарочный множитель multValue/multLeft); спавн с 2-го уровня',
+  },
+  {
+    id: 'choco', rarity: 'rare', weight: 1, points: 15, effect: 'sticky', hue: '#7a4a2b', from: '0.0.77',
+    note: 'липкая лапка: grabR +15% на 3с (stickyLeft + геттер grabR); спавн с 3-го уровня',
+  },
+  {
+    id: 'ice', rarity: 'rare', weight: 1, points: 15, effect: 'freeze', hue: '#9adcf0', from: '0.0.77',
+    note: 'стоп таймера на 2с (freezeLeft, как подарок-фриз); спавн с 4-го уровня',
+  },
+  {
+    id: 'pepper', rarity: 'epic', weight: 1, points: 30, effect: 'spicy', hue: '#e04b3a', from: '0.0.77',
+    note: 'риск-награда: +30 очков, но фитиль 7с — сгорел на поле = минус сердце (life + loseHeart(pepper)); спавн с 6-го уровня',
+  },
 ]
 
 /** БУДУЩИЕ виды (weight = 0, не спавнятся). */
 export const FUTURE_VARIETIES: PopcornVariety[] = [
-  {
-    id: 'cheese', rarity: 'rare', weight: 0, points: 15, effect: 'combo', hue: '#f6c445', from: '0.0.76',
-    note: 'серия из 3 сырных подряд = множитель x2 на 2с; хук в combo-логику комбо-вершины древа',
-  },
-  {
-    id: 'choco', rarity: 'rare', weight: 0, points: 15, effect: 'sticky', hue: '#7a4a2b', from: '0.0.76',
-    note: 'липкая карамель: grabR +15% на 3с после поимки; переиспользует пул спрайтов paw-модификаторов',
-  },
-  {
-    id: 'ice', rarity: 'rare', weight: 0, points: 15, effect: 'freeze', hue: '#9adcf0', from: '0.0.77',
-    note: 'заморозка таймера на 2с; эффект уже существует у подарка freeze — переиспользовать GIFT_LOGIC',
-  },
-  {
-    id: 'pepper', rarity: 'epic', weight: 0, points: 30, effect: 'spicy', hue: '#e04b3a', from: '0.0.77',
-    note: 'риск-награда: очки x6, но пропущенный перечный зёрна-жгут забирает 1 сердце; нужен полупрозрачный индикатор опасности',
-  },
   {
     id: 'rainbow', rarity: 'epic', weight: 0, points: 40, effect: 'double', hue: '#9be3c9', from: '0.0.78',
     note: 'дублирует очки следующего зерна; шиммер-анимация спрайта (2 кадра)',

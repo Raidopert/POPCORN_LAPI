@@ -59,6 +59,11 @@ export interface LifeStats {
   sliceCaramel: number
   sliceCherry: number
   sliceGrape: number
+  /** 0.0.77: поймано за всё время по новым видам — ачивка «Гурман» */
+  cheese: number
+  choco: number
+  ice: number
+  pepper: number
 }
 
 export const LIFE_KEY = 'popcorn-lifestats'
@@ -91,6 +96,10 @@ const DEFAULT_LIFE: LifeStats = {
   sliceCaramel: 0,
   sliceCherry: 0,
   sliceGrape: 0,
+  cheese: 0,
+  choco: 0,
+  ice: 0,
+  pepper: 0,
 }
 
 /** Живой объект в памяти — единый источник между кадрами */

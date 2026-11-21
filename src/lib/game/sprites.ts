@@ -136,9 +136,10 @@ export function makeGlowSprite(color = '#FFE066'): Sprite {
   return { canvas, w: S, h: S }
 }
 
-/* ================= Попкорн (4 варианта зёрен с разной ценностью) ================= */
+/* ================= Попкорн (8 вариантов зёрен с разной ценностью) =================
+   0.0.77: + сырное, шоколад, ледяное, жгучий перчик (см. popcorn-varieties.ts) */
 
-export type PopcornVariant = 'white' | 'golden' | 'caramel' | 'butter'
+export type PopcornVariant = 'white' | 'golden' | 'caramel' | 'butter' | 'cheese' | 'choco' | 'ice' | 'pepper'
 
 export function makePopcornSprite(variant: PopcornVariant = 'white'): Sprite {
   const pal = {
@@ -146,6 +147,10 @@ export function makePopcornSprite(variant: PopcornVariant = 'white'): Sprite {
     golden: { body: '#FFDF6B', shade: '#EFB83C', shine: '#FFFBEB', edge: '#9A6A12' },
     caramel: { body: '#FFC98A', shade: '#D97E2E', shine: '#FFE9CB', edge: '#9A5615' },
     butter: { body: '#FFED9C', shade: '#F0C235', shine: '#FFFBDC', edge: '#A87B14' },
+    cheese: { body: '#F6C445', shade: '#D69A1E', shine: '#FFEDB0', edge: '#8A6210' },
+    choco: { body: '#8A5432', shade: '#5E3418', shine: '#B07950', edge: '#3D1F0C' },
+    ice: { body: '#B9EAF8', shade: '#6FB6D8', shine: '#E9FBFF', edge: '#3E7E9E' },
+    pepper: { body: '#E04B3A', shade: '#A82A1C', shine: '#FF9A82', edge: '#6E1408' },
   }[variant]
   const g = createGrid(14, 14)
 
@@ -913,6 +918,10 @@ export function makeSmoothPopcornSprite(variant: PopcornVariant = 'white'): Spri
     golden: { body: '#FFDF6B', shade: '#EFB83C', shine: '#FFFBEB', edge: '#9A6A12' },
     caramel: { body: '#FFC98A', shade: '#D97E2E', shine: '#FFE9CB', edge: '#9A5615' },
     butter: { body: '#FFED9C', shade: '#F0C235', shine: '#FFFBDC', edge: '#A87B14' },
+    cheese: { body: '#F6C445', shade: '#D69A1E', shine: '#FFEDB0', edge: '#8A6210' },
+    choco: { body: '#8A5432', shade: '#5E3418', shine: '#B07950', edge: '#3D1F0C' },
+    ice: { body: '#B9EAF8', shade: '#6FB6D8', shine: '#E9FBFF', edge: '#3E7E9E' },
+    pepper: { body: '#E04B3A', shade: '#A82A1C', shine: '#FF9A82', edge: '#6E1408' },
   }[variant]
   const blobs: Array<[number, number, number]> = [
     [7, 6.4, 3.9],
@@ -971,6 +980,76 @@ export function makeSmoothPopcornSprite(variant: PopcornVariant = 'white'): Spri
     c.beginPath()
     c.ellipse(9.7 * k, 4.7 * k, 0.95 * k, 0.65 * k, 0.4, 0, Math.PI * 2)
     c.fill()
+  }
+  /* Сырное: круглые дырки, как у настоящего сыра */
+  if (variant === 'cheese') {
+    c.fillStyle = '#A87708'
+    for (const [hx, hy, hr] of [
+      [5.1, 6.2, 0.75],
+      [8.9, 5.1, 0.6],
+      [7.3, 8.9, 0.68],
+    ] as Array<[number, number, number]>) {
+      c.beginPath()
+      c.arc(hx * k, hy * k, hr * k, 0, Math.PI * 2)
+      c.fill()
+    }
+  }
+  /* Шоколад: тёмная поливка-змейка, как у карамельной */
+  if (variant === 'choco') {
+    c.strokeStyle = '#3D1F0C'
+    c.lineWidth = 1.5 * k
+    c.lineCap = 'round'
+    c.beginPath()
+    c.moveTo(3.6 * k, 5 * k)
+    c.bezierCurveTo(5.2 * k, 1.8 * k, 8.8 * k, 1.8 * k, 10.4 * k, 5 * k)
+    c.stroke()
+    c.lineWidth = 1 * k
+    c.beginPath()
+    c.moveTo(6.2 * k, 4.4 * k)
+    c.lineTo(6.2 * k, 6.4 * k)
+    c.moveTo(8.8 * k, 4.6 * k)
+    c.lineTo(8.8 * k, 6 * k)
+    c.stroke()
+  }
+  /* Ледяное: сверкающие кристаллики-снежинки */
+  if (variant === 'ice') {
+    c.strokeStyle = '#E9FBFF'
+    c.lineWidth = 0.55 * k
+    c.lineCap = 'round'
+    for (const [sx, sy, sr] of [
+      [5.3, 6.6, 1.15],
+      [9.2, 5, 0.9],
+    ] as Array<[number, number, number]>) {
+      c.beginPath()
+      c.moveTo((sx - sr) * k, sy * k)
+      c.lineTo((sx + sr) * k, sy * k)
+      c.moveTo(sx * k, (sy - sr) * k)
+      c.lineTo(sx * k, (sy + sr) * k)
+      c.moveTo((sx - sr * 0.7) * k, (sy - sr * 0.7) * k)
+      c.lineTo((sx + sr * 0.7) * k, (sy + sr * 0.7) * k)
+      c.moveTo((sx - sr * 0.7) * k, (sy + sr * 0.7) * k)
+      c.lineTo((sx + sr * 0.7) * k, (sy - sr * 0.7) * k)
+      c.stroke()
+    }
+  }
+  /* Перчик: зелёный хвостик и жгучие белые блики-искры */
+  if (variant === 'pepper') {
+    c.strokeStyle = '#3E7E1E'
+    c.lineWidth = 0.9 * k
+    c.lineCap = 'round'
+    c.beginPath()
+    c.moveTo(7 * k, 3.2 * k)
+    c.quadraticCurveTo(9 * k, 1.4 * k, 10.6 * k, 2.4 * k)
+    c.stroke()
+    c.fillStyle = '#FFD7A8'
+    for (const [sx, sy, sr] of [
+      [5.6, 5.8, 0.55],
+      [8.6, 7.4, 0.45],
+    ] as Array<[number, number, number]>) {
+      c.beginPath()
+      c.arc(sx * k, sy * k, sr * k, 0, Math.PI * 2)
+      c.fill()
+    }
   }
   c.restore()
   return { canvas, w: 14, h: 14, smooth: true }

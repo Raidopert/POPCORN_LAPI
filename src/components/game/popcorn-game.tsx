@@ -5807,6 +5807,11 @@ export function PopcornGame() {
     shields: 0,
     runGrains: 0,
     runNipples: 0,
+    cheeseCount: 0,
+    chocoCount: 0,
+    iceCount: 0,
+    pepperCount: 0,
+    stickyLeft: 0,
     minesHit: 0,
     shieldSaves: 0,
     hearts: 5,
@@ -5936,7 +5941,19 @@ export function PopcornGame() {
   /** Тост «монетки за Лихорадку» — сколько 🪙 упало в кошелёк */
   const [feverCoins, setFeverCoins] = useState<number | null>(null)
   /** Сколько счётчиков забега уже учтено в пожизненной статистике (ачивки) */
-  const prevRunRef = useRef({ grains: 0, golden: 0, pigeons: 0, nipples: 0, mines: 0, saves: 0 })
+  const prevRunRef = useRef({
+    grains: 0,
+    golden: 0,
+    pigeons: 0,
+    nipples: 0,
+    mines: 0,
+    saves: 0,
+    /* 0.0.77: дельты по новым видам для пожизненных счётчиков */
+    cheese: 0,
+    choco: 0,
+    ice: 0,
+    pepper: 0,
+  })
   /** Большие попкорнины/босс за забег: дельты для пожизненных счётчиков и ачивок */
   const prevBigRef = useRef({ big: 0, caramel: 0, cherry: 0, grape: 0 })
   const prevBossKillsRef = useRef(0)
@@ -6720,6 +6737,8 @@ export function PopcornGame() {
     if (L.grains >= 100000) cand.push('grainsLife100k')
     if (L.golden >= 100) cand.push('golden100')
     if (L.golden >= 250) cand.push('goldenLife250')
+    /* 0.0.77 «Гурман»: по 10 каждого нового вида попкорна */
+    if (L.cheese >= 10 && L.choco >= 10 && L.ice >= 10 && L.pepper >= 10) cand.push('taster4')
     if (L.pigeons >= 25) cand.push('pigeon25')
     if (L.pigeons >= 50) cand.push('pigeon50')
     if (L.pigeons >= 100) cand.push('pigeon100')
@@ -7176,6 +7195,23 @@ export function PopcornGame() {
         if (s.runNipples > pv.nipples) {
           addLife({ nipples: s.runNipples - pv.nipples })
           pv.nipples = s.runNipples
+        }
+        /* 0.0.77 «Виды попкорна»: пожизненные счётчики по новым видам */
+        if (s.cheeseCount > pv.cheese) {
+          addLife({ cheese: s.cheeseCount - pv.cheese })
+          pv.cheese = s.cheeseCount
+        }
+        if (s.chocoCount > pv.choco) {
+          addLife({ choco: s.chocoCount - pv.choco })
+          pv.choco = s.chocoCount
+        }
+        if (s.iceCount > pv.ice) {
+          addLife({ ice: s.iceCount - pv.ice })
+          pv.ice = s.iceCount
+        }
+        if (s.pepperCount > pv.pepper) {
+          addLife({ pepper: s.pepperCount - pv.pepper })
+          pv.pepper = s.pepperCount
         }
         if (s.minesHit > pv.mines) {
           addLife({ mines: s.minesHit - pv.mines })
@@ -7866,7 +7902,18 @@ export function PopcornGame() {
     prevBossMartenRef.current = 0
     prevBossPigeonRef.current = 0
     prevBossGypsyRef.current = 0
-    prevRunRef.current = { grains: 0, golden: 0, pigeons: 0, nipples: 0, mines: 0, saves: 0 }
+    prevRunRef.current = {
+      grains: 0,
+      golden: 0,
+      pigeons: 0,
+      nipples: 0,
+      mines: 0,
+      saves: 0,
+      cheese: 0,
+      choco: 0,
+      ice: 0,
+      pepper: 0,
+    }
     runStartRef.current = Date.now()
     runSecsRef.current = 0
     lockOrientation(settingsRef.current.orientation)
@@ -7973,7 +8020,18 @@ export function PopcornGame() {
       tutMoveRef.current = onFirstMove
       window.addEventListener('pointermove', onFirstMove, { passive: true })
     }
-    prevRunRef.current = { grains: 0, golden: 0, pigeons: 0, nipples: 0, mines: 0, saves: 0 }
+    prevRunRef.current = {
+      grains: 0,
+      golden: 0,
+      pigeons: 0,
+      nipples: 0,
+      mines: 0,
+      saves: 0,
+      cheese: 0,
+      choco: 0,
+      ice: 0,
+      pepper: 0,
+    }
     runStartRef.current = Date.now()
     /* Секунды чистого времени забега — с нуля (статистика времени в игре) */
     runSecsRef.current = 0
@@ -8556,6 +8614,14 @@ export function PopcornGame() {
               </span>
             </StatPill>
           )}
+          {/* 0.0.77 шоколад: липкая лапка — захват +15%, пока тикает таймер */}
+          {stats.stickyLeft > 0 && (
+            <StatPill className="animate-pulse border-amber-700/80 bg-amber-900/40 text-amber-200">
+              <span className="font-pixel tabular-nums">
+                {t('hud.sticky', { n: stats.stickyLeft })}
+              </span>
+            </StatPill>
+          )}
           <StatPill className="max-w-40 sm:max-w-none">
             <span aria-hidden>{activeRoom.icon}</span>
             <span className="truncate">{t(`room.${activeRoom.id}.name`)}</span>
@@ -8736,7 +8802,10 @@ export function PopcornGame() {
           {phase === 'start' && (
             <motion.div
               key="start"
-              className="absolute inset-0 z-30 flex items-center justify-center overflow-y-auto bg-gradient-to-b from-[#1c0e31]/90 via-[#170a29]/88 to-[#120722]/95 p-4"
+              /* Без items-center: при переполнении (720p-ноутбук) флекс-центрирование
+                 делает верх карточки недостижимым. my-auto у карточки центрирует её,
+                 когда всё помещается, а при нехватке высоты карточка скроллится с верха */
+              className="absolute inset-0 z-30 flex justify-center overflow-y-auto bg-gradient-to-b from-[#1c0e31]/90 via-[#170a29]/88 to-[#120722]/95 p-4"
               initial={{ opacity: 0 }}
               animate={{ opacity: 1 }}
               exit={{ opacity: 0, pointerEvents: 'none' }}
@@ -8747,13 +8816,13 @@ export function PopcornGame() {
               {/* Карточка меню: яркая леопардовая РАМКА + панель с темой игрока (0.0.75:
                   фон и цвет подменяются купленным стилем). Кнопки те же, что и были */}
               <motion.div
-                className={`leopard-frame relative my-auto w-full max-w-sm rounded-[22px] p-2.5 text-center shadow-[0_18px_50px_rgba(0,0,0,0.65)] pp-theme pp-theme-${style.theme} [@media(max-height:700px)]:p-1.5 sm:p-3`}
+                className={`leopard-frame relative my-auto w-full max-w-sm rounded-[22px] p-2.5 text-center shadow-[0_18px_50px_rgba(0,0,0,0.65)] pp-theme pp-theme-${style.theme} [@media(max-height:700px)]:p-1.5 sm:p-3 sm:[@media(max-height:780px)]:p-1.5`}
                 initial={{ scale: 0.92, y: 14 }}
                 animate={{ scale: 1, y: 0 }}
                 exit={{ scale: 0.95, y: 10, opacity: 0, pointerEvents: 'none' }}
                 transition={{ type: 'spring', stiffness: 260, damping: 22 }}
               >
-                <div className={`relative overflow-hidden rounded-2xl pp-bg pp-bg-${style.bg} p-4 [@media(max-height:700px)]:p-3 sm:p-6`}>
+                <div className={`relative overflow-hidden rounded-2xl pp-bg pp-bg-${style.bg} p-4 [@media(max-height:700px)]:p-3 sm:p-6 sm:[@media(max-height:780px)]:p-4`}>
                   {/* Деликатный леопардовый узор по фону панели (на купленных
                       фонах приглушается — тема не должна спорить с узором) */}
                   <span
@@ -8809,7 +8878,7 @@ export function PopcornGame() {
                         tapCoins={tapCoins}
                         tapXp={tapXp}
                         ariaLabel={t('marten.aria')}
-                        className="h-44 w-full rounded-2xl border-4 border-[#E24B3B] bg-[#FFF0D8] shadow-lg sm:h-52"
+                        className="h-44 w-full rounded-2xl border-4 border-[#E24B3B] bg-[#FFF0D8] shadow-lg sm:h-52 sm:[@media(max-height:780px)]:h-44"
                       />
                       {/* Н2: сердечки и Zzz — NANA отдыхает в меню */}
                       <MartenIdleEmotes away={tripActive} />
