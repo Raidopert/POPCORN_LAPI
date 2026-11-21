@@ -113,6 +113,8 @@ import {
   usedCells,
   dropBossJar,
   jarBonuses,
+  gearBonuses,
+  type GearFx,
   equipArtifactInv,
   equipClaw,
   equipInvItem,
@@ -2542,11 +2544,16 @@ const INV_SLOT_ORDER: ReadonlyArray<{ kind: ItemKind; labelKey: string }> = [
 ]
 
 /** 0.0.66: волшебная полоса НАД лапкой — талисман СЛЕВА ВВЕРХУ инвентаря,
- *  рядом кольцо (удача) и баночка (бонус цвета). Пустые показывают эмодзи */
+ *  рядом кольцо (удача) и баночка (бонус цвета). Пустые показывают эмодзи.
+ *  0.0.80: вторая строка — спортивная экипировка и духи (напульсник,
+ *  накладки на подушечки, аромат с шлейфом) */
 const MAGIC_SLOT_ORDER: ReadonlyArray<{ kind: ItemKind; labelKey: string; emptyIcon: string }> = [
   { kind: 'magic', labelKey: 'inv.slot.magic', emptyIcon: '✨' },
   { kind: 'ring', labelKey: 'inv.slot.ring', emptyIcon: '💍' },
   { kind: 'jar', labelKey: 'inv.slot.jar', emptyIcon: '🧪' },
+  { kind: 'wrist', labelKey: 'inv.slot.wrist', emptyIcon: '⌚' },
+  { kind: 'pads', labelKey: 'inv.slot.pads', emptyIcon: '🐾' },
+  { kind: 'perfume', labelKey: 'inv.slot.perfume', emptyIcon: '🌸' },
 ]
 
 /* 0.0.57: единый вид содержимого склада — лут из сундучков или коготок из нарезки */
@@ -6401,6 +6408,8 @@ export function PopcornGame() {
       Лихорадка длиннее, золотые зёрна чаще, +1 сердечко; замедление голубей
       складываем с коготком (в движок идёт максимум) */
   const jarB = useMemo<JarFx>(() => jarBonuses(inv), [inv])
+  /* 0.0.80: спортивная экипировка и духи — напульсник, накладки, аромат */
+  const gearB = useMemo<GearFx>(() => gearBonuses(inv), [inv])
   useEffect(() => {
     const ups = parseUpgrades(window.localStorage.getItem(UPG_KEY))
     engineRef.current?.setClawBonuses({
@@ -6414,7 +6423,14 @@ export function PopcornGame() {
       goldenUp: jarB.goldenUp,
       heartsPlus: jarB.heartsPlus,
     })
-  }, [clawB, jarB])
+    engineRef.current?.setGearFx({
+      pawSpeed: gearB.pawSpeed,
+      mineBrake: gearB.mineBrake,
+      dropRange: gearB.dropRange,
+      comboPlus: gearB.comboPlus,
+      trail: gearB.trail,
+    })
+  }, [clawB, jarB, gearB])
   /* Бейдж новинок на кнопке ИНВЕНТАРЬ (0.0.54) */
   const invNewCount = useMemo(() => countNewItems(inv), [inv])
   useEffect(() => {
@@ -8016,6 +8032,7 @@ export function PopcornGame() {
        леопардовые 1/2/3 + апгрейд 1) */
     const cb = clawBonuses(getInventorySnapshot())
     const jb = jarBonuses(getInventorySnapshot())
+    const gb = gearBonuses(getInventorySnapshot())
     engineRef.current?.setClawBonuses({
       pigeonSlow: Math.max(cb.pigeonSlow, jb.pigeonSlow),
       revives: cb.revives + (ups.life > 0 ? 1 : 0),
@@ -8026,6 +8043,14 @@ export function PopcornGame() {
       feverPlus: jb.feverPlus,
       goldenUp: jb.goldenUp,
       heartsPlus: jb.heartsPlus,
+    })
+    /* 0.0.80: напульсник/накладки/духи — в движок до старта забега */
+    engineRef.current?.setGearFx({
+      pawSpeed: gb.pawSpeed,
+      mineBrake: gb.mineBrake,
+      dropRange: gb.dropRange,
+      comboPlus: gb.comboPlus,
+      trail: gb.trail,
     })
     /* lastScoreRef ДОЛЖЕН быть готов до restoreRun: первый же тик статистики
        посчитает дельту от восстановленного счёта — иначе XP уйдёт дважды */
@@ -8108,6 +8133,7 @@ export function PopcornGame() {
        0.0.66: шансы коготков складываются как есть (сумеречный 2, мега-леопард 3) */
     const cb = clawBonuses(getInventorySnapshot())
     const jb = jarBonuses(getInventorySnapshot())
+    const gb = gearBonuses(getInventorySnapshot())
     engineRef.current?.setClawBonuses({
       pigeonSlow: Math.max(cb.pigeonSlow, jb.pigeonSlow),
       revives: cb.revives + (ups.life > 0 ? 1 : 0),
@@ -8118,6 +8144,14 @@ export function PopcornGame() {
       feverPlus: jb.feverPlus,
       goldenUp: jb.goldenUp,
       heartsPlus: jb.heartsPlus,
+    })
+    /* 0.0.80: напульсник/накладки/духи — в движок до старта забега */
+    engineRef.current?.setGearFx({
+      pawSpeed: gb.pawSpeed,
+      mineBrake: gb.mineBrake,
+      dropRange: gb.dropRange,
+      comboPlus: gb.comboPlus,
+      trail: gb.trail,
     })
     engineRef.current?.startRun({ fast: devRef.current.fast, perk: startPerk })
     /* Плакаты перебивки грузим ЗАРАНЕЕ — к 5-му уровню они уже в кэше

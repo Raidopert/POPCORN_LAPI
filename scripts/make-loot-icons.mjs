@@ -233,6 +233,75 @@ const emblemCoin = `
 const emblemHeart = `
   <path d="M128 168 C102 150 98 128 112 119 C120 114 128 119 128 128 C128 119 136 114 144 119 C158 128 154 150 128 168 Z" fill="#ff8fb3" stroke="#c94a78" stroke-width="3.5"/>`
 
+/* ─── НАПУЛЬСНИКИ (0.0.80): толстое спортивное кольцо с рёбрами ─── */
+function wrist({ cloth, clothDark, stripe, trim, spots }) {
+  const stripes = stripe
+    ? `<rect x="58" y="112" width="140" height="14" fill="${stripe}" opacity="0.9"/>
+       <rect x="58" y="134" width="140" height="14" fill="${stripe}" opacity="0.9"/>`
+    : ''
+  const spotDots = spots
+    ? `<circle cx="92" cy="100" r="7" fill="${spots}"/><circle cx="150" cy="98" r="6" fill="${spots}"/><circle cx="118" cy="152" r="6" fill="${spots}"/><circle cx="164" cy="150" r="7" fill="${spots}"/>`
+    : ''
+  const trimRing = trim ? `<circle cx="128" cy="128" r="16" fill="${trim}" stroke="${clothDark}" stroke-width="4"/>` : ''
+  const ribs = Array.from({ length: 7 }, (_, i) => {
+    const x = 76 + i * 18
+    return `<line x1="${x}" y1="86" x2="${x}" y2="170" stroke="${clothDark}" stroke-width="3" opacity="0.25"/>`
+  }).join('')
+  return svgWrap(`
+    <g>
+      <rect x="56" y="84" width="144" height="88" rx="40" fill="${cloth}" stroke="${clothDark}" stroke-width="8"/>
+      ${ribs}
+      ${stripes}
+      ${spotDots}
+      ${trimRing}
+      <rect x="66" y="94" width="34" height="10" rx="5" fill="#ffffff" opacity="0.4"/>
+    </g>`)
+}
+
+/* ─── НАКЛАДКИ НА ПОДУШЕЧКИ (0.0.80): подушечка + пальчики с прострочкой ─── */
+function pads({ cloth, clothDark, toes, spots, glow }) {
+  const spotDots = spots
+    ? `<circle cx="112" cy="176" r="7" fill="${spots}"/><circle cx="146" cy="186" r="6" fill="${spots}"/><circle cx="140" cy="162" r="5" fill="${spots}"/>`
+    : ''
+  const glowRing = glow ? `<circle cx="128" cy="150" r="76" fill="none" stroke="${glow}" stroke-width="8" opacity="0.5"/>` : ''
+  return svgWrap(`
+    ${glowRing}
+    <g>
+      <ellipse cx="128" cy="182" rx="46" ry="34" fill="${cloth}" stroke="${clothDark}" stroke-width="7"/>
+      <path d="M96 186 a32 22 0 0 1 64 0" fill="none" stroke="${clothDark}" stroke-width="4" stroke-dasharray="7 6" opacity="0.7"/>
+      ${spotDots}
+      <ellipse cx="76" cy="128" rx="16" ry="21" fill="${toes}" stroke="${clothDark}" stroke-width="5" transform="rotate(-16 76 128)"/>
+      <ellipse cx="110" cy="106" rx="16" ry="22" fill="${toes}" stroke="${clothDark}" stroke-width="5" transform="rotate(-6 110 106)"/>
+      <ellipse cx="146" cy="106" rx="16" ry="22" fill="${toes}" stroke="${clothDark}" stroke-width="5" transform="rotate(6 146 106)"/>
+      <ellipse cx="180" cy="128" rx="16" ry="21" fill="${toes}" stroke="${clothDark}" stroke-width="5" transform="rotate(16 180 128)"/>
+      <ellipse cx="106" cy="168" rx="12" ry="7" fill="#ffffff" opacity="0.5"/>
+    </g>`)
+}
+
+/* ─── ДУХИ (0.0.80): флакон с грушей-пульверизатором и пшиками ─── */
+function perfume({ liquid, liquidTop, spots, glow, spray }) {
+  const spotDots = spots
+    ? `<circle cx="106" cy="152" r="6" fill="${spots}"/><circle cx="146" cy="168" r="7" fill="${spots}"/><circle cx="132" cy="140" r="4.5" fill="${spots}"/>`
+    : ''
+  const glowRing = glow ? `<circle cx="128" cy="146" r="70" fill="none" stroke="${glow}" stroke-width="8" opacity="0.5"/>` : ''
+  const sprayDots = spray
+    ? `<circle cx="186" cy="58" r="6" fill="${spray}" opacity="0.8"/><circle cx="200" cy="76" r="5" fill="${spray}" opacity="0.65"/><circle cx="196" cy="44" r="4" fill="${spray}" opacity="0.55"/>`
+    : ''
+  return svgWrap(`
+    ${glowRing}
+    ${sprayDots}
+    <g>
+      <rect x="112" y="44" width="32" height="18" rx="5" fill="#8a5330"/>
+      <rect x="120" y="36" width="16" height="10" rx="4" fill="#5C3A1E"/>
+      <rect x="104" y="60" width="48" height="14" rx="6" fill="#e3cba4" stroke="#c9a97a" stroke-width="4"/>
+      <path d="M84 88 C84 74 172 74 172 88 L176 196 C176 216 80 216 80 196 Z" fill="#fff3dc" stroke="#d9c6a8" stroke-width="7"/>
+      <path d="M92 128 h72 a11 11 0 0 1 0 13 h-72 a11 11 0 0 1 0 -13 Z" fill="${liquidTop}"/>
+      <path d="M94 140 h68 v44 a16 16 0 0 1 -16 16 h-36 a16 16 0 0 1 -16 -16 Z" fill="${liquid}"/>
+      ${spotDots}
+      <ellipse cx="102" cy="102" rx="9" ry="5" fill="#ffffff" opacity="0.75"/>
+    </g>`)
+}
+
 /* ─── Каталог иконок ─── */
 const ICONS = {
   /* Кольца */
@@ -274,6 +343,27 @@ const ICONS = {
   'bra-leopard': bracelet({ bead: '#E8862E', beadDark: '#A85A14', spots: '#7A4A1F' }),
   'crown-rose': crown({ band: '#D94A56', bandDark: '#A83440', gem: '#F7A8B8' }),
   'crown-leopard': crown({ band: '#E8862E', bandDark: '#A85A14', gem: '#F4B942', spots: '#7A4A1F' }),
+  /* Напульсники (0.0.80): спортивная серия до леопардовой вершины */
+  'wrist-foam': wrist({ cloth: '#e8c9a0', clothDark: '#a97c50' }),
+  'wrist-striped': wrist({ cloth: '#d94a56', clothDark: '#a83440', stripe: '#fff3dc' }),
+  'wrist-sport': wrist({ cloth: '#57b36b', clothDark: '#2f7a44', stripe: '#fff3dc' }),
+  'wrist-champ': wrist({ cloth: '#f4c542', clothDark: '#a87410', stripe: '#fff3dc', trim: '#ffe066' }),
+  'wrist-leopard': wrist({ cloth: '#E8862E', clothDark: '#A85A14', trim: '#F4B942', spots: '#7A4A1F' }),
+  /* Накладки на подушечки (0.0.80) */
+  'pad-cloth': pads({ cloth: '#c9b18e', clothDark: '#8a6a42', toes: '#e0cdb0' }),
+  'pad-grip': pads({ cloth: '#d97b5e', clothDark: '#a04e36', toes: '#eda98f' }),
+  'pad-silicone': pads({ cloth: '#7fcf9e', clothDark: '#4a9a6b', toes: '#a8e2bd' }),
+  'pad-plush': pads({ cloth: '#f2b8cf', clothDark: '#c9769c', toes: '#fadde4' }),
+  'pad-leopard': pads({ cloth: '#E8862E', clothDark: '#A85A14', toes: '#F4B942', spots: '#7A4A1F' }),
+  /* Духи (0.0.80): 8 ароматов — цвет жидкости = цвет шлейфа */
+  'perf-mint': perfume({ liquid: '#7fcf9e', liquidTop: '#a8e2bd', spray: '#7fcf9e' }),
+  'perf-vanilla': perfume({ liquid: '#f0d9a8', liquidTop: '#ffe9c9', spray: '#f0d9a8' }),
+  'perf-rose': perfume({ liquid: '#f273a8', liquidTop: '#f8a6c9', spray: '#f273a8' }),
+  'perf-lavender': perfume({ liquid: '#b366f0', liquidTop: '#d0a1f7', spray: '#b366f0' }),
+  'perf-citrus': perfume({ liquid: '#f4b942', liquidTop: '#ffdf8f', spray: '#f4b942' }),
+  'perf-orchid': perfume({ liquid: '#e0559e', liquidTop: '#f279bd', spray: '#e0559e' }),
+  'perf-amber': perfume({ liquid: '#e8862e', liquidTop: '#f4b942', spray: '#e8862e', glow: '#f4b942' }),
+  'perf-leopard': perfume({ liquid: '#E8862E', liquidTop: '#F4B942', spots: '#7A4A1F', glow: '#F4B942', spray: '#E8862E' }),
 }
 
 await mkdir('public/inventory', { recursive: true })

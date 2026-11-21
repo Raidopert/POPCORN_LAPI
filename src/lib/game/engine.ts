@@ -38,6 +38,9 @@ import {
   type Sprite,
 } from './sprites'
 import { Pool } from './pool'
+
+/** 0.0.78: тиры сундуков на поле нужны и UI — реэкспортируем тип */
+export type { FieldChestTier }
 import { FpsMeter } from './fps'
 import { tFor, type Lang, type TranslateFn } from './i18n'
 import type { Difficulty, Quality } from './settings'
@@ -288,6 +291,10 @@ const CHEST_FIELD_CHANCE = 0.45
 /** Рамки момента появления внутри уровня, с от старта */
 const CHEST_FIELD_AT_MIN = 4
 const CHEST_FIELD_AT_MAX = 14
+/* 0.0.80 накладки на подушечки: радиус тормозной зоны вокруг мины (u) */
+const MINE_BRAKE_R = 110
+/* 0.0.80 духи: частица шлейфа каждые столько пикселей пути лапки */
+const TRAIL_STEP = 26
 /** Радиус сундука для попадания тапом (u) */
 const CHEST_FIELD_R = 26
 
@@ -902,6 +909,18 @@ export class PopcornEngine {
   private clawBonus: { pigeonSlow?: number; revives?: number; mineImmuneStages?: number } = {}
   /* Боссовые баночки (0.0.69): спец-эффекты надетой баночки */
   private jarFx: { theftDown?: number; feverPlus?: number; goldenUp?: number; heartsPlus?: number } = {}
+  /* Спортивная экипировка и духи (0.0.80): напульсник — потолок комбо выше,
+     накладки — скорость лапки и торможение у мин, духи — радиус сдачи */
+  private gearFx: { pawSpeed: number; mineBrake: number; dropRange: number; comboPlus: number } = {
+    pawSpeed: 0,
+    mineBrake: 0,
+    dropRange: 1,
+    comboPlus: 0,
+  }
+  /** Духи (0.0.80): цвета шлейфа надетого аромата (пусто — шлейфа нет) */
+  private perfumeTrail: ReadonlyArray<string> = []
+  /** Накопитель пути для шлейфа: частица каждые TRAIL_STEP пикселей */
+  private trailAcc = 0
   /** v0.0.35 «примерка»: текущий стиль отрисовки лапки (0..PAW_STYLE_COUNT-1) */
   private pawStyle = PAW_DEFAULT_STYLE
   /** Текущий скин из магазина — палитра сохраняется при смене стиля */
@@ -1255,6 +1274,25 @@ export class PopcornEngine {
     b: { theftDown?: number; feverPlus?: number; goldenUp?: number; heartsPlus?: number },
   ): void {
     this.jarFx = b
+  }
+
+  /** Спортивная экипировка и духи (0.0.80): накладки — скорость и торможение
+      у мин, духи — радиус сдачи и цвета шлейфа, напульсник — потолок комбо */
+  setGearFx(b: {
+    pawSpeed?: number
+    mineBrake?: number
+    dropRange?: number
+    comboPlus?: number
+    trail?: ReadonlyArray<string>
+  }): void {
+    this.gearFx = {
+      pawSpeed: Math.max(0, b.pawSpeed ?? 0),
+      mineBrake: Math.min(0.85, Math.max(0, b.mineBrake ?? 0)),
+      dropRange: Math.max(1, b.dropRange ?? 1),
+      comboPlus: Math.max(0, Math.floor(b.comboPlus ?? 0)),
+    }
+    this.perfumeTrail = b.trail ?? []
+    if (this.perfumeTrail.length === 0) this.trailAcc = 0
   }
 
   /** Настройки из меню: сложность, качество, тряска, вибрация, дальтоник, голубь */
@@ -2103,9 +2141,10 @@ export class PopcornEngine {
 
   /** Комбо-множитель: +1 за каждые 6 сдач подряд (с «Комбо-тренером» — 5).
       v0.0.59: потолок ×16 вернулся — шестизначные уловы на длинных сериях
-      ломали экономику, а мины и воришки всё ещё сбивают серию в ноль */
+      ломали экономику, а мины и воришки всё ещё сбивают серию в ноль.
+      0.0.80: спортивный напульсник поднимает потолок ещё на ступени */
   private get comboMult(): number {
-    return 1 + Math.min(15, Math.floor(this.streak / (this.tree.comboFast ? 5 : 6)))
+    return 1 + Math.min(15 + this.gearFx.comboPlus, Math.floor(this.streak / (this.tree.comboFast ? 5 : 6)))
   }
 
   /** Мина или воришка сбивают серию. «Комбо-броня» гасит первые удары за
@@ -2447,7 +2486,9 @@ export class PopcornEngine {
       /* Свайп-сегмент кадра: им ПЕРЕРЕЗАЮТСЯ лапки Ланы */
       this.pawPrevX = prevX
       this.pawPrevY = prevY
-      const spd = 14 * (this.pawBonus.speed ?? 1) * (1 + (this.tree.speedAdd ?? 0))
+      /* 0.0.80 накладки на подушечки: лапка чуть проворнее */
+      const spd =
+        14 * (this.pawBonus.speed ?? 1) * (1 + (this.tree.speedAdd ?? 0) + this.gearFx.pawSpeed)
       /* Ступени медленной лапки: чем выше ступень, тем медленнее follow —
          и тем щедрее награда очками (см. perkScoreMult) */
       const slowFactor =
@@ -2458,7 +2499,21 @@ export class PopcornEngine {
             : this.perk === 'slowpaw3'
               ? 0.22
               : 1
-      const k = 1 - Math.exp(-dt * spd * slowFactor)
+      /* 0.0.80 накладки: «притормаживание перед миной» — в радиусе тормозной
+         зоны от живой мины лапка сама сбрасывает ход, давая время объехать
+         ловушку (в шоке и так стоит, парение мины не боится) */
+      let brakeMul = 1
+      if (this.gearFx.mineBrake > 0 && this.stun <= 0) {
+        const brakeR = MINE_BRAKE_R * this.u
+        for (const p of this.pieces) {
+          if (p.kind !== 'corn' || p.spawn > 0.12) continue
+          if (Math.hypot(this.paw.x - p.x, this.paw.y - p.y) < brakeR) {
+            brakeMul = 1 - this.gearFx.mineBrake
+            break
+          }
+        }
+      }
+      const k = 1 - Math.exp(-dt * spd * slowFactor * brakeMul)
       this.paw.x += (this.paw.tx - this.paw.x) * k
       this.paw.y += (this.paw.ty - this.paw.y) * k
       /* РЁВ ЛЬВА: лапку сносит волной от зверя — импульс затухает быстро */
@@ -2483,6 +2538,26 @@ export class PopcornEngine {
       const kv = Math.min(1, dt * 14)
       this.pawVX += (ivx - this.pawVX) * kv
       this.pawVY += (ivy - this.pawVY) * kv
+
+      /* 0.0.80 духи: цветочный шлейф — частица каждые TRAIL_STEP пикселей пути,
+         цвета попеременно из пары аромата. На слабых устройствах реже */
+      if (this.perfumeTrail.length > 0 && this.perfTier < 2) {
+        const stepMul = this.perfTier === 1 ? 1.7 : 1
+        this.trailAcc += Math.hypot(this.paw.x - prevX, this.paw.y - prevY)
+        const step = TRAIL_STEP * this.u * stepMul
+        while (this.trailAcc >= step) {
+          this.trailAcc -= step
+          const c = this.particles.obtain()
+          c.x = this.paw.x + (Math.random() - 0.5) * 34 * this.u
+          c.y = this.paw.y + (Math.random() - 0.5) * 34 * this.u
+          c.vx = (Math.random() - 0.5) * 26 * this.u
+          c.vy = (-24 - Math.random() * 26) * this.u
+          c.t = 0
+          c.ttl = 0.7 + Math.random() * 0.5
+          c.color = this.perfumeTrail[Math.floor(Math.random() * this.perfumeTrail.length)]
+          c.size = (2.6 + Math.random() * 2.6) * this.u
+        }
+      }
     }
 
     if (this.perk === 'drift') this.driftPieces(dt)
@@ -2544,7 +2619,7 @@ export class PopcornEngine {
         })
         this.loseHeart('pepper')
       }
-      this.emitStats()
+      this.emitStats(true)
     }
 
     // Подбор попкорна / ловушка-кукуруза. В шоке лапка ничего не берёт
@@ -2738,7 +2813,8 @@ export class PopcornEngine {
     // В шоке лапка не сдаёт — несла в клюв... несла в лапке, уронила на мину
     if (this.carried.length > 0 && this.stun <= 0) {
       const dc = Math.hypot(this.paw.x - this.cup.x, this.paw.y - this.cup.y)
-      const dropR = this.perk === 'secondcup' ? 118 * u : 78 * u
+      /* 0.0.80 духи: сдача с бОльшего расстояния — радиус умножается на bonus аромата */
+      const dropR = (this.perk === 'secondcup' ? 118 * u : 78 * u) * this.gearFx.dropRange
       if (dc < dropR) {
         let base = 0
         let hasGold = false

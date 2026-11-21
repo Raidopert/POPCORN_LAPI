@@ -46,6 +46,12 @@ export type ItemKind =
   | 'jar'
   /** Волшебная лапка (0.0.66): талисман с несколькими бонусами сразу */
   | 'magic'
+  /** Напульсник спортивный (0.0.80): серия комбо растёт выше потолка */
+  | 'wrist'
+  /** Накладки на подушечки (0.0.80): лапка быстрее + тормозит у мин */
+  | 'pads'
+  /** Духи (0.0.80): шлейф аромата + сдача с бОльшего расстояния */
+  | 'perfume'
 
 /**
  * Редкости (0.0.66): четыре базовые + три леопардовые вершины.
@@ -109,6 +115,27 @@ export type InvItemId =
   | 'magic-leopard'
   | 'magic-leopard-gold'
   | 'magic-leopard-mega'
+  /* Напульсники (0.0.80): спортивная серия — потолок комбо выше */
+  | 'wrist-foam'
+  | 'wrist-striped'
+  | 'wrist-sport'
+  | 'wrist-champ'
+  | 'wrist-leopard'
+  /* Накладки на подушечки (0.0.80): скорость лапки + торможение у мин */
+  | 'pad-cloth'
+  | 'pad-grip'
+  | 'pad-silicone'
+  | 'pad-plush'
+  | 'pad-leopard'
+  /* Духи (0.0.80): цветной шлейф + сдача с бОльшего расстояния */
+  | 'perf-mint'
+  | 'perf-vanilla'
+  | 'perf-rose'
+  | 'perf-lavender'
+  | 'perf-citrus'
+  | 'perf-orchid'
+  | 'perf-amber'
+  | 'perf-leopard'
 
 export interface InvDef {
   id: InvItemId
@@ -148,6 +175,15 @@ export interface InvFx {
   goldenUp?: number
   /** +N сердечек к максимуму забега */
   heartsPlus?: number
+  /* ── Спортивная экипировка и духи (0.0.80) ── */
+  /** Накладки на подушечки: доля ускорения следования лапки (0.05 = +5%) */
+  pawSpeed?: number
+  /** Накладки: насколько лапка тормозит рядом с миной (0.4 = −40% скорости) */
+  mineBrake?: number
+  /** Духи: множитель радиуса сдачи в стаканчик (1.12 = +12% расстояния) */
+  dropRange?: number
+  /** Напульсник: на сколько ступеней поднимается потолок комбо */
+  comboPlus?: number
 }
 
 /**
@@ -219,6 +255,34 @@ export const INV_DEFS: ReadonlyArray<InvDef> = [
   { id: 'magic-leopard', kind: 'magic', rarity: 'leopard', icon: '/inventory/magic-leopard.png', sell: 2200, bonus: 0, weight: 1, fx: { coins: 1.14, xp: 1.14, gems: 1.12, luck: 1.2 } },
   { id: 'magic-leopard-gold', kind: 'magic', rarity: 'leopard-gold', icon: '/inventory/magic-leopard-gold.png', sell: 5500, bonus: 0, weight: 0.5, fx: { coins: 1.2, xp: 1.2, gems: 1.16, luck: 1.45 } },
   { id: 'magic-leopard-mega', kind: 'magic', rarity: 'leopard-mega', icon: '/inventory/magic-leopard-mega.png', sell: 13000, bonus: 0, weight: 0.25, fx: { coins: 1.28, xp: 1.28, gems: 1.22, luck: 1.8 } },
+
+  /* ═══ НАПУЛЬСНИКИ (0.0.80): спортивная серия — комбо растёт выше потолка.
+     Спортсмен держит серию: за ступень редкости потолок комбо выше,
+     леопардовая вершина — ещё и монетки с опытом ═══ */
+  { id: 'wrist-foam', kind: 'wrist', rarity: 'common', icon: '/inventory/wrist-foam.png', sell: 30, bonus: 0, weight: 20, fx: { comboPlus: 1 } },
+  { id: 'wrist-striped', kind: 'wrist', rarity: 'rare', icon: '/inventory/wrist-striped.png', sell: 90, bonus: 0, weight: 11, fx: { comboPlus: 2, coins: 1.03 } },
+  { id: 'wrist-sport', kind: 'wrist', rarity: 'epic', icon: '/inventory/wrist-sport.png', sell: 240, bonus: 0, weight: 5, fx: { comboPlus: 3, xp: 1.05 } },
+  { id: 'wrist-champ', kind: 'wrist', rarity: 'legendary', icon: '/inventory/wrist-champ.png', sell: 720, bonus: 0, weight: 2.5, fx: { comboPlus: 5, coins: 1.06 } },
+  { id: 'wrist-leopard', kind: 'wrist', rarity: 'leopard', icon: '/inventory/wrist-leopard.png', sell: 2100, bonus: 0, weight: 1, fx: { comboPlus: 8, coins: 1.1, xp: 1.1 } },
+
+  /* ═══ НАКЛАДКИ НА ПОДУШЕЧКИ (0.0.80): лапка чуть быстрее и сама
+     притормаживает перед миной — время объехать ловушку ═══ */
+  { id: 'pad-cloth', kind: 'pads', rarity: 'common', icon: '/inventory/pad-cloth.png', sell: 30, bonus: 0, weight: 20, fx: { pawSpeed: 0.03, mineBrake: 0.3 } },
+  { id: 'pad-grip', kind: 'pads', rarity: 'rare', icon: '/inventory/pad-grip.png', sell: 90, bonus: 0, weight: 11, fx: { pawSpeed: 0.05, mineBrake: 0.38 } },
+  { id: 'pad-silicone', kind: 'pads', rarity: 'epic', icon: '/inventory/pad-silicone.png', sell: 240, bonus: 0, weight: 5, fx: { pawSpeed: 0.07, mineBrake: 0.45 } },
+  { id: 'pad-plush', kind: 'pads', rarity: 'legendary', icon: '/inventory/pad-plush.png', sell: 720, bonus: 0, weight: 2.5, fx: { pawSpeed: 0.09, mineBrake: 0.5, xp: 1.04 } },
+  { id: 'pad-leopard', kind: 'pads', rarity: 'leopard', icon: '/inventory/pad-leopard.png', sell: 2100, bonus: 0, weight: 1, fx: { pawSpeed: 0.12, mineBrake: 0.6, coins: 1.06 } },
+
+  /* ═══ ДУХИ (0.0.80): 8 ароматов — каждый красит шлейф лапки в свои
+     цвета и позволяет сдавать попкорн в стаканчик с бОльшего расстояния ═══ */
+  { id: 'perf-mint', kind: 'perfume', rarity: 'common', icon: '/inventory/perf-mint.png', sell: 25, bonus: 0, weight: 22, fx: { dropRange: 1.06 } },
+  { id: 'perf-vanilla', kind: 'perfume', rarity: 'common', icon: '/inventory/perf-vanilla.png', sell: 30, bonus: 0, weight: 20, fx: { dropRange: 1.08 } },
+  { id: 'perf-rose', kind: 'perfume', rarity: 'rare', icon: '/inventory/perf-rose.png', sell: 85, bonus: 0, weight: 12, fx: { dropRange: 1.12 } },
+  { id: 'perf-lavender', kind: 'perfume', rarity: 'rare', icon: '/inventory/perf-lavender.png', sell: 95, bonus: 0, weight: 11, fx: { dropRange: 1.15, xp: 1.03 } },
+  { id: 'perf-citrus', kind: 'perfume', rarity: 'epic', icon: '/inventory/perf-citrus.png', sell: 230, bonus: 0, weight: 6, fx: { dropRange: 1.18 } },
+  { id: 'perf-orchid', kind: 'perfume', rarity: 'epic', icon: '/inventory/perf-orchid.png', sell: 260, bonus: 0, weight: 5, fx: { dropRange: 1.22, luck: 1.05 } },
+  { id: 'perf-amber', kind: 'perfume', rarity: 'legendary', icon: '/inventory/perf-amber.png', sell: 700, bonus: 0, weight: 2.5, fx: { dropRange: 1.28, coins: 1.05 } },
+  { id: 'perf-leopard', kind: 'perfume', rarity: 'leopard', icon: '/inventory/perf-leopard.png', sell: 2000, bonus: 0, weight: 1, fx: { dropRange: 1.35, luck: 1.08, xp: 1.05 } },
 ]
 
 export const INV_MAP: Record<InvItemId, InvDef> = INV_DEFS.reduce(
@@ -303,6 +367,27 @@ export const NEXT_TIER: Record<InvItemId, InvItemId | null> = {
   'magic-leopard': 'magic-leopard-gold',
   'magic-leopard-gold': 'magic-leopard-mega',
   'magic-leopard-mega': null,
+  /* Напульсники (0.0.80): до леопардовой вершины — 4 переплавки */
+  'wrist-foam': 'wrist-striped',
+  'wrist-striped': 'wrist-sport',
+  'wrist-sport': 'wrist-champ',
+  'wrist-champ': 'wrist-leopard',
+  'wrist-leopard': null,
+  /* Накладки (0.0.80) */
+  'pad-cloth': 'pad-grip',
+  'pad-grip': 'pad-silicone',
+  'pad-silicone': 'pad-plush',
+  'pad-plush': 'pad-leopard',
+  'pad-leopard': null,
+  /* Духи (0.0.80): 8 ароматов — лестница от мяты до леопардового шика */
+  'perf-mint': 'perf-vanilla',
+  'perf-vanilla': 'perf-rose',
+  'perf-rose': 'perf-lavender',
+  'perf-lavender': 'perf-citrus',
+  'perf-citrus': 'perf-orchid',
+  'perf-orchid': 'perf-amber',
+  'perf-amber': 'perf-leopard',
+  'perf-leopard': null,
 }
 
 /**
@@ -489,6 +574,12 @@ export interface InventoryState {
   jar: string | null
   /** Надетый талисман «волшебная лапка» (0.0.66) — мультибонус */
   magic: string | null
+  /** Надетый напульсник (0.0.80) — потолок комбо выше */
+  wrist: string | null
+  /** Надетые накладки на подушечки (0.0.80) — скорость + торможение у мин */
+  pads: string | null
+  /** Надетые духи (0.0.80) — шлейф аромата + сдача с расстояния */
+  perfume: string | null
   /** Надетые коготки: слот закреплён за цветом (0.0.57) */
   clawSlots: Partial<Record<ClawId, string>>
   /** Надетые артефакты ЛАВКИ (0.0.54) — бонус действует, пока надет */
@@ -526,6 +617,9 @@ export const DEFAULT_INVENTORY: InventoryState = {
   ring: null,
   jar: null,
   magic: null,
+  wrist: null,
+  pads: null,
+  perfume: null,
   clawSlots: {},
   arts: [],
   page2: false,
@@ -536,7 +630,8 @@ export const DEFAULT_INVENTORY: InventoryState = {
   recycled: 0,
 }
 
-/** Все слоты-«одёжки» на лапке: три базовых + кольцо/баночка/талисман (0.0.66) */
+/** Все слоты-«одёжки» на лапке: три базовых + кольцо/баночка/талисман (0.0.66)
+ *  + спортивная экипировка и духи (0.0.80) */
 export const EQUIP_KINDS: ReadonlyArray<ItemKind> = [
   'collar',
   'bracelet',
@@ -544,6 +639,9 @@ export const EQUIP_KINDS: ReadonlyArray<ItemKind> = [
   'ring',
   'jar',
   'magic',
+  'wrist',
+  'pads',
+  'perfume',
 ]
 
 /** Вместимость склада игрока: 36 или 72 со второй страницей */
@@ -625,6 +723,10 @@ export function loadInventory(): InventoryState {
       ring: eq(o.ring),
       jar: eq(o.jar),
       magic: eq(o.magic),
+      /* 0.0.80: спортивная экипировка и духи — та же мягкая миграция */
+      wrist: eq(o.wrist),
+      pads: eq(o.pads),
+      perfume: eq(o.perfume),
       clawSlots,
       arts,
       page2: o.page2 === true,
@@ -1049,6 +1151,70 @@ export function clawBonuses(state: InventoryState = getInventorySnapshot()): Cla
     acc.mineImmuneStages += fx.mineImmuneStages
   }
   return acc
+}
+
+/* ════════════════ Спортивная экипировка и духи (0.0.80) ════════════════ */
+
+/**
+ * Эффекты новой экипировки (0.0.80): напульсник — потолок комбо,
+ * накладки — скорость лапки и торможение у мин, духи — радиус сдачи
+ * и цвета шлейфа. Считается по надетым предметам трёх новых слотов
+ */
+export interface GearFx {
+  /** Накладки: доля ускорения следования лапки (0.05 = +5%) */
+  pawSpeed: number
+  /** Накладки: насколько лапка тормозит рядом с миной (0.4 = −40%) */
+  mineBrake: number
+  /** Духи: множитель радиуса сдачи в стаканчик (1.12 = +12% расстояния) */
+  dropRange: number
+  /** Напульсник: на сколько ступеней выше потолок комбо */
+  comboPlus: number
+  /** Духи: цвета шлейфа надетого аромата (пусто — шлейфа нет) */
+  trail: ReadonlyArray<string>
+}
+
+export const ZERO_GEAR_FX: GearFx = {
+  pawSpeed: 0,
+  mineBrake: 0,
+  dropRange: 1,
+  comboPlus: 0,
+  trail: [],
+}
+
+/** Цвета шлейфа духов: пара оттенков — частицы рисуются попеременно */
+export const PERFUME_TRAIL: Partial<Record<InvItemId, [string, string]>> = {
+  'perf-mint': ['#7fcf9e', '#a8e2bd'],
+  'perf-vanilla': ['#ffe9c9', '#ffd98a'],
+  'perf-rose': ['#f273a8', '#f8a6c9'],
+  'perf-lavender': ['#b366f0', '#d0a1f7'],
+  'perf-citrus': ['#f4b942', '#ffdf8f'],
+  'perf-orchid': ['#e0559e', '#f279bd'],
+  'perf-amber': ['#e8862e', '#f4b942'],
+  'perf-leopard': ['#e8862e', '#7a4a1f'],
+}
+
+/** Экипировка (0.0.80): напульсник + накладки + духи одним пакетом */
+export function gearBonuses(state: InventoryState = getInventorySnapshot()): GearFx {
+  const byUid = (uid: string | null): InvDef | null => {
+    if (!uid) return null
+    const item = state.items.find((i) => i.uid === uid)
+    return item ? INV_MAP[item.id] : null
+  }
+  const out: GearFx = { ...ZERO_GEAR_FX, trail: [] }
+  for (const kind of ['wrist', 'pads', 'perfume'] as const) {
+    const def = byUid(state[kind])
+    const fx = def?.fx
+    if (!fx) continue
+    if (fx.pawSpeed) out.pawSpeed = Math.max(out.pawSpeed, fx.pawSpeed)
+    if (fx.mineBrake) out.mineBrake = Math.max(out.mineBrake, fx.mineBrake)
+    if (fx.dropRange) out.dropRange *= fx.dropRange
+    if (fx.comboPlus) out.comboPlus += fx.comboPlus
+    if (kind === 'perfume' && def) {
+      const trail = PERFUME_TRAIL[def.id]
+      if (trail) out.trail = trail
+    }
+  }
+  return out
 }
 
 /* ════════════════ Ачивки инвентаря ════════════════ */
