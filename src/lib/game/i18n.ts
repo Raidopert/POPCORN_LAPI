@@ -3164,10 +3164,10 @@ export const T: Record<string, Row> = {
   /* v0.0.75: ЛАВКА СТИЛЯ — аватары, рамки, фоны и цвета меню за зёрнышки */
   'market.tabStyle': ['СТИЛЬ', 'STYLE', 'STIL', 'ESTILO'],
   'style.subtitle': [
-    'Аватары, рамки, фоны и цвета меню — всё за зёрнышки 🌾 из зернового сейфа!',
-    'Avatars, frames, backgrounds and menu colors — all for grains 🌾 from the vault!',
-    'Avatare, Rahmen, Hintergründe und Menüfarben — alles für Körner 🌾 aus dem Speicher!',
-    '¡Avatares, marcos, fondos y colores del menú: todo por granos 🌾 de la bóveda!',
+    'Аватары, рамки, фоны и цвета — за зёрнышки 🌾 из сейфа. Аватары ещё и растут вместе с котиком: открываются по уровню персонажа!',
+    'Avatars, frames, backgrounds and colors — for grains 🌾 from the vault. Avatars also grow with your kitty: each unlocks at a character level!',
+    'Avatare, Rahmen, Hintergründe und Farben — für Körner 🌾 aus dem Speicher. Avatare wachsen mit deinem Kätzchen: Freischaltung per Level!',
+    '¡Avatares, marcos, fondos y colores por granos 🌾 de la bóveda! Los avatares crecen con tu gato: se abren por nivel del personaje.',
   ],
   'style.h.avatars': ['Аватары', 'Avatars', 'Avatare', 'Avatares'],
   'style.h.frames': ['Рамки', 'Frames', 'Rahmen', 'Marcos'],
@@ -3214,10 +3214,10 @@ export const T: Record<string, Row> = {
   'theme.bubble.name': ['Розовый', 'Bubblegum', 'Kaugummi', 'Chicle'],
   'theme.midnight.name': ['Полночь', 'Midnight', 'Mitternacht', 'Medianoche'],
   'menu.avatarHint': [
-    'Стиль котика — меняется в лавке стиля 🎨',
-    'Cat style — change it in the style shop 🎨',
-    'Katzenstil — im Stil-Laden änderbar 🎨',
-    'Estilo del gato: cámbialo en la tienda de estilo 🎨',
+    'Стиль котика — лавка стиля 🎨. Часть аватаров открывается уровнем котика',
+    'Cat style — the style shop 🎨. Some avatars unlock with your cat’s level',
+    'Katzenstil — im Stil-Laden 🎨. Manche Avatare öffnen sich mit Katzlevel',
+    'Estilo del gato: tienda de estilo 🎨. Algunos avatares se abren por nivel',
   ],
   /* v0.0.75: ПУТЬ КОТИКА — шкала опыта с наградами уровней */
   'hub.tab.path': ['ПУТЬ КОТИКА', 'CAT PATH', 'KATZENPFAD', 'CAMINO DEL GATO'],

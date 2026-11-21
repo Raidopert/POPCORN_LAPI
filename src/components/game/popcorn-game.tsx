@@ -231,13 +231,15 @@ import {
   type MarketBonuses,
   type MarketState,
 } from '@/lib/game/market'
-/* ЛАВКА СТИЛЯ (v0.0.75): аватары, рамки, фоны и цвета меню за зёрнышки */
+/* ЛАВКА СТИЛЯ (v0.0.75): аватары, рамки, фоны и цвета меню за зёрнышки.
+   v0.0.81: аватары привязаны к уровню котика (avatarReqLevel) */
 import {
   AVATARS,
   BGS,
   DEFAULT_STYLE,
   FRAMES,
   THEMES,
+  avatarReqLevel,
   avatarSrc,
   buyStyleItem,
   equipStyleItem,
@@ -2001,8 +2003,15 @@ function MarketOverlay({
             })}
           </ul>
         ) : (
-          /* ЛАВКА СТИЛЯ (v0.0.75): аватары, рамки, фоны и цвета за зёрнышки */
-          <StyleShop style={style} grains={market.grains} t={t} onAction={onStyleAction} />
+          /* ЛАВКА СТИЛЯ (v0.0.75): аватары, рамки, фоны и цвета за зёрнышки.
+             v0.0.81: аватары открываются уровнем котика */
+          <StyleShop
+            style={style}
+            grains={market.grains}
+            catLevel={catLevel}
+            t={t}
+            onAction={onStyleAction}
+          />
         )}
 
         <button
@@ -2061,11 +2070,14 @@ function StyleChip({
 function StyleShop({
   style,
   grains,
+  catLevel,
   t,
   onAction,
 }: {
   style: StyleState
   grains: number
+  /** Уровень котика 🎖: аватары открываются по мере роста персонажа (v0.0.81) */
+  catLevel: number
   t: TranslateFn
   onAction: (kind: StyleKind, id: AvatarId | FrameId | BgId | ThemeId) => void
 }) {
@@ -2084,38 +2096,47 @@ function StyleShop({
         {t('style.subtitle')}
       </p>
 
-      {/* Аватары */}
+      {/* Аватары — v0.0.81: привязаны к уровню котика, замок до нужного роста */}
       <div className="font-ui text-[10px] font-bold uppercase tracking-wide text-[#a97c50]">
         {t('style.h.avatars')}
       </div>
       <div className="mt-1 grid grid-cols-4 gap-1.5">
-        {AVATARS.map(({ id, price }) => {
+        {AVATARS.map(({ id, price, reqLevel }) => {
           const owned = isOwned(style, 'avatar', id)
           const equipped = isEquipped(style, 'avatar', id)
+          const lvlLocked = reqLevel > catLevel
           return (
             <button
               key={id}
               type="button"
               aria-pressed={equipped}
               title={
-                owned
-                  ? t('style.buyHint', { n: price })
-                  : t('style.lockedHint', { n: price })
+                lvlLocked && !owned
+                  ? t('shop.lockedHint', { n: reqLevel })
+                  : owned
+                    ? t('style.buyHint', { n: price })
+                    : t('style.lockedHint', { n: price })
               }
               onClick={() => onAction('avatar', id)}
-              className={cellCls(equipped)}
+              className={`${cellCls(equipped)} ${lvlLocked && !owned ? 'opacity-60' : ''}`}
             >
               <AvatarBadge id={id} frame={style.frame} size={44} />
               <span className="w-full truncate text-center font-pixel text-[10px] font-bold leading-none text-[#5C3A1E]">
                 {t(`avatar.${id}.name`)}
               </span>
-              <StyleChip
-                owned={owned}
-                equipped={equipped}
-                price={price}
-                canAfford={grains >= price}
-                t={t}
-              />
+              {lvlLocked && !owned ? (
+                <span className="rounded-full bg-[#d9c6a8] px-2 py-0.5 font-ui text-[10px] font-bold text-[#6b5233]">
+                  {t('shop.locked', { n: reqLevel })}
+                </span>
+              ) : (
+                <StyleChip
+                  owned={owned}
+                  equipped={equipped}
+                  price={price}
+                  canAfford={grains >= price}
+                  t={t}
+                />
+              )}
             </button>
           )
         })}
@@ -6932,8 +6953,8 @@ export function PopcornGame() {
     announceAch(cand)
   }, [announceAch])
 
-  /** Начислить дельту очков в банк опыта сразу — 10 очков попкорна = 1 🍿 опыта.
-      Та же дельта (с курсом) капает в суммарный стаж котика. Курс ×0.1 держит
+  /** Начислить дельту очков в банк опыта сразу — 15 очков попкорна = 1 🍿 опыта.
+      Та же дельта (с курсом) капает в суммарный стаж котика. Курс ×0.067 держит
       древо и магазин в долгой прогрессии: рекордный забег — это плюс
       несколько уровней, а не полдерева. Отрицательные дельты (мины,
       сгоревшая Лихорадка) бьют по СЧЁТУ, но не по валюте — опыт — стаж,

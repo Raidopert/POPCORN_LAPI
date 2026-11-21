@@ -16,6 +16,7 @@
  */
 
 import { spendGrains } from './market'
+import { charLevel, getTotalXp } from './meta'
 
 /* ════════════════ Каталог ════════════════ */
 
@@ -40,16 +41,21 @@ export const DEFAULT_FRAME: FrameId = 'none'
 export const DEFAULT_BG: BgId = 'classic'
 export const DEFAULT_THEME: ThemeId = 'classic'
 
-/** Аватары: цена в 🌾 (0 — есть у всех с самого начала) */
-export const AVATARS: ReadonlyArray<{ id: AvatarId; price: number }> = [
-  { id: 'kitten', price: 0 },
-  { id: 'smoke', price: 250 },
-  { id: 'snow', price: 400 },
-  { id: 'stripes', price: 550 },
-  { id: 'ninja', price: 700 },
-  { id: 'siam', price: 900 },
-  { id: 'spot', price: 1300 },
-  { id: 'royale', price: 1900 },
+/**
+ * Аватары: цена в 🌾 (0 — есть у всех с самого начала).
+ * v0.0.81: привязка к развитию персонажа — у каждого аватара reqLevel,
+ * уровень котика 🎖, с которого он открывается в лавке (дефолт — 1):
+ * покупка за зёрнышки возможна только после этого уровня.
+ */
+export const AVATARS: ReadonlyArray<{ id: AvatarId; price: number; reqLevel: number }> = [
+  { id: 'kitten', price: 0, reqLevel: 1 },
+  { id: 'smoke', price: 250, reqLevel: 3 },
+  { id: 'snow', price: 400, reqLevel: 5 },
+  { id: 'stripes', price: 550, reqLevel: 7 },
+  { id: 'ninja', price: 700, reqLevel: 9 },
+  { id: 'siam', price: 900, reqLevel: 12 },
+  { id: 'spot', price: 1300, reqLevel: 15 },
+  { id: 'royale', price: 1900, reqLevel: 20 },
 ]
 
 /** Рамки аватара: цена в 🌾 */
@@ -101,6 +107,17 @@ export const THEME_MAP = Object.fromEntries(THEMES.map((t) => [t.id, t])) as Rec
 
 export const isAvatarId = (v: unknown): v is AvatarId =>
   typeof v === 'string' && AVATAR_MAP[v] !== undefined
+
+/** УРОВЕНЬ КОТИКА, с которого аватар открывается в лавке (v0.0.81) */
+export function avatarReqLevel(id: AvatarId): number {
+  return AVATAR_MAP[id]?.reqLevel ?? 1
+}
+
+/** Аватар ещё закрыт уровнем котика? */
+export function avatarLevelLocked(id: AvatarId, totalXp: number): boolean {
+  return avatarReqLevel(id) > charLevel(totalXp)
+}
+
 export const isFrameId = (v: unknown): v is FrameId =>
   typeof v === 'string' && FRAME_MAP[v] !== undefined
 export const isBgId = (v: unknown): v is BgId => typeof v === 'string' && BG_MAP[v] !== undefined
@@ -245,7 +262,10 @@ export function isEquipped(style: StyleState, kind: StyleKind, id: AvatarId | Fr
 /**
  * Купить за зёрнышки 🌾: списывает зерно через spendGrains() (баланс и списание
  * — в market.ts, тот же сейф, что копит его в забегах) и помечает купленным.
- * Возвращает новое состояние или null (не хватило зерна / нет такого товара).
+ * Аватары привязаны к развитию персонажа: до нужного уровня котика
+ * покупка недоступна, сколько зерна ни копи (v0.0.81).
+ * Возвращает новое состояние или null (не хватило зерна / мал уровень /
+ * нет такого товара).
  */
 export function buyStyleItem(
   kind: StyleKind,
@@ -255,6 +275,7 @@ export function buyStyleItem(
   if (price === null || price < 0) return null
   const cur = getStyleSnapshot()
   if (isOwned(cur, kind, id)) return null
+  if (kind === 'avatar' && avatarLevelLocked(id as AvatarId, getTotalXp())) return null
   /* Зерно списывается только если хватает (ленивая проверка внутри) */
   if (!spendGrains(price)) return null
   const next: StyleState = { ...cur, owned: { ...cur.owned } }
