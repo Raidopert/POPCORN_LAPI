@@ -109,3 +109,37 @@ model LeaderVisit {
   createdAt DateTime @default(now())
   lastAt    DateTime @updatedAt
 }
+
+/**
+ * Мировой лидерборд КОТО-ЛУТа (v1.1): «аккаунт слуги двора».
+ * Один device = одна строка, хранится только максимальный результат
+ * (лучшая волна + боссы/опыт/уровень/время на момент рекорда).
+ * DDL-дубль для автосоздания в Postgres — в src/lib/kotolut-db.ts.
+ */
+model KotoLeader {
+  id        Int      @id @default(autoincrement())
+  device    String   @unique
+  name      String   @default("Слуга Рыбца")
+  wave      Int      @default(0)
+  bosses    Int      @default(0)
+  xp        Int      @default(0)
+  maxLvl    Int      @default(1)
+  playtime  Int      @default(0)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([wave])
+}
+
+/** Одноразовые забеги Кото-Лута: HMAC-токен + статус open→closed (atomic) */
+model KotoRun {
+  id        String    @id
+  device    String
+  ipHash    String?
+  status    String    @default("open")
+  wave      Int?
+  startedAt DateTime  @default(now())
+  endedAt   DateTime?
+
+  @@index([device, status])
+}

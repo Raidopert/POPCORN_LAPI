@@ -429,6 +429,33 @@ nav#tabs{
 .alchip.lock b{color:var(--faint)}
 .alchip.got{border-color:rgba(62,207,178,.45);background:rgba(62,207,178,.08)}
 .milechip{display:inline-flex;align-items:center;gap:6px}
+
+/* ===== v1.1: шестерёнка + меню игры (настройки · инвентарь · профиль) ===== */
+.gearbtn{width:40px;height:40px;flex:0 0 40px;border-radius:12px;border:1px solid var(--line);background:var(--glass2);color:var(--gold);font-size:19px;font-weight:800;cursor:pointer;transition:transform .2s,border-color .2s;display:inline-flex;align-items:center;justify-content:center}
+.gearbtn:hover{transform:rotate(25deg);border-color:rgba(244,180,0,.55)}
+.gearbtn-intro{position:absolute;top:10px;right:10px;z-index:3;background:rgba(20,14,10,.72)}
+#intro .modal{position:relative}
+.gmenu-modal{max-width:420px;padding:0;overflow:hidden}
+.gmenu-head{display:flex;align-items:center;justify-content:space-between;padding:12px 16px;border-bottom:1px solid var(--line);background:rgba(244,180,0,.06)}
+.gmenu-title{font-family:'Russo One',sans-serif;letter-spacing:.12em;color:var(--gold);font-size:15px}
+.gmenu-x{width:34px;height:34px;border-radius:10px;border:1px solid var(--line);background:transparent;color:#E8DCC8;font-size:15px;cursor:pointer}
+.gmenu-x:hover{color:var(--danger);border-color:var(--danger)}
+.gmenu-tabs{display:flex;gap:6px;padding:10px 12px 0}
+.gtab{flex:1;padding:9px 6px;border-radius:10px;border:1px solid var(--line);background:transparent;color:#D8CBB6;font-weight:800;font-size:clamp(11px,2.8vw,13px);cursor:pointer}
+.gtab.active{background:rgba(244,180,0,.12);border-color:rgba(244,180,0,.5);color:var(--gold)}
+.gsec{padding:12px 16px 16px;display:flex;flex-direction:column;gap:8px}
+.gset{display:flex;align-items:center;justify-content:space-between;gap:10px;padding:11px 14px;border-radius:12px;border:1px solid var(--line);background:var(--glass2);color:#E8DCC8;font-weight:700;font-size:clamp(12px,3vw,14px);cursor:pointer;text-align:left}
+.gset b{color:var(--gold)}
+.gset.danger{border-color:rgba(231,111,81,.4);color:#F2B8A8}
+.ginv-row{display:flex;align-items:center;justify-content:space-between;gap:10px;padding:8px 12px;border-bottom:1px dashed rgba(255,199,120,.14);font-size:clamp(12px,3vw,13.5px)}
+.ginv-row:last-of-type{border-bottom:none}
+.ginv-row span{color:#B8A98F}
+.ginv-row b{text-align:right;min-width:0;overflow-wrap:anywhere}
+.ginv-row i{color:var(--faint);font-style:normal}
+.gsec h4{margin:4px 0 0;color:var(--gold);font-size:13px;letter-spacing:.06em}
+.ghint{margin:2px 0 0;color:var(--faint);font-size:clamp(10.5px,2.6vw,12px)}
+.glink{background:none;border:none;color:var(--acc);font-weight:800;cursor:pointer;text-decoration:underline;padding:0;font-size:inherit}
+.gprof{display:flex;flex-direction:column}
 </style>
 </head>
 <body>
@@ -488,7 +515,8 @@ nav#tabs{
         <button id="nickRand" class="btn btn-sm" title="Случайный ник">СЛУЧ</button>
       </div>
       <button id="startBtn" class="btn btn-acc big btn-pulse">НАЧАТЬ РЕЙД</button>
-      <p class="hint">Сейв — локальный. Онлайн-таблица рекордов и гильдии — следующий этап. Бой идёт сам: тебе решать, кого кормить, что надеть и когда бросить клубок.</p>
+      <p class="hint">Сейв — локальный. Мировая таблица рекордов подключится сама, когда откроешь игру на raidopert.ru. Бой идёт сам: тебе решать, кого кормить, что надеть и когда бросить клубок.</p>
+      <button id="introMenuBtn" class="gearbtn gearbtn-intro" title="Меню: настройки, инвентарь, профиль">⚙</button>
     </div>
   </div>
 
@@ -538,8 +566,7 @@ nav#tabs{
           <div class="actions">
             <button id="petBtn" class="btn btn-acc"><svg class="ic"><use href="#i-paw"/></svg> ПОГЛАДИТЬ</button>
             <button id="stunBtn" class="btn btn-gold"><svg class="ic"><use href="#i-yarn"/></svg> КЛУБОК В БОССА</button>
-            <button id="sfxBtn" class="btn" title="Звук вкл/выкл">🔊</button>
-            <button id="musicBtn" class="btn" title="Чиптюн-музыка вкл/выкл">🎵</button>
+            <button id="menuBtn" class="gearbtn" title="Меню: настройки · инвентарь · профиль (Esc)">⚙</button>
           </div>
           <div id="log" class="log"></div>
         </div>
@@ -719,8 +746,8 @@ nav#tabs{
       <section id="tab-records" class="hidden">
         <div class="panel"><h3>Твои рекорды</h3><div id="recStats" class="statcards"></div></div>
         <div class="panel">
-          <h3>Онлайн-таблица рекордов <span class="badge">ДЕМО-СИМУЛЯЦИЯ</span></h3>
-          <p class="hint">Прототип работает без сервера: соперники сгенерированы локально, твоя позиция — по лучшей волне. Схема записи (ник · волна · боссы · дата) уже серверная: бэкенд и гильдии/кланы подключим без переделки.</p>
+          <h3>Мировая таблица рекордов <span class="badge" id="lbBadge">ЗАГРУЗКА…</span></h3>
+          <p class="hint" id="lbHint">Сверяемся с сервером…</p>
           <div class="scroll-x"><table id="lbTable"></table></div>
         </div>
         <div class="panel">
@@ -739,7 +766,30 @@ nav#tabs{
       </section>
     </main>
 
-    <footer id="ft">Кото-Лут v1.0 · барахолка Мурзика · альбом двора · новые мобы и элиты · обрывки · рейд · чиптюн</footer>
+    <footer id="ft">Кото-Лут v1.1 · меню · настройки · инвентарь · профиль · мировая таблица рекордов · рейд · чиптюн</footer>
+  </div>
+</div>
+
+<!-- Меню игры (шестерёнка) -->
+<div id="gmenu" class="overlay hidden">
+  <div class="panel modal gmenu-modal">
+    <div class="gmenu-head">
+      <span class="gmenu-title">МЕНЮ</span>
+      <button id="gmenuClose" class="gmenu-x" title="Закрыть">✕</button>
+    </div>
+    <div class="gmenu-tabs">
+      <button class="gtab active" data-gtab="settings">⚙ Настройки</button>
+      <button class="gtab" data-gtab="inv">🎒 Инвентарь</button>
+      <button class="gtab" data-gtab="profile">🐱 Профиль</button>
+    </div>
+    <div id="gsec-settings" class="gsec">
+      <button id="gmMusic" class="gset">🎵 Чиптюн <b>ВКЛ</b></button>
+      <button id="gmSfx" class="gset">🔊 Звук <b>ВКЛ</b></button>
+      <button id="gmReset" class="gset danger">🗑 Сбросить прогресс</button>
+      <p class="ghint">Сейв — локальный, автосохранение каждые 10 секунд.</p>
+    </div>
+    <div id="gsec-inv" class="gsec hidden"></div>
+    <div id="gsec-profile" class="gsec hidden"></div>
   </div>
 </div>
 
@@ -1126,7 +1176,7 @@ function defaultState(){
     ver:1, nick:'', created:now(), lastSeen:now(), seq:1, sfx:true, music:true, dayPet:'', daySpin:'', banner:'cuke',
     res:{feed:0,sticks:0,ropes:0,yarn:3,coins:0,scraps:0},
     forge:{atk:0,hp:0,crit:0,regen:0},
-    stats:{bossKills:0,bestWave:1,extracts:0,crits:0,dodges:0,mobsKilled:0,feeds:0,coinsEarned:0,pets:0},
+    stats:{bossKills:0,bestWave:1,extracts:0,crits:0,dodges:0,mobsKilled:0,feeds:0,coinsEarned:0,pets:0,timePlay:0,maxLvl:1},
     combat:{wave:1,quota:4,killed:0,phase:'wave',bossTier:1,bossHp:0,bossMax:0,heroHp:100,heroMana:0},
     hero:{gear:{weapon:null,armor:null,helm:null,belt:null,amulet:null,boots:null},inv:[]},
     cat:{lvl:1,xp:0,fur:'orange',mood:70,equip:{head:null,paws:null,mouth:null,sleep:null,fur:null,talisman:null},inv:[]},
@@ -2613,6 +2663,7 @@ function tick(dt){
       state.res.feed+=2+Math.floor(c.wave/2);
       c.wave++;
       state.stats.bestWave=Math.max(state.stats.bestWave,c.wave);
+      if(typeof kotoSubmitBest==='function')kotoSubmitBest();
       c.killed=0; c.quota=quotaFor(c.wave);
       if(c.wave%5===0){
         c.phase='boss'; c.bossMax=bossMaxHp(c.bossTier,c.wave); c.bossHp=c.bossMax;
@@ -2700,7 +2751,14 @@ function loop(ts){
   /* juice: hit-stop и slow-mo держат мир, но гасят свои таймеры */
   if(R.hitstop>0)R.hitstop=Math.max(0,R.hitstop-raw),d=0;
   if(R.slowmo>0){R.slowmo=Math.max(0,R.slowmo-raw);d*=0.35}
-  if(R.started){ tick(d); render(); uiTick(); }
+  if(R.started){
+    /* v1.1: профиль игрока — реальное время в игре и максимальный уровень Рыбца */
+    if(!document.hidden){
+      state.stats.timePlay=(state.stats.timePlay||0)+raw;
+      if(state.cat.lvl>(state.stats.maxLvl||0))state.stats.maxLvl=state.cat.lvl;
+    }
+    tick(d); render(); uiTick();
+  }
   requestAnimationFrame(loop);
 }
 /* ===== Лут ===== */
@@ -2768,6 +2826,7 @@ function bossDefeated(){
   c.bossTier++;
   c.wave++;
   state.stats.bestWave=Math.max(state.stats.bestWave,c.wave);
+  if(typeof kotoSubmitBest==='function')kotoSubmitBest();
   state.res.feed+=Math.round((10+3*t)*(1+a.feed/100));
   state.res.yarn+=Math.round((5+t)*(1+(a.yarnM||0)/100));
   state.res.sticks+=ri(2,4);
@@ -3195,16 +3254,10 @@ function renderGacha(){
 }
 function renderRecords(){
   const s=state.stats;
-  const cards=[['target','Лучшая волна',s.bestWave],['trophy','Боссов повержено',s.bossKills],['vortex','Извлечений духов',s.extracts],['sword','Мобов побито',s.mobsKilled],['spark','Критов',s.crits],['wind','Уворотов',s.dodges],['coin','Монет собрано',s.coinsEarned||0]];
+  const cards=[['target','Лучшая волна',s.bestWave],['trophy','Боссов повержено',s.bossKills],['vortex','Извлечений духов',s.extracts],['sword','Мобов побито',s.mobsKilled],['spark','Критов',s.crits],['wind','Уворотов',s.dodges],['coin','Монет собрано',s.coinsEarned||0],['cat','Макс. ур. Рыбца',Math.max(s.maxLvl||1,state.cat.lvl)],['paw','Время в игре',fmtTime(s.timePlay)]];
   $('recStats').innerHTML=cards.map(function(x){return '<div class="scard"><b>'+fmt(x[2])+'</b><span class="statcard-ic-wrap">'+icon(x[0])+' '+x[1]+'</span></div>'}).join('');
-  const rows=BOTS.map(function(b){return {nick:b[0],w:b[1],you:false}});
-  rows.push({nick:state.nick||'Слуга Рыбца',w:s.bestWave,you:true});
-  rows.sort(function(a,b){return b.w-a.w});
-  let html='<tr><th>№</th><th>Ник</th><th>Лучшая волна</th></tr>';
-  rows.forEach(function(r,i){
-    html+='<tr'+(r.you?' class="you"':'')+'><td>'+(i+1)+'</td><td>'+esc(r.nick)+(r.you?' ← ты':'')+'</td><td>'+r.w+'</td></tr>';
-  });
-  $('lbTable').innerHTML=html;
+  /* v1.1: мировая таблица — онлайн-топ-20, офлайн → честные локальные соперники */
+  if(typeof kotoLBTable==='function')kotoLBTable();
 }
 
 /* ===== Экипировка ===== */
@@ -3791,6 +3844,19 @@ function onTap(x,y){
     const k=e.target.closest('[data-forge]');
     if(k)forgeUp(k.getAttribute('data-forge'));
   });
+  /* v1.1: программные тогглы звука/музыки для меню игры — синхронизируют кнопки HUD */
+  window.kotoSetSfx=function(on){
+    SFX.en=!!on; state.sfx=SFX.en;
+    const b=document.getElementById('sfxBtn'); if(b)b.innerHTML=SFX.en?'🔊':'🔇';
+    if(SFX.en&&SFX.play)SFX.play('ui');
+    save();
+  };
+  window.kotoSetMusic=function(on){
+    MUSIC.en=!!on; state.music=MUSIC.en;
+    const b=document.getElementById('musicBtn'); if(b)b.style.opacity=MUSIC.en?'1':'0.45';
+    if(MUSIC.en)MUSIC.start(); else MUSIC.stop();
+    save();
+  };
 })();
 
 /* ===== v0.9: дневные задания — три дела от Рыбца, награда клубками и настроением ===== */
@@ -4259,6 +4325,215 @@ function spinWheel(free){
       renderRent(); save();
     }
   },1000);
+})();
+/* ===== P8 v1.1: меню игры (⚙ шестерёнка — в бою и в меню) + мировой лидерборд ===== */
+
+/* Мировой лидерборд Кото-Лута — свой контур на том же сайте.
+   На raidopert.ru — тот же origin; с зеркала Pages и локально — абсолютный адрес.
+   Нет связи → честный офлайн-фолбэк: локальные соперники (BOTS), ничего не ломается. */
+const LB={
+  api:(/raidopert\.ru$/.test(location.hostname)?location.origin:'https://www.raidopert.ru'),
+  online:null, run:null, lastStart:0, lastSubmit:0, me:null
+};
+
+function kotoDevice(){
+  let d=null;
+  try{d=localStorage.getItem('kotolut_device')}catch(e){}
+  if(!d){
+    d='k'+Date.now().toString(36)+Math.random().toString(36).slice(2,10);
+    try{localStorage.setItem('kotolut_device',d)}catch(e){}
+  }
+  return d;
+}
+
+function fmtTime(sec){
+  sec=Math.max(0,Math.round(sec||0));
+  const h=Math.floor(sec/3600), m=Math.floor(sec%3600/60), s=sec%60;
+  return h?h+' ч '+m+' м':(m?m+' мин '+s+' с':s+' с');
+}
+
+/* — забег: runId+токен выдаёт сервер при старте рейда (защита от накрутки) — */
+function kotoLbStart(){
+  if(!window.fetch)return;
+  const t=Date.now();
+  if(t-LB.lastStart<60000)return; /* не чаще раза в минуту */
+  LB.lastStart=t;
+  fetch(LB.api+'/api/kotolut/leaders/start',{method:'POST',headers:{'Content-Type':'application/json'},
+    body:JSON.stringify({device:kotoDevice()})})
+    .then(function(r){return r.json()})
+    .then(function(j){
+      if(j&&j.ok){LB.run={runId:j.runId,token:j.token,startedAt:j.startedAt};LB.online=true;}
+      else{LB.run=null;LB.online=false;}
+    })
+    .catch(function(){LB.run=null;LB.online=false;});
+}
+
+/* Реперные точки: новая волна кратна 5 → рапортуем серверу. Сервер сам
+   держит только максимальный результат котика. */
+function kotoSubmitBest(){
+  const s=state.stats;
+  if(!LB.run||!LB.online)return;
+  const w=s.bestWave|0;
+  if(w<2||w%5!==0)return;
+  const t=Date.now();
+  if(t-LB.lastSubmit<15000)return;
+  LB.lastSubmit=t;
+  const run=LB.run; LB.run=null;
+  fetch(LB.api+'/api/kotolut/leaders',{method:'POST',headers:{'Content-Type':'application/json'},
+    body:JSON.stringify({device:kotoDevice(),name:String(state.nick||'Слуга Рыбца').slice(0,20),
+      wave:w,bosses:Math.min(s.bossKills|0,w*5),xp:Math.min(state.cat.xp|0,9999999),
+      maxLvl:Math.min(state.cat.lvl|0,300),playtime:Math.min(s.timePlay|0,2592000),
+      runId:run.runId,token:run.token})})
+    .then(function(r){return r.json()})
+    .then(function(j){
+      if(j&&j.ok){
+        if(j.rank)toast('🌍 Мировая таблица: №'+j.rank+' · волна '+w);
+        LB.table=null;
+        kotoLbStart(); /* открыт следующий забег */
+      } else LB.online=false;
+    })
+    .catch(function(){LB.online=false;});
+}
+
+/* — вкладка «Рекорды»: топ-20 мира + место игрока; офлайн → локальные соперники — */
+function kotoLBTable(){
+  const tbl=$('lbTable'), badge=$('lbBadge'), hint=$('lbHint');
+  function demo(){
+    if(badge)badge.textContent='ОФЛАЙН · соперники локальные';
+    const rows=BOTS.map(function(b){return {nick:b[0],w:b[1],bosses:0,you:false}});
+    rows.push({nick:state.nick||'Слуга Рыбца',w:state.stats.bestWave|0,bosses:state.stats.bossKills|0,you:true});
+    rows.sort(function(a,b){return b.w-a.w});
+    let h='<tr><th>№</th><th>Ник</th><th>Волна</th><th>Боссы</th></tr>';
+    rows.forEach(function(r,i){
+      h+='<tr'+(r.you?' class="you"':'')+'><td>'+(i+1)+'</td><td>'+esc(r.nick)+(r.you?' ← ты':'')+'</td><td>'+r.w+'</td><td>'+(r.bosses||'—')+'</td></tr>';
+    });
+    if(tbl)tbl.innerHTML=h;
+    if(hint)hint.textContent='Нет связи с сервером — соперники сгенерированы локально. Открой игру на raidopert.ru, и таблица станет мировой.';
+  }
+  demo();
+  fetch(LB.api+'/api/kotolut/leaders?device='+encodeURIComponent(kotoDevice()))
+    .then(function(r){return r.json()})
+    .then(function(j){
+      if(!j||!j.online){LB.online=false;return;}
+      LB.online=true; LB.me=j.me||null;
+      if(badge)badge.textContent='ОНЛАЙН · топ мира';
+      const rows=(j.leaders||[]).map(function(x){return {nick:x.name,w:x.wave,bosses:x.bosses,you:false}});
+      if(j.me)rows.push({nick:state.nick||'Слуга Рыбца',w:j.me.best,bosses:'—',you:true,rank:j.me.rank});
+      rows.sort(function(a,b){return b.w-a.w});
+      let h='<tr><th>№</th><th>Ник</th><th>Волна</th><th>Боссы</th></tr>';
+      rows.forEach(function(r,i){
+        h+='<tr'+(r.you?' class="you"':'')+'><td>'+(r.rank||i+1)+'</td><td>'+esc(r.nick)+(r.you?' ← ты':'')+'</td><td>'+r.w+'</td><td>'+(r.bosses||'—')+'</td></tr>';
+      });
+      if(tbl)tbl.innerHTML=h;
+      const st=j.stats;
+      if(hint)hint.textContent=st?('В мире: '+st.players+' котиков · лучшая волна '+st.topWave+' · '+st.bosses+' боссов повержено всеми.'):'Топ-20 мира обновляется сразу после нового рекорда.';
+    })
+    .catch(function(){LB.online=false;});
+}
+
+/* ===== Меню игры: Настройки · Инвентарь · Профиль — минимум описаний, только нужные кнопки ===== */
+let gtab='settings';
+
+function gSettings(){
+  const mm=$('gmMusic'), ss=$('gmSfx');
+  if(mm)mm.querySelector('b').textContent=MUSIC.en?'ВКЛ':'ВЫКЛ';
+  if(ss)ss.querySelector('b').textContent=SFX.en?'ВКЛ':'ВЫКЛ';
+}
+
+function gInv(){
+  const el=$('gsec-inv'); if(!el)return;
+  const hero=state.hero, cat=state.cat;
+  let h='<h4>🗡 Рыцарь</h4>';
+  for(const s in HERO_SLOTS){
+    const it=hero.gear[s];
+    h+='<div class="ginv-row"><span>'+HERO_SLOTS[s].n+'</span><b>'+
+      (it?'<span style="color:'+TIERS[it.tier].c+'">'+itemGearName(it)+'</span>':'<i>—</i>')+'</b></div>';
+  }
+  h+='<p class="ghint">В сумке: '+hero.inv.length+' · <button id="gmLoot" class="glink">открыть Лут</button></p>';
+  h+='<h4>🐱 Рыбец</h4>';
+  for(const s in CAT_SLOTS){
+    const t=cat.equip[s];
+    h+='<div class="ginv-row"><span>'+CAT_SLOTS[s].n+'</span><b>'+
+      (t?'<span style="color:'+TIERS[t].c+'">'+CAT_SLOTS[s].names[t-1]+'</span>':'<i>—</i>')+'</b></div>';
+  }
+  h+='<p class="ghint">Сумка Рыбца: '+cat.inv.length+' · игрушек-оберегов на полке: '+Object.keys(state.toys||{}).length+'</p>';
+  el.innerHTML=h;
+  const lk=$('gmLoot');
+  if(lk)lk.onclick=function(){gMenuClose();showTab('loot');};
+}
+
+function gProfile(){
+  const el=$('gsec-profile'); if(!el)return;
+  const s=state.stats, cat=state.cat, need=50*cat.lvl;
+  const rows=[
+    ['Ник',esc(state.nick||'Слуга Рыбца')],
+    ['Рыбец','ур. '+cat.lvl+' · опыт '+fmt(cat.xp)+' / '+fmt(need)],
+    ['Максимальный уровень Рыбца','ур. '+Math.max(s.maxLvl||1,cat.lvl)],
+    ['Максимальная волна',s.bestWave|0],
+    ['Боссов повержено',s.bossKills|0],
+    ['Извлечено духов',s.extracts|0],
+    ['Время в игре',fmtTime(s.timePlay)],
+    ['Место в мире',LB.me?('№'+LB.me.rank+' · волна '+LB.me.best):(LB.online===false?'нет связи':'…')]
+  ];
+  el.innerHTML=rows.map(function(r){return '<div class="ginv-row"><span>'+r[0]+'</span><b>'+r[1]+'</b></div>'}).join('')+
+    '<p class="ghint">Рекорд рапортуется в мир автоматически на каждой пятой волне.</p>';
+}
+
+function gRender(){
+  document.querySelectorAll('.gtab').forEach(function(b){b.classList.toggle('active',b.getAttribute('data-gtab')===gtab)});
+  ['settings','inv','profile'].forEach(function(k){
+    const el=$('gsec-'+k); if(el)el.classList.toggle('hidden',k!==gtab);
+  });
+  if(gtab==='inv')gInv();
+  else if(gtab==='profile')gProfile();
+  else gSettings();
+}
+function gMenuOpen(){
+  const m=$('gmenu'); if(!m)return;
+  m.classList.remove('hidden');
+  gtab='settings'; gRender();
+}
+function gMenuClose(){
+  const m=$('gmenu'); if(m)m.classList.add('hidden');
+}
+
+/* — обёртка beginPlay: каждый старт рейда открывает забег на сервере — */
+(function(){
+  const bp=window.beginPlay;
+  if(typeof bp==='function'){
+    window.beginPlay=function(){
+      const r=bp.apply(null,arguments);
+      kotoLbStart();
+      return r;
+    };
+  }
+})();
+
+(function(){
+  const mb=$('menuBtn'), ib=$('introMenuBtn'), cl=$('gmenuClose');
+  if(mb)mb.onclick=gMenuOpen;
+  if(ib)ib.onclick=gMenuOpen;
+  if(cl)cl.onclick=gMenuClose;
+  const ov=$('gmenu');
+  if(ov)ov.addEventListener('click',function(e){if(e.target===ov)gMenuClose();});
+  document.addEventListener('keydown',function(e){
+    if(e.key!=='Escape')return;
+    const m=$('gmenu');
+    if(m&&!m.classList.contains('hidden'))gMenuClose();
+    else if($('app')&&!$('app').classList.contains('hidden'))gMenuOpen();
+  });
+  document.addEventListener('click',function(e){
+    const t=e.target.closest('.gtab');
+    if(t){gtab=t.getAttribute('data-gtab');gRender();return;}
+    if(e.target.closest('#gmMusic')){kotoSetMusic(!MUSIC.en);gSettings();return;}
+    if(e.target.closest('#gmSfx')){kotoSetSfx(!SFX.en);gSettings();return;}
+    if(e.target.closest('#gmReset')){
+      if(confirm('Сбросить весь прогресс?')){
+        try{localStorage.removeItem(SAVE_KEY)}catch(e2){}
+        location.reload();
+      }
+    }
+  });
 })();
 /* ===== P7: автостарт чиптюна v0.8 (сам секвенсор MUSIC объявлен в P3) ===== */
 (function(){
