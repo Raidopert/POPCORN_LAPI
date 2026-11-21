@@ -200,9 +200,20 @@ const LVL_CAP = 300
 const PLAYTIME_CAP = 60 * 24 * 3600
 
 export async function submitKotoRun(input: KotoSubmitInput): Promise<KotoSubmitResult> {
+  /* гранулярные причины падения — чтобы прод-сбой читался по reason без логов */
+  const t = async <T>(reason: string, fn: () => Promise<T>): Promise<T> => {
+    try {
+      return await fn()
+    } catch (err) {
+      console.error(`[kotolut] submit failed at ${reason}:`, err)
+      throw reason
+    }
+  }
   try {
-    await ensureTables()
-    const run = await db.kotoRun.findUnique({ where: { id: input.runId } })
+    await t('ensure', ensureTables)
+    const run = await t('run', () =>
+      db.kotoRun.findUnique({ where: { id: input.runId } }),
+    )
     if (!run || run.device !== input.device) return { ok: false, reason: 'no-run' }
     if (run.status !== 'open') return { ok: false, reason: 'closed' }
 
@@ -224,30 +235,37 @@ export async function submitKotoRun(input: KotoSubmitInput): Promise<KotoSubmitR
     const playtime = Math.max(0, Math.min(Math.floor(input.playtime), PLAYTIME_CAP))
 
     /* одноразовость: atomic UPDATE WHERE status='open' — второй submit не пройдёт */
-    const consumed = await db.kotoRun.updateMany({
-      where: { id: input.runId, device: input.device, status: 'open' },
-      data: { status: 'closed', wave, endedAt: new Date() },
-    })
+    const consumed = await t('consume', () =>
+      db.kotoRun.updateMany({
+        where: { id: input.runId, device: input.device, status: 'open' },
+        data: { status: 'closed', wave, endedAt: new Date() },
+      }),
+    )
     if (consumed.count !== 1) return { ok: false, reason: 'closed' }
 
-    const prev = await db.kotoLeader.findUnique({
-      where: { device: input.device },
-      select: { wave: true },
-    })
+    const prev = await t('player', () =>
+      db.kotoLeader.findUnique({
+        where: { device: input.device },
+        select: { wave: true },
+      }),
+    )
     const best = Math.max(prev?.wave ?? 0, wave)
     if (wave >= (prev?.wave ?? 0)) {
-      await db.kotoLeader.upsert({
-        where: { device: input.device },
-        create: { device, name: input.name, wave, bosses, xp, maxLvl, playtime },
-        update: { name: input.name, wave, bosses, xp, maxLvl, playtime },
-      })
+      await t('upsert', () =>
+        db.kotoLeader.upsert({
+          where: { device: input.device },
+          create: { device, name: input.name, wave, bosses, xp, maxLvl, playtime },
+          update: { name: input.name, wave, bosses, xp, maxLvl, playtime },
+        }),
+      )
     }
 
-    const better = await db.kotoLeader.count({ where: { wave: { gt: best } } })
+    const better = await t('rank', () =>
+      db.kotoLeader.count({ where: { wave: { gt: best } } }),
+    )
     return { ok: true, rank: better + 1, best }
-  } catch (err) {
-    console.error('[kotolut] submit failed:', err)
-    return { ok: false, reason: 'db' }
+  } catch (reason) {
+    return { ok: false, reason: String(reason) }
   }
 }
 
