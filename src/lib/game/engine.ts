@@ -29,10 +29,12 @@ import {
   makeSmoothNippleSprite,
   makeBigPopcornSprite,
   makeGiftSprite,
+  makeFieldChestSprite,
   drawSprite,
   easeOutBack,
   easeOutQuad,
   type BigKind,
+  type FieldChestTier,
   type Sprite,
 } from './sprites'
 import { Pool } from './pool'
@@ -172,6 +174,10 @@ export interface EngineCallbacks {
   onFeverEnd?(r: FeverResult): void
   /** Поймана подарочная коробка 🎁 (ачивки, пожизненный счётчик, тост) */
   onGift?(kind: GiftKind): void
+  /** СУНДУК НА ПОЛЕ взломан (0.0.78): тапы набраны — компонент роняет
+      предмет известной редкости (tier: 0 простой → 1 редкий → 2 эпичный)
+      на склад и показывает тост лута */
+  onFieldChest?(tier: FieldChestTier): void
   /** ОНЛИФАНСИЙ высунул гигантскую лапу с краю поля (0.0.43): ачивка-свидетель */
   onLionScare?(): void
   /** Начался босс-уровень: покажи карточку-инструкцию «как победить».
@@ -265,6 +271,25 @@ const GIFT_FIRST_MAX = 9
 const GIFT_FREEZE_SECONDS = 7
 /** Длительность множителей очков: значение → секунды */
 const GIFT_MULT_DUR: Record<number, number> = { 2: 15, 5: 8, 10: 4 }
+
+/* --- СУНДУКИ НА ПОЛЕ (0.0.78): тапай лапкой быстро 5-7-10 раз ---
+    Сундучок спавнится прямо посреди этапа; редкость видна по цвету металла.
+    Ломается за 5 тапов (простой), 7 (редкий) или 10 (эпический) — из него
+    выпадает артефакт соответствующей ценности. Не разбил за 13 секунд —
+    сундучок ускакал */
+/** Сколько тапов нужно по ступени: 0 — простой, 1 — редкий, 2 — эпичный */
+const CHEST_FIELD_TAPS: ReadonlyArray<number> = [5, 7, 10]
+/** Сколько секунд сундук ждёт на поле, потом исчезает */
+const CHEST_FIELD_LIFE = 13
+/** Антидребезг: пауза между засчитанными тапами, с */
+const CHEST_FIELD_CD = 0.1
+/** Шанс, что на обычном уровне появится сундук (небольшой, на всех уровнях) */
+const CHEST_FIELD_CHANCE = 0.45
+/** Рамки момента появления внутри уровня, с от старта */
+const CHEST_FIELD_AT_MIN = 4
+const CHEST_FIELD_AT_MAX = 14
+/** Радиус сундука для попадания тапом (u) */
+const CHEST_FIELD_R = 26
 
 /* --- БОЛЬШАЯ ПОПКОРНИНА: раз за уровень на поле появляется жирный приз.
     Живёт 5 секунд и пытается убежать — успел дотянуться: очки и монетки.
@@ -456,6 +481,25 @@ interface FieldPiece {
   vy?: number
   /** 0.0.77 перчик: сколько секунд ещё горит фитиль (0/undefined — вечное) */
   life?: number
+}
+
+/** СУНДУК НА ПОЛЕ (0.0.78): тапай быстро — hp тапов по редкости */
+interface FieldChest {
+  x: number
+  y: number
+  /** Сколько секунд уже стоит на поле (CHEST_FIELD_LIFE — ускакал) */
+  t: number
+  /** Ступень: 0 — простой, 1 — редкий, 2 — эпичный */
+  tier: FieldChestTier
+  /** Осталось тапов до взлома */
+  hp: number
+  maxHp: number
+  /** Фаза покачивания */
+  phase: number
+  /** Антидребезг тапов, с */
+  hitCd: number
+  /** Вспышка после удара, с */
+  flash: number
 }
 
 /** БОЛЬШАЯ ПОПКОРНИНА: жирный приз, который живёт секунды и пытается убежать */
@@ -1025,6 +1069,10 @@ export class PopcornEngine {
   private gift: { x: number; y: number; t: number; kind: GiftKind; phase: number } | null = null
   /** Отсчёт до появления следующей коробки (сек) */
   private giftTimer = 7
+  /* --- СУНДУК НА ПОЛЕ (0.0.78): тапай 5-7-10 раз — артефакт нужной ценности --- */
+  private fieldChest: FieldChest | null = null
+  /** Через сколько секунд от старта уровня выскочит сундук (-1 — не выйдет) */
+  private fieldChestAt = -1
   /** «Фриз»: сколько секунд таймер этапа заморожен */
   private freezeLeft = 0
   /** Множитель очков из коробки: сколько секунд ещё действует и его значение */
@@ -1098,6 +1146,8 @@ export class PopcornEngine {
     nipple: Sprite
     /** ПОДАРОЧНАЯ КОРОБКА: красная с жёлтой лентой и бантом */
     gift: Sprite
+    /** СУНДУКИ НА ПОЛЕ (0.0.78): простой / редкий / эпичный */
+    fieldChests: Record<FieldChestTier, Sprite>
     /** БОЛЬШАЯ ПОПКОРНИНА: пухлое облако-приз в трёх сортах глазури */
     big: Record<BigKind, Sprite>
   }
@@ -1129,6 +1179,11 @@ export class PopcornEngine {
       pigeon1: makePigeonSprite(true),
       nipple: makeSmoothNippleSprite(),
       gift: makeGiftSprite(),
+      fieldChests: {
+        0: makeFieldChestSprite(0),
+        1: makeFieldChestSprite(1),
+        2: makeFieldChestSprite(2),
+      },
       big: {
         caramel: makeBigPopcornSprite('caramel'),
         cherry: makeBigPopcornSprite('cherry'),
@@ -1387,6 +1442,16 @@ export class PopcornEngine {
        начинает парить сразу, если перк взят в сундучке */
     this.gift = null
     this.giftTimer = GIFT_FIRST_MIN + Math.random() * (GIFT_FIRST_MAX - GIFT_FIRST_MIN)
+    /* СУНДУК НА ПОЛЕ (0.0.78): на каждом обычном уровне — небольшой шанс.
+       На боссовых уровнях сундук не выходит — там и так жарко. Ступень
+       зависит от глубины забега: до 10 — простые, с 10 — иногда редкие,
+       с 20 — иногда эпичные; шанс редких выше есть и на любых уровнях */
+    this.fieldChest = null
+    if (level % BOSS_EVERY !== 0 && Math.random() < CHEST_FIELD_CHANCE) {
+      this.fieldChestAt = CHEST_FIELD_AT_MIN + Math.random() * (CHEST_FIELD_AT_MAX - CHEST_FIELD_AT_MIN)
+    } else {
+      this.fieldChestAt = -1
+    }
     this.freezeLeft = 0
     this.multLeft = 0
     this.multValue = 1
@@ -1527,6 +1592,9 @@ export class PopcornEngine {
     this.pigeonTimer = -1
     /* Большая попкорнина не выживает на лихорадке: поле очищается */
     this.big = null
+    /* Сундук на поле тоже не выживает: лихорадка — это свой безумный сбор */
+    this.fieldChest = null
+    this.fieldChestAt = -1
     /* Онлифансий не пугает на лихорадке: лапа исчезает, страх отменяется */
     this.lionCameo = null
     this.seeds = [] // боссов на лихорадке нет и зёрен-снарядов тоже
@@ -1780,9 +1848,21 @@ export class PopcornEngine {
       Мины не стреляют; в шоке, на паузе и в интро лапка не кидает */
   tapFire(sx: number, sy: number): void {
     if (this.phase !== 'playing' || this.paused || this.introHold) return
+    if (this.stun > 0) return
+    /* СУНДУК НА ПОЛЕ (0.0.78): тап рядом с сундуком — удар по замку.
+        Ломается за 5-7-10 быстрых тапов по редкости — потому и «тап»,
+        а не контакт лапки: припаркованная лапка замок не вышибает */
+    const c = this.fieldChest
+    if (
+      c &&
+      Math.hypot(sx - c.x, sy - c.y) <
+        CHEST_FIELD_R * this.u + 16 * this.u
+    ) {
+      this.hitFieldChest()
+      return
+    }
     const b = this.boss
     if (!b || b.kind !== 'kid' || b.state === 'in' || b.state === 'flee') return
-    if (this.stun > 0) return
     const u = this.u
     let target: FieldPiece | null = null
     let bestD = Infinity
@@ -1881,6 +1961,10 @@ export class PopcornEngine {
       if (this.gift) {
         this.gift.x *= kx
         this.gift.y *= ky
+      }
+      if (this.fieldChest) {
+        this.fieldChest.x *= kx
+        this.fieldChest.y *= ky
       }
       for (const s of this.seeds) {
         s.sx *= kx
@@ -2273,6 +2357,31 @@ export class PopcornEngine {
     if (this.phase === 'playing' && !this.boss && !this.fever) this.spawnBoss()
   }
 
+  /** QA: сундук на поле по требованию (?qa=1): 0/1/2 — ступень, пусто — рулетка */
+  debugSpawnChest(tier?: FieldChestTier): void {
+    if (this.phase !== 'playing' || this.fever) return
+    this.fieldChestAt = -1
+    this.spawnFieldChest(tier)
+  }
+
+  /** QA: координаты и состояние сундука на поле (null — сундука нет) */
+  debugChestState(): {
+    x: number
+    y: number
+    tier: FieldChestTier
+    hp: number
+    maxHp: number
+  } | null {
+    if (!this.fieldChest) return null
+    return {
+      x: this.fieldChest.x,
+      y: this.fieldChest.y,
+      tier: this.fieldChest.tier,
+      hp: this.fieldChest.hp,
+      maxHp: this.fieldChest.maxHp,
+    }
+  }
+
   /* ================= обновление ================= */
 
   private update(dt: number): void {
@@ -2403,6 +2512,9 @@ export class PopcornEngine {
 
     // ПОДАРОЧНАЯ КОРОБКА: появление, жизнь на поле, сбор лапкой
     this.updateGift(dt)
+
+    // СУНДУК НА ПОЛЕ (0.0.78): выход по расписанию уровня, тапы, дроп
+    this.updateFieldChest(dt)
 
     // ОНЛИФАНСИЙ: грохот, въезд, 2 секунды страха, отъезд — без коллизий
     this.updateLionCameo(dt)
@@ -5102,6 +5214,222 @@ export class PopcornEngine {
     this.cb.onGift?.(kind)
   }
 
+  /* ================= СУНДУКИ НА ПОЛЕ (0.0.78) ================= */
+
+  /** Ступень сундука по глубине забега: до 10 — простые, с 10 — иногда
+      редкие, с 20 — иногда эпичные. На ЛЮБОМ уровне есть крошечный шанс
+      редкого/эпичного — «шанс на любые сундуки на всех уровнях» */
+  private rollFieldChestTier(): FieldChestTier {
+    const r = Math.random()
+    if (this.lvl >= 20) {
+      if (r < 0.16) return 2
+      if (r < 0.48) return 1
+      return 0
+    }
+    if (this.lvl >= 10) {
+      if (r < 0.07) return 2
+      if (r < 0.34) return 1
+      return 0
+    }
+    if (r < 0.03) return 2
+    if (r < 0.1) return 1
+    return 0
+  }
+
+  /** Обновление сундука: выход по расписанию уровня, жизнь на поле.
+      Удары считаются ТОЛЬКО по тапам (tapFire) — припаркованная лапка
+      замок не вышибает. На лихорадке и босс-боях сундуки не выходят */
+  private updateFieldChest(dt: number): void {
+    if (this.phase !== 'playing') return
+    const c = this.fieldChest
+    if (c) {
+      c.t += dt
+      c.phase += dt * 2.6
+      if (c.hitCd > 0) c.hitCd -= dt
+      if (c.flash > 0) c.flash -= dt
+      /* Не разбил вовремя — сундучок ускакал */
+      if (c.t >= CHEST_FIELD_LIFE) {
+        this.texts.push({
+          x: c.x,
+          y: c.y - 20 * this.u,
+          text: this.L('chestField.gone'),
+          color: '#C9A97A',
+          t: 0,
+          dur: 1.1,
+          size: 20 * this.u,
+        })
+        this.fieldChest = null
+      }
+      return
+    }
+    if (this.fieldChestAt < 0) return
+    if (this.fever || this.boss || this.pendingClear >= 0 || this.feverAfter >= 0) return
+    const elapsed = this.duration - this.timeLeft
+    if (elapsed >= this.fieldChestAt) {
+      this.fieldChestAt = -1
+      this.spawnFieldChest()
+    }
+  }
+
+  /** Появить сундук в свободном месте поля (не на мине/зёрне, не на корзинке).
+      Верхняя граница ниже HUD-панели: сундук всегда должен быть виден */
+  private spawnFieldChest(forcedTier?: FieldChestTier): void {
+    const u = this.u
+    const mX = 46 * u
+    const top = 118 + 4 * u
+    const bottom = this.H - 70 * u
+    let x = this.W / 2
+    let y = this.H / 2
+    for (let tries = 0; tries < 40; tries++) {
+      x = mX + Math.random() * (this.W - mX * 2)
+      y = top + Math.random() * Math.max(10, bottom - top)
+      if (Math.hypot(x - this.cup.x, y - this.cup.y) <= 135 * u) continue
+      let blocked = false
+      for (const p of this.pieces) {
+        if (Math.hypot(x - p.x, y - p.y) < 44 * u) {
+          blocked = true
+          break
+        }
+      }
+      if (blocked) continue
+      break
+    }
+    const tier = forcedTier ?? this.rollFieldChestTier()
+    this.fieldChest = {
+      x,
+      y,
+      t: 0,
+      tier,
+      hp: CHEST_FIELD_TAPS[tier],
+      maxHp: CHEST_FIELD_TAPS[tier],
+      phase: Math.random() * Math.PI * 2,
+      hitCd: 0,
+      flash: 0,
+    }
+    audio.play('gift')
+    this.banner = { text: this.L('chestField.spawn'), t: 0 }
+    this.buzz([20, 40, 20])
+  }
+
+  /** Удар тапом по сундуку: антидребезг — не чаще CHEST_FIELD_CD */
+  private hitFieldChest(): void {
+    const c = this.fieldChest
+    if (!c || c.hitCd > 0) return
+    const u = this.u
+    c.hitCd = CHEST_FIELD_CD
+    c.flash = 0.16
+    c.hp -= 1
+    this.paw.pulse = 1
+    this.doShake(2)
+    this.buzz([10, 26])
+    this.crumbs(c.x, c.y - 6 * u, '#FFE066', 5)
+    audio.play('shoo')
+    if (c.hp <= 0) {
+      this.openFieldChest()
+      return
+    }
+    this.texts.push({
+      x: c.x,
+      y: c.y - CHEST_FIELD_R * u - 16 * u,
+      text: String(c.hp),
+      color: '#FFE066',
+      t: 0,
+      dur: 0.5,
+      size: 20 * u,
+    })
+  }
+
+  /** Взломан: конфетти, баннер по ступени и колбэк — компонент уронит артефакт */
+  private openFieldChest(): void {
+    const c = this.fieldChest
+    this.fieldChest = null
+    if (!c) return
+    const u = this.u
+    this.confettiBurst(c.x, c.y, 24)
+    this.crumbs(c.x, c.y, '#FFE066', 14)
+    this.rings.push({
+      x: c.x,
+      y: c.y,
+      t: 0,
+      ttl: 0.55,
+      color:
+        c.tier === 2 ? '199, 123, 255' : c.tier === 1 ? '95, 203, 143' : '255, 224, 102',
+      r0: 12 * u,
+      r1: 70 * u,
+    })
+    audio.play('chest')
+    this.doShake(4)
+    this.buzz([30, 50, 80])
+    this.banner = { text: this.L(`chestField.open${c.tier}`), t: 0 }
+    this.cb.onFieldChest?.(c.tier)
+  }
+
+  /** Рисование сундука: покачивается, мигает перед уходом, трещины по мере
+      ударов, ряд «огоньков» над крышкой — сколько тапов осталось */
+  private drawFieldChest(ts: number): void {
+    const c = this.fieldChest
+    if (!c) return
+    const { ctx } = this
+    const u = this.u
+    const bob = Math.sin(ts * 0.003 + c.phase) * 3 * u
+    const left = CHEST_FIELD_LIFE - c.t
+    /* Последние 2.5 секунды сундук мигает — пора успеть! */
+    const blink = left < 2.5 ? 0.45 + 0.55 * Math.abs(Math.sin(ts * 0.012)) : 1
+    /* Дрожь от удара */
+    const sh = c.flash > 0 ? (Math.random() - 0.5) * 5 * u : 0
+    const x = c.x + sh
+    const y = c.y + bob
+    const TIER_MAIN = ['#FFE066', '#5FCB8F', '#C77BFF']
+    ctx.save()
+    if (this.perfTier < 2) {
+      const pulse = 0.5 + 0.5 * Math.sin(ts * 0.005 + c.phase)
+      ctx.globalAlpha = blink * (0.3 + 0.22 * pulse)
+      ctx.strokeStyle = TIER_MAIN[c.tier]
+      ctx.lineWidth = Math.max(1.5, 2.4 * u)
+      ctx.beginPath()
+      ctx.arc(c.x, c.y, (CHEST_FIELD_R + 5 + 3 * pulse) * u, 0, Math.PI * 2)
+      ctx.stroke()
+    }
+    ctx.globalAlpha = blink
+    drawSprite(ctx, this.sp.fieldChests[c.tier], x, y, 2.7 * u)
+    /* Трещины: чем ближе взлом, тем больше изломов на корпусе */
+    const dmg = 1 - c.hp / c.maxHp
+    if (dmg > 0.01) {
+      ctx.globalAlpha = blink * Math.min(1, 0.35 + dmg)
+      ctx.strokeStyle = 'rgba(46, 18, 6, 0.85)'
+      ctx.lineWidth = Math.max(1.2, 1.6 * u)
+      const cracks = Math.round(dmg * 3)
+      for (let i = 0; i < cracks; i++) {
+        const cx = x + (i % 2 === 0 ? -8 : 7) * u
+        ctx.beginPath()
+        ctx.moveTo(cx, y - 10 * u)
+        ctx.lineTo(cx + (i % 2 === 0 ? 4 : -3) * u, y - 2 * u)
+        ctx.lineTo(cx + (i % 2 === 0 ? -2 : 4) * u, y + 8 * u)
+        ctx.stroke()
+      }
+      ctx.globalAlpha = blink
+    }
+    /* Ряд огоньков над крышкой: сколько тапов осталось */
+    const pipR = Math.max(1.6, 2.1 * u)
+    const gap = pipR * 2.6
+    const totalW = (c.maxHp - 1) * gap
+    for (let i = 0; i < c.maxHp; i++) {
+      const px = c.x - totalW / 2 + i * gap
+      const py = c.y - CHEST_FIELD_R * u - 10 * u
+      ctx.beginPath()
+      ctx.arc(px, py, pipR, 0, Math.PI * 2)
+      if (i < c.hp) {
+        ctx.fillStyle = TIER_MAIN[c.tier]
+        ctx.fill()
+      } else {
+        ctx.strokeStyle = 'rgba(46, 18, 6, 0.55)'
+        ctx.lineWidth = Math.max(1, 1.2 * u)
+        ctx.stroke()
+      }
+    }
+    ctx.restore()
+  }
+
   /* ================= ОНЛИФАНСИЙ — лапа с краю поля (0.0.43) ================= */
 
   /** Обновление лапы Онлифансия: грохот → стремительный въезд → 2 секунды
@@ -5428,6 +5756,8 @@ export class PopcornEngine {
     /* ПОДАРОЧНАЯ КОРОБКА поверх зёрен; морозная дымка — пока действует фриз.
        v0.0.59: коробка рисуется только в бою — не замирает на экране «ПРОЙДЕН» */
     if (this.gift && this.phase === 'playing') this.drawGift(ts)
+    /* СУНДУК НА ПОЛЕ (0.0.78) — поверх зёрен, рядом с подарочной коробкой */
+    if (this.fieldChest && this.phase === 'playing') this.drawFieldChest(ts)
     if (this.freezeLeft > 0) {
       ctx.fillStyle = 'rgba(120, 190, 255, 0.08)'
       ctx.fillRect(0, 0, this.W, this.H)

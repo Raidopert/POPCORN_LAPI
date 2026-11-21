@@ -674,12 +674,14 @@ const newUid = (): string => `i${Date.now().toString(36)}${Math.floor(Math.rando
 export const isNewItem = (item: { ts: number }, lastOpened: number): boolean =>
   item.ts > 0 && item.ts > lastOpened
 
-/** Сколько новинок ждёт на складе — бейдж на кнопке ИНВЕНТАРЬ (0.0.57: и коготки) */
+/** Сколько новинок ждёт на складе — бейдж на кнопке ИНВЕНТАРЬ (0.0.57: и коготки).
+ *  0.0.78: стаки — новинка считается ОДИН раз на вид предмета, как и лежит */
 export function countNewItems(state: InventoryState = getInventorySnapshot()): number {
-  return (
-    state.items.reduce((n, it) => n + (isNewItem(it, state.lastOpened) ? 1 : 0), 0) +
-    state.claws.reduce((n, it) => n + (isNewItem(it, state.lastOpened) ? 1 : 0), 0)
-  )
+  const itemIds = new Set<string>()
+  for (const it of state.items) if (isNewItem(it, state.lastOpened)) itemIds.add(it.id)
+  const clawIds = new Set<string>()
+  for (const it of state.claws) if (isNewItem(it, state.lastOpened)) clawIds.add(it.id)
+  return itemIds.size + clawIds.size
 }
 
 /** Открыли инвентарь: всё, что было на складе, — уже видели */
@@ -715,9 +717,55 @@ export function rollInvDef(): InvDef {
   return INV_DEFS[0]
 }
 
-/** Склад полон? Коготки лежат в тех же ячейках (0.0.57) */
-export const storageFull = (s: InventoryState): boolean =>
-  s.items.length + s.claws.length >= storageCap(s)
+/* ── СУНДУКИ НА ПОЛЕ (0.0.78) ──
+ * Сундучок, спавший прямо посреди этапа, ломается лапкой за 5-7-10 тапов
+ * (по редкости самого сундука) и роняет ПРЕДМЕТ ЗАРАНЕЕ ИЗВЕСТНОЙ редкости:
+ *   ПРОСТОЙ → common · РЕДКИЙ → rare · ЭПИЧЕСКИЙ → epic.
+ * Рулетка крутится ТОЛЬКО между предметами нужной ступени — честная
+ * ценность: эпик-сундук не может уронить бусы за 25 монеток */
+export function rollInvDefOfRarity(rarity: Rarity): InvDef {
+  const pool = INV_DEFS.filter((d) => d.rarity === rarity && d.weight > 0)
+  if (pool.length === 0) return INV_DEFS[0]
+  const total = pool.reduce((s, d) => s + d.weight, 0)
+  let r = Math.random() * total
+  for (const d of pool) {
+    r -= d.weight
+    if (r <= 0) return d
+  }
+  return pool[0]
+}
+
+/** Редкость ступени сундука на поле: 0 простой → 1 редкий → 2 эпичный */
+export const CHEST_TIER_RARITY: ReadonlyArray<Rarity> = ['common', 'rare', 'epic']
+
+/** Уронить предмет ЗАРАНЕЕ ИЗВЕСТНОЙ редкости (сундук на поле, 0.0.78).
+ *  Если склад полон — автопродажа в монетки, честно и без потери */
+export function dropInvItemOfRarity(rarity: Rarity): DropResult {
+  const def = rollInvDefOfRarity(rarity)
+  const cur = getInventorySnapshot()
+  if (storageFull(cur)) {
+    return { def, stored: false, coins: def.sell }
+  }
+  const item: InvItem = { uid: newUid(), id: def.id, ts: Date.now() }
+  const everSet = new Set<InvItemId>(cur.everHad)
+  everSet.add(def.id)
+  saveInventory({ ...cur, items: [...cur.items, item], everHad: [...everSet] })
+  return { def, stored: true, coins: 0 }
+}
+
+/* ── СТАКИ (0.0.78) ──
+ * Одинаковые предметы лежат в ОДНОЙ ячейке склада: ячейка = уникальный
+ * вид предмета, цифра количества рисует UI. Сама структура данных не
+ * меняется (uid у каждого экземпляра — продажа/надевание по-прежнему
+ * поштучные), меняется лишь СЁМКА ячеек и счётчик места */
+
+/** Сколько ячеек займёт склад: уникальные виды предметов + виды коготков */
+export function usedCells(s: InventoryState): number {
+  return new Set(s.items.map((i) => i.id)).size + new Set(s.claws.map((c) => c.id)).size
+}
+
+/** Склад полон? (0.0.78: стаки — одинаковые предметы занимают одну ячейку) */
+export const storageFull = (s: InventoryState): boolean => usedCells(s) >= storageCap(s)
 
 /* ── БОССОВЫЕ БАНОЧКИ (0.0.69) ──
  * Каждый босс хранит СВОЮ баночку с уникальным эффектом:

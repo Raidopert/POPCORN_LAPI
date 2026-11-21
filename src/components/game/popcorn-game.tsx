@@ -34,7 +34,7 @@ import {
   VolumeX,
   Zap,
 } from 'lucide-react'
-import { PopcornEngine, bossKindForTier, bossTierForLevel, type BossKind, type EngineStats } from '@/lib/game/engine'
+import { PopcornEngine, bossKindForTier, bossTierForLevel, type BossKind, type EngineStats, type FieldChestTier } from '@/lib/game/engine'
 import { audio } from '@/lib/game/audio'
 import {
   TREE_NODES,
@@ -108,6 +108,9 @@ import {
   buyPage2,
   clawBonuses,
   dropInvItem,
+  dropInvItemOfRarity,
+  CHEST_TIER_RARITY,
+  usedCells,
   dropBossJar,
   jarBonuses,
   equipArtifactInv,
@@ -2503,6 +2506,14 @@ interface AnyDefView {
   kind?: ItemKind
   isClaw: boolean
 }
+/** 0.0.78: стак склада — все экземпляры одного вида в одной ячейке */
+interface InvStack {
+  id: AnyItemId
+  /** uid'ы всех экземпляров стака (первый — «главный» для надевания/продажи) */
+  uids: string[]
+  count: number
+  anyNew: boolean
+}
 const anyDef = (id: AnyItemId): AnyDefView =>
   isClawId(id)
     ? { id, rarity: CLAW_MAP[id].rarity, icon: CLAW_MAP[id].icon, sell: CLAW_MAP[id].sell, isClaw: true }
@@ -2545,7 +2556,7 @@ function InventoryOverlay({
   onBuyPage2: () => boolean
   onClose: () => void
 }) {
-  const [selUid, setSelUid] = useState<string | null>(null)
+  const [selId, setSelId] = useState<AnyItemId | null>(null)
   /* Продажа редкого — в два тапа: первый только предупреждает */
   const [sellArm, setSellArm] = useState(false)
   /* ОБМЕН 3→1 (0.0.68): торжественная плашка «вещь классом лучше» */
@@ -2592,34 +2603,58 @@ function InventoryOverlay({
 
   /* Склад: редкое сверху — легендарки не теряются в куче бус.
       0.0.57: коготки лежат в тех же ячейках и сортируются вместе с лутом.
-      0.0.66: леопардовые вершины выше легендарок (RARITY_RANK) */
-  const sorted = useMemo(() => {
-    return [...inv.items, ...inv.claws].sort(
-      (a, b) => RARITY_RANK[anyDef(a.id).rarity] - RARITY_RANK[anyDef(b.id).rarity],
+      0.0.66: леопардовые вершины выше легендарок (RARITY_RANK).
+      0.0.78: СТАКИ — одинаковые предметы лежат в ОДНОЙ ячейке, цифра
+      количества рисуется справа внизу ячейки. Внутри стака хранятся все
+      экземпляры (uid'ы), надевание/продажа по-прежнему поштучные */
+  const stacks = useMemo<InvStack[]>(() => {
+    const map = new Map<AnyItemId, InvStack>()
+    for (const it of inv.items) {
+      const s = map.get(it.id) ?? { id: it.id, uids: [], count: 0, anyNew: false }
+      s.uids.push(it.uid)
+      s.count += 1
+      if (isNewItem(it, inv.lastOpened)) s.anyNew = true
+      map.set(it.id, s)
+    }
+    for (const it of inv.claws) {
+      const s = map.get(it.id) ?? { id: it.id, uids: [], count: 0, anyNew: false }
+      s.uids.push(it.uid)
+      s.count += 1
+      if (isNewItem(it, inv.lastOpened)) s.anyNew = true
+      map.set(it.id, s)
+    }
+    return [...map.values()].sort(
+      (a, b) =>
+        RARITY_RANK[anyDef(a.id).rarity] - RARITY_RANK[anyDef(b.id).rarity] ||
+        (a.id < b.id ? -1 : 1),
     )
-  }, [inv.items, inv.claws])
+  }, [inv.items, inv.claws, inv.lastOpened])
 
   /* Пустая вторая страница после продажи — мягкий возврат на первую */
-  const showPage = page > 0 && page * INV_CAPACITY >= sorted.length ? 0 : page
-  const pageItems = sorted.slice(showPage * INV_CAPACITY, showPage * INV_CAPACITY + INV_CAPACITY)
+  const showPage = page > 0 && page * INV_CAPACITY >= stacks.length ? 0 : page
+  const pageStacks = stacks.slice(showPage * INV_CAPACITY, showPage * INV_CAPACITY + INV_CAPACITY)
 
-  const sel = selUid
-    ? (inv.items.find((i) => i.uid === selUid) ?? inv.claws.find((i) => i.uid === selUid) ?? null)
+  /* Стак целиком: главный экземпляр — первый uid (надеваем/продаём поштучно) */
+  const selStack = selId ? (stacks.find((s) => s.id === selId) ?? null) : null
+  const sel = selStack
+    ? (inv.items.find((i) => i.uid === selStack.uids[0]) ??
+        inv.claws.find((i) => i.uid === selStack.uids[0]) ??
+        null)
     : null
-  const selDef = sel ? anyDef(sel.id) : null
-  const selClawId = sel && isClawId(sel.id) ? sel.id : null
-  const selEquipped = sel
+  const selDef = selStack ? anyDef(selStack.id) : null
+  const selClawId = selStack && isClawId(selStack.id) ? selStack.id : null
+  const selEquipped = selStack
     ? selClawId
-      ? inv.clawSlots[selClawId] === sel.uid
-      : EQUIP_KINDS.some((k) => inv[k] === sel.uid)
+      ? selStack.uids.some((u) => inv.clawSlots[selClawId] === u)
+      : EQUIP_KINDS.some((k) => inv[k] !== null && selStack.uids.includes(inv[k] as string))
     : false
-  const selIsNew = sel ? isNewItem(sel, inv.lastOpened) : false
+  const selIsNew = selStack ? selStack.anyNew : false
   /* ОБМЕН 3→1 (0.0.68): следующая ступень выбранного и сколько уже продано */
-  const selNext = sel ? nextTierOf(sel.id) : null
-  const selSold = sel ? inv.soldById[sel.id] || 0 : 0
+  const selNext = selStack ? nextTierOf(selStack.id) : null
+  const selSold = selStack ? inv.soldById[selStack.id] || 0 : 0
 
-  const pick = (uid: string | null): void => {
-    setSelUid(uid)
+  const pick = (id: AnyItemId | null): void => {
+    setSelId(id)
     setSellArm(false)
   }
 
@@ -2960,14 +2995,15 @@ function InventoryOverlay({
               {inv.page2 ? '2' : '🔒'}
             </button>
             <span className="font-ui text-[10px] font-bold text-[#a97c50]">
-              {t('inv.count', { n: inv.items.length + inv.claws.length, m: storageCap(inv) })}
+              {/* 0.0.78: стаки — ячейка = вид предмета, цифра = количество внутри */}
+              {t('inv.count', { n: usedCells(inv), m: storageCap(inv) })}
             </span>
           </div>
         </div>
         <div className="mt-1.5 grid grid-cols-9 gap-1">
           {Array.from({ length: INV_CAPACITY }, (_, i) => {
-            const item = pageItems[i] ?? null
-            if (!item) {
+            const stack = pageStacks[i] ?? null
+            if (!stack) {
               return (
                 <span
                   key={`empty-${i}`}
@@ -2976,22 +3012,22 @@ function InventoryOverlay({
                 />
               )
             }
-            const def = anyDef(item.id)
+            const def = anyDef(stack.id)
             const rc = RARITY_COLOR[def.rarity]
-            const clawId = isClawId(item.id) ? item.id : null
+            const clawId = isClawId(stack.id) ? stack.id : null
             const equipped = clawId
-              ? inv.clawSlots[clawId] === item.uid
-              : EQUIP_KINDS.some((k) => inv[k] === item.uid)
-            const fresh = isNewItem(item, inv.lastOpened)
+              ? stack.uids.some((u) => inv.clawSlots[clawId] === u)
+              : EQUIP_KINDS.some((k) => inv[k] !== null && stack.uids.includes(inv[k] as string))
+            /* 0.0.78: стак — ячейка одна, цифра количества справа внизу */
             return (
               <button
-                key={item.uid}
+                key={stack.id}
                 type="button"
-                onClick={() => pick(selUid === item.uid ? null : item.uid)}
-                aria-label={`${t(`item.${def.id}.name`)} — ${t(`inv.rarity.${def.rarity}`)}`}
-                title={`${t(`item.${def.id}.name`)} · ${t(`item.${def.id}.bonus`)}`}
+                onClick={() => pick(selId === stack.id ? null : stack.id)}
+                aria-label={`${t(`item.${def.id}.name`)} ×${stack.count} — ${t(`inv.rarity.${def.rarity}`)}`}
+                title={`${t(`item.${def.id}.name`)} ×${stack.count} · ${t(`item.${def.id}.bonus`)}`}
                 className={`relative aspect-square overflow-hidden rounded-md border-2 transition active:scale-95 ${rc.border} ${
-                  selUid === item.uid ? 'ring-2 ring-[#B33A26] ring-offset-1' : ''
+                  selId === stack.id ? 'ring-2 ring-[#B33A26] ring-offset-1' : ''
                 } ${equipped ? 'ring-2 ring-amber-400 ring-offset-1' : ''}`}
               >
                 <img
@@ -3001,7 +3037,7 @@ function InventoryOverlay({
                   draggable={false}
                   className="h-full w-full object-cover"
                 />
-                {fresh && (
+                {stack.anyNew && (
                   <span
                     aria-hidden
                     className="absolute left-0 top-0 h-2 w-2 rounded-full border border-[#7e2a1b] bg-[#B33A26]"
@@ -3013,6 +3049,14 @@ function InventoryOverlay({
                     className="absolute right-0 top-0 rounded-bl-md bg-amber-400 px-0.5 font-pixel text-[7px] font-bold leading-[1.35] text-[#5C3A1E]"
                   >
                     ✓
+                  </span>
+                )}
+                {stack.count > 1 && (
+                  <span
+                    aria-hidden
+                    className="absolute bottom-0 right-0 rounded-tl-md bg-[#2b1a0e]/85 px-1 font-pixel text-[9px] font-bold leading-[1.45] text-[#FFE066]"
+                  >
+                    {stack.count}
                   </span>
                 )}
               </button>
@@ -3043,6 +3087,12 @@ function InventoryOverlay({
                   <span className="font-pixel text-[12px] font-bold leading-tight text-[#5C3A1E]">
                     {t(`item.${selDef.id}.name`)}
                   </span>
+                  {/* 0.0.78: стак — количество в карточке */}
+                  {selStack && selStack.count > 1 && (
+                    <span className="rounded-full bg-[#2b1a0e]/85 px-1.5 py-px font-pixel text-[10px] font-bold leading-tight text-[#FFE066]">
+                      ×{selStack.count}
+                    </span>
+                  )}
                   <span
                     className={`rounded-full bg-[#FFF6E6] px-1.5 py-px font-ui text-[8px] font-bold uppercase ${
                       RARITY_COLOR[selDef.rarity].text
@@ -3070,10 +3120,10 @@ function InventoryOverlay({
                   type="button"
                   onClick={() => {
                     if (selClawId) {
-                      if (onUnequipClaw(selClawId)) pick(sel.uid)
+                      if (onUnequipClaw(selClawId)) pick(sel.id)
                     } else {
                       const kind = selDef.kind as ItemKind
-                      if (onUnequip(kind)) pick(sel.uid)
+                      if (onUnequip(kind)) pick(sel.id)
                     }
                   }}
                   className="rounded-lg border-2 border-[#8a5330] bg-[#f3e2c8] px-2 py-1.5 font-ui text-[11px] font-bold text-[#8a5330] transition hover:bg-[#eed7b4] active:scale-95"
@@ -3087,7 +3137,7 @@ function InventoryOverlay({
                     if (selClawId ? onEquipClaw(sel.uid) : onEquip(sel.uid)) {
                       /* v0.0.67: надеваем — гасим взведённое подтверждение продажи */
                       setSellArm(false)
-                      pick(sel.uid)
+                      pick(sel.id)
                     }
                   }}
                   className="rounded-lg bg-[#3f6b28] px-2 py-1.5 font-ui text-[11px] font-bold text-white shadow-[0_3px_0_#2c4d1c] transition hover:bg-[#4a7d31] active:translate-y-[2px] active:shadow-[0_1px_0_#2c4d1c]"
@@ -3105,7 +3155,9 @@ function InventoryOverlay({
                     if (selEquipped) flash(t('inv.sellUnequips'))
                     return
                   }
-                  /* v0.0.68: продажа возвращает монетки + возможно обмен 3→1 */
+                  /* v0.0.68: продажа возвращает монетки + возможно обмен 3→1.
+                     0.0.78: продаём поштучно — из стака уходит один экземпляр,
+                     остальные остаются лежать в той же ячейке */
                   const res = onSell(sel.uid)
                   if (res.coins > 0) {
                     flash(t('inv.toast.sell', { n: res.coins }))
@@ -3122,7 +3174,9 @@ function InventoryOverlay({
                     })
                     if (!tu.stored) flash(t('inv.toast.full', { n: tu.coins }))
                   }
-                  pick(null)
+                  /* В стаке остались ещё — карточка остаётся открытой */
+                  if (selStack && selStack.count > 1) pick(selStack.id)
+                  else pick(null)
                 }}
                 className={`rounded-lg px-2 py-1.5 font-ui text-[11px] font-bold transition active:scale-95 ${
                   sellArm
@@ -5775,6 +5829,12 @@ export function PopcornGame() {
   /* Функция перевода текущего языка (создаём ДО всех, кто в ней нуждается —
      v0.0.64: дефолтный ник тоже идёт через i18n-ключ nick.default) */
   const t = useMemo(() => tFor(settings.lang), [settings.lang])
+  /* Актуальный перевод для колбэков движка (они создаются один раз —
+     тосты лута сундуков должны быть на ТЕКУЩЕМ языке, а не на первом) */
+  const tRef = useRef(t)
+  useEffect(() => {
+    tRef.current = t
+  })
 
   const [phase, setPhase] = useState<Phase>('start')
   /** Таймер «празднования» перед бонус-нарезкой: даём салюту програть */
@@ -5783,6 +5843,18 @@ export function PopcornGame() {
   const [clawRoll, setClawRoll] = useState<ClawDef | null>(null)
   /** Коготок, упавший на склад — плашка в оверлее сундучка */
   const [clawDropped, setClawDropped] = useState<ClawDropResult | null>(null)
+  /* СУНДУК НА ПОЛЕ (0.0.78): артефакт, упавший из взломанного сундука —
+     плавающая плашка поверх поля (та же роль, что у ачивки) */
+  const [chestLoot, setChestLoot] = useState<{
+    ts: number
+    tier: FieldChestTier
+    icon: string
+    name: string
+    rarity: Rarity
+    stored: boolean
+    coins: number
+  } | null>(null)
+  const chestLootTimerRef = useRef<number | null>(null)
   /** Таймер перебивки: ждём секунду празднования, потом показываем плакат */
   const posterDelayRef = useRef<number | null>(null)
   /** Сколько плакатов уже показано в забеге: для строгой ротации 1→2→…→6→1 */
@@ -7444,6 +7516,25 @@ export function PopcornGame() {
         announceAch(cand)
         checkLifeAch()
       },
+      onFieldChest: (tier) => {
+        /* СУНДУК НА ПОЛЕ взломан (0.0.78): артефакт ровно той ценности,
+           какой был сундук — простой/редкий/эпичный. Склад полон —
+           автопродажа в монетки, честно и без потери */
+        const drop = dropInvItemOfRarity(CHEST_TIER_RARITY[tier])
+        if (!drop.stored) addCoins(drop.coins)
+        setChestLoot({
+          ts: Date.now(),
+          tier,
+          icon: drop.def.icon,
+          name: tRef.current(`item.${drop.def.id}.name`),
+          rarity: drop.def.rarity,
+          stored: drop.stored,
+          coins: drop.coins,
+        })
+        if (chestLootTimerRef.current) window.clearTimeout(chestLootTimerRef.current)
+        chestLootTimerRef.current = window.setTimeout(() => setChestLoot(null), 3000)
+        window.setTimeout(() => audio.play('perk'), 240)
+      },
       onLionScare: () => {
         /* ОНЛИФАНСИЙ высунул гигантскую лапу с краю (уровни 7/13/18):
            ачивка-свидетель «Свидетель» — испугался, но не запаниковал */
@@ -7675,6 +7766,11 @@ export function PopcornGame() {
       if (posterDelayRef.current !== null) {
         window.clearTimeout(posterDelayRef.current)
         posterDelayRef.current = null
+      }
+      /* 0.0.78: тост лута сундуков на поле гасим на размонтировании */
+      if (chestLootTimerRef.current !== null) {
+        window.clearTimeout(chestLootTimerRef.current)
+        chestLootTimerRef.current = null
       }
       /* v0.0.59: тосты (волна/ачивка/левелап) гасим на размонтировании —
          раньше их таймеры били setState по мёртвому дереву */
@@ -9525,22 +9621,31 @@ export function PopcornGame() {
                       <GameButton onClick={() => beginLevel(runLevel, chosen.id)}>
                         {t('chest.next', { n: runLevel })}
                       </GameButton>
-                      <div className="flex gap-1.5">
+                      {/* 0.0.78: ИНВЕНТАРЬ доступен прямо на экране сундучка —
+                          лут сундуков на поле можно разглядеть до следующего этапа */}
+                      <div className="grid grid-cols-2 gap-1.5">
                         <button
                           type="button"
                           onClick={() => setOverlay('shop')}
-                          className="min-h-9 flex-1 rounded-xl border-2 border-[#8a5330] bg-[#f3e2c8] px-2 py-1.5 font-pixel text-[11px] font-bold text-[#8a5330] transition hover:bg-[#eed7b4] active:scale-[0.98]"
+                          className="min-h-9 rounded-xl border-2 border-[#8a5330] bg-[#f3e2c8] px-2 py-1.5 font-pixel text-[11px] font-bold text-[#8a5330] transition hover:bg-[#eed7b4] active:scale-[0.98]"
                         >
                           {t('chest.shop')}
                         </button>
                         <button
                           type="button"
-                          onClick={finishRun}
-                          className="min-h-9 rounded-xl px-2 py-1.5 font-ui text-[10px] font-semibold text-[#a97c50] transition hover:text-[#8a5330] hover:underline"
+                          onClick={() => setOverlay('inv')}
+                          className="min-h-9 rounded-xl border-2 border-[#8a5330] bg-[#f3e2c8] px-2 py-1.5 font-pixel text-[11px] font-bold text-[#8a5330] transition hover:bg-[#eed7b4] active:scale-[0.98]"
                         >
-                          {t('quit.short')}
+                          {t('chest.inv')}
                         </button>
                       </div>
+                      <button
+                        type="button"
+                        onClick={finishRun}
+                        className="w-full rounded-xl px-2 py-1 font-ui text-[10px] font-semibold text-[#a97c50] transition hover:text-[#8a5330] hover:underline"
+                      >
+                        {t('quit.short')}
+                      </button>
                     </>
                   ) : offers.length > 0 ? (
                     <p className="text-center font-pixel text-[11px] font-bold text-[#8a5330]">
@@ -9551,6 +9656,22 @@ export function PopcornGame() {
                       <GameButton onClick={() => beginLevel(runLevel, null)}>
                         {t('chest.next', { n: runLevel })}
                       </GameButton>
+                      <div className="grid grid-cols-2 gap-1.5">
+                        <button
+                          type="button"
+                          onClick={() => setOverlay('inv')}
+                          className="min-h-9 rounded-xl border-2 border-[#8a5330] bg-[#f3e2c8] px-2 py-1.5 font-pixel text-[11px] font-bold text-[#8a5330] transition hover:bg-[#eed7b4] active:scale-[0.98]"
+                        >
+                          {t('chest.inv')}
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => setOverlay('shop')}
+                          className="min-h-9 rounded-xl border-2 border-[#8a5330] bg-[#f3e2c8] px-2 py-1.5 font-pixel text-[11px] font-bold text-[#8a5330] transition hover:bg-[#eed7b4] active:scale-[0.98]"
+                        >
+                          {t('chest.shop')}
+                        </button>
+                      </div>
                       <button
                         type="button"
                         onClick={finishRun}
@@ -9908,9 +10029,9 @@ export function PopcornGame() {
               onClose={closeOverlayBack}
             />
           )}
-          {/* ИНВЕНТАРЬ: меню и пауза (v0.0.59: мёртвая ветка 'chest' убрана —
-              в фазе сундучка кнопки инвентаря не показываются) */}
-          {(phase === 'start' || phase === 'paused') && overlay === 'inv' && (
+          {/* ИНВЕНТАРЬ: меню, пауза и ЭКРАН СУНДУЧКА (0.0.78 — лут сундуков
+              на поле можно разглядеть сразу после выбора награды) */}
+          {(phase === 'start' || phase === 'paused' || phase === 'chest') && overlay === 'inv' && (
               <InventoryOverlay
                 inv={inv}
                 ownedArts={market.artifacts}
@@ -10093,6 +10214,45 @@ export function PopcornGame() {
                 {charToastUnlocks.length > 0
                   ? t('char.levelUpUnlocks', { n: charToast, list: charToastUnlocks.join(', ') })
                   : t('char.levelUp', { n: charToast })}
+              </div>
+            </div>
+          </motion.div>
+        )}
+      </AnimatePresence>
+
+      {/* Тост лута СУНДУКА НА ПОЛЕ (0.0.78): артефакт той же ценности,
+          что и сундук — плашка поверх поля, гаснет сама через 3 с */}
+      <AnimatePresence>
+        {chestLoot && (
+          <motion.div
+            key={`chestloot-${chestLoot.ts}`}
+            className="absolute bottom-28 left-1/2 z-50 -translate-x-1/2"
+            initial={{ opacity: 0, y: 24, scale: 0.9 }}
+            animate={{ opacity: 1, y: 0, scale: 1 }}
+            exit={{ opacity: 0, y: 12, scale: 0.95 }}
+            transition={{ type: 'spring', stiffness: 320, damping: 24 }}
+          >
+            <div
+              className={`flex items-center gap-2 rounded-full border-2 bg-[#2b1a0e]/95 px-4 py-2 shadow-[0_8px_24px_rgba(0,0,0,0.6),0_0_20px_rgba(255,193,7,0.35)] ${
+                RARITY_COLOR[chestLoot.rarity].border
+              }`}
+            >
+              <img
+                src={chestLoot.icon}
+                alt=""
+                aria-hidden
+                draggable={false}
+                className="h-9 w-9 rounded-md border border-[#e3cba4] object-cover"
+              />
+              <div>
+                <div className="font-ui text-[10px] font-bold uppercase tracking-wider text-amber-300">
+                  {t(`chestField.open${chestLoot.tier}`)}
+                </div>
+                <div className="font-pixel text-sm font-bold leading-tight text-white sm:text-base">
+                  {chestLoot.stored
+                    ? t('inv.lootToast', { name: chestLoot.name })
+                    : t('inv.toast.full', { n: chestLoot.coins })}
+                </div>
               </div>
             </div>
           </motion.div>

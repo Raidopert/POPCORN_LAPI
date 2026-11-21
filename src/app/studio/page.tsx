@@ -640,10 +640,10 @@ export default function StudioPage() {
               <p className="flex-1 text-[#F2E3CF]/85 text-center sm:text-left">
                 <span className="font-bold text-[#E8B95C]">Всё одним архивом:</span>{" "}
                 логотипы, скриншоты, факт-лист и тексты —{" "}
-                <span className="font-mono text-sm">popcorn-paws-presskit-0.0.77.zip</span> (~4 МБ).
+                <span className="font-mono text-sm">popcorn-paws-presskit-0.0.78.zip</span> (~4 МБ).
               </p>
               <a
-                href={`${PRESSKIT_DIR}/popcorn-paws-presskit-0.0.77.zip`}
+                href={`${PRESSKIT_DIR}/popcorn-paws-presskit-0.0.78.zip`}
                 download
                 className="shrink-0 inline-flex items-center gap-2 rounded-xl bg-[#E24B3B] hover:bg-[#c93f31] px-4 py-2.5 font-bold transition-colors"
               >

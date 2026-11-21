@@ -75,7 +75,7 @@ export const ROADMAP_PLAN: RoadmapRelease[] = [
     ],
   },
   {
-    version: "0.0.78",
+    version: "0.0.79",
     title: "Хэллоуин + лаборатория",
     items: [
       "Комната «Кошачья лаборатория» с модификатором",
@@ -84,7 +84,7 @@ export const ROADMAP_PLAN: RoadmapRelease[] = [
     ],
   },
   {
-    version: "0.0.79",
+    version: "0.0.80",
     title: "Космос + коллекция",
     items: [
       "Комната «Космодром» (невесомость)",
@@ -93,7 +93,7 @@ export const ROADMAP_PLAN: RoadmapRelease[] = [
     ],
   },
   {
-    version: "0.0.80",
+    version: "0.0.81",
     title: "Зима + режимы",
     items: [
       "Партия стиля «Зима» и «Рыцари»",
@@ -102,7 +102,7 @@ export const ROADMAP_PLAN: RoadmapRelease[] = [
     ],
   },
   {
-    version: "0.0.81",
+    version: "0.0.82",
     title: "Соцволна",
     items: [
       "Друзья в мировом топе",

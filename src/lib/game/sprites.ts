@@ -581,6 +581,92 @@ export function makeChestSprite(open = false): Sprite {
   return renderGrid(g)
 }
 
+/* ================= СУНДУКИ НА ПОЛЕ (0.0.78) =================
+ * Сундучок прямо посреди этапа: тапай быстро 5-7-10 раз по редкости.
+ * Цвет металла и самоцвета = ступень: ПРОСТОЙ (золото) ·
+ * РЕДКИЙ (изумруд) · ЭПИЧЕСКИЙ (аметир-фиолет, искры) */
+export type FieldChestTier = 0 | 1 | 2
+
+export function makeFieldChestSprite(tier: FieldChestTier): Sprite {
+  const g = createGrid(20, 18)
+  /* Дерево — общее для всех, редкость читается по металлу и самоцвету */
+  const wood = '#B07A3F'
+  const woodLight = '#C98F4F'
+  const woodDark = '#8A5330'
+  const woodDarker = '#6E4222'
+  const edge = '#4A2A12'
+  /* Палитры ступеней: металл, светлый блик, тёмный край, самоцвет */
+  const pal =
+    tier === 0
+      ? { band: '#6B421F', metal: '#FFE066', metalPale: '#FFF7C2', metalDark: '#D99A1B', gem: '#C979F0' }
+      : tier === 1
+        ? { band: '#1F5A3A', metal: '#5FCB8F', metalPale: '#C8F2D8', metalDark: '#2E8557', gem: '#FFD84D' }
+        : { band: '#5A2A6E', metal: '#C77BFF', metalPale: '#F0DBFF', metalDark: '#8A3EC0', gem: '#FF6BC1' }
+
+  // Крышка (полукруглая сверху) с бликом
+  fillRect(g, 4, 1, 15, 1, woodDark)
+  fillRect(g, 3, 2, 16, 2, wood)
+  fillRect(g, 2, 3, 17, 6, wood)
+  fillRect(g, 3, 2, 5, 3, woodLight)
+  fillRect(g, 2, 4, 3, 5, woodLight)
+  fillRect(g, 2, 6, 17, 6, woodDark) // стык крышки
+  // Корпус с вертикальными досками
+  fillRect(g, 1, 7, 18, 15, wood)
+  fillRect(g, 1, 7, 18, 8, woodLight)
+  fillRect(g, 7, 10, 7, 14, woodDarker)
+  fillRect(g, 12, 9, 12, 14, woodDarker)
+  // Металлические полосы по краям — цвет ступени
+  fillRect(g, 2, 7, 3, 15, pal.band)
+  fillRect(g, 16, 7, 17, 15, pal.band)
+  fillRect(g, 2, 7, 3, 8, pal.metal) // блик полосы
+  fillRect(g, 16, 7, 17, 8, pal.metal)
+  // Заклёпки
+  g[8][2] = pal.metalPale
+  g[11][3] = pal.metalDark
+  g[14][2] = pal.metalPale
+  g[8][17] = pal.metalPale
+  g[11][16] = pal.metalDark
+  g[14][17] = pal.metalPale
+  // Золотые уголки снизу — общие
+  fillRect(g, 1, 14, 2, 15, pal.metalDark)
+  fillRect(g, 17, 14, 18, 15, pal.metalDark)
+  // Замок: накладка цвета ступени + самоцвет вместо скважины у редких
+  fillRect(g, 8, 7, 11, 11, pal.metal)
+  g[7][8] = pal.metalPale
+  g[7][9] = pal.metalPale
+  g[11][11] = pal.metalDark
+  g[10][11] = pal.metalDark
+  if (tier === 0) {
+    g[8][9] = edge // скважина — как у классического сундучка
+    g[8][10] = edge
+    g[9][9] = edge
+    g[9][10] = pal.metalDark
+  } else {
+    // Редкий/эпический: самоцвет в замке
+    g[8][9] = pal.gem
+    g[8][10] = pal.gem
+    g[9][9] = pal.gem
+    g[9][10] = pal.metalDark
+    g[8][10] = pal.gem
+  }
+  // Эпический: искры на крышке, редкий — мягкий блик
+  if (tier === 2) {
+    g[3][13] = pal.metalPale
+    g[4][6] = pal.gem
+    g[2][9] = pal.metalPale
+    g[5][15] = pal.gem
+  } else if (tier === 1) {
+    g[3][13] = pal.metalPale
+    g[4][6] = pal.metalPale
+  } else {
+    g[3][13] = pal.metalPale
+    g[4][6] = pal.metalPale
+  }
+
+  outlineGrid(g, edge)
+  return renderGrid(g)
+}
+
 /* ================= Подарочная коробка 🎁 (случайный бонус в забеге) ================= */
 
 /** Маленькая подарочная коробка: красный корпус, жёлтая лента крестом и

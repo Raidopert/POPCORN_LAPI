@@ -2414,6 +2414,40 @@ export const T: Record<string, Row> = {
   'gift.sweep': ['🧨 ПОДАРОК: МИНЫ ПОДОРВАНЫ!', '🧨 GIFT: MINES SWEPT!', '🧨 GESCHENK: MINEN GESPRENGT!', '🧨 REGALO: ¡MINAS EXPLOTADAS!'],
   'gift.mult': ['🎁 ПОДАРОК: ОЧКИ ×{{n}}!', '🎁 GIFT: SCORE ×{{n}}!', '🎁 GESCHENK: PUNKTE ×{{n}}!', '🎁 REGALO: ¡PUNTOS ×{{n}}!'],
 
+  /* ---------- v0.0.78: СУНДУКИ НА ПОЛЕ — тапай 5-7-10 раз по редкости ---------- */
+  'chestField.spawn': [
+    '🔒 СУНДУК НА ПОЛЕ! ТАПАЙ БЫСТРО!',
+    '🔒 A CHEST ON THE FIELD! TAP FAST!',
+    '🔒 EINE TRUHE AUF DEM FELD! SCHNELL TIPPEN!',
+    '🔒 ¡UN COFRE EN EL CAMPO! ¡TOCA RÁPIDO!',
+  ],
+  'chestField.open0': [
+    '🔓 СУНДУК ВЗЛОМАН!',
+    '🔓 CHEST CRACKED!',
+    '🔓 TRUHE GEKNAKT!',
+    '🔓 ¡COFRE ABIERTO!',
+  ],
+  'chestField.open1': [
+    '🔓 РЕДКИЙ СУНДУК ВЗЛОМАН!',
+    '🔓 RARE CHEST CRACKED!',
+    '🔓 SELTENE TRUHE GEKNAKT!',
+    '🔓 ¡COFRE RARO ABIERTO!',
+  ],
+  'chestField.open2': [
+    '🔓 ЭПИЧЕСКИЙ СУНДУК ВЗЛОМАН!',
+    '🔓 EPIC CHEST CRACKED!',
+    '🔓 EPISCHE TRUHE GEKNAKT!',
+    '🔓 ¡COFRE ÉPICO ABIERTO!',
+  ],
+  'chestField.gone': ['ускакал…', 'got away…', 'weggehoppst…', 'se escabuyó…'],
+  'chestField.loot': [
+    'СУНДУК РОНЯЕТ',
+    'CHEST DROPS',
+    'TRUHE LÄSST FALLEN',
+    'EL COFRE SUELTA',
+  ],
+  'chest.inv': ['🎒 ИНВЕНТАРЬ', '🎒 INVENTORY', '🎒 INVENTAR', '🎒 INVENTARIO'],
+
   /* ---------- v0.0.43: ОНЛИФАНСИЙ — босс-лев пугает с краю поля ---------- */
   'cameo.caption': [
     'ГРОМОВЛАСИЙ НАБЛЮДАЕТ…',
