@@ -250,12 +250,18 @@ export async function submitKotoRun(input: KotoSubmitInput): Promise<KotoSubmitR
       }),
     )
     const best = Math.max(prev?.wave ?? 0, wave)
-    if (wave >= (prev?.wave ?? 0)) {
-      await t('upsert', () =>
-        db.kotoLeader.upsert({
+    if (!prev) {
+      await t('create', () =>
+        db.kotoLeader.create({
+          data: { device, name: input.name, wave, bosses, xp, maxLvl, playtime },
+        }),
+      )
+    } else if (wave > prev.wave) {
+      /* пишем только новый рекорд; имя освежаем тоже */
+      await t('update', () =>
+        db.kotoLeader.update({
           where: { device: input.device },
-          create: { device, name: input.name, wave, bosses, xp, maxLvl, playtime },
-          update: { name: input.name, wave, bosses, xp, maxLvl, playtime },
+          data: { name: input.name, wave, bosses, xp, maxLvl, playtime },
         }),
       )
     }
