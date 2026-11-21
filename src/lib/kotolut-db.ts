@@ -206,7 +206,8 @@ export async function submitKotoRun(input: KotoSubmitInput): Promise<KotoSubmitR
       return await fn()
     } catch (err) {
       console.error(`[kotolut] submit failed at ${reason}:`, err)
-      throw reason
+      /* ВРЕМЕННО (диагностика прода): текст ошибки в ответе — убрать после фикса */
+      throw reason + ': ' + String((err as Error)?.message ?? err).slice(0, 220)
     }
   }
   try {
