@@ -121,20 +121,66 @@ os.makedirs('../public/boot', exist_ok=True)
 full.resize((768, 768), Image.LANCZOS).save('../public/boot/logo.png', optimize=True)
 
 # --- 6. NSIS битмапы (24-bit BMP) ---
-# welcome: 164x314 — вертикальная колонка, эмблема сверху, низ под текст
+# 0.0.76: полностью переделано. Старая композиция «рвала» лото в окне
+# установщика: эмблема вставалась впритык к краям (кольцо срезано), а внизу
+# «приваривался» обрезок золотой дуги кольца (strip из низа арта).
+# Теперь: медальон вырезается ЦЕЛИКОМ по кругу из арта и вставляется
+# с полями; текст рисуется шрифтом; нижняя лента — чистая леопардовая
+# шкура из угла арта, без золотых дуг.
+
+GOLD_L = GOLD[:3]
+CREAM_L = CREAM[:3]
+PLUM_BG = (32, 6, 28)
+
+# Медальон целиком: кольцо — центр (513,519), диаметр ~906 (замер по золоту).
+# Резать из `icon` (арт + руны внутри медальона), НЕ из `art` — там пусто.
+_med = icon.crop((43, 49, 983, 989))            # 940x940, кольцо и руны по кругу
+_diam = _med.size[0]
+_mask = Image.new('L', (_diam, _diam), 0)
+ImageDraw.Draw(_mask).ellipse((2, 2, _diam - 2, _diam - 2), fill=255)
+medallion = _med.convert('RGBA')
+medallion.putalpha(_mask)
+
+name_font16 = ImageFont.truetype('/usr/share/fonts/truetype/dejavu/DejaVuSans-Bold.ttf', 16)
+name_font14 = ImageFont.truetype('/usr/share/fonts/truetype/dejavu/DejaVuSans-Bold.ttf', 14)
+name_font22 = ImageFont.truetype('/usr/share/fonts/truetype/dejavu/DejaVuSans-Bold.ttf', 22)
+sub_font12 = ImageFont.truetype('/usr/share/fonts/truetype/dejavu/DejaVuSans-Bold.ttf', 12)
+sub_font10 = ImageFont.truetype('/usr/share/fonts/truetype/dejavu/DejaVuSans-Bold.ttf', 10)
+
+
+def paste_circular(dst, img, cx, cy):
+    dst.paste(img, (int(cx - img.size[0] / 2), int(cy - img.size[1] / 2)), img.split()[3])
+
+
+# welcome: 164x314 — герб целиком сверху, руны, имя студии и игры
 w, h = 164, 314
-wel = Image.new('RGB', (w, h), (46, 10, 40))
-badge = full.resize((150, 150), Image.LANCZOS).convert('RGB')
-wel.paste(badge, (7, 12))
-# нижняя часть — леопардовый орнамент-полоска из арта
-strip = art.crop((120, 860, 904, 1000)).resize((164, 30), Image.LANCZOS).convert('RGB')
-wel.paste(strip, (0, h - 30))
+wel = Image.new('RGB', (w, h), PLUM_BG)
+paste_circular(wel, medallion.resize((140, 140), Image.LANCZOS), w / 2, 80)
+dd = ImageDraw.Draw(wel)
+draw_runes(dd, w // 2, 172, h=34)
+dd.text((w / 2, 206), 'RAIDO PERT', font=name_font16, fill=CREAM_L,
+        anchor='mm', stroke_width=3, stroke_fill=DARK_PLUM[:3])
+dd.text((w / 2, 226), 'S T U D I O', font=sub_font10, fill=GOLD_L,
+        anchor='mm', stroke_width=2, stroke_fill=DARK_PLUM[:3])
+dd.text((w / 2, 254), 'POPCORN PAWS', font=name_font16, fill=GOLD_L,
+        anchor='mm', stroke_width=3, stroke_fill=DARK_PLUM[:3])
+dd.text((w / 2, 272), '0+ · 2026', font=sub_font10, fill=(214, 190, 160),
+        anchor='mm')
+# нижняя лента — чистая леопардовая шкура: патч из угла арта ПОЛНОСТЬЮ
+# вне огромного кольца (центр 513,519, радиус ~460): точка (240,110) —
+# на расстоянии ~491 от центра, за пределами золотого обода
+strip = art.crop((0, 0, 240, 110)).resize((164, 34), Image.LANCZOS).convert('RGB')
+wel.paste(strip, (0, h - 34))
 wel.save('nsis-welcome.bmp', format='BMP')
 
-# header: 150x57 — маленькая эмблема
-hdr = Image.new('RGB', (150, 57), (46, 10, 40))
-mini = icon.resize((50, 50), Image.LANCZOS).convert('RGB')
-hdr.paste(mini, (5, 3))
+# header: 150x57 — герб целиком слева, имя студии справа
+hdr = Image.new('RGB', (150, 57), PLUM_BG)
+paste_circular(hdr, medallion.resize((44, 44), Image.LANCZOS), 24, 28)
+hd = ImageDraw.Draw(hdr)
+hd.text((51, 21), 'RAIDO PERT', font=name_font14, fill=CREAM_L,
+        anchor='lm', stroke_width=3, stroke_fill=DARK_PLUM[:3])
+hd.text((51, 39), 'S T U D I O', font=sub_font10, fill=GOLD_L,
+        anchor='lm', stroke_width=2, stroke_fill=DARK_PLUM[:3])
 hdr.save('nsis-header.bmp', format='BMP')
 
 print('BRAND_OK')

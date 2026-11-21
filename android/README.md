@@ -17,7 +17,7 @@ mkdir -p android-build/assets && cp -r desktop-build/web/* android-build/assets/
 $BT/aapt2 compile --dir android/res -o android-build/res.zip
 $BT/aapt2 link -o android-build/base-unsigned.apk -I $AJ --manifest android/AndroidManifest.xml \
   -A android-build/assets --min-sdk-version 24 --target-sdk-version 34 \
-  --version-code 75 --version-name 0.0.75 --auto-add-overlay android-build/res.zip
+  --version-code 76 --version-name 0.0.76 --auto-add-overlay android-build/res.zip
 mkdir -p android-build/obj && $JAVA_BIN/javac -nowarn -source 11 -target 11 -cp $AJ \
   -d android-build/obj $(find android/java -name '*.java')
 mkdir -p android-build/dex && $BT/d8 --release --lib $AJ --min-api 24 \

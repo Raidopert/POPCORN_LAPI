@@ -171,6 +171,11 @@ export interface EngineCallbacks {
       Геймплей заморожен (introHold), пока компонент не вызовет
       dismissBossIntro() после кнопки «В БОЙ!» */
   onBossIntro?(level: number, kind: BossKind): void
+  /** 0.0.76: движок сам отпустил интро (аварийный таймаут 60с — игрок
+      читал дольше, сбой компонента, скрытая вкладка). Компонент ДОЛЖЕН
+      закрыть карточку: раньше игра возобновлялась под открытой карточкой —
+      босс бил, жизни таяли, а игрок ничего не мог сделать */
+  onBossIntroDismiss?(): void
 }
 
 export type PieceKind = 'popcorn' | 'caramel' | 'butter' | 'golden' | 'corn' | 'nipple'
@@ -1575,10 +1580,14 @@ export class PopcornEngine {
   }
 
   /** Инструкция босса прочитана («В БОЙ!»): отпускаем геймплей и показываем
-      баннер уровня, который ждал под интро-карточкой */
+      баннер уровня, который ждал под интро-карточкой.
+      0.0.76: сообщаем компоненту закрыть карточку ВСЕГДА — в т.ч. при
+      аварийном авто-выпуске из цикла. Без этого карточка висела поверх
+      уже идущей игры: босс атаковал, жизни таяли, поле было заблокировано */
   dismissBossIntro(): void {
     if (!this.introHold) return
     this.introHold = false
+    this.cb.onBossIntroDismiss?.()
     this.banner = { text: this.L('banner.level', { n: this.lvl }), t: 0 }
     this.lastSec = Math.ceil(this.timeLeft)
     audio.play('wave')
@@ -4715,10 +4724,15 @@ export class PopcornEngine {
     const dt = Math.min(0.05, (ts - this.lastTs) / 1000)
     this.lastTs = ts
     /* v0.0.59: если интро босса никто не закрыл (сбой компонента, скрытая
-       вкладка), через 12 секунд геймплей отпускается сам — игра не виснет */
+       вкладка), через 60 секунд геймплей отпускается сам — игра не виснет.
+       0.0.76: 12с → 60с. Старые 12 секунд игрок часто читал дольше —
+       игра возобновлялась ПОД карточкой и убивала жизни без управления.
+       60с хватает на неспешное чтение всех 4 языков; при выпуске карточка
+       закрывается синхронно (onBossIntroDismiss) — игра под картой больше
+       не идёт никогда */
     if (this.introHold && this.phase === 'playing') {
       this.introHoldT += dt
-      if (this.introHoldT > 12) this.dismissBossIntro()
+      if (this.introHoldT > 60) this.dismissBossIntro()
     } else {
       this.introHoldT = 0
     }

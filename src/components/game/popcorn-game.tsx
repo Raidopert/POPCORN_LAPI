@@ -6932,7 +6932,11 @@ export function PopcornGame() {
     }
     const nav = window.navigator as Navigator & { standalone?: boolean }
     const mq = window.matchMedia('(display-mode: standalone), (display-mode: fullscreen)')
-    const syncMode = () => setIsStandalone(mq.matches || nav.standalone === true)
+    /* 0.0.76: Windows/Android-сборки (Electron) — игра УЖЕ установлена.
+       В их WebView display-mode остаётся 'browser', поэтому раньше в окне
+       ПК-версии висела бессмысленная кнопка «УСТАНОВИТЬ» */
+    const inShell = /Electron/i.test(nav.userAgent)
+    const syncMode = () => setIsStandalone(mq.matches || nav.standalone === true || inShell)
     syncMode()
     mq.addEventListener?.('change', syncMode)
     window.addEventListener('beforeinstallprompt', onBip)
@@ -7453,6 +7457,13 @@ export function PopcornGame() {
           window.clearTimeout(lvlToastTimerRef.current ?? undefined)
         }
         setBossIntro({ level, kind })
+      },
+      /** 0.0.76: движок сам закрыл интро (аварийный таймаут 60с) — карточку
+          убираем синхронно, чтобы игра НИКОГДА не шла под открытой картой:
+          раньше на этом месте таяли жизни без всякого управления */
+      onBossIntroDismiss: () => {
+        bossIntroRef.current = false
+        setBossIntro(null)
       },
       onEnd: (r) => {
         /* Интро босса больше не нужно: забег кончился (страховка от

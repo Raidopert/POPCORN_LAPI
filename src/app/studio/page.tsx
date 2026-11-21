@@ -132,6 +132,7 @@ export default function StudioPage() {
             <a className="hover:text-[#F4D489] transition-colors" href="#games">Игры</a>
             <a className="hover:text-[#F4D489] transition-colors" href="#download">Скачать</a>
             <a className="hover:text-[#F4D489] transition-colors" href="#about">О студии</a>
+            <a className="hover:text-[#F4D489] transition-colors" href="#programs">Программы</a>
             <a className="hover:text-[#F4D489] transition-colors" href="#devlog">Devlog</a>
             <a className="hover:text-[#F4D489] transition-colors" href="#roadmap">План</a>
             <a className="hover:text-[#F4D489] transition-colors" href="#presskit">Press-kit</a>
@@ -140,6 +141,7 @@ export default function StudioPage() {
           <nav aria-label="Разделы сайта — компактно" className="ml-auto hidden sm:flex lg:hidden items-center gap-4 text-sm">
             <a className="hover:text-[#F4D489] transition-colors" href="#games">Игры</a>
             <a className="hover:text-[#F4D489] transition-colors" href="#download">Скачать</a>
+            <a className="hover:text-[#F4D489] transition-colors" href="#programs">Программы</a>
             <a className="hover:text-[#F4D489] transition-colors" href="#devlog">Devlog</a>
             <a className="hover:text-[#F4D489] transition-colors" href="#contacts">Контакты</a>
           </nav>
@@ -441,6 +443,66 @@ export default function StudioPage() {
                   </div>
                 ))}
               </div>
+            </div>
+          </div>
+        </section>
+
+        {/* ПРОГРАММЫ — приложения студии (не игры) */}
+        <section id="programs" aria-labelledby="programs-title" className="border-y border-[#E8B95C]/20 bg-[#2a0923]/60 scroll-mt-20">
+          <div className="mx-auto max-w-5xl w-full px-4 py-14">
+            <h2 id="programs-title" className="text-3xl sm:text-4xl font-bold rps-gold-text mb-2" style={pixel}>
+              ПРОГРАММЫ
+            </h2>
+            <p className="text-[#F2E3CF]/80 mb-8">
+              Не только игры — небольшие кошачьи приложения студии.
+            </p>
+
+            <div className="grid gap-6 md:grid-cols-2">
+              {/* CATSCRATCHES */}
+              <article className="rps-panel rounded-2xl p-6 flex flex-col gap-3">
+                <div className="flex items-center gap-3">
+                  <span className="flex size-12 shrink-0 items-center justify-center rounded-2xl border border-[#E8B95C]/40 bg-[#2a0923]">
+                    <Cat className="size-6 text-[#E8B95C]" aria-hidden />
+                  </span>
+                  <h3 className="text-2xl font-bold text-[#E8B95C]" style={pixel}>
+                    CATSCRATCHES
+                  </h3>
+                </div>
+                <p className="text-[#F2E3CF]/85">
+                  Приложение студии за пределами игр. Проект стартовал —
+                  репозиторий уже создан на GitHub. Описание, скриншоты и
+                  сборки появятся в этом разделе по мере разработки.
+                </p>
+                <div className="flex flex-wrap gap-2 text-xs">
+                  {["Приложение", "В разработке", "Raido Pert Studio"].map((t) => (
+                    <span key={t} className="rounded-full bg-[#2a0923] border border-[#E8B95C]/30 px-2.5 py-1">
+                      {t}
+                    </span>
+                  ))}
+                </div>
+                <div className="mt-auto pt-2">
+                  <a
+                    href="https://github.com/Raidopert/Catscratches"
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="inline-flex items-center gap-2 rounded-xl border border-[#E8B95C]/60 hover:bg-[#E8B95C]/10 px-4 py-2.5 font-bold transition-colors"
+                  >
+                    <Github className="size-4" aria-hidden />
+                    Репозиторий на GitHub
+                  </a>
+                </div>
+              </article>
+
+              {/* Плейсхолдер под следующие программы */}
+              <article className="rps-panel rounded-2xl border-dashed p-6 flex flex-col items-center justify-center gap-3 text-center min-h-[180px]">
+                <PawPrint className="size-8 text-[#E8B95C]/70" aria-hidden />
+                <h3 className="text-xl font-bold text-[#E8B95C]" style={pixel}>
+                  СЛЕДУЮЩАЯ ПРОГРАММА
+                </h3>
+                <p className="text-sm text-[#F2E3CF]/80">
+                  У студии есть ещё пара идей — скоро расскажем.
+                </p>
+              </article>
             </div>
           </div>
         </section>
