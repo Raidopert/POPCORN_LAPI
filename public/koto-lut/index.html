@@ -524,6 +524,38 @@ h1,h2,h3,.gtitle,.hero-title{text-shadow:2px 2px 0 rgba(0,0,0,.45)}
 #odBar.on{background:linear-gradient(90deg,#FF9F1C,#FFD34D 40%,#FFF3C4 70%,#FFD34D);animation:odPulse .5s ease-in-out infinite alternate}
 @keyframes odPulse{from{filter:brightness(1)}to{filter:brightness(1.35)}}
 #odLbl{font-weight:800;font-size:clamp(10.5px,2.7vw,12px);color:var(--gold);white-space:nowrap;letter-spacing:.03em}
+
+/* ===== v1.4: колесо — ставки ×1/×5/×25/×100 ===== */
+.betrow{display:flex;gap:8px;justify-content:center;margin:10px 0 2px;flex-wrap:wrap}
+.betbtn{min-width:64px;padding:9px 14px;font-weight:800;font-size:clamp(13px,3.4vw,15px);letter-spacing:.02em}
+.betbtn.on{background:linear-gradient(135deg,#FF9F1C,#F4B400);color:#2E2418;border-color:#33261A;box-shadow:3px 3px 0 rgba(0,0,0,.35)}
+
+/* ===== v1.4: бумажная кукла героя ===== */
+.dollgrid{display:grid;grid-template-columns:1fr auto 1fr;gap:8px;align-items:stretch}
+.dollcol{display:flex;flex-direction:column;gap:8px}
+.dollcenter{display:flex;flex-direction:column;align-items:center;justify-content:center;gap:6px;min-width:96px;padding:6px;border-radius:12px;background:rgba(0,0,0,.25);border:1.5px dashed rgba(255,199,120,.35)}
+#dollFace{width:72px;height:72px;image-rendering:pixelated;filter:drop-shadow(0 3px 6px rgba(0,0,0,.45))}
+.dollcore{width:100%;font-size:11px}
+.dollcore .statrow{justify-content:space-between}
+.dollslot{position:relative;border:2px solid #3A2C1E;border-radius:11px;background:var(--glass2);padding:7px 8px;min-height:52px;cursor:pointer;box-shadow:2px 2px 0 rgba(0,0,0,.3);transition:background .15s,border-color .15s}
+.dollslot .dname{display:block;font-weight:700;font-size:clamp(10px,2.6vw,12px);margin-top:2px}
+.dollslot .dstat{display:block;font-size:clamp(9px,2.3vw,11px);color:#B8A88F}
+.dollslot.has-item{border-color:#FFD34D}
+.dollslot.drophover{background:rgba(255,211,77,.18);border-color:#FFD34D;box-shadow:0 0 14px rgba(255,211,77,.4)}
+.dollslot.pressing{transform:scale(.985)}
+.dolldelta{position:absolute;right:5px;bottom:5px;font-size:10px;font-weight:800;padding:2px 6px;border-radius:999px;pointer-events:none;z-index:2}
+.dolldelta.up{background:#2E7D46;color:#DFF5E4}
+.dolldelta.down{background:#8C3A2B;color:#FBE3DC}
+.dolldelta.wrong{background:#4A3F35;color:#F2D8B8}
+
+/* ===== v1.4: перетаскивание ===== */
+#heroInv .card,#heroDoll .dollslot{touch-action:none}
+.card.pressing{opacity:.85}
+.card.dragging,.dollslot.dragging{opacity:.35}
+.dragGhost{position:fixed;left:0;top:0;z-index:9999;pointer-events:none;opacity:.95;box-shadow:0 10px 24px rgba(0,0,0,.5)}
+@keyframes shakeX{0%,100%{transform:translateX(0)}25%{transform:translateX(-5px)}75%{transform:translateX(5px)}}
+.shakeX{animation:shakeX .3s}
+#heroInv.dropzone{outline:2px dashed #FFD34D;outline-offset:5px;border-radius:12px;background:rgba(255,211,77,.07)}
 </style>
 </head>
 <body>
@@ -699,8 +731,19 @@ h1,h2,h3,.gtitle,.hero-title{text-shadow:2px 2px 0 rgba(0,0,0,.45)}
             <div id="heroStats" class="stats"></div>
             <button id="bestBtn" class="btn btn-gold">НАДЕТЬ ЛУЧШЕЕ</button>
           </div>
-          <div class="panel"><h3>Слоты героя</h3><div id="heroSlots" class="slots"></div><p class="hint">Оружие — атака · Пояс — урон · Броня — жизнь · Шлем — крит · Амулет — мана · Сапоги — уворот.</p></div>
-          <div class="panel"><h3>Сумка (снаряжение)</h3><div id="heroInv" class="grid-inv"></div><p class="hint">Нажми на предмет, чтобы надеть. «Надеть лучшее» укомплектует все слоты.</p></div>
+          <!-- v1.4: бумажная кукла — тащи предмет из сумки прямо на слот -->
+          <div class="panel"><h3>Герой: слоты (можно перетаскивать)</h3>
+            <div id="heroDoll" class="dollgrid">
+              <div class="dollcol" id="dollL"></div>
+              <div class="dollcenter">
+                <canvas id="dollHero" width="64" height="64"></canvas>
+                <div id="dollCore" class="dollcore"></div>
+              </div>
+              <div class="dollcol" id="dollR"></div>
+            </div>
+            <p class="hint">Перетащи предмет из сумки на слот — наденется. С надетого — стяни обратно в сумку. Тап по слоту = выбрать предмет, тап по предмету = надеть.</p>
+          </div>
+          <div class="panel"><h3>Сумка (снаряжение)</h3><div id="heroInv" class="grid-inv"></div><p class="hint">Тащи предмет мышью или пальцем на слот героя. «Надеть лучшее» укомплектует все слоты.</p></div>
         </div>
         <div id="catPart" class="hidden">
           <div class="panel"><h3>Сумка Рыбца (кото-лут)</h3><div id="catInv" class="grid-inv"></div><p class="hint">Нажми на предмет, чтобы надеть на Рыбца (слоты — во вкладке «Кот»).</p></div>
@@ -740,15 +783,22 @@ h1,h2,h3,.gtitle,.hero-title{text-shadow:2px 2px 0 rgba(0,0,0,.45)}
       <section id="tab-wheel" class="hidden">
         <div class="panel">
           <h3>Колесо Рыбов</h3>
-          <p class="hint">Восемь рыб судьбы: ресурсы, монеты, опыт Рыбца, баффы аур и даже лут. Первый спин дня — бесплатный, дальше — 5 Рыбов за спин. Все шансы видны на глаз: чем шире сектор, тем чаще рыба.</p>
+          <p class="hint">Двенадцать рыб судьбы: улов, клубки, монеты, опыт, баффы, лут — и редчайшие Золотой Полоз, Золотая Рыбка и Рыба-Обсидиан. Есть и холостая Рыба-Бомбочка. Первый спин дня — бесплатный (×1), дальше — 5 Рыбов за ставку. Ставка ×5/×25/×100 умножает награды и цену: чем крупнее ставка, тем гарантированней лут с Рыбы-Меча.</p>
           <div class="wheelwrap">
             <div class="wheelptr"></div>
             <div id="wheelDisc" class="wheeldisc"></div>
             <div class="wheelhub">МУР</div>
           </div>
+          <!-- v1.4: ставки-мультипликаторы -->
+          <div class="betrow">
+            <button class="btn betbtn on" data-bet="1">×1</button>
+            <button class="btn betbtn" data-bet="5">×5</button>
+            <button class="btn betbtn" data-bet="25">×25</button>
+            <button class="btn betbtn" data-bet="100">×100</button>
+          </div>
           <div class="actions">
             <button id="wheelFree" class="btn btn-gold big">БЕСПЛАТНЫЙ СПИН ДНЯ</button>
-            <button id="wheelSpin" class="btn btn-acc"><svg class="ic"><use href="#i-fish"/></svg> КРУТИТЬ (5 Рыбов)</button>
+            <button id="wheelSpin" class="btn btn-acc"><svg class="ic"><use href="#i-fish"/></svg> <span id="wheelCost">КРУТИТЬ (5 Рыбов ×1)</span></button>
           </div>
           <div id="wheelLog" class="log"></div>
         </div>
@@ -837,7 +887,7 @@ h1,h2,h3,.gtitle,.hero-title{text-shadow:2px 2px 0 rgba(0,0,0,.45)}
       </section>
     </main>
 
-    <footer id="ft">Кото-Лут v1.3 · Фестиваль: бумажный комикс · автобой + овердрайв (тап!) · стаи мобов и элитки с аурами</footer>
+    <footer id="ft">Кото-Лут v1.4 · Колесо: 12 рыб и ставки ×100 · лут с параметрами · кукла героя с drag-and-drop</footer>
   </div>
 </div>
 
@@ -1223,15 +1273,20 @@ const CAT_ARTIFACTS={
 };
 
 /* ===== Колесо Рыбов: сектора, веса, призы ===== */
+/* v1.4: колесо Рыбов — 12 секторов, ставки ×1/×5/×25/×100 (награды × ставка, цена 5×ставка рыб) */
 const FISH_WHEEL=[
-  {id:'herring', n:'Селёдка',         img:'fish_herring',  col:'#7FA6C9', w:20,  prize:{t:'res',  res:'feed',  v:3,   txt:'+3 Рыбы — корм для Рыбца'}},
-  {id:'cuke',    n:'Огуречная Рыба',  img:'fish_cuke',     col:'#57B54B', w:16,  prize:{t:'res',  res:'yarn',  v:1,   txt:'+1 клубок — валюта извлечения'}},
-  {id:'pirate',  n:'Пиратская Рыба',  img:'fish_pirate',   col:'#8D99AE', w:13,  prize:{t:'coins',             v:0,   txt:'сундук монет: 15–30 монет'}},
-  {id:'moon',    n:'Лунная Рыба',     img:'fish_moon',     col:'#9B8FC9', w:11,  prize:{t:'xp',                v:15,  txt:'+15 опыта Рыбцу'}},
-  {id:'sword',   n:'Рыба-Меч',        img:'fish_sword',    col:'#C9D6E3', w:9,   prize:{t:'gear',              v:0,   txt:'героический предмет из глубин'}},
-  {id:'electric',n:'Электро-Рыба',    img:'fish_electric', col:'#F2D24B', w:8,   prize:{t:'buff',              v:90,  txt:'аура Рыбца ×1.5 на 90 секунд'}},
-  {id:'royal',   n:'Королевская Рыба',img:'fish_royal',    col:'#E76F51', w:6,   prize:{t:'royal',             v:0,   txt:'+2 клубка и +10 монет'}},
-  {id:'gold',    n:'Золотая Рыбка',   img:'fish_gold',     col:'#F4B400', w:2.5, prize:{t:'jackpot',           v:100, txt:'ДЖЕКПОТ: 100 монет или легендарный предмет!'}}
+  {id:'herring', n:'Селёдка',         img:'fish_herring',  col:'#7FA6C9', w:18,  prize:{t:'res',  res:'feed',  v:3,   txt:'+3 Рыбы — корм для Рыбца'}},
+  {id:'swarm',   n:'Стая Рыб',        img:'fish_herring',  col:'#5F8CA8', w:10,  prize:{t:'res',  res:'feed',  v:8,   txt:'+8 Рыбов — целый улов'}},
+  {id:'cuke',    n:'Огуречная Рыба',  img:'fish_cuke',     col:'#57B54B', w:14,  prize:{t:'res',  res:'yarn',  v:1,   txt:'+1 клубок — валюта извлечения'}},
+  {id:'pirate',  n:'Пиратская Рыба',  img:'fish_pirate',   col:'#8D99AE', w:11,  prize:{t:'coins',             v:0,   txt:'сундук монет: 15–30 монет'}},
+  {id:'moon',    n:'Лунная Рыба',     img:'fish_moon',     col:'#9B8FC9', w:9,   prize:{t:'xp',                v:15,  txt:'+15 опыта Рыбцу'}},
+  {id:'sword',   n:'Рыба-Меч',        img:'fish_sword',    col:'#C9D6E3', w:8,   prize:{t:'gear',              v:0,   txt:'героический предмет из глубин'}},
+  {id:'electric',n:'Электро-Рыба',    img:'fish_electric', col:'#F2D24B', w:7,   prize:{t:'buff',              v:90,  txt:'аура Рыбца ×1.5 на 90 секунд'}},
+  {id:'royal',   n:'Королевская Рыба',img:'fish_royal',    col:'#E76F51', w:5,   prize:{t:'royal',             v:0,   txt:'+2 клубка и +10 монет'}},
+  {id:'bomb',    n:'Рыба-Бомбочка',   img:'fish_cuke',     col:'#4A3F35', w:8,   prize:{t:'none',              v:0,   txt:'БУХ! Пустота… рыба была холостой'}},
+  {id:'serpent', n:'Золотой Полоз',   img:'fish_royal',    col:'#D4A017', w:1.2, prize:{t:'leg',               v:50,  txt:'ЛЕГЕНДАРНЫЙ предмет + 50 монет!'}},
+  {id:'gold',    n:'Золотая Рыбка',   img:'fish_gold',     col:'#F4B400', w:2,   prize:{t:'jackpot',           v:100, txt:'ДЖЕКПОТ: 100 монет или легендарный предмет!'}},
+  {id:'obsidian',n:'Рыба-Обсидиан',   img:'fish_moon',     col:'#6C5CE7', w:0.5, prize:{t:'mega',              v:200, txt:'МЕГА-ДЖЕКПОТ: космо-пал + 25 клубков + 200 монет!'}}
 ];
 
 const BOTS=[['Мурзик_007',31],['ОгурцеБот',27],['КотоЛордХвост',24],['ПылесосМститель',22],['Слуга_двух_котов',19],['РыжаяСмерч',17],['Комкоед',15],['Мяу-Клинок',13],['ТихийПолоз',11],['Баюн_Фан',9],['Пельмень TG',7],['НовичокВсегда',4]];
@@ -3450,14 +3505,22 @@ function renderLoot(){
   const H=calcHero();
   const stats=[['sword','Атака',H.atk],['burst','Урон',H.dmg],['heart','Жизнь',H.hp],['target','Крит',H.crit+'%'],['drop','Мана',H.mana],['wind','Уворот',H.dodge+'%'],['spark','Реген маны',H.regen+'/с'],['clover','Удача',H.luck.toFixed(1)+'%']];
   $('heroStats').innerHTML=stats.map(function(s){return '<div class="statrow"><span>'+icon(s[0])+' '+s[1]+'</span><b>'+s[2]+'</b></div>'}).join('');
-  let html='';
-  for(const s in HERO_SLOTS){
+  /* v1.4: бумажная кукла — слоты вокруг портрета, drag-and-drop */
+  const dollSlot=function(s){
     const it=state.hero.gear[s];
-    html+='<div class="slot" data-kind="hero" data-slot="'+s+'"><b>'+icon(HERO_SLOTS[s].icon)+' '+HERO_SLOTS[s].n+'</b>'+
-      (it?'<span style="color:'+TIERS[it.tier].c+'">'+itemGearName(it)+'</span><br><span class="empty">'+statText(it)+'</span>'
-        :'<span class="empty">пусто</span>')+'</div>';
+    return '<div class="dollslot'+(it?' has-item':'')+'" data-kind="hero" data-slot="'+s+'" title="Тап — выбрать, перетащи предмет из сумки">'+/* v1.4 */
+      '<b>'+icon(HERO_SLOTS[s].icon)+' '+HERO_SLOTS[s].n+'</b>'+
+      (it?'<span class="dname" style="color:'+TIERS[it.tier].c+'">'+itemGearName(it)+'</span><span class="dstat">'+statText(it)+'</span>'
+        :'<span class="empty">пусто — тащи сюда</span>')+'</div>';
+  };
+  $('dollL').innerHTML=['helm','amulet','armor'].map(dollSlot).join('');
+  $('dollR').innerHTML=['weapon','belt','boots'].map(dollSlot).join('');
+  $('dollCore').innerHTML='<div class="statrow"><span>'+icon('sword')+' Атака</span><b>'+H.atk+'</b></div><div class="statrow"><span>'+icon('heart')+' Жизнь</span><b>'+H.hp+'</b></div>';
+  if(IMG.hero8&&!$('dollFace')){
+    const im=document.createElement('img');
+    im.id='dollFace'; im.src=IMG.hero8; im.alt='герой';
+    $('dollHero').replaceWith(im);
   }
-  $('heroSlots').innerHTML=html;
   const inv=state.hero.inv;
   $('heroInv').innerHTML=inv.length?inv.map(gearCard).join(''):'<p class="hint">Сумка пуста. Снаряжение падает с мобов и боссов само.</p>';
   const cinv=state.cat.inv;
@@ -3731,7 +3794,7 @@ function init(){
     const c=e.target.closest('[data-id]');
     if(c&&c.dataset.kind==='cat')equipCat(c.dataset.id);
   });
-  $('heroSlots').addEventListener('click',function(e){
+  $('heroDoll').addEventListener('click',function(e){
     const s=e.target.closest('[data-slot]');
     if(s&&s.dataset.kind==='hero')showHeroEquip(s.dataset.slot);
   });
@@ -3774,6 +3837,90 @@ function init(){
   requestAnimationFrame(loop);
 }
 init();
+
+/* ===== v1.4: drag-and-drop — перетаскивание лута между сумкой и куклой ===== */
+(function(){
+  let drag=null;
+  function gearById(id){return state.hero.inv.find(function(x){return x.id===id})}
+  document.addEventListener('pointerdown',function(e){
+    if(!state)return;
+    const card=e.target.closest('#heroInv .card[data-kind="hero"]');
+    const slotEl=e.target.closest('#heroDoll .dollslot');
+    if(!card&&!slotEl)return;
+    if(e.button!==undefined&&e.button>0)return;
+    const item=card?{id:card.dataset.id,from:'inv'}
+      :(state.hero.gear[slotEl.dataset.slot]?{slot:slotEl.dataset.slot,from:'doll'}:null);
+    if(!item)return;
+    drag={item:item,x0:e.clientX,y0:e.clientY,ghost:null,moved:false,srcEl:card||slotEl};
+    drag.srcEl.classList.add('pressing');
+  },{passive:true});
+  document.addEventListener('pointermove',function(e){
+    if(!drag)return;
+    if(!drag.moved&&Math.hypot(e.clientX-drag.x0,e.clientY-drag.y0)<8)return;
+    if(!drag.moved){
+      drag.moved=true;
+      drag.srcEl.classList.remove('pressing');
+      drag.srcEl.classList.add('dragging');
+      const g=drag.srcEl.cloneNode(true);
+      g.className=drag.srcEl.className+' dragGhost';
+      g.style.width=drag.srcEl.offsetWidth+'px';
+      document.body.appendChild(g);
+      drag.ghost=g;
+    }
+    e.preventDefault();
+    drag.ghost.style.transform='translate('+(e.clientX-drag.srcEl.offsetWidth/2)+'px,'+(e.clientY-drag.srcEl.offsetHeight/2)+'px) rotate(3deg) scale(1.06)';
+    const el=document.elementFromPoint(e.clientX,e.clientY);
+    document.querySelectorAll('.drophover').forEach(function(x){x.classList.remove('drophover')});
+    document.querySelectorAll('.dolldelta').forEach(function(x){x.remove()});
+    const slotEl=el&&el.closest('#heroDoll .dollslot');
+    if(drag.item.from==='inv'&&slotEl){
+      slotEl.classList.add('drophover');
+      const it=gearById(drag.item.id);
+      if(it){
+        const b=document.createElement('span');
+        if(slotEl.dataset.slot===it.slot){
+          const cur=state.hero.gear[it.slot];
+          const d=(it.st[HERO_SLOTS[it.slot].stat]||0)-(cur?(cur.st[HERO_SLOTS[it.slot].stat]||0):0);
+          b.className='dolldelta '+(d>=0?'up':'down');
+          b.textContent=(d>=0?'+':'')+d+' '+STAT_N[HERO_SLOTS[it.slot].stat];
+        } else {
+          b.className='dolldelta wrong';
+          b.textContent='нужен слот: '+HERO_SLOTS[it.slot].n;
+        }
+        slotEl.appendChild(b);
+      }
+    } else if(drag.item.from==='doll'){
+      const invA=$('heroInv');
+      if(invA)invA.classList.add('dropzone');
+      if(el&&el.closest('#heroInv'))drag.srcEl.classList.add('drophover');
+    }
+  },{passive:false});
+  document.addEventListener('pointerup',function(e){
+    if(!drag)return;
+    const d=drag; drag=null;
+    if(d.ghost)d.ghost.remove();
+    d.srcEl.classList.remove('dragging','pressing','drophover');
+    document.querySelectorAll('.drophover').forEach(function(x){x.classList.remove('drophover')});
+    document.querySelectorAll('.dolldelta').forEach(function(x){x.remove()});
+    const dz=$('heroInv'); if(dz)dz.classList.remove('dropzone');
+    if(!d.moved)return; /* это был тап — сработают обычные click-обработчики */
+    R._dragDone=true;
+    const el=document.elementFromPoint(e.clientX,e.clientY);
+    const slotEl=el&&el.closest('#heroDoll .dollslot');
+    const inv=el&&el.closest('#heroInv');
+    if(d.item.from==='inv'&&slotEl){
+      const it=gearById(d.item.id);
+      if(it&&slotEl.dataset.slot===it.slot)equipGear(it.id);
+      else if(it){toast('Этот предмет — для слота «'+HERO_SLOTS[it.slot].n+'»');SFX.play('ui');slotEl.classList.add('shakeX');setTimeout(function(){slotEl.classList.remove('shakeX')},350);}
+    } else if(d.item.from==='doll'&&(inv||(slotEl&&slotEl.dataset.slot!==d.item.slot))){
+      unequip('hero',d.item.slot);
+    }
+  });
+  /* перетаскивание съедает click — гасим его, чтобы не надеть предмет дважды */
+  document.addEventListener('click',function(e){
+    if(R._dragDone){e.stopPropagation();e.preventDefault();R._dragDone=false;}
+  },true);
+})();
 /* ===== P5: монетки+кузница, окно извлечения, бабочки, день, SFX, тапы ===== */
 
 /* — SFX v0.8: чиптюн-синтезатор (pulse+tri+noise, арпеджио, слайды), без ассетов — */
@@ -4425,9 +4572,15 @@ function wheelPick(){
 function renderWheel(){
   buildWheel();
   const free=state.daySpin!==dayKey();
-  const bf=$('wheelFree'), bp=$('wheelSpin');
+  const bf=$('wheelFree'), bp=$('wheelSpin'), wc=$('wheelCost');
   if(bf){bf.disabled=!free||R.wheelBusy;bf.textContent=free?'БЕСПЛАТНЫЙ СПИН ДНЯ':'СПИН ДНЯ УЖЕ БЫЛ — ЗАВТРА';}
-  if(bp){bp.disabled=state.res.feed<5||R.wheelBusy;}
+  const cost=5*(R.wheelBet||1);
+  if(wc)wc.textContent='КРУТИТЬ ('+cost+' Рыбов ×'+(R.wheelBet||1)+')';
+  if(bp){bp.disabled=state.res.feed<cost||R.wheelBusy;}
+  document.querySelectorAll('.betbtn').forEach(function(b){
+    b.classList.toggle('on',+b.dataset.bet===(R.wheelBet||1));
+    b.disabled=!!R.wheelBusy;
+  });
   const log=$('wheelLog');
   if(log&&!log.dataset.init){
     log.dataset.init='1';
@@ -4449,44 +4602,71 @@ function wheelPrizeModal(s,extra){
   showModal(h);
 }
 function awardWheel(s){
-  const p=s.prize;
+  const p=s.prize, b=R.spinBet||1;
+  if(p.t==='none'){
+    /* v1.4: Рыба-Бомбочка — холостой сектор для баланса ставок */
+    wheelPrizeModal(s);
+    wheelLogAdd(s.n+': '+p.txt);
+    SFX.play('ui');
+    uiTick(); save(); return;
+  }
   if(p.t==='res'){
-    state.res[p.res]+=p.v;
-    toast(icon(p.res==='feed'?'fish':'yarn')+' +'+p.v+' '+(p.res==='feed'?'Рыбов':'клубок'));
+    state.res[p.res]+=p.v*b;
+    toast(icon(p.res==='feed'?'fish':'yarn')+' +'+p.v*b+' '+(p.res==='feed'?'Рыбов':'клубок')+(b>1?' (×'+b+' ставка)':''));
   } else if(p.t==='coins'){
-    const v=15+ri(0,15);
+    const v=(15+ri(0,15))*b;
     state.res.coins+=v; state.stats.coinsEarned=(state.stats.coinsEarned||0)+v;
-    toast(icon('coin')+' +'+v+' монет');
+    toast(icon('coin')+' +'+v+' монет'+(b>1?' (×'+b+' ставка)':''));
   } else if(p.t==='xp'){
-    state.cat.xp+=Math.round(p.v*(1+(calcAuras().xp||0)/100));
+    state.cat.xp+=Math.round(p.v*b*(1+(calcAuras().xp||0)/100));
     addMood(1);
     let need=50*state.cat.lvl;
     while(state.cat.xp>=need){state.cat.xp-=need;state.cat.lvl++;need=50*state.cat.lvl;fishSay('lvl',true);toast(icon('cat')+' Рыбец вырос: ур. '+state.cat.lvl);}
     renderCat();
   } else if(p.t==='buff'){
-    R.buffUntil=now()+p.v*1000;
-    toast(icon('spark')+' Ауры Рыбца ×1.5 на '+p.v+' с');
+    R.buffUntil=now()+Math.min(600,p.v*b)*1000;
+    toast(icon('spark')+' Ауры Рыбца ×1.5 на '+Math.min(600,p.v*b)+' с');
   } else if(p.t==='royal'){
-    state.res.yarn+=2; state.res.coins+=10;
-    state.stats.coinsEarned=(state.stats.coinsEarned||0)+10;
-    toast(icon('yarn')+' +2 клубка, +10 монет');
-  } else if(p.t==='gear'||p.t==='jackpot'){
+    state.res.yarn+=2*b; state.res.coins+=10*b;
+    state.stats.coinsEarned=(state.stats.coinsEarned||0)+10*b;
+    toast(icon('yarn')+' +'+2*b+' клубков, +'+10*b+' монет'+(b>1?' (×'+b+' ставка)':''));
+  } else if(p.t==='gear'){
+    let tier=rollTier(gearWeights());
+    /* v1.4: крупная ставка гарантирует редкость предмета */
+    if(b>=5)tier=Math.max(tier,1);
+    if(b>=25)tier=Math.max(tier,2);
+    const g=rollGear(pickHeroSlot(),Math.max(1,state.combat.wave),tier);
+    addGear(g);
+    toast(icon('sword')+' Рыба отдала: '+itemGearName(g)+' ('+TIERS[g.tier].n+')'+(b>1?' (×'+b+' ставка)':''));
+  } else if(p.t==='leg'||p.t==='jackpot'||p.t==='mega'){
     if(p.t==='jackpot'&&Math.random()<0.5){
-      state.res.coins+=p.v;
-      state.stats.coinsEarned=(state.stats.coinsEarned||0)+p.v;
-      toast(icon('coin')+' ДЖЕКПОТ: +'+p.v+' монет!');
-      wheelPrizeModal(s,'Золотые чешуйки превратились в '+p.v+' монет. Рыбец одобряет.');
-      wheelLogAdd('Джекпот ушёл в монеты: +'+p.v);
+      const v=p.v*b;
+      state.res.coins+=v;
+      state.stats.coinsEarned=(state.stats.coinsEarned||0)+v;
+      toast(icon('coin')+' ДЖЕКПОТ: +'+v+' монет!');
+      wheelPrizeModal(s,'Золотые чешуйки превратились в '+v+' монет. Рыбец одобряет.');
+      wheelLogAdd('Джекпот ушёл в монеты: +'+v);
       SFX.play('legend'); uiTick(); save(); return;
     }
-    const g=rollGear(pickHeroSlot(),Math.max(1,state.combat.wave),p.t==='jackpot'?3:rollTier(gearWeights()));
+    const g=rollGear(pickHeroSlot(),Math.max(1,state.combat.wave),3);
     addGear(g);
-    toast(icon('sword')+' Рыба отдала: '+itemGearName(g)+' ('+TIERS[g.tier].n+')');
+    if(p.t==='mega'){
+      state.res.yarn+=25*b; state.res.coins+=p.v*b;
+      state.stats.coinsEarned=(state.stats.coinsEarned||0)+p.v*b;
+      toast(icon('burst')+' МЕГА: '+itemGearName(g)+' ('+TIERS[g.tier].n+') +'+25*b+' '+icon('yarn')+' +'+p.v*b+' '+icon('coin'));
+      wheelPrizeModal(s,'Обсидиановая чешуя! Космо-пал, '+25*b+' клубков и '+p.v*b+' монет твои.');
+    } else if(p.t==='leg'){
+      state.res.coins+=p.v*b;
+      state.stats.coinsEarned=(state.stats.coinsEarned||0)+p.v*b;
+      toast(icon('sword')+' ЛЕГЕНДА: '+itemGearName(g)+' ('+TIERS[g.tier].n+') +'+p.v*b+' '+icon('coin'));
+    } else {
+      toast(icon('sword')+' Рыба отдала: '+itemGearName(g)+' ('+TIERS[g.tier].n+')'+(b>1?' (×'+b+' ставка)':''));
+    }
   }
   wheelPrizeModal(s);
-  wheelLogAdd(s.n+': '+p.txt);
-  if(s.id==='gold')fishSay('jackpot',true);else fishSay('wheel');
-  SFX.play(s.id==='gold'?'legend':'reveal');
+  wheelLogAdd(s.n+': '+p.txt+(b>1?' [ставка ×'+b+']':''));
+  if(s.id==='gold'||s.id==='obsidian'||s.id==='serpent')fishSay('jackpot',true);else fishSay('wheel');
+  SFX.play((s.id==='gold'||s.id==='obsidian'||s.id==='serpent')?'legend':'reveal');
   renderHdr(); renderLoot(); uiTick(); save();
 }
 function spinWheel(free){
@@ -4495,9 +4675,11 @@ function spinWheel(free){
     if(state.daySpin===dayKey()){toast('Бесплатный спин уже был — приходи завтра');return;}
     state.daySpin=dayKey();
   } else {
-    if(state.res.feed<5){toast('Мало Рыбов '+icon('fish')+' — лови мобов на арене');return;}
-    state.res.feed-=5;
+    const cost=5*(R.wheelBet||1);
+    if(state.res.feed<cost){toast('Мало Рыбов '+icon('fish')+' — нужно '+cost+' (ставка ×'+(R.wheelBet||1)+')');return;}
+    state.res.feed-=cost;
   }
+  R.spinBet=free?1:(R.wheelBet||1);
   const s=wheelPick();
   R.wheelBusy=true;
   renderWheel();
@@ -4530,6 +4712,10 @@ function spinWheel(free){
   const bp=$('wheelSpin');
   if(bf)bf.onclick=function(){spinWheel(true)};
   if(bp)bp.onclick=function(){spinWheel(false)};
+  /* v1.4: кнопки ставки ×1/×5/×25/×100 */
+  document.querySelectorAll('.betbtn').forEach(function(b){
+    b.onclick=function(){R.wheelBet=+b.dataset.bet;SFX.play('ui');renderWheel();};
+  });
   document.querySelectorAll('.pullmode').forEach(function(b){
     b.onclick=function(){doPull(b.getAttribute('data-pull'))};
   });
