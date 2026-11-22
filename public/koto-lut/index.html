@@ -502,6 +502,28 @@ nav#tabs{
   .actions{gap:8px}
   .chip{max-width:46vw;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 }
+
+/* ===== v1.3 «Фестиваль»: бумажный комикс — халфтон, жирные обводки, offset-тени ===== */
+body::before{
+  content:'';position:fixed;inset:0;z-index:-1;pointer-events:none;
+  background-image:radial-gradient(rgba(255,199,120,.07) 1.2px,transparent 1.35px);
+  background-size:13px 13px;
+}
+.panel,.gmenu-modal{border:2.5px solid #33261A;box-shadow:5px 5px 0 rgba(0,0,0,.4)}
+.btn{border:2px solid #33261A;box-shadow:3px 3px 0 rgba(0,0,0,.32)}
+.btn:active{transform:translate(2px,2px) scale(1);box-shadow:1px 1px 0 rgba(0,0,0,.32)}
+.card{border:2px solid #33261A;box-shadow:3px 3px 0 rgba(0,0,0,.3)}
+h1,h2,h3,.gtitle,.hero-title{text-shadow:2px 2px 0 rgba(0,0,0,.45)}
+.chip{border:1.5px solid #3A2C1E;box-shadow:2px 2px 0 rgba(0,0,0,.28)}
+.tabbtn.active{border-top:2.5px solid #FFD34D}
+.fchip{border:1.5px solid #3A2C1E}
+/* овердрайв-бар */
+#odWrap{display:flex;align-items:center;gap:10px;margin:8px 2px 2px}
+#odTrack{flex:1;height:14px;border-radius:999px;background:rgba(0,0,0,.45);border:2px solid #33261A;overflow:hidden;box-shadow:2px 2px 0 rgba(0,0,0,.3)}
+#odBar{height:100%;width:0%;background:linear-gradient(90deg,#B8860B,#FF9F1C 60%,#FFD34D);transition:width .2s;border-radius:999px}
+#odBar.on{background:linear-gradient(90deg,#FF9F1C,#FFD34D 40%,#FFF3C4 70%,#FFD34D);animation:odPulse .5s ease-in-out infinite alternate}
+@keyframes odPulse{from{filter:brightness(1)}to{filter:brightness(1.35)}}
+#odLbl{font-weight:800;font-size:clamp(10.5px,2.7vw,12px);color:var(--gold);white-space:nowrap;letter-spacing:.03em}
 </style>
 </head>
 <body>
@@ -602,6 +624,8 @@ nav#tabs{
           <canvas id="cv" width="512" height="288"></canvas>
           <div id="bubble" class="bubble hidden"></div>
         </div>
+        <!-- v1.3: овердрайв — тап по арене жжёт полный заряд -->
+        <div id="odWrap" title="Тап по арене — ОВЕРДРАЙВ: ×2 урон и скорость атак на 10 секунд"><div id="odTrack"><div id="odBar"></div></div><span id="odLbl">ОВЕРДРАЙВ 0%</span></div>
         <div class="panel">
           <div class="rowline"><b id="waveLbl">Волна 1</b><span id="bossLbl"></span><span id="buffChip" class="badge hidden"><svg class="ic"><use href="#i-spark"/></svg> АУРА ×1.5</span></div>
           <div class="bar hp"><i id="hpBar"></i></div><div class="bartxt" id="hpTxt"></div>
@@ -813,7 +837,7 @@ nav#tabs{
       </section>
     </main>
 
-    <footer id="ft">Кото-Лут v1.2 · полировка: события двора · ачивки · элиты с характером · гостевые коты · параллакс · онбординг</footer>
+    <footer id="ft">Кото-Лут v1.3 · Фестиваль: бумажный комикс · автобой + овердрайв (тап!) · стаи мобов и элитки с аурами</footer>
   </div>
 </div>
 
@@ -1266,12 +1290,18 @@ function randomNick(){
 function quotaFor(w){return Math.min(10,4+Math.floor(w/2))}
 /* v1.0: виды мобов — базовый спрайт + тонировка, множители HP/урона, бонус лута */
 const MOB_KINDS={
-  cuc:  {n:'Огурец-нахал',    base:'cuc',   tint:null,      hp:1,    dmg:1,    loot:null},
-  clow: {n:'Комок-лежебока',  base:'clow',  tint:null,      hp:1.7,  dmg:0.8,  loot:null},
-  mouse:{n:'Мышь-курьер',     base:'mouse', tint:null,      hp:0.75, dmg:1.2,  loot:null},
-  rat:  {n:'Крыса-снайпер',   base:'mouse', tint:'#5A4A3A', hp:0.9,  dmg:1.45, loot:'stick'},
-  moth: {n:'Мотылёк-щекотун', base:'cuc',   tint:'#9B6FC9', hp:0.6,  dmg:1.0,  loot:'yarn'},
-  moss: {n:'Мох-пузан',       base:'cuc',   tint:'#2E5C26', hp:2.6,  dmg:0.7,  loot:'feed'}
+  cuc:  {n:'Огурец-нахал',    base:'cuc',   tint:null,      hp:1,    dmg:1,    loot:null,  fam:'guard'},
+  clow: {n:'Комок-лежебока',  base:'clow',  tint:null,      hp:1.7,  dmg:0.8,  loot:null,  fam:'night'},
+  mouse:{n:'Мышь-курьер',     base:'mouse', tint:null,      hp:0.75, dmg:1.2,  loot:null,  fam:'thief'},
+  rat:  {n:'Крыса-снайпер',   base:'mouse', tint:'#5A4A3A', hp:0.9,  dmg:1.45, loot:'stick', fam:'thief'},
+  moth: {n:'Мотылёк-щекотун', base:'cuc',   tint:'#9B6FC9', hp:0.6,  dmg:1.0,  loot:'yarn',  fam:'night'},
+  moss: {n:'Мох-пузан',       base:'cuc',   tint:'#2E5C26', hp:2.6,  dmg:0.7,  loot:'feed',  fam:'guard'}
+};
+/* v1.3: семейства мобов — стаи с тактикой и своим дропом */
+const MOB_FAMS={
+  thief:{n:'Мышинные воришки', d:'быстрые, крадут монеты — щедрый дроп монет'},
+  guard:{n:'Огуречная гвардия',d:'броня −15% урона — жирный дроп рыбы'},
+  night:{n:'Ночной лёт',       d:'12% уклонение — роняют обрывки'}
 };
 function mobHp(w,kind){const v=Math.round(16*Math.pow(1.22,w-1));const k=MOB_KINDS[kind];return Math.max(6,Math.round(v*(k?k.hp:1)))}
 function mobDmg(w,kind){const v=Math.round(3*Math.pow(1.15,w-1)*10)/10;const k=MOB_KINDS[kind];return k?Math.round(v*k.dmg*10)/10:v}
@@ -1856,11 +1886,11 @@ function drawMobs(c){
       const baseH=m.kind==='clow'?30:m.kind==='mouse'?26:36;
       const h=Math.round(baseH*(m.elite?1.35:1)), w=Math.round(im.width/im.height*h);
       shadow(c,x+w*0.5,D(GROUND)+6,w*0.45);
-      /* v1.0: элита — золотое свечение у лап */
+      /* v1.0: элита — свечение у лап; v1.3: цвет по ауре (золото/ярость) */
       if(m.elite){
         c.globalCompositeOperation='lighter';
         const gl=c.createRadialGradient(x+w*0.5,D(GROUND)+2,2,x+w*0.5,D(GROUND)+2,w*0.8);
-        gl.addColorStop(0,'rgba(255,201,61,.45)');
+        gl.addColorStop(0,m.aura==='red'?'rgba(224,72,54,.5)':'rgba(255,201,61,.45)');
         gl.addColorStop(1,'rgba(255,201,61,0)');
         c.fillStyle=gl;
         c.beginPath();c.arc(x+w*0.5,D(GROUND)+2,w*0.8,0,6.283);c.fill();
@@ -2361,6 +2391,32 @@ function drawFx(c){
       c.fillRect(-2.5,-1.5,5,3);
       c.restore();
       c.globalAlpha=1;
+    } else if(f.type==='komix'){
+      /* v1.3: комикс-всплывашка — звезда-вспышка со словом (БАМ!/ХРЯСЬ!/ВЖУХ!) */
+      const sc=0.55+0.45*Math.min(1,p*3.2);
+      const al=clamp(1-(p-0.5)/0.5,0,1);
+      c.save();
+      c.translate(f.x,f.y);
+      c.rotate((f.seed||0)*0.3-0.15);
+      c.scale(sc,sc);
+      c.globalAlpha=al;
+      c.fillStyle=f.col||'#FFD34D';
+      c.beginPath();
+      for(let i=0;i<20;i++){
+        const rr=i%2===0?27:13;
+        const an=i/20*6.283;
+        const kx=Math.cos(an)*rr, ky=Math.sin(an)*rr*0.8;
+        i===0?c.moveTo(kx,ky):c.lineTo(kx,ky);
+      }
+      c.closePath();c.fill();
+      c.strokeStyle='rgba(46,36,24,.9)';c.lineWidth=2.5;c.stroke();
+      c.font='bold 13px Manrope,sans-serif';
+      c.fillStyle='#2E2418';
+      c.textAlign='center';
+      c.fillText(f.txt||'БАМ!',0,4.5);
+      c.restore();
+      c.globalAlpha=1;
+      c.textAlign='left';
     }
   }
 }
@@ -2576,14 +2632,27 @@ function spawnMob(){
   const r=Math.random();
   const kind=r<0.25?'cuc':r<0.45?'clow':r<0.63?'mouse':r<0.77?'rat':r<0.89?'moth':'moss';
   const m={x:252,hp:mobHp(w,kind),max:mobHp(w,kind),dmg:mobDmg(w,kind),atkT:rnd(0,0.5),kind:kind,dustT:0,flashT:0};
+  /* v1.3: анонс семейства */
+  const fk=MOB_KINDS[kind];
+  if(fk&&fk.fam&&R.famToast!==fk.fam){
+    R.famToast=fk.fam;
+    const f=MOB_FAMS[fk.fam];
+    if(f)toast('🐾 Стая: '+f.n+' — '+f.d);
+  }
   if(w>=2&&Math.random()<0.12*(typeof evtMult==='function'?evtMult('elite'):1)){
     m.elite=true;
     m.hp=Math.round(m.hp*2.5); m.max=m.hp;
     m.dmg=Math.round(m.dmg*1.4*10)/10;
+    /* v1.3: аура элитки — золото (лут ×2) или ярость (злее) */
+    m.aura=Math.random()<0.6?'gold':'red';
+    if(m.aura==='red'){
+      m.hp=Math.round(m.hp*1.15); m.max=m.hp;
+      m.dmg=Math.round(m.dmg*1.5*10)/10;
+    }
     /* v1.2: аффиксы элит — характер в бою и богатый лут */
     const AFF=[['Липкий','#7AC4E8','замедляет атаки героя'],['Громкий','#E88A7A','зовёт подмогу'],['Добытчик','#FFD34D','двойной лут']];
     m.aff=AFF[ri(0,2)];
-    toast(icon('burst')+' Элитный враг: '+MOB_KINDS[kind].n+' — «'+m.aff[0]+'», '+m.aff[2]+'!');
+    toast(icon('burst')+' Элитный враг: '+MOB_KINDS[kind].n+' — '+(m.aura==='gold'?'аура Золота (лут ×2)':'аура Ярости (злее!)')+', «'+m.aff[0]+'», '+m.aff[2]+'!');
     SFX.play('roar');
   }
   R.mobs.push(m);
@@ -2596,18 +2665,39 @@ function heroHitPower(){
   if(crit)d*=2;
   return {d:Math.round(d),crit:crit};
 }
+/* v1.3: тап по арене — ОВЕРДРАЙВ (×2 урон и скорость на 10 с) */
+function odTap(){
+  if(!R.started||state.combat.phase==='menu')return;
+  if((R.od||0)<100||(R.odT||0)>0)return;
+  R.od=0; R.odT=10;
+  R.floats.push({x:HERO_X+16,y:GROUND-40,txt:'ОВЕРДРАЙВ!',c:'#FF9F1C',life:0,size:18});
+  addFx({type:'komix',x:D(HERO_X)+12,y:D(GROUND)-44,txt:'ВЖУХ!',col:'#FF9F1C'});
+  SFX.play('quest');
+  fishSay('mana',true);
+}
 function lunge(){
   R.heroLunge=0.15;
   fxDust(D(HERO_X)+10,D(GROUND)+4);
 }
 function dealToMob(m){
   const h=heroHitPower(); lunge();
+  /* v1.3: семейства мобов — тактики стай */
+  const k=MOB_KINDS[m.kind];
+  if((R.odT||0)>0)h.d=Math.round(h.d*2); /* овердрайв ×2 */
+  if(k&&k.fam==='night'&&Math.random()<0.12){
+    R.floats.push({x:m.x+6,y:GROUND-30,txt:'МИМО!',c:'#9CC25B',life:0,size:12});
+    SFX.play('dodge');
+    return;
+  }
+  if(k&&k.fam==='guard')h.d=Math.max(1,Math.round(h.d*0.85));
   m.hp-=h.d; m.flashT=0.12;
   fxSlash(D(m.x)+10,D(GROUND)-26,h.crit);
   fxImpact(D(m.x)+10,D(GROUND)-22,h.crit);
   shake(h.crit?0.5:0.16);
   if(h.crit){R.hitstop=Math.max(R.hitstop,0.045);SFX.play('crit');}else SFX.play('hit');
   R.floats.push({x:m.x+4,y:GROUND-14,txt:(h.crit?'КРИТ ':'-')+h.d,c:h.crit?'#F4B400':'#FFFFFF',life:0,size:h.crit?17:13});
+  /* v1.3: комикс-всплывашки */
+  if(h.crit)addFx({type:'komix',x:D(m.x)+10,y:D(GROUND)-38,txt:'БАМ!',col:'#FFD34D'});
   if(h.crit){state.stats.crits++; if(Math.random()<0.25)fishSay('crit');}
 }
 function dealToBoss(){
@@ -2667,6 +2757,14 @@ function heroHurt(raw,m){
   R.hitstop=Math.max(R.hitstop,0.03);
   shake(0.3);
   R.floats.push({x:HERO_X+5,y:GROUND-20,txt:'-'+Math.round(raw),c:'#E76F51',life:0,size:14});
+  /* v1.3: воришки крадут монету при ударе */
+  {
+    const mk=MOB_KINDS[m&&m.kind];
+    if(mk&&mk.fam==='thief'&&Math.random()<0.10&&state.res.coins>0){
+      state.res.coins=Math.max(0,state.res.coins-1);
+      R.floats.push({x:HERO_X+10,y:GROUND-32,txt:'УКРАЛ МОНЕТУ!',c:'#F4B400',life:0,size:12});
+    }
+  }
   if(c.heroHp<H.hp*0.3 && Math.random()<0.25)fishSay('hurt');
   if(c.heroHp<=0){c.heroHp=0;retreat();}
 }
@@ -2685,6 +2783,9 @@ function killMob(m,idx){
   shake(m.elite?0.3:0.12);
   R.mobs.splice(idx,1);
   state.combat.killed++; state.stats.mobsKilled++;
+  /* v1.3: овердрайв копится с убийств + комикс-всплывашка */
+  R.od=Math.min(100,(R.od||0)+(m.elite?14:7));
+  addFx({type:'komix',x:D(m.x)+10,y:D(GROUND)-40,txt:'ХРЯСЬ!',col:'#FF9F1C'});
   if(state.album)state.album.mobs[m.kind]=true;
   if(DM().id==='harvest')state.res.feed+=1;
   lootMob(m.x,m);
@@ -2771,8 +2872,11 @@ function tick(dt){
   updateTapB(dt);
   c.heroMana=Math.min(H.mana, c.heroMana+H.regen*dt);
   c.heroHp=Math.min(H.hp, c.heroHp+H.hp*0.01*dt);
+  /* v1.3: овердрайв — пассивный заряд и таймер действия */
+  R.od=Math.min(100,(R.od||0)+1.2*dt);
+  R.odT=Math.max(0,(R.odT||0)-dt);
   R.heroAtkT+=dt;
-  if(R.heroAtkT>=0.9*((R.heroSlow||0)>0?1.5:1)){
+  if(R.heroAtkT>=0.9*((R.heroSlow||0)>0?1.5:1)*((R.odT||0)>0?0.5:1)){
     R.heroAtkT=0;
     if(c.phase==='boss'){ if(R.bossX<=170)dealToBoss(); }
     else if(R.mobs.length){ dealToMob(R.mobs[0]); if(R.mobs[0].hp<=0)killMob(R.mobs[0],0); }
@@ -2788,7 +2892,7 @@ function tick(dt){
       m.flashT=Math.max(0,m.flashT-dt);
       if(m.hp<=0){killMob(m,i);continue}
       if(m.x>HERO_X+12){
-        const spd=m.kind==='mouse'?38:28;
+        const spd=(m.kind==='mouse'||m.kind==='rat')?46:28; /* v1.3: стая воришек шустрее */
         m.x-=((DM().id==='fog')?spd*1.18:spd)*dt;
         m.dustT+=dt;
         if(m.dustT>=0.45){m.dustT=0;fxDust(D(m.x)+4,D(GROUND)+4)}
@@ -2935,9 +3039,14 @@ function lootMob(x,m){
   if(kind&&kind.loot==='stick'){state.res.sticks+=1;popLoot('stick',x);}
   if(kind&&kind.loot==='yarn'){state.res.yarn+=1;popLoot('yarn',x);}
   if(kind&&kind.loot==='feed'){state.res.feed+=2;popLoot('feed',x);}
+  /* v1.3: фирменный дроп стай */
+  if(kind&&kind.fam==='thief'){const c2=ri(2,5);state.res.coins+=c2;fxCoin(x+8,GROUND-30);}
+  if(kind&&kind.fam==='guard'){state.res.feed+=2;popLoot('feed',x);}
+  if(kind&&kind.fam==='night'&&Math.random()<0.5){state.res.scraps+=1;popLoot('yarn',x);}
   if(m&&m.elite){
-    /* элита: гарантированный предмет + клубки + обрывок */
+    /* элита: гарантированный предмет + клубки + обрывок; аура Золота — лут ×2 */
     state.res.yarn+=2; state.res.scraps+=1;
+    if(m.aura==='gold'){state.res.yarn+=2;state.res.scraps+=1;fxCoin(x+12,GROUND-26);}
     popLoot('yarn',x);
     const g=rollGear(pickHeroSlot(),w,rollTier(gearWeights()));
     addGear(g); popLoot(HERO_SLOTS[g.slot].icon,x); fxBeam(x,TIERS[g.tier].c);
@@ -2956,6 +3065,8 @@ function lootMob(x,m){
 function bossDefeated(){
   const c=state.combat, t=c.bossTier, a=calcAuras();
   state.stats.bossKills++;
+  /* v1.3: босс сильно заряжает овердрайв */
+  R.od=Math.min(100,(R.od||0)+35);
   /* v1.0: альбом боссов + обрывки за победу */
   if(state.album)state.album.bosses['b'+(((t-1)%5+5)%5)]=true;
   state.res.scraps+=2;
@@ -4892,20 +5003,32 @@ function ambientTick(){
       if(R.guest||Math.random()<0.25)guestSpawn(); /* босс повержен — во двор заглядывает гость */
     };
   }
-  /* тап по гостевому коту */
+  /* тап по гостевому коту + v1.3: тап по арене — овердрайв */
   const cvs=$('cv');
   if(cvs)cvs.addEventListener('pointerdown',function(e){
-    if(!R.guest)return;
     const r=cvs.getBoundingClientRect();
-    const gx=D(R.guest.x)+9/1, gy=D(GROUND)-8;
     const px=(e.clientX-r.left)/r.width*512, py=(e.clientY-r.top)/r.height*288;
-    if(Math.abs(px-gx)<16&&Math.abs(py-gy)<16){
-      R.guest.petted++;
-      fxHeart(gx,gy-14); fxHeart(gx-6,gy-18);
-      addMood(2); SFX.play('pet');
-      if(R.guest.petted===3)toast('🐱 '+R.guest.name+' мурчит от удовольствия');
+    if(R.guest){
+      const gx=D(R.guest.x)+9/1, gy=D(GROUND)-8;
+      if(Math.abs(px-gx)<16&&Math.abs(py-gy)<16){
+        R.guest.petted++;
+        fxHeart(gx,gy-14); fxHeart(gx-6,gy-18);
+        addMood(2); SFX.play('pet');
+        if(R.guest.petted===3)toast('🐱 '+R.guest.name+' мурчит от удовольствия');
+        return;
+      }
     }
+    if(typeof odTap==='function')odTap(); /* остальная арена — ОВЕРДРАЙВ */
   });
+  /* OD-бар: ширина и подпись */
+  setInterval(function(){
+    const bar=$('odBar'), lbl=$('odLbl');
+    if(!bar)return;
+    const active=(R.odT||0)>0;
+    bar.style.width=(active?100:Math.min(100,R.od||0))+'%';
+    bar.classList.toggle('on',active);
+    if(lbl)lbl.textContent=active?('ОВЕРДРАЙВ '+Math.ceil(R.odT)+'с'):((R.od||0)>=100?'ОВЕРДРАЙВ ГОТОВ — ТАП!':'ОВЕРДРАЙВ '+Math.floor(R.od||0)+'%');
+  },250);
 })();
 
 /* — таймеры v1.2: события, ачивки, атмосфера, онбординг — */
