@@ -354,7 +354,7 @@ export default function StudioPage() {
                   </div>
                   <div className="flex flex-wrap gap-3 mt-auto pt-2">
                     <a
-                      href="https://chest-thief.raidopert.ru"
+                      href="/chest-thief/"
                       className="inline-flex items-center gap-2 rounded-xl bg-[#a855f7] hover:bg-[#9333ea] px-4 py-2.5 font-bold transition-colors"
                     >
                       <Gamepad2 className="size-4" aria-hidden />
