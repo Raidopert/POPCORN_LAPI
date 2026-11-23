@@ -712,7 +712,7 @@ export default function StudioPage() {
                       alt="МузСтудия — мобильный вид редактора"
                       width={360}
                       height={640}
-                      className="w-full h-full object-cover"
+                      className="w-full h-full object-cover object-top"
                     />
                   </div>
                 </div>
