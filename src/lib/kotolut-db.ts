@@ -89,6 +89,17 @@ function ensureTables(): Promise<void> {
 
 /* ---------- чтение топа и статистики ---------- */
 
+/**
+ * Короткий тег устройства для развязки дублей ников («Ник•a3f9»).
+ * Локальная копия devTag из leaders-db.ts: у каждой игры своя таблица,
+ * и кото-лут не должен зависеть от внутренностей основной игры.
+ */
+function kotoDevTag(device: string): string {
+  let h = 5381
+  for (let i = 0; i < device.length; i++) h = ((h << 5) + h + device.charCodeAt(i)) >>> 0
+  return h.toString(36).padStart(4, '0').slice(0, 4)
+}
+
 export async function fetchKotoTop(limit = 20): Promise<KotoLeaderRow[] | null> {
   try {
     await ensureTables()
@@ -96,10 +107,20 @@ export async function fetchKotoTop(limit = 20): Promise<KotoLeaderRow[] | null> 
       where: { wave: { gt: 0 } },
       orderBy: [{ wave: 'desc' }, { updatedAt: 'asc' }],
       take: limit,
-      select: { name: true, wave: true, bosses: true, updatedAt: true },
+      select: { name: true, wave: true, bosses: true, updatedAt: true, device: true },
     })
+    /* Дубли ников: два устройства на одном имени → оба с суффиксом «•тег».
+       Развязка без учёта регистра, как в основной таблице, но локально. */
+    const dup = new Map<string, number>()
+    for (const r of rows) {
+      const k = r.name.trim().toLowerCase()
+      dup.set(k, (dup.get(k) ?? 0) + 1)
+    }
     return rows.map((r) => ({
-      name: r.name,
+      name:
+        (dup.get(r.name.trim().toLowerCase()) ?? 0) > 1
+          ? `${r.name}•${kotoDevTag(r.device)}`
+          : r.name,
       wave: r.wave,
       bosses: r.bosses,
       date: r.updatedAt.getTime(),
