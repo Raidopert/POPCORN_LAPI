@@ -33,6 +33,9 @@
 
 import { getMarketSnapshot, isArtifactId, type ArtifactId } from './market'
 import type { BossKind } from './engine'
+import { LOOT_EXTRA_DEFS, LOOT_EXTRA_NEXT, LOOT_TRAILS, SET_DEFS, type LootSet } from './loot-catalog'
+
+export type { LootSet } from './loot-catalog'
 
 /* ════════════════ Каталог предметов ════════════════ */
 
@@ -67,75 +70,12 @@ export type Rarity =
   | 'leopard-gold'
   | 'leopard-mega'
 
-export type InvItemId =
-  | 'col-leather'
-  | 'col-red'
-  | 'col-spiked'
-  | 'col-diamond'
-  /* 0.0.68: леопардовая вершина — минимум 5 предметов каждого вида */
-  | 'col-leopard'
-  | 'bra-beads'
-  | 'bra-silver'
-  | 'bra-gold'
-  | 'bra-legend'
-  | 'bra-leopard'
-  /* 0.0.68: розовый венец в начале ветки + леопардовая вершина */
-  | 'crown-rose'
-  | 'crown-gold'
-  | 'crown-diamond'
-  | 'crown-ancient'
-  | 'crown-leopard'
-  /* Кольца (0.0.66) */
-  | 'ring-silver'
-  | 'ring-amber'
-  | 'ring-emerald'
-  | 'ring-sunstone'
-  | 'ring-leopard'
-  | 'ring-leopard-gold'
-  | 'ring-leopard-mega'
-  /* Баночки (0.0.66) */
-  | 'jar-mint'
-  | 'jar-honey'
-  | 'jar-berry'
-  | 'jar-star'
-  | 'jar-leopard'
-  | 'jar-leopard-gold'
-  | 'jar-leopard-mega'
-  /* БОССОВЫЕ БАНОЧКИ (0.0.69): падают ТОЛЬКО с боссов, у каждой свой эффект */
-  | 'jar-pigeon'
-  | 'jar-kid'
-  | 'jar-lion'
-  | 'jar-gypsy'
-  | 'jar-marten'
-  /* Волшебные талисманы (0.0.66) */
-  | 'magic-star'
-  | 'magic-moon'
-  | 'magic-comet'
-  | 'magic-aurora'
-  | 'magic-leopard'
-  | 'magic-leopard-gold'
-  | 'magic-leopard-mega'
-  /* Напульсники (0.0.80): спортивная серия — потолок комбо выше */
-  | 'wrist-foam'
-  | 'wrist-striped'
-  | 'wrist-sport'
-  | 'wrist-champ'
-  | 'wrist-leopard'
-  /* Накладки на подушечки (0.0.80): скорость лапки + торможение у мин */
-  | 'pad-cloth'
-  | 'pad-grip'
-  | 'pad-silicone'
-  | 'pad-plush'
-  | 'pad-leopard'
-  /* Духи (0.0.80): цветной шлейф + сдача с бОльшего расстояния */
-  | 'perf-mint'
-  | 'perf-vanilla'
-  | 'perf-rose'
-  | 'perf-lavender'
-  | 'perf-citrus'
-  | 'perf-orchid'
-  | 'perf-amber'
-  | 'perf-leopard'
+/**
+ * 0.0.83: id предмета — строка. Каталог вырос до 300 предметов
+ * (59 базовых + 241 из loot-catalog), union больше не масштабируется —
+ * целостность держит INV_MAP (isInvItemId проверяет наличие в каталоге).
+ */
+export type InvItemId = string
 
 export interface InvDef {
   id: InvItemId
@@ -192,7 +132,7 @@ export interface InvFx {
  *  - БРАСЛЕТ  → опыт: сундучки и награда за этап;
  *  - ВЕНЕЦ    → алмазы из путешествий NANA.
  */
-export const INV_DEFS: ReadonlyArray<InvDef> = [
+const INV_BASE_DEFS: ReadonlyArray<InvDef> = [
   /* Ошейники */
   { id: 'col-leather', kind: 'collar', rarity: 'common', icon: '/inventory/col-leather.png', sell: 25, bonus: 0.04, weight: 22 },
   { id: 'col-red', kind: 'collar', rarity: 'rare', icon: '/inventory/col-red.png', sell: 75, bonus: 0.08, weight: 12 },
@@ -285,6 +225,12 @@ export const INV_DEFS: ReadonlyArray<InvDef> = [
   { id: 'perf-leopard', kind: 'perfume', rarity: 'leopard', icon: '/inventory/perf-leopard.png', sell: 2000, bonus: 0, weight: 1, fx: { dropRange: 1.35, luck: 1.08, xp: 1.05 } },
 ]
 
+/**
+ * Полный каталог 0.0.83: 59 базовых предметов + 241 из тематических семей
+ * loot-catalog = ровно 300 предметов.
+ */
+export const INV_DEFS: ReadonlyArray<InvDef> = [...INV_BASE_DEFS, ...LOOT_EXTRA_DEFS]
+
 export const INV_MAP: Record<InvItemId, InvDef> = INV_DEFS.reduce(
   (acc, d) => {
     acc[d.id] = d
@@ -319,7 +265,7 @@ export const LOOT_IDS: ReadonlyArray<InvItemId> = [
  * Переплавка 3→1 (0.0.54): ступень выше той же ветки.
  * null — вершина ветки (переплавлять нельзя).
  */
-export const NEXT_TIER: Record<InvItemId, InvItemId | null> = {
+const NEXT_TIER_BASE: Record<InvItemId, InvItemId | null> = {
   'col-leather': 'col-red',
   'col-red': 'col-spiked',
   'col-spiked': 'col-diamond',
@@ -388,6 +334,12 @@ export const NEXT_TIER: Record<InvItemId, InvItemId | null> = {
   'perf-orchid': 'perf-amber',
   'perf-amber': 'perf-leopard',
   'perf-leopard': null,
+}
+
+/** Полные лестницы 0.0.83: базовые ветки + 48 семей из loot-catalog */
+export const NEXT_TIER: Record<InvItemId, InvItemId | null> = {
+  ...NEXT_TIER_BASE,
+  ...LOOT_EXTRA_NEXT,
 }
 
 /**
@@ -804,6 +756,8 @@ export interface DropResult {
   stored: boolean
   /** Монетки при автопродаже (0, если предмет хранится) */
   coins: number
+  /** 0.0.83: этим дропом игрок ДОБРАЛ комплект — эпический бонус навсегда */
+  setDone?: LootSet
 }
 
 /** Рулетка лута: взвешенно по каталогу. Удача (0.0.66) — надетые
@@ -852,7 +806,7 @@ export function dropInvItemOfRarity(rarity: Rarity): DropResult {
   const everSet = new Set<InvItemId>(cur.everHad)
   everSet.add(def.id)
   saveInventory({ ...cur, items: [...cur.items, item], everHad: [...everSet] })
-  return { def, stored: true, coins: 0 }
+  return { def, stored: true, coins: 0, setDone: completedSet(cur, def.id) }
 }
 
 /* ── СТАКИ (0.0.78) ──
@@ -917,7 +871,7 @@ export function dropInvItem(): DropResult {
   const everSet = new Set<InvItemId>(cur.everHad)
   everSet.add(def.id)
   saveInventory({ ...cur, items: [...cur.items, item], everHad: [...everSet] })
-  return { def, stored: true, coins: 0 }
+  return { def, stored: true, coins: 0, setDone: completedSet(cur, def.id) }
 }
 
 /** Результат обмена 3→1 (0.0.68): вещь классом выше за 3-ю продажу одинакового */
@@ -937,6 +891,8 @@ export interface SellResult {
   coins: number
   /** Обмен: 3-я продажа одинакового — вещь классом выше */
   tradeUp?: SellTradeUp
+  /** 0.0.83: этой продажей (через обмен 3→1) ДОБРАН комплект */
+  setDone?: LootSet
 }
 
 /**
@@ -962,7 +918,8 @@ export function sellInvItem(uid: string): SellResult {
       sold: cur.sold + 1,
       soldById,
     }
-    return { coins, tradeUp: commitSellTrade(base, item.id) }
+    const res = commitSellTrade(base, item.id)
+    return { coins, tradeUp: res.trade, setDone: res.setDone }
   }
   const claw = cur.claws.find((i) => i.uid === uid)
   if (!claw) return { coins: 0 }
@@ -977,37 +934,40 @@ export function sellInvItem(uid: string): SellResult {
     sold: cur.sold + 1,
     soldById,
   }
-  return { coins, tradeUp: commitSellTrade(base, claw.id) }
+  const res = commitSellTrade(base, claw.id)
+  return { coins, tradeUp: res.trade, setDone: res.setDone }
 }
 
 /** Сохранить продажу; если это был 3-й одинаковый — уронить вещь классом выше */
-function commitSellTrade(base: InventoryState, soldId: AnyLootId): SellTradeUp | undefined {
+function commitSellTrade(base: InventoryState, soldId: AnyLootId): { trade?: SellTradeUp; setDone?: LootSet } {
   const nextId = (base.soldById[soldId] || 0) % 3 === 0 ? nextTierOf(soldId) : null
   if (!nextId) {
     saveInventory(base)
-    return undefined
+    return {}
   }
   const recycled = base.recycled + 1
-  if (isInvItemId(nextId)) {
-    const def = INV_MAP[nextId]
+  /* Коготки проверяем первыми: ClawId — подмножество string,
+     поэтому обратное сужение isInvItemId даёт never */
+  if (isClawId(nextId)) {
+    const cdef = CLAW_MAP[nextId]
     if (storageFull(base)) {
       saveInventory(base)
-      return { id: nextId, def, stored: false, coins: def.sell }
+      return { trade: { id: nextId, def: cdef, stored: false, coins: cdef.sell } }
     }
-    const fresh: InvItem = { uid: newUid(), id: nextId, ts: Date.now() }
-    const everSet = new Set<InvItemId>(base.everHad)
-    everSet.add(nextId)
-    saveInventory({ ...base, items: [...base.items, fresh], everHad: [...everSet], recycled })
-    return { id: nextId, def, stored: true, coins: 0 }
+    const fresh: ClawItem = { uid: newUid(), id: nextId, ts: Date.now() }
+    saveInventory({ ...base, claws: [...base.claws, fresh], recycled })
+    return { trade: { id: nextId, def: cdef, stored: true, coins: 0 } }
   }
-  const cdef = CLAW_MAP[nextId]
+  const def = INV_MAP[nextId]
   if (storageFull(base)) {
     saveInventory(base)
-    return { id: nextId, def: cdef, stored: false, coins: cdef.sell }
+    return { trade: { id: nextId, def, stored: false, coins: def.sell } }
   }
-  const fresh: ClawItem = { uid: newUid(), id: nextId, ts: Date.now() }
-  saveInventory({ ...base, claws: [...base.claws, fresh], recycled })
-  return { id: nextId, def: cdef, stored: true, coins: 0 }
+  const fresh: InvItem = { uid: newUid(), id: nextId, ts: Date.now() }
+  const everSet = new Set<InvItemId>(base.everHad)
+  everSet.add(nextId)
+  saveInventory({ ...base, items: [...base.items, fresh], everHad: [...everSet], recycled })
+  return { trade: { id: nextId, def, stored: true, coins: 0 }, setDone: completedSet(base, nextId) }
 }
 
 /** Надеть предмет по uid (снимает предыдущий того же слота) */
@@ -1181,8 +1141,8 @@ export const ZERO_GEAR_FX: GearFx = {
   trail: [],
 }
 
-/** Цвета шлейфа духов: пара оттенков — частицы рисуются попеременно */
-export const PERFUME_TRAIL: Partial<Record<InvItemId, [string, string]>> = {
+/** Цвета шлейфа духов (базовые 8 ароматов): пара оттенков — частицы рисуются попеременно */
+const PERFUME_TRAIL_BASE: Partial<Record<InvItemId, readonly [string, string]>> = {
   'perf-mint': ['#7fcf9e', '#a8e2bd'],
   'perf-vanilla': ['#ffe9c9', '#ffd98a'],
   'perf-rose': ['#f273a8', '#f8a6c9'],
@@ -1191,6 +1151,11 @@ export const PERFUME_TRAIL: Partial<Record<InvItemId, [string, string]>> = {
   'perf-orchid': ['#e0559e', '#f279bd'],
   'perf-amber': ['#e8862e', '#f4b942'],
   'perf-leopard': ['#e8862e', '#7a4a1f'],
+}
+/** 0.0.83: шлейфы всех духов — базовые 8 + 30 новых из семей каталога */
+export const PERFUME_TRAIL: Partial<Record<InvItemId, readonly [string, string]>> = {
+  ...PERFUME_TRAIL_BASE,
+  ...LOOT_TRAILS,
 }
 
 /** Экипировка (0.0.80): напульсник + накладки + духи одним пакетом */
@@ -1215,6 +1180,49 @@ export function gearBonuses(state: InventoryState = getInventorySnapshot()): Gea
     }
   }
   return out
+}
+
+/* ════════════════ КОМПЛЕКТЫ (0.0.83) ════════════════ */
+
+export const SET_MAP: Record<string, LootSet> = SET_DEFS.reduce(
+  (acc, s) => {
+    acc[s.id] = s
+    return acc
+  },
+  {} as Record<string, LootSet>,
+)
+
+/**
+ * Прогресс комплекта: сколько вещей уже побывало в руках (everHad).
+ * Продажа вещей комплект НЕ ломает — «собрал» значит собрал навсегда.
+ */
+export function setProgress(
+  state: InventoryState,
+  setId: string,
+): { have: number; total: number; done: boolean } {
+  const def = SET_MAP[setId]
+  if (!def) return { have: 0, total: 0, done: false }
+  const has = new Set<InvItemId>(state.everHad)
+  let have = 0
+  for (const id of def.items) if (has.has(id)) have++
+  return { have, total: def.items.length, done: have >= def.items.length }
+}
+
+/** Комплект собран? (по everHad — навсегда) */
+export const isSetDone = (state: InventoryState, setId: string): boolean =>
+  setProgress(state, setId).done
+
+/** Какой комплект (если есть) завершается добавлением предмета.
+ *  before — состояние ДО добавления (everHad ещё без нового предмета) */
+function completedSet(before: InventoryState, addedId: InvItemId): LootSet | undefined {
+  for (const def of SET_DEFS) {
+    if (!def.items.includes(addedId)) continue
+    if (isSetDone(before, def.id)) continue // уже был собран — не бумкаем повторно
+    const has = new Set<InvItemId>(before.everHad)
+    has.add(addedId)
+    if (def.items.every((i) => has.has(i))) return def
+  }
+  return undefined
 }
 
 /* ════════════════ Ачивки инвентаря ════════════════ */
@@ -1283,6 +1291,14 @@ export function inventoryBonuses(state: InventoryState = getInventorySnapshot())
     if (fx.gems) out.gems *= fx.gems
     if (fx.luck) out.luck *= fx.luck
   }
+  /* 0.0.83: эпические бонусы СОБРАННЫХ комплектов — постоянные, без надевания */
+  for (const def of SET_DEFS) {
+    if (!isSetDone(state, def.id)) continue
+    if (def.fx.coins) out.coins *= def.fx.coins
+    if (def.fx.xp) out.xp *= def.fx.xp
+    if (def.fx.gems) out.gems *= def.fx.gems
+    if (def.fx.luck) out.luck *= def.fx.luck
+  }
   return out
 }
 
@@ -1310,19 +1326,34 @@ export const ZERO_JAR_FX: JarFx = {
   heartsPlus: 0,
 }
 
-/** Эффекты надетой баночки (слот «jar»); пусто — нейтральный набор */
+/** Эффекты надетой баночки (слот «jar»); пусто — нейтральный набор.
+ *  0.0.83: сюда же складываются эффекты собранных комплектов (сердечки,
+ *  золотые зёрна, Лихорадка и пр.) — они постоянные, баночка не нужна */
 export function jarBonuses(state: InventoryState = getInventorySnapshot()): JarFx {
   const uid = state.jar
-  if (!uid) return ZERO_JAR_FX
-  const item = state.items.find((i) => i.uid === uid)
-  if (!item) return ZERO_JAR_FX
-  const fx = INV_MAP[item.id]?.fx
-  if (!fx) return ZERO_JAR_FX
-  return {
-    pigeonSlow: fx.pigeonSlow ?? 0,
-    theftDown: fx.theftDown ?? 0,
-    feverPlus: fx.feverPlus ?? 0,
-    goldenUp: fx.goldenUp ?? 1,
-    heartsPlus: fx.heartsPlus ?? 0,
+  let out: JarFx = { ...ZERO_JAR_FX }
+  if (uid) {
+    const item = state.items.find((i) => i.uid === uid)
+    const fx = item ? INV_MAP[item.id]?.fx : undefined
+    if (fx) {
+      out = {
+        pigeonSlow: fx.pigeonSlow ?? 0,
+        theftDown: fx.theftDown ?? 0,
+        feverPlus: fx.feverPlus ?? 0,
+        goldenUp: fx.goldenUp ?? 1,
+        heartsPlus: fx.heartsPlus ?? 0,
+      }
+    }
   }
+  /* 0.0.83: постоянные эффекты собранных комплектов */
+  for (const def of SET_DEFS) {
+    if (!isSetDone(state, def.id)) continue
+    const fx = def.fx
+    if (fx.heartsPlus) out.heartsPlus += fx.heartsPlus
+    if (fx.goldenUp) out.goldenUp *= fx.goldenUp
+    if (fx.feverPlus) out.feverPlus += fx.feverPlus
+    if (fx.pigeonSlow) out.pigeonSlow = Math.max(out.pigeonSlow, fx.pigeonSlow)
+    if (fx.theftDown) out.theftDown = Math.max(out.theftDown, fx.theftDown)
+  }
+  return out
 }

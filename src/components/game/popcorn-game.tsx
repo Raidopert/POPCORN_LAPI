@@ -135,6 +135,7 @@ import {
   isNewItem,
   countNewItems,
   equippedArtifacts,
+  setProgress,
   type ClawBonuses,
   type ClawDef,
   type ClawDropResult,
@@ -146,9 +147,11 @@ import {
   type InvItem,
   type InvItemId,
   type ItemKind,
+  type LootSet,
   type Rarity,
   type SellResult,
 } from '@/lib/game/inventory'
+import { SET_DEFS } from '@/lib/game/loot-catalog'
 import {
   UPGRADES,
   UPGRADE_CATS,
@@ -2355,7 +2358,7 @@ const DAILY_ICONS: Record<DailyKind, string> = {
 function DailyOverlay({ t, onClose }: { t: TranslateFn; onClose: () => void }) {
   const state = useSyncExternalStore(subscribeDailies, getDailies, () => DAILY_EMPTY)
   /* Что выдало последнее задание: предмет лута или компенсация монетками */
-  const [loot, setLoot] = useState<{ icon: string; name: string; coins: number } | null>(null)
+  const [loot, setLoot] = useState<{ icon: string; name: string; coins: number; setName?: string; setBonus?: string } | null>(null)
   const [prize, setPrize] = useState(false)
   const lootTimer = useRef<number | null>(null)
   useEffect(() => {
@@ -2370,7 +2373,13 @@ function DailyOverlay({ t, onClose }: { t: TranslateFn; onClose: () => void }) {
     if (!drop) return
     audio.play('gift')
     audio.play('coin')
-    setLoot({ icon: drop.def.icon, name: t(`item.${drop.def.id}.name`), coins: drop.coins })
+    setLoot({
+      icon: drop.def.icon,
+      name: t(`item.${drop.def.id}.name`),
+      coins: drop.coins,
+      setName: drop.setDone ? t(`set.${drop.setDone.id}.name`) : undefined,
+      setBonus: drop.setDone ? t(`set.${drop.setDone.id}.bonus`) : undefined,
+    })
     if (lootTimer.current) window.clearTimeout(lootTimer.current)
     lootTimer.current = window.setTimeout(() => {
       setLoot(null)
@@ -2530,6 +2539,11 @@ function DailyOverlay({ t, onClose }: { t: TranslateFn; onClose: () => void }) {
                     <p className="font-ui text-[10px] text-[#8a6a52]">+{loot.coins} 🪙</p>
                   ) : (
                     <p className="font-ui text-[10px] text-[#8a6a52]">🎒</p>
+                  )}
+                  {loot.setName && (
+                    <p className="font-ui text-[10px] font-bold text-[#9A4ED6]">
+                      🏆 {t('inv.setDoneBadge')} — {loot.setName}: {loot.setBonus}
+                    </p>
                   )}
                 </div>
               </div>
@@ -3281,6 +3295,77 @@ function InventoryOverlay({
                     {on ? t(`item.${cd.id}.name`) : t(slotKey)}
                   </span>
                 </button>
+              )
+            })}
+          </div>
+        </div>
+
+        {/* КОМПЛЕКТЫ (0.0.83): собери все 5 вещей — эпический бонус НАВСЕГДА.
+            Прогресс по everHad — продажа вещей комплект не ломает */}
+        <div className="mt-2.5">
+          <div className="flex items-baseline justify-between gap-2 px-0.5">
+            <span className="font-pixel text-[11px] font-bold text-[#9A4ED6]">{t('inv.sets')}</span>
+            <span className="truncate font-ui text-[8px] font-medium text-[#a97c50] sm:text-[9px]">
+              {t('inv.setsHint')}
+            </span>
+          </div>
+          <div className="mt-1.5 grid grid-cols-2 gap-1.5">
+            {SET_DEFS.map((s) => {
+              const prog = setProgress(inv, s.id)
+              return (
+                <div
+                  key={s.id}
+                  className={`rounded-lg border-2 p-1.5 text-left transition ${
+                    prog.done
+                      ? 'border-[#C979F0] bg-[#f6ecff] shadow-[0_0_10px_rgba(201,121,240,0.45)]'
+                      : 'border-[#e3cba4] bg-[#FFF6E6]/85'
+                  }`}
+                >
+                  <div className="flex items-center gap-1">
+                    <div className="flex min-w-0 flex-1 flex-wrap gap-0.5">
+                      {s.items.map((id) => {
+                        const d = INV_MAP[id]
+                        const had = inv.everHad.includes(id)
+                        return (
+                          <img
+                            key={id}
+                            src={d.icon}
+                            alt=""
+                            aria-hidden
+                            draggable={false}
+                            title={had ? t(`item.${id}.name`) : '???'}
+                            className={`h-6 w-6 rounded border object-cover sm:h-7 sm:w-7 ${
+                              had ? 'border-[#e3cba4]' : 'border-dashed border-[#c9a97a] opacity-30 grayscale'
+                            }`}
+                          />
+                        )
+                      })}
+                    </div>
+                    <span
+                      className={`shrink-0 rounded-full px-1.5 py-px font-pixel text-[9px] font-bold leading-tight ${
+                        prog.done ? 'bg-[#9A4ED6] text-white' : 'bg-[#2b1a0e]/80 text-[#FFE066]'
+                      }`}
+                    >
+                      {prog.done ? '✓' : `${prog.have}/${prog.total}`}
+                    </span>
+                  </div>
+                  <div className="mt-1 truncate font-pixel text-[9px] font-bold leading-tight text-[#5C3A1E] sm:text-[10px]">
+                    {prog.done ? '🏆 ' : ''}
+                    {t(`set.${s.id}.name`)}
+                  </div>
+                  <div
+                    className={`font-ui text-[8px] font-semibold leading-tight sm:text-[9px] ${
+                      prog.done ? 'text-[#9A4ED6]' : 'text-[#B33A26]'
+                    }`}
+                  >
+                    {t(`set.${s.id}.bonus`)}
+                  </div>
+                  {!prog.done && (
+                    <div className="font-ui text-[8px] leading-tight text-[#a97c50] sm:text-[9px]">
+                      {t('inv.setProgress', { n: prog.have, m: prog.total })}
+                    </div>
+                  )}
+                </div>
               )
             })}
           </div>
@@ -6304,6 +6389,20 @@ export function PopcornGame() {
   /* Лут сундучка (0.0.53): предмет инвентаря, выпавший при открытии
      (null — сундучки ещё не открывались / новая партия уже отроллена) */
   const [loot, setLoot] = useState<DropResult | null>(null)
+  /* КОМПЛЕКТЫ (0.0.83): тост «комплект собран» — эпический бонус навсегда */
+  const [setDoneToast, setSetDoneToast] = useState<{ ts: number; name: string; bonus: string } | null>(null)
+  const setDoneTimerRef = useRef<number | null>(null)
+  const notifySetDone = useCallback(
+    (set?: LootSet | null): void => {
+      if (!set) return
+      const payload = { ts: Date.now(), name: tRef.current(`set.${set.id}.name`), bonus: tRef.current(`set.${set.id}.bonus`) }
+      setSetDoneToast(payload)
+      audio.play('achieve')
+      window.clearTimeout(setDoneTimerRef.current ?? undefined)
+      setDoneTimerRef.current = window.setTimeout(() => setSetDoneToast(null), 4200)
+    },
+    [],
+  )
   const [openedIdx, setOpenedIdx] = useState<number | null>(null)
   const [runLevel, setRunLevel] = useState(2)
   const [perk, setPerk] = useState<PerkId | null>(null)
@@ -6976,8 +7075,10 @@ export function PopcornGame() {
       /* склад был полон и обменная вещь сразу продалась — монетки в кошелёк */
       if (!res.tradeUp.stored && res.tradeUp.coins > 0) addCoins(res.tradeUp.coins)
     }
+    /* 0.0.83: обмен 3→1 мог ДОБРАТЬ комплект — тост с эпическим бонусом */
+    notifySetDone(res.setDone)
     return res
-  }, [])
+  }, [notifySetDone])
 
   /** Артефакт лавки: надеть на лапку инвентаря (0.0.54) */
   const handleEquipArtInv = useCallback((id: ArtifactId): boolean => {
@@ -7877,6 +7978,7 @@ export function PopcornGame() {
            автопродажа в монетки, честно и без потери */
         const drop = dropInvItemOfRarity(CHEST_TIER_RARITY[tier])
         if (!drop.stored) addCoins(drop.coins)
+        notifySetDone(drop.setDone)
         setChestLoot({
           ts: Date.now(),
           tier,
@@ -8730,6 +8832,7 @@ export function PopcornGame() {
          автопродажа в монетки, честно и без потери */
       const drop = dropInvItem()
       if (!drop.stored) addCoins(drop.coins)
+      notifySetDone(drop.setDone)
       setAdReward(drop)
       audio.play('perk')
     } else if (res === 'skipped') {
@@ -8827,9 +8930,10 @@ export function PopcornGame() {
       const drop = dropInvItem()
       setLoot(drop)
       if (!drop.stored) addCoins(drop.coins)
+      notifySetDone(drop.setDone)
       window.setTimeout(() => audio.play('perk'), 380)
     },
-    [extras, checkLifeAch],
+    [extras, checkLifeAch, notifySetDone],
   )
 
   /** Надеть купленную лапку (действует и в текущем забеге) */
@@ -10678,6 +10782,37 @@ export function PopcornGame() {
                 </div>
                 <div className="font-pixel text-sm font-bold leading-tight text-white sm:text-base">
                   {achToast.name}
+                </div>
+              </div>
+            </div>
+          </motion.div>
+        )}
+      </AnimatePresence>
+
+      {/* 0.0.83: тост «КОМПЛЕКТ СОБРАН» — эпический бонус навсегда */}
+      <AnimatePresence>
+        {setDoneToast && (
+          <motion.div
+            key={`setdone-${setDoneToast.ts}`}
+            className="absolute bottom-28 left-1/2 z-50 -translate-x-1/2"
+            initial={{ opacity: 0, y: 24, scale: 0.9 }}
+            animate={{ opacity: 1, y: 0, scale: 1 }}
+            exit={{ opacity: 0, y: 12, scale: 0.95 }}
+            transition={{ type: 'spring', stiffness: 320, damping: 24 }}
+          >
+            <div className="flex items-center gap-2 rounded-2xl border-2 border-[#C979F0] bg-[#2b1a0e]/95 px-4 py-2 shadow-[0_8px_24px_rgba(0,0,0,0.6),0_0_24px_rgba(201,121,240,0.5)]">
+              <span aria-hidden className="text-2xl drop-shadow-[0_0_8px_rgba(201,121,240,0.7)]">
+                🏆
+              </span>
+              <div>
+                <div className="font-ui text-[10px] font-bold uppercase tracking-wider text-[#E3B8FF]">
+                  {t('inv.setDoneBadge')}
+                </div>
+                <div className="font-pixel text-sm font-bold leading-tight text-white sm:text-base">
+                  {setDoneToast.name}
+                </div>
+                <div className="font-ui text-[10px] font-semibold leading-tight text-[#E3B8FF]">
+                  {setDoneToast.bonus}
                 </div>
               </div>
             </div>

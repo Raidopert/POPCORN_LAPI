@@ -6,6 +6,8 @@
  * подставляются через vars. Движок получает tFor(lang) через setLang.
  */
 
+import { LOOT_I18N } from './loot-i18n'
+
 export type Lang = 'ru' | 'en' | 'de' | 'es'
 
 export const LANGS: Array<{ id: Lang; label: string; flag: string }> = [
@@ -4824,12 +4826,14 @@ export function detectLang(): Lang {
   return 'en'
 }
 
-/** Функция перевода для выбранного языка (с подстановкой {{vars}}) */
+/** Функция перевода для выбранного языка (с подстановкой {{vars}}).
+ *  0.0.83: после основного словаря смотрим программный словарь лута —
+ *  item.* ключи новых предметов и ключи UI комплектов */
 export function tFor(lang: Lang): TranslateFn {
   const idx = LANGS.findIndex((l) => l.id === lang)
   const i = idx < 0 ? 0 : idx
   return (key, vars) => {
-    const row = T[key]
+    const row = T[key] ?? LOOT_I18N[key]
     let s = row ? row[i] || row[0] : key
     if (vars) {
       for (const [k, v] of Object.entries(vars)) {
