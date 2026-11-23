@@ -38,6 +38,7 @@ import {
   type Sprite,
 } from './sprites'
 import { Pool } from './pool'
+import { roomModifierForLevel, type RoomModifier } from './rooms'
 
 /** 0.0.78: тиры сундуков на поле нужны и UI — реэкспортируем тип */
 export type { FieldChestTier }
@@ -928,6 +929,11 @@ export class PopcornEngine {
   private wave = 1
   private popPerWave = 10
   private cornPerWave = 3
+  /* v0.0.82: модификатор комнаты (levitate/warm/dark/windy/zero-g) —
+     задаётся в startLevel по номеру уровня, живёт до следующего уровня */
+  private roomMod: RoomModifier = 'none'
+  /** Секундомер модификатора: фазы ветра/невесомости */
+  private roomModT = 0
   private goldenChance = 0.12
   /** Шанс карамельного зерна (+2): растёт с уровнем */
   private caramelChance = 0.04
@@ -1399,6 +1405,9 @@ export class PopcornEngine {
   startLevel(level: number, perk: PerkId | null): void {
     this.lvl = level
     this.perk = perk
+    /* v0.0.82: модификатор комнаты по номеру уровня (14-комнатный круг) */
+    this.roomMod = roomModifierForLevel(level)
+    this.roomModT = 0
     /* Сложность из настроек: лёгкая (+10 сек), сложная (−10 сек) */
     const diffTime = this.opts.difficulty === 'easy' ? 10 : this.opts.difficulty === 'hard' ? -10 : 0
     /* «Долгий бой»: на боссовых уровнях (+3 сек за ступень) */
@@ -1458,6 +1467,11 @@ export class PopcornEngine {
     /* Разнообразие зёрен: карамель и масло появляются с ростом уровня */
     this.caramelChance = Math.min(0.2, 0.04 + (this.lvl - 1) * 0.014)
     this.butterChance = this.lvl >= 3 ? Math.min(0.1, 0.015 + (this.lvl - 3) * 0.007) : 0
+    /* v0.0.82: комната «Пекарня» (warm) — карамель и масло заметно чаще */
+    if (this.roomMod === 'warm') {
+      this.caramelChance = Math.min(0.24, this.caramelChance + 0.07)
+      this.butterChance = Math.min(0.16, this.butterChance + 0.05)
+    }
     /* 0.0.77 «Виды попкорна»: новые сорта выходят по нарастающей —
        сырное с 2-го, шоколад с 3-го, лёд с 4-го, жгучий перчик с 6-го */
     this.cheeseChance = this.lvl >= 2 ? Math.min(0.1, 0.03 + (this.lvl - 2) * 0.008) : 0
@@ -2237,6 +2251,56 @@ export class PopcornEngine {
     }
   }
 
+  /* v0.0.82: механика модификаторов комнат — лёгкий дрейф зёрен по типу
+     комнаты. Мины не двигаются («стоят угрожающе неподвижно»), спавн-анимация
+     не трогается. Тьма (dark) — отдельный рендер: drawDarkness() */
+  private updateRoomMod(dt: number): void {
+    if (this.roomMod === 'dark') return // у тьмы нет дрейфа — только мрак
+    const u = this.u
+    const mX = 34 * u
+    const top = 50
+    const bottom = this.H - 56 * u
+    const t = this.roomModT
+    const clamped = this.roomMod === 'levitate' || this.roomMod === 'windy' || this.roomMod === 'zero-g'
+    for (const p of this.pieces) {
+      if (p.kind === 'corn' || p.spawn > 0.12) continue
+      if (this.roomMod === 'levitate') {
+        /* Лаборатория: ленивое парение — зёрна медленно блуждают, лапке легко */
+        p.dA += (Math.random() - 0.5) * dt * 1.4
+        const sp = 9 * u
+        p.x += Math.cos(p.dA) * sp * dt
+        p.y += Math.sin(p.dA) * sp * dt
+      } else if (this.roomMod === 'windy') {
+        /* Метро: порывы ветра — синусоидальный сдвиг с мелкой турбулентностью */
+        const gust = Math.sin(t * 0.85) * 15 * u + Math.sin(t * 2.1 + p.phase) * 4 * u
+        p.x += gust * dt
+      } else if (this.roomMod === 'zero-g') {
+        /* Космодром: невесомость — зерно срывается импульсом рывками, потом замирает */
+        const burst = Math.max(0, Math.sin(t * 1.6 + p.phase))
+        const sp = 30 * u * burst * burst
+        p.x += Math.cos(p.dA) * sp * dt
+        p.y += Math.sin(p.dA) * sp * dt
+      }
+      if (!clamped) continue
+      if (p.x < mX) {
+        p.x = mX
+        p.dA = Math.PI - p.dA
+      }
+      if (p.x > this.W - mX) {
+        p.x = this.W - mX
+        p.dA = Math.PI - p.dA
+      }
+      if (p.y < top) {
+        p.y = top
+        p.dA = -p.dA
+      }
+      if (p.y > bottom) {
+        p.y = bottom
+        p.dA = -p.dA
+      }
+    }
+  }
+
   /* ================= большая попкорнина ================= */
 
   /** Тик большой попкорнины: побег по полю, обратный отсчёт, спавн по расписанию */
@@ -2562,6 +2626,11 @@ export class PopcornEngine {
 
     if (this.perk === 'drift') this.driftPieces(dt)
     if (this.perk === 'magnet') this.magnetPull(dt)
+    /* v0.0.82: дрейф зёрен по модификатору комнаты (levitate/windy/zero-g) */
+    if (this.roomMod !== 'none') {
+      this.roomModT += dt
+      this.updateRoomMod(dt)
+    }
 
     // Голубь-воришка: влетает с 3-го уровня и таскает попкорн из стаканчика
     this.updatePigeon(dt)
@@ -5874,6 +5943,9 @@ export class PopcornEngine {
     /* Туман рисуем ДО надписей: баннер «ВОЛНА N» и всплывающие тексты
        читаются сквозь попкорновый туман (раньше туман их накрывал) */
     if (this.perk === 'fog' && this.phase === 'playing') this.drawFog()
+    /* v0.0.82 «Дом с призраками» (dark): мрак и фонарик лапки — тоже до
+       надписей, баннер и всплывающие тексты читаются сквозь тьму */
+    if (this.roomMod === 'dark' && this.phase === 'playing') this.drawDarkness()
     this.drawTexts()
     this.drawBanner()
 
@@ -6804,6 +6876,28 @@ export class PopcornEngine {
   }
 
   /** «Попкорнный туман»: ступенчатые кольца темноты вокруг лапки (8-битный стиль) */
+  /** v0.0.82 «Дом с призраками»: поле утоплено в мрак, вокруг лапки — тёплый
+      круг «фонарика». Комната живёт в DOM-фоне ПОД канвасом, поэтому мрак
+      рисуем на канвасе и вырезаем световое пятно композитом destination-out:
+      сквозь вырез светится комната (и под ней — зёрна рядом с лапкой) */
+  private drawDarkness(): void {
+    const { ctx } = this
+    const u = this.u
+    /* Базовый мрак поверх мира */
+    ctx.fillStyle = 'rgba(9, 5, 16, 0.62)'
+    ctx.fillRect(0, 0, this.W, this.H)
+    /* Фонарик лапки: чуть дышит (лёгкая пульсация радиуса), как живой огонёк */
+    const r = 175 * u * (1 + Math.sin(this.roomModT * 5.3) * 0.03)
+    ctx.globalCompositeOperation = 'destination-out'
+    const g = ctx.createRadialGradient(this.paw.x, this.paw.y, r * 0.12, this.paw.x, this.paw.y, r)
+    g.addColorStop(0, 'rgba(0, 0, 0, 0.95)')
+    g.addColorStop(0.5, 'rgba(0, 0, 0, 0.5)')
+    g.addColorStop(1, 'rgba(0, 0, 0, 0)')
+    ctx.fillStyle = g
+    ctx.fillRect(this.paw.x - r, this.paw.y - r, r * 2, r * 2)
+    ctx.globalCompositeOperation = 'source-over'
+  }
+
   private drawFog(): void {
     const { ctx } = this
     const u = this.u

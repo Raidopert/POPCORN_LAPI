@@ -29,12 +29,14 @@ export type AvatarId =
   | 'spot'
   | 'royale'
   | 'stripes'
+  | 'winter'
+  | 'cosmo'
 
-export type FrameId = 'none' | 'wood' | 'gold' | 'hearts' | 'runic' | 'neon' | 'laurel'
+export type FrameId = 'none' | 'wood' | 'gold' | 'hearts' | 'runic' | 'neon' | 'laurel' | 'snow' | 'star'
 
-export type BgId = 'classic' | 'popcorn' | 'night' | 'mint' | 'sunset' | 'bubble'
+export type BgId = 'classic' | 'popcorn' | 'night' | 'mint' | 'sunset' | 'bubble' | 'winter' | 'space'
 
-export type ThemeId = 'classic' | 'mint' | 'sunset' | 'bubble' | 'midnight'
+export type ThemeId = 'classic' | 'mint' | 'sunset' | 'bubble' | 'midnight' | 'winter' | 'space'
 
 export const DEFAULT_AVATAR: AvatarId = 'kitten'
 export const DEFAULT_FRAME: FrameId = 'none'
@@ -53,7 +55,10 @@ export const AVATARS: ReadonlyArray<{ id: AvatarId; price: number; reqLevel: num
   { id: 'snow', price: 400, reqLevel: 5 },
   { id: 'stripes', price: 550, reqLevel: 7 },
   { id: 'ninja', price: 700, reqLevel: 9 },
+  /* v0.0.82: партии «Зима» и «Космос» — аватары продолжают лестницу уровней */
+  { id: 'winter', price: 800, reqLevel: 10 },
   { id: 'siam', price: 900, reqLevel: 12 },
+  { id: 'cosmo', price: 1200, reqLevel: 14 },
   { id: 'spot', price: 1300, reqLevel: 15 },
   { id: 'royale', price: 1900, reqLevel: 20 },
 ]
@@ -63,8 +68,10 @@ export const FRAMES: ReadonlyArray<{ id: FrameId; price: number }> = [
   { id: 'none', price: 0 },
   { id: 'wood', price: 300 },
   { id: 'hearts', price: 650 },
+  { id: 'snow', price: 700 },
   { id: 'gold', price: 1100 },
   { id: 'runic', price: 1500 },
+  { id: 'star', price: 1600 },
   { id: 'neon', price: 2000 },
   { id: 'laurel', price: 2800 },
 ]
@@ -74,8 +81,10 @@ export const BGS: ReadonlyArray<{ id: BgId; price: number }> = [
   { id: 'classic', price: 0 },
   { id: 'popcorn', price: 350 },
   { id: 'mint', price: 600 },
+  { id: 'winter', price: 700 },
   { id: 'night', price: 900 },
   { id: 'sunset', price: 1300 },
+  { id: 'space', price: 1200 },
   { id: 'bubble', price: 1800 },
 ]
 
@@ -86,6 +95,9 @@ export const THEMES: ReadonlyArray<{ id: ThemeId; price: number }> = [
   { id: 'sunset', price: 700 },
   { id: 'bubble', price: 1000 },
   { id: 'midnight', price: 1400 },
+  /* v0.0.82: партии «Зима» и «Космос» */
+  { id: 'winter', price: 800 },
+  { id: 'space', price: 1200 },
 ]
 
 export const AVATAR_MAP = Object.fromEntries(AVATARS.map((a) => [a.id, a])) as Record<

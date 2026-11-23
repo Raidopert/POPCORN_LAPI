@@ -170,6 +170,18 @@ import {
   type AchId,
 } from '@/lib/game/achievements'
 import { addLife, flushLife, getLife } from '@/lib/game/lifestats'
+import {
+  claimTask,
+  dailyClaimableCount,
+  dailyPrizeToday,
+  getDailies,
+  initDailies,
+  noteCombo,
+  rewardGrains,
+  subscribeDailies,
+  type DailyKind,
+  type DailyState,
+} from '@/lib/game/dailies'
 import { attachAltInput, setBindCapture } from '@/lib/game/alt-input'
 import QRCode from 'react-qr-code'
 import { ROOMS, roomForLevel, roomSrcForLevel } from '@/lib/game/rooms'
@@ -1654,6 +1666,9 @@ const THEME_SWATCH: Record<ThemeId, { a: string; b: string }> = {
   sunset: { a: '#f2793a', b: '#4a1d2c' },
   bubble: { a: '#e05fa8', b: '#431539' },
   midnight: { a: '#5a7cff', b: '#131a38' },
+  /* v0.0.82: партии «Зима» и «Космос» */
+  winter: { a: '#4db5d8', b: '#14283a' },
+  space: { a: '#9b8fc9', b: '#1c1636' },
 }
 
 /** Мини-превью фона меню (мини-квадрат с градиентом) */
@@ -1667,6 +1682,11 @@ const BG_SWATCH: Record<BgId, string> = {
   sunset: 'linear-gradient(180deg,#5c2a1d,#3a1830)',
   bubble:
     'radial-gradient(circle at 35% 35%, rgba(255,143,199,.55) 0 22%, transparent 24%), linear-gradient(180deg,#4a1a3f,#2a1030)',
+  /* v0.0.82: партии «Зима» и «Космос» */
+  winter:
+    'radial-gradient(2px 2px at 30% 30%, #fff 50%, transparent 51%), radial-gradient(2px 2px at 66% 62%, #fff9 50%, transparent 51%), linear-gradient(180deg,#1d3f5e,#0a1c30)',
+  space:
+    'radial-gradient(2px 2px at 28% 28%, #fff 50%, transparent 51%), radial-gradient(2px 2px at 72% 58%, #fff9 50%, transparent 51%), radial-gradient(circle at 78% 76%, rgba(179,166,232,.6) 0 14%, transparent 16%), linear-gradient(180deg,#0d0b24,#241040)',
 }
 
 function MarketOverlay({
@@ -2307,6 +2327,244 @@ const PATH_MILESTONES: ReadonlyArray<PathMilestone> = (() => {
     .sort((x, y) => x[0] - y[0])
     .map(([level, items]) => ({ level, items }))
 })()
+
+/* ═══════════ ДЕЖУРСТВО ПО ПОПКОРНУ (v0.0.82) — ежедневные задания ═══════════ */
+
+/** SSR-заглушка дня (стабильная ссылка для useSyncExternalStore) */
+const DAILY_EMPTY: DailyState = {
+  date: '',
+  tasks: [],
+  comboBest: 0,
+  streak: 0,
+  lastFull: '',
+  lastPrize: '',
+}
+
+/** Иконка-эмодзи для шаблона задания */
+const DAILY_ICONS: Record<DailyKind, string> = {
+  grains: '🌽',
+  golden: '✨',
+  combo: '🔥',
+  kinds: '🧀',
+  chests: '🎁',
+  boss: '👊',
+  travel: '🧳',
+  slice: '🔪',
+}
+
+function DailyOverlay({ t, onClose }: { t: TranslateFn; onClose: () => void }) {
+  const state = useSyncExternalStore(subscribeDailies, getDailies, () => DAILY_EMPTY)
+  /* Что выдало последнее задание: предмет лута или компенсация монетками */
+  const [loot, setLoot] = useState<{ icon: string; name: string; coins: number } | null>(null)
+  const [prize, setPrize] = useState(false)
+  const lootTimer = useRef<number | null>(null)
+  useEffect(() => {
+    return () => {
+      if (lootTimer.current) window.clearTimeout(lootTimer.current)
+    }
+  }, [])
+
+  const claim = (i: number): void => {
+    const wasPrize = !dailyPrizeToday()
+    const drop = claimTask(i)
+    if (!drop) return
+    audio.play('gift')
+    audio.play('coin')
+    setLoot({ icon: drop.def.icon, name: t(`item.${drop.def.id}.name`), coins: drop.coins })
+    if (lootTimer.current) window.clearTimeout(lootTimer.current)
+    lootTimer.current = window.setTimeout(() => {
+      setLoot(null)
+      /* Все три забраны и серия кратна 7 — приз уже в кармане: показать карточку */
+      if (dailyPrizeToday() && wasPrize) {
+        setPrize(true)
+        audio.play('achieve')
+        lootTimer.current = window.setTimeout(() => setPrize(false), 3600)
+      }
+    }, 2100)
+  }
+
+  const allClaimed = state.tasks.length > 0 && state.tasks.every((q) => q.claimed)
+  const streakCells = 7
+
+  return (
+    <motion.div
+      className="absolute inset-0 z-40 flex items-center justify-center overflow-y-auto bg-black/70 p-4"
+      initial={{ opacity: 0 }}
+      animate={{ opacity: 1 }}
+      exit={{ opacity: 0, pointerEvents: 'none' }}
+    >
+      <motion.div
+        className="my-auto w-full max-w-md rounded-2xl border-4 border-[#8a5330] bg-[#FFF6E6] p-4 text-center shadow-[0_18px_50px_rgba(0,0,0,0.55)] sm:p-5"
+        initial={{ scale: 0.92, y: 14 }}
+        animate={{ scale: 1, y: 0 }}
+        exit={{ scale: 0.95, opacity: 0, pointerEvents: 'none' }}
+        transition={{ type: 'spring', stiffness: 260, damping: 22 }}
+      >
+        <h2 className="font-pixel text-xl font-bold text-[#5B3A29] sm:text-2xl">
+          {t('daily.title')}
+        </h2>
+        <p className="mx-auto mt-1 max-w-xs font-ui text-[11px] leading-snug text-[#8a6a52]">
+          {t('daily.subtitle')}
+        </p>
+
+        {/* Серия дней: 7 клеточек — на седьмой «Кисиньковская радость» */}
+        <div className="mt-3 rounded-xl border-2 border-[#e7d3b3] bg-[#FFFDF6] p-2.5">
+          <div className="flex items-center justify-center gap-1.5">
+            {Array.from({ length: streakCells }).map((_, i) => {
+              const filled = state.streak % 7 > i || (state.streak > 0 && state.streak % 7 === 0)
+              const isPrizeCell = i === streakCells - 1
+              return (
+                <span
+                  key={i}
+                  aria-hidden
+                  className={
+                    'flex h-6 w-6 items-center justify-center rounded-full border-2 text-[11px] ' +
+                    (filled
+                      ? 'border-[#C979F0] bg-[#EFD9FF] text-[#5B3A29]'
+                      : isPrizeCell
+                        ? 'border-dashed border-[#C979F0] text-[#C979F0]'
+                        : 'border-[#e7d3b3] text-transparent')
+                  }
+                >
+                  {isPrizeCell ? '👑' : i + 1}
+                </span>
+              )
+            })}
+          </div>
+          <p className="mt-1.5 font-ui text-[10px] leading-snug text-[#8a6a52]">
+            {t('daily.streak', { n: state.streak })} · {t('daily.prizeNote')}
+          </p>
+        </div>
+
+        {/* Три задания дня */}
+        <div className="mt-3 space-y-2 text-left">
+          {state.tasks.map((task, i) => {
+            const done = task.progress >= task.goal
+            const pct = Math.min(100, Math.round((task.progress / Math.max(1, task.goal)) * 100))
+            return (
+              <div
+                key={task.kind}
+                className={
+                  'rounded-xl border-2 p-2.5 ' +
+                  (task.claimed
+                    ? 'border-[#bfdcc0] bg-[#f2f8ee]'
+                    : done
+                      ? 'border-[#C979F0] bg-[#FBF1FF]'
+                      : 'border-[#e7d3b3] bg-[#FFFDF6]')
+                }
+              >
+                <div className="flex items-center gap-2">
+                  <span aria-hidden className="text-xl">
+                    {DAILY_ICONS[task.kind]}
+                  </span>
+                  <div className="min-w-0 flex-1">
+                    <p className="truncate font-ui text-[12px] font-semibold text-[#5B3A29]">
+                      {t(`daily.task.${task.kind}`, { n: task.goal })}
+                    </p>
+                    <div className="mt-1 flex items-center gap-1.5">
+                      <span
+                        aria-hidden
+                        className="h-1.5 w-full overflow-hidden rounded-full bg-[#eadfc8]"
+                      >
+                        <span
+                          className="block h-full rounded-full bg-[#C979F0] transition-all duration-500"
+                          style={{ width: `${pct}%` }}
+                        />
+                      </span>
+                      <span className="shrink-0 font-ui text-[10px] tabular-nums text-[#8a6a52]">
+                        {Math.min(task.progress, task.goal)}/{task.goal}
+                      </span>
+                    </div>
+                  </div>
+                  {task.claimed ? (
+                    <span className="shrink-0 rounded-lg border-2 border-[#bfdcc0] px-2 py-1 font-pixel text-[10px] font-bold text-[#6a9a6d]">
+                      {t('daily.claimed')}
+                    </span>
+                  ) : (
+                    <button
+                      type="button"
+                      disabled={!done}
+                      onClick={() => claim(i)}
+                      className={
+                        'shrink-0 rounded-lg border-2 px-2.5 py-1 font-pixel text-[10px] font-bold transition ' +
+                        (done
+                          ? 'border-[#8a5330] bg-[#FFD86B] text-[#5B3A29] hover:brightness-110 active:translate-y-px'
+                          : 'border-[#e7d3b3] bg-[#f2ead9] text-[#b3a288]')
+                      }
+                    >
+                      {t('daily.claim')}
+                    </button>
+                  )}
+                </div>
+                <p className="mt-1 text-right font-ui text-[10px] text-[#b3a288]">
+                  +{rewardGrains(task.kind, task.goal)} 🌾
+                </p>
+              </div>
+            )
+          })}
+        </div>
+
+        {allClaimed && state.streak === 0 && (
+          <p className="mt-2 font-ui text-[11px] text-[#8a6a52]">{t('daily.streakLost')}</p>
+        )}
+        {dailyPrizeToday() && (
+          <p className="mt-2 font-pixel text-[12px] font-bold text-[#C979F0]">
+            👑 {t('daily.prize')} — {t('daily.prizeReady')}
+          </p>
+        )}
+
+        {/* Карточка награды: предмет лута или монетки за полный склад */}
+        <AnimatePresence>
+          {loot && (
+            <motion.div
+              className="pointer-events-none fixed inset-x-0 bottom-24 z-50 flex justify-center px-6"
+              initial={{ opacity: 0, y: 24 }}
+              animate={{ opacity: 1, y: 0 }}
+              exit={{ opacity: 0, y: 12 }}
+            >
+              <div className="flex items-center gap-2.5 rounded-xl border-2 border-[#C979F0] bg-[#FFF6E6] px-4 py-2.5 shadow-[0_10px_30px_rgba(0,0,0,0.4)]">
+                <img src={loot.icon} alt="" className="h-10 w-10 rounded-lg" />
+                <div className="text-left">
+                  <p className="font-ui text-[12px] font-bold text-[#5B3A29]">{loot.name}</p>
+                  {loot.coins > 0 ? (
+                    <p className="font-ui text-[10px] text-[#8a6a52]">+{loot.coins} 🪙</p>
+                  ) : (
+                    <p className="font-ui text-[10px] text-[#8a6a52]">🎒</p>
+                  )}
+                </div>
+              </div>
+            </motion.div>
+          )}
+          {prize && (
+            <motion.div
+              className="pointer-events-none fixed inset-x-0 bottom-24 z-50 flex justify-center px-6"
+              initial={{ opacity: 0, scale: 0.9 }}
+              animate={{ opacity: 1, scale: 1 }}
+              exit={{ opacity: 0 }}
+            >
+              <div className="flex items-center gap-2 rounded-xl border-2 border-[#FFD86B] bg-[#FFF6E6] px-4 py-2.5 shadow-[0_10px_30px_rgba(0,0,0,0.4)]">
+                <span aria-hidden className="text-2xl">
+                  👑
+                </span>
+                <p className="font-pixel text-[13px] font-bold text-[#5B3A29]">
+                  {t('daily.prize')} — {t('daily.prizeReady')} +200 🌾 +250 🪙
+                </p>
+              </div>
+            </motion.div>
+          )}
+        </AnimatePresence>
+
+        <button
+          type="button"
+          onClick={onClose}
+          className="mt-4 w-full rounded-xl border-2 border-[#8a5330] bg-[#FFD86B] px-4 py-2.5 font-pixel text-sm font-bold text-[#5B3A29] shadow-[0_3px_0_#b9852f] transition hover:brightness-110 active:translate-y-[2px] active:shadow-[0_1px_0_#b9852f]"
+        >
+          {t('shop.close')}
+        </button>
+      </motion.div>
+    </motion.div>
+  )
+}
 
 function PathOverlay({
   charInfo,
@@ -6186,6 +6444,7 @@ export function PopcornGame() {
     | 'upgrades'
     | 'more'
     | 'path'
+    | 'dailies'
     | null
   >(null)
   /* v0.0.75: с какой вкладки открывать рынок (тап по аватару → СТИЛЬ) */
@@ -6330,6 +6589,8 @@ export function PopcornGame() {
   useEffect(() => {
     if (sessionCountedRef.current) return
     sessionCountedRef.current = true
+    /* v0.0.82: «Дежурство по попкорну» — подключить сбор прогресса заданий */
+    initDailies()
     /* Локальные запуски сайта — для статистики в настройках */
     addLife({ visits: 1 })
     fetch('/api/sessions', {
@@ -6454,6 +6715,8 @@ export function PopcornGame() {
   }, [clawB, jarB, gearB])
   /* Бейдж новинок на кнопке ИНВЕНТАРЬ (0.0.54) */
   const invNewCount = useMemo(() => countNewItems(inv), [inv])
+  /* v0.0.82: сколько заданий «Дежурства» готовы к забору (бейджи ПРОКАЧКИ) */
+  const dailyClaimable = useSyncExternalStore(subscribeDailies, dailyClaimableCount, () => 0)
   useEffect(() => {
     /* 0.0.53: бонусы инвентаря вшиваем в общие множители рынка — все точки
        выдачи наград (сундучки, попкорнины, золото, Лихорадка, этапы,
@@ -7307,6 +7570,8 @@ export function PopcornGame() {
         }
         /* Достижения по ходу забега + пожизненные счётчики */
         const cand: AchId[] = []
+        /* v0.0.82: «Дежурство» — максимальная серия сдач за день */
+        noteCombo(s.streak)
         if (s.goldenCount > 0) cand.push('golden1')
         if (s.goldenCount >= 10) cand.push('golden10')
         if (s.goldenCount >= 25) cand.push('golden25')
@@ -8829,6 +9094,15 @@ export function PopcornGame() {
           <StatPill className="max-w-40 sm:max-w-none">
             <span aria-hidden>{activeRoom.icon}</span>
             <span className="truncate">{t(`room.${activeRoom.id}.name`)}</span>
+            {/* v0.0.82: чип модификатора комнаты — видно, чем эта локация особая */}
+            {activeRoom.modifier && activeRoom.modifier !== 'none' && (
+              <span
+                aria-hidden
+                className="rounded-full border border-violet-300/50 bg-violet-500/20 px-1.5 py-px font-pixel text-[10px] text-violet-200"
+              >
+                {t(`roomMod.${activeRoom.modifier}`)}
+              </span>
+            )}
           </StatPill>
           {activePerk && (
             <StatPill
@@ -9352,6 +9626,12 @@ export function PopcornGame() {
                   >
                     <Zap className="h-4.5 w-4.5 text-amber-400" aria-hidden />
                     {t('menu.upgrades')}
+                    {dailyClaimable > 0 && (
+                      <span
+                        aria-hidden
+                        className="absolute right-2 top-2 h-2.5 w-2.5 animate-pulse rounded-full bg-[#E24B3B] ring-2 ring-[#170826]"
+                      />
+                    )}
                     {treePts > 0 && (
                       <span className="flex h-4.5 min-w-4.5 items-center justify-center rounded-full bg-[#5C8A3A] px-1 font-ui text-[10px] font-bold text-white">
                         {treePts}
@@ -10074,6 +10354,9 @@ export function PopcornGame() {
             />
           )}
           {/* v0.0.75: ПУТЬ КОТИКА — шкала опыта с наградами уровней */}
+          {overlay === 'dailies' && (
+            <DailyOverlay t={t} onClose={closeOverlayBack} />
+          )}
           {overlay === 'path' && (
             <PathOverlay
               charInfo={charInfo}
@@ -10166,6 +10449,13 @@ export function PopcornGame() {
               hintKey="hub.upgrades.hint"
               t={t}
               tiles={[
+                /* v0.0.82: ДЕЖУРСТВО — первая плитка хаба, бейдж = готовые к забору */
+                {
+                  labelKey: 'hub.tab.dailies',
+                  emoji: '🌽',
+                  badge: dailyClaimable,
+                  onClick: () => openFromHub('upgrades', 'dailies'),
+                },
                 { labelKey: 'hub.tab.paws', emoji: '🐾', onClick: () => openFromHub('upgrades', 'shop') },
                 {
                   labelKey: 'hub.tab.tree',

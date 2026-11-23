@@ -137,6 +137,18 @@ export function getLife(): LifeStats {
   return cache
 }
 
+/**
+ * Хук проброса дельт (v0.0.82): «Дежурство по попкорну» собирает прогресс
+ * заданий из того же потока событий — без дублирования вызовов.
+ * Ставится один раз на клиенте через initDailies().
+ */
+type LifeHook = (patch: Partial<LifeStats>) => void
+let lifeHook: LifeHook | null = null
+
+export function setLifeHook(h: LifeHook | null): void {
+  lifeHook = h
+}
+
 /** Прибавить дельты (только положительные поля учитываются) */
 export function addLife(patch: Partial<LifeStats>): LifeStats {
   const cur = getLife()
@@ -144,6 +156,7 @@ export function addLife(patch: Partial<LifeStats>): LifeStats {
     const d = patch[k]
     if (typeof d === 'number' && d > 0) cur[k] += Math.floor(d)
   }
+  lifeHook?.(patch)
   dirty = true
   scheduleFlush()
   return cur

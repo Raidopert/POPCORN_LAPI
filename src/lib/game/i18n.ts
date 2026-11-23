@@ -3213,6 +3213,15 @@ export const T: Record<string, Row> = {
   'theme.sunset.name': ['Закатный', 'Sunset', 'Sonnenuntergang', 'Atardecer'],
   'theme.bubble.name': ['Розовый', 'Bubblegum', 'Kaugummi', 'Chicle'],
   'theme.midnight.name': ['Полночь', 'Midnight', 'Mitternacht', 'Medianoche'],
+  /* v0.0.82: партии «Зима» и «Космос» */
+  'avatar.winter.name': ['Снежный кот', 'Snowy Cat', 'Schneekater', 'Gato Nevado'],
+  'avatar.cosmo.name': ['Космо-кот', 'Cosmo Cat', 'Kosmo-Kater', 'Gato Cosmo'],
+  'frame.snow.name': ['Снежная', 'Snowy', 'Schneerahmen', 'Nevada'],
+  'frame.star.name': ['Звёздная', 'Starry', 'Sternenrahmen', 'Estelar'],
+  'bg.winter.name': ['Зимний вечер', 'Winter Evening', 'Winterabend', 'Tarde de Invierno'],
+  'bg.space.name': ['Открытый космос', 'Outer Space', 'Weltraum', 'Espacio Exterior'],
+  'theme.winter.name': ['Морозная свежесть', 'Frost Freshness', 'Frostfrische', 'Frescura Helada'],
+  'theme.space.name': ['Глубокий космос', 'Deep Space', 'Tiefes All', 'Espacio Profundo'],
   'menu.avatarHint': [
     'Стиль котика — лавка стиля 🎨. Часть аватаров открывается уровнем котика',
     'Cat style — the style shop 🎨. Some avatars unlock with your cat’s level',
@@ -3221,6 +3230,40 @@ export const T: Record<string, Row> = {
   ],
   /* v0.0.75: ПУТЬ КОТИКА — шкала опыта с наградами уровней */
   'hub.tab.path': ['ПУТЬ КОТИКА', 'CAT PATH', 'KATZENPFAD', 'CAMINO DEL GATO'],
+  /* v0.0.82: ДЕЖУРСТВО ПО ПОПКОРНУ — ежедневные задания и стрик */
+  'hub.tab.dailies': ['ДЕЖУРСТВО', 'DUTY ROTA', 'DIENSTPLAN', 'TURNO'],
+  'daily.title': ['ДЕЖУРСТВО ПО ПОПКОРНУ', 'POPCORN DUTY', 'POPCORN-DIENST', 'TURNO DE PALOMITAS'],
+  'daily.subtitle': [
+    'Три задания в день — у всех котиков одинаковые. Выполни и забери награду!',
+    'Three tasks a day — same for every cat. Complete and claim the reward!',
+    'Drei Aufgaben pro Tag — für alle Katzen gleich. Erfülle sie und hol die Belohnung!',
+    'Tres tareas al día: iguales para todos los gatos. ¡Complétalas y reclama!',
+  ],
+  'daily.claim': ['ЗАБРАТЬ', 'CLAIM', 'ABHOLEN', 'RECLAMAR'],
+  'daily.claimed': ['ЗАБРАНО', 'CLAIMED', 'ABGEHOLT', 'RECLAMADO'],
+  'daily.streak': ['Серия: {{n}} дн.', 'Streak: {{n}}d', 'Serie: {{n}} T.', 'Racha: {{n}}d'],
+  'daily.streakLost': [
+    'Пропустил день — серия сгорела. Начинаем заново!',
+    'Missed a day — streak reset. Starting fresh!',
+    'Tag verpasst — Serie gelöscht. Neu beginnt!',
+    'Día perdido: racha reiniciada. ¡Empezamos de nuevo!',
+  ],
+  'daily.prize': ['Кисиньковская радость', 'Kitty Joy', 'Katzenglück', 'Alegría Gatuna'],
+  'daily.prizeNote': [
+    '7 дней подряд — большой приз: 200 🌾 + эпический предмет + 250 🪙',
+    '7 days in a row — grand prize: 200 🌾 + epic item + 250 🪙',
+    '7 Tage in Folge — Großer Preis: 200 🌾 + Episches + 250 🪙',
+    '7 días seguidos: gran premio, 200 🌾 + épico + 250 🪙',
+  ],
+  'daily.prizeReady': ['Кисиньковская радость выдана!', 'Kitty Joy awarded!', 'Katzenglück erhalten!', '¡Alegría Gatuna entregada!'],
+  'daily.task.grains': ['Сдай {{n}} зёрен в стаканчик', 'Deliver {{n}} grains to the cup', 'Liefere {{n}} Körner ins Becher', 'Entrega {{n}} granos al vaso'],
+  'daily.task.golden': ['Поймай {{n}} золотых зёрен', 'Catch {{n}} golden grains', 'Fang {{n}} goldene Körner', 'Atrapa {{n}} granos dorados'],
+  'daily.task.combo': ['Серия сдач ×{{n}}', 'Delivery streak ×{{n}}', 'Abgabeserie ×{{n}}', 'Racha de entregas ×{{n}}'],
+  'daily.task.kinds': ['Поймай {{n}} зёрен новых видов', 'Catch {{n}} new-kind grains', 'Fang {{n}} neue Kornsorten', 'Atrapa {{n}} granos nuevos'],
+  'daily.task.chests': ['Открой {{n}} сундучков', 'Open {{n}} chests', 'Öffne {{n}} Truhen', 'Abre {{n}} cofres'],
+  'daily.task.boss': ['Победи {{n}} боссов', 'Defeat {{n}} bosses', 'Besiege {{n}} Bosse', 'Vence {{n}} jefes'],
+  'daily.task.travel': ['Отвези NANA в путешествие', 'Send NANA on a trip', 'Schick NANA auf Reisen', 'Manda a NANA de viaje'],
+  'daily.task.slice': ['Нарежь {{n}} попкорнин', 'Slice {{n}} big popcorns', 'Schneide {{n}} Popcorns', 'Corta {{n}} palomitas'],
   'path.title': ['ПУТЬ КОТИКА', 'CAT PATH', 'KATZENPFAD', 'CAMINO DEL GATO'],
   'path.subtitle': [
     'Линия уровня: что открывает каждый новый уровень котика',
@@ -3495,6 +3538,19 @@ export const T: Record<string, Row> = {
   'room.park.name': ['Дневной парк', 'Day Park', 'Tagespark', 'Parque de Día'],
   'room.attic.name': ['Чердак', 'Attic', 'Dachboden', 'Ático'],
   'room.basement.name': ['Кладовка', 'Pantry', 'Vorratskammer', 'Despensa'],
+  /* v0.0.82: шесть комнат с модификаторами */
+  'room.lab.name': ['Кошачья лаборатория', 'Cat Laboratory', 'KatzLabor', 'Laboratorio Felino'],
+  'room.bakery.name': ['Пекарня', 'Bakery', 'Bäckerei', 'Panadería'],
+  'room.cosmodrome.name': ['Космодром', 'Cosmodrome', 'Kosmodrom', 'Cosmódromo'],
+  'room.haunted.name': ['Дом с призраками', 'Haunted House', 'Spukhaus', 'Casa Embrujada'],
+  'room.metro.name': ['Метро', 'Metro', 'U-Bahn', 'Metro'],
+  'room.beach.name': ['Пляж', 'Beach', 'Strand', 'Playa'],
+  /* v0.0.82: подписи модификаторов комнат (чип у названия в HUD) */
+  'roomMod.levitate': ['медленное парение', 'slow float', 'langsames Schweben', 'flotación lenta'],
+  'roomMod.warm': ['больше карамели', 'more caramel', 'mehr Karamell', 'más caramelo'],
+  'roomMod.dark': ['тьма и фонарик', 'dark & flashlight', 'Dunkel & Lampe', 'oscuridad y linterna'],
+  'roomMod.windy': ['порывы ветра', 'wind gusts', 'Windböen', 'ráfagas de viento'],
+  'roomMod.zero-g': ['невесомость', 'zero gravity', 'Schwerelosigkeit', 'gravedad cero'],
 
   /* ---------- тексты движка ---------- */
   'banner.level': ['УРОВЕНЬ {{n}}', 'LEVEL {{n}}', 'LEVEL {{n}}', 'NIVEL {{n}}'],
@@ -4093,10 +4149,10 @@ export const T: Record<string, Row> = {
   'menu.more': ['ЕЩЁ', 'MORE', 'MEHR', 'MÁS'],
   'hub.upgrades.title': ['ПРОКАЧКА', 'UPGRADES', 'UPGRADES', 'MEJORAS'],
   'hub.upgrades.hint': [
-    'Тапни вкладку: лапки, дерево, лавка, рынок, инвентарь, путь котика',
-    'Tap a tab: paws, tree, shop, market, inventory, cat path',
-    'Tippe ein Tab: Pfoten, Baum, Laden, Markt, Inventar, Katzenpfad',
-    'Toca una pestaña: patitas, árbol, tienda, mercado, inventario, camino del gato',
+    'Тапни вкладку: дежурство, лапки, дерево, лавка, рынок, инвентарь, путь котика',
+    'Tap a tab: duty, paws, tree, shop, market, inventory, cat path',
+    'Tippe ein Tab: Dienstplan, Pfoten, Baum, Laden, Markt, Inventar, Katzenpfad',
+    'Toca una pestaña: turno, patitas, árbol, tienda, mercado, inventario, camino del gato',
   ],
   'hub.more.title': ['ЕЩЁ', 'MORE', 'MEHR', 'MÁS'],
   'hub.more.hint': [

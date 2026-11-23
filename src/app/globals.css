@@ -443,6 +443,18 @@ input:focus-visible {
   border: 3px solid #E8B95C;
   box-shadow: 0 0 0 2.5px #2a0923, 0 0 0 5px #E8B95C88, 0 0 16px 4px rgba(232, 185, 92, 0.55);
 }
+/* v0.0.82: снежная рамка — льдистое кольцо с морозным сиянием */
+.pp-frame-snow > img {
+  border: 3px solid #A8E6FF;
+  box-shadow: 0 0 0 2.5px #2b4a66, 0 0 0 4.5px rgba(228, 247, 255, 0.7),
+    0 0 12px 3px rgba(168, 230, 255, 0.55);
+}
+/* v0.0.82: звёздная рамка — звездолётное кольцо в крапинках звёзд */
+.pp-frame-star > img {
+  border: 3px solid #C9B8FF;
+  box-shadow: 0 0 0 2.5px #2a1f5e, 0 0 0 4.5px rgba(201, 184, 255, 0.45),
+    0 0 14px 4px rgba(201, 184, 255, 0.55);
+}
 
 /* ---------- Фоны главного меню ---------- */
 .pp-bg {
@@ -483,6 +495,34 @@ input:focus-visible {
     radial-gradient(circle at 64% 74%, rgba(255, 143, 199, 0.2) 0 30px, transparent 31px),
     radial-gradient(circle at 18% 80%, rgba(255, 143, 199, 0.14) 0 18px, transparent 19px),
     linear-gradient(180deg, #5c1f4e 0%, #33143a 100%);
+}
+/* v0.0.82: зимний вечер — снежинки на холодной синеве */
+.pp-bg-winter {
+  background:
+    radial-gradient(2.5px 2.5px at 18% 22%, rgba(255, 255, 255, 0.9) 50%, transparent 51%),
+    radial-gradient(2px 2px at 66% 14%, rgba(255, 255, 255, 0.75) 50%, transparent 51%),
+    radial-gradient(1.5px 1.5px at 84% 34%, rgba(255, 255, 255, 0.8) 50%, transparent 51%),
+    radial-gradient(2px 2px at 34% 42%, rgba(255, 255, 255, 0.7) 50%, transparent 51%),
+    radial-gradient(1.5px 1.5px at 52% 68%, rgba(255, 255, 255, 0.65) 50%, transparent 51%),
+    radial-gradient(2.5px 2.5px at 12% 76%, rgba(255, 255, 255, 0.8) 50%, transparent 51%),
+    radial-gradient(1.5px 1.5px at 88% 82%, rgba(255, 255, 255, 0.7) 50%, transparent 51%),
+    radial-gradient(circle at 78% 78%, rgba(143, 216, 239, 0.25) 0 24px, transparent 25px),
+    linear-gradient(180deg, #1d3f5e 0%, #12293f 55%, #0a1c30 100%);
+}
+/* v0.0.82: открытый космос — звёзды, туманности и маленькая планета */
+.pp-bg-space {
+  background:
+    radial-gradient(2.5px 2.5px at 14% 18%, rgba(255, 255, 255, 0.95) 50%, transparent 51%),
+    radial-gradient(2px 2px at 62% 10%, rgba(255, 255, 255, 0.8) 50%, transparent 51%),
+    radial-gradient(1.5px 1.5px at 86% 26%, rgba(255, 255, 255, 0.85) 50%, transparent 51%),
+    radial-gradient(2px 2px at 42% 30%, rgba(255, 255, 255, 0.7) 50%, transparent 51%),
+    radial-gradient(1.5px 1.5px at 24% 58%, rgba(255, 255, 255, 0.75) 50%, transparent 51%),
+    radial-gradient(2px 2px at 78% 64%, rgba(255, 255, 255, 0.8) 50%, transparent 51%),
+    radial-gradient(1.5px 1.5px at 56% 86%, rgba(255, 255, 255, 0.7) 50%, transparent 51%),
+    radial-gradient(circle at 82% 78%, rgba(179, 166, 232, 0.5) 0 22px, transparent 23px),
+    radial-gradient(circle at 82% 78%, rgba(179, 166, 232, 0.18) 0 30px, transparent 31px),
+    radial-gradient(circle at 30% 74%, rgba(122, 148, 255, 0.14) 0 40px, transparent 41px),
+    linear-gradient(180deg, #0d0b24 0%, #1a1340 55%, #241040 100%);
 }
 
 /* ---------- Акцентные темы меню (CSS-переменные) ---------- */
@@ -530,6 +570,26 @@ input:focus-visible {
   --pp-panel-deep: #0c1128;
   --pp-ring: rgba(122, 148, 255, 0.4);
   --pp-accent-2: #7a94ff;
+}
+/* v0.0.82: морозная свежесть — льдисто-голубая тема */
+.pp-theme-winter {
+  --pp-accent: #4db5d8;
+  --pp-accent-deep: #2e7a99;
+  --pp-accent-soft: #e2f4fb;
+  --pp-panel: #14283a;
+  --pp-panel-deep: #0d1c2b;
+  --pp-ring: rgba(111, 199, 232, 0.4);
+  --pp-accent-2: #8fd8ef;
+}
+/* v0.0.82: глубокий космос — туманно-фиолетовая тема */
+.pp-theme-space {
+  --pp-accent: #9b8fc9;
+  --pp-accent-deep: #6a5f96;
+  --pp-accent-soft: #ece7fb;
+  --pp-panel: #1c1636;
+  --pp-panel-deep: #120e26;
+  --pp-ring: rgba(155, 143, 201, 0.4);
+  --pp-accent-2: #b3a6e8;
 }
 
 /* v0.0.75: леопардовая рамка меню перекрашивается купленной темой */
