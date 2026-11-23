@@ -320,15 +320,55 @@ export default function StudioPage() {
                 </div>
               </article>
 
-              {/* ПЛЕЙСХОЛДЕР №3 */}
-              <article className="rps-panel rounded-2xl border-dashed p-6 flex flex-col items-center justify-center gap-3 text-center min-h-[180px]">
-                <PawPrint className="size-8 text-[#E8B95C]/70" aria-hidden />
-                <h3 className="text-xl font-bold text-[#E8B95C]" style={pixel}>
-                  ПРОЕКТ №3
-                </h3>
-                <p className="text-sm text-[#F2E3CF]/80">
-                  Ещё одна кошачья затея — в разработке. Скоро расскажем подробнее.
-                </p>
+              {/* СУНДУЧНЫЙ ВОР — Тёмное Фэнтези */}
+              <article className="rps-panel rounded-2xl overflow-hidden flex flex-col">
+                <Image
+                  alt="Сундучный Вор: готический кликер-RPG — кликер воришки с демоническим луком и поле сундуков"
+                  src="/screenshots/chest-thief-01.png"
+                  width={1280}
+                  height={720}
+                  className="w-full h-auto"
+                />
+                <div className="p-5 sm:p-6 flex flex-col gap-3 flex-1">
+                  <h3 className="text-2xl font-bold text-[#a855f7]" style={pixel}>
+                    СУНДУЧНЫЙ ВОР
+                  </h3>
+                  <p className="font-bold">«Тёмное Фэнтези» — готический кликер-RPG</p>
+                  <p className="text-[#F2E3CF]/85">
+                    Готический кликер-RPG в стиле Diablo и Bloodborne. Левой рукой
+                    герой душит чумного воришку демоническим луком — из него
+                    выпадают ключи. Ключами открываешь сундуки: десять видов, от
+                    гнилых деревянных до адских обсидиановых, и в каждом —
+                    случайный лут из тысячи предметов семи редкостей. Правой рукой
+                    герой автоматически рубит демонов в склепе, качается, открывает
+                    навыки и спускается по этажам подземелья. Крафт, сеты
+                    экипировки, престиж, достижения и дейлики — и всё работает
+                    офлайн.
+                  </p>
+                  <div className="flex flex-wrap gap-2 text-xs">
+                    <span className="rounded-full bg-[#2a0923] border border-[#a855f7]/30 px-2.5 py-1">Кликер-RPG</span>
+                    <span className="rounded-full bg-[#2a0923] border border-[#a855f7]/30 px-2.5 py-1">Dark Fantasy</span>
+                    <span className="rounded-full bg-[#2a0923] border border-[#a855f7]/30 px-2.5 py-1">PWA — Android / iOS / ПК</span>
+                    <span className="rounded-full bg-[#2a0923] border border-[#a855f7]/30 px-2.5 py-1">Офлайн</span>
+                    <span className="rounded-full bg-[#2a0923] border border-[#a855f7]/30 px-2.5 py-1">1000 предметов · 7 редкостей</span>
+                  </div>
+                  <div className="flex flex-wrap gap-3 mt-auto pt-2">
+                    <a
+                      href="https://chest-thief.raidopert.ru"
+                      className="inline-flex items-center gap-2 rounded-xl bg-[#a855f7] hover:bg-[#9333ea] px-4 py-2.5 font-bold transition-colors"
+                    >
+                      <Gamepad2 className="size-4" aria-hidden />
+                      Играть онлайн
+                    </a>
+                    <a
+                      href="https://github.com/Raidopert/chest-thief-game"
+                      className="inline-flex items-center gap-2 rounded-xl border border-[#a855f7]/60 hover:bg-[#a855f7]/10 px-4 py-2.5 font-bold transition-colors"
+                    >
+                      <Github className="size-4" aria-hidden />
+                      Исходники
+                    </a>
+                  </div>
+                </div>
               </article>
             </div>
           </div>
