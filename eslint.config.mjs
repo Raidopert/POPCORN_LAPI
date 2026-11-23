@@ -44,8 +44,9 @@ const eslintConfig = [...nextCoreWebVitals, ...nextTypescript, {
     "no-useless-escape": "off",
   },
 }, {
-  /* v0.0.72: + офлайн-сборки и тулчейн установщиков (генерённый код не линтуем) */
-  ignores: ["node_modules/**", ".next/**", ".next-export/**", "out/**", "build/**", "next-env.d.ts", "examples/**", "skills", "desktop-build/**", "android-build/**", "desktop/**", "android/**", ".tools/**", ".api-stash/**", "branding/**", "public/catscribbles/**"]
+  /* v0.0.72: + офлайн-сборки и тулчейн установщиков (генерённый код не линтуем)
+     v0.0.84: + public/chest-thief/** — офлайн-сборка Сундучного Вора в public */
+  ignores: ["node_modules/**", ".next/**", ".next-export/**", "out/**", "build/**", "next-env.d.ts", "examples/**", "skills", "desktop-build/**", "android-build/**", "desktop/**", "android/**", ".tools/**", ".api-stash/**", "branding/**", "public/catscribbles/**", "public/chest-thief/**"]
 }];
 
 export default eslintConfig;

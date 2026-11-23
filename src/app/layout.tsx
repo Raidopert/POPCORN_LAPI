@@ -28,7 +28,9 @@ export const metadata: Metadata = {
   description:
     "Рогалик-аркада: собирай попкорн лапкой куницы в стаканчик, выполняй норму уровня и открывай сундучки со случайными перками — бонусы и волшебные эффекты! 8-битная музыка ускоряется к концу уровня. Играй бесплатно в браузере на смартфоне и ПК.",
   keywords: ["мини-игра", "попкорн", "куница", "кукуруза", "8-бит", "аркада", "браузерная игра"],
-  authors: [{ name: "Z.ai" }],
+  authors: [{ name: "Raido Pert Studio", url: "https://raidopert.ru" }],
+  creator: "Raido Pert Studio",
+  publisher: "Raido Pert Studio",
   manifest: "/manifest.json",
   icons: {
     icon: [
@@ -89,6 +91,35 @@ export default function RootLayout({
       >
         {children}
         <Toaster />
+        {/* JSON-LD:VideoGame — поисковики понимают, что это игра (Google Rich Results) */}
+        <script
+          type="application/ld+json"
+          dangerouslySetInnerHTML={{
+            __html: JSON.stringify({
+              "@context": "https://schema.org",
+              "@type": "VideoGame",
+              name: "POPCORN PAWS",
+              alternateName: "Кошачий попкорнный Беспредел",
+              url: "https://play.raidopert.ru",
+              image: "https://play.raidopert.ru/og-image.png",
+              description:
+                "8-битный рогалик-аркада: собирай попкорн лапкой куницы NANA, выполняй норму уровня, открывай сундучки с перками, дежурь по попкорну и ставь мировые рекорды. Бесплатно, 0+, в браузере на телефоне и ПК.",
+              genre: ["Arcade", "Roguelike", "Casual"],
+              gamePlatform: ["Web browser", "Windows", "Android", "VK Mini App"],
+              applicationCategory: "GameApplication",
+              operatingSystem: "Любая (веб-браузер)",
+              inLanguage: "ru",
+              playMode: "SinglePlayer",
+              author: {
+                "@type": "Organization",
+                name: "Raido Pert Studio",
+                url: "https://raidopert.ru",
+              },
+              offers: { "@type": "Offer", price: "0", priceCurrency: "RUB" },
+              audience: { "@type": "PeopleAudience", suggestedMinAge: 0 },
+            }),
+          }}
+        />
       </body>
     </html>
   );
