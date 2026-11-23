@@ -36,7 +36,6 @@ import { GAME_VERSION } from "@/lib/game/version";
 import { CopyButton } from "@/components/studio/copy-button";
 
 export const metadata: Metadata = {
-  metadataBase: new URL("https://www.raidopert.ru"),
   title: "Raido Pert Studio (ᚱ ᛈ) — игры, сделанные ради кошек",
   description:
     "Игровая студия RaidoPert и Kate HeyNANAhey: 8-битные игры, сделанные при помощи ИИ. Наш первый проект — POPCORN PAWS «Кошачий попкорнный Беспредел». Никого не хотим обидеть — только развеселить. Всё ради кошек. 0+",
@@ -45,13 +44,13 @@ export const metadata: Metadata = {
     title: "Raido Pert Studio (ᚱ ᛈ)",
     description:
       "8-битные игры при помощи ИИ. Первый проект — POPCORN PAWS. Всё ради кошек. 0+",
-    url: "https://www.raidopert.ru",
+    url: "https://raidopert.ru",
     siteName: "Raido Pert Studio",
     locale: "ru_RU",
     type: "website",
     images: [
       {
-        url: "https://www.raidopert.ru/boot/logo-kitten-v1.jpg",
+        url: "https://raidopert.ru/boot/logo-kitten-v1.jpg",
         width: 1024,
         height: 1024,
         alt: "Логотип Raido Pert Studio — рыжий котёнок в короне с ведёрком попкорна в золотом лавровом венке",
@@ -82,15 +81,6 @@ const CS_EXE_URL =
 const CS_APK_URL =
   "https://github.com/Raidopert/catscribbles/releases/download/v0.1.0/CatScribbles-0.1.0.apk";
 
-/** МузСтудия — третья программа студии (мини-студия для записи треков) */
-const MS_WEB_URL = "/muz-studia/";
-const MS_REPO_URL = "https://github.com/Raidopert/E_qua_lizer";
-const MS_RELEASES_URL = "https://github.com/Raidopert/E_qua_lizer/releases";
-const MS_EXE_URL =
-  "https://github.com/Raidopert/E_qua_lizer/releases/download/v0.1.0/MUZSTUDIO-Setup-0.1.0.exe";
-const MS_APK_URL =
-  "https://github.com/Raidopert/E_qua_lizer/releases/download/v0.1.0/MuzStudio-0.1.0.apk";
-
 /** Пресс-кит: файлы лежат в public/studio/presskit/ */
 const PRESSKIT_DIR = "/studio/presskit";
 
@@ -99,48 +89,6 @@ const PRESS_SHORT =
   "POPCORN PAWS «Кошачий попкорнный Беспредел» — 8-битный рогалик-аркада про рыжих котиков, куницу и рассыпанный попкорн. Бесплатно, 0+.";
 const PRESS_LONG =
   "POPCORN PAWS — бесконечный 8-битный рогалик-аркада про рыжих котиков и рассыпанный попкорн. Куница Лана таскает вкусняшки с кухни, а котики мешают ей как могут: бесконечные уровни, боссы каждые пять уровней (Малыш, Мега-Голубь, Лана-воровка, Лев и финальный Онлифансий), сундучки с перками, прокачка, леопардовый лут, боссовые баночки с эффектами и обмен 3→1: продай три одинаковых — получи вещь классом выше. Рекорды летят в мировую таблицу лидеров, чиптюн ускоряется к концу уровня. Игра сделана при помощи ИИ: код, графика и музыка — с ИИ-инструментами, идеи, стиль и любовь к котикам — только наши. Никого не хотим обидеть — только развеселить. Всё ради кошек. И немного ради попкорна.";
-
-/** JSON-LD: структурированные данные о студии для поисковиков (Google/Яндекс).
-    Все данные — публичные, с раздела «КОНТАКТЫ» этого же лендинга. */
-const ORG_JSON_LD = {
-  "@context": "https://schema.org",
-  "@graph": [
-    {
-      "@type": "Organization",
-      "@id": "https://www.raidopert.ru/#organization",
-      name: "Raido Pert Studio",
-      alternateName: "RaidoPert Studio",
-      url: "https://www.raidopert.ru/",
-      logo: {
-        "@type": "ImageObject",
-        url: "https://www.raidopert.ru/boot/logo-kitten-v1.jpg",
-        width: 1024,
-        height: 1024,
-      },
-      image: "https://www.raidopert.ru/boot/logo-kitten-v1.jpg",
-      email: "raidopert@gmail.com",
-      telephone: "+7-908-190-46-75",
-      founders: [
-        { "@type": "Person", name: "RaidoPert", url: "https://vk.ru/raido_pert" },
-        { "@type": "Person", name: "Kate HeyNANAhey" },
-      ],
-      sameAs: [
-        "https://vk.ru/raido_pert",
-        "https://vk.ru/club243375070",
-        "https://github.com/Raidopert",
-        "https://play.raidopert.ru/",
-      ],
-    },
-    {
-      "@type": "WebSite",
-      "@id": "https://www.raidopert.ru/#website",
-      url: "https://www.raidopert.ru/",
-      name: "Raido Pert Studio",
-      inLanguage: "ru-RU",
-      publisher: { "@id": "https://www.raidopert.ru/#organization" },
-    },
-  ],
-} as const;
 
 export default function StudioPage() {
   return (
@@ -167,12 +115,6 @@ export default function StudioPage() {
         .rps-a { color: #F4D489; text-decoration: underline; text-underline-offset: 3px; }
         .rps-a:hover { color: #FFDF9E; }
       `}</style>
-
-      {/* JSON-LD: данные о студии для Google/Яндекса */}
-      <script
-        type="application/ld+json"
-        dangerouslySetInnerHTML={{ __html: JSON.stringify(ORG_JSON_LD) }}
-      />
 
       {/* ШАПКА */}
       <header className="sticky top-0 z-40 border-b border-[#E8B95C]/25 backdrop-blur-md bg-[#1c0517]/80">
@@ -412,7 +354,7 @@ export default function StudioPage() {
                   </div>
                   <div className="flex flex-wrap gap-3 mt-auto pt-2">
                     <a
-                      href="/chest-thief/"
+                      href="https://chest-thief.raidopert.ru"
                       className="inline-flex items-center gap-2 rounded-xl bg-[#a855f7] hover:bg-[#9333ea] px-4 py-2.5 font-bold transition-colors"
                     >
                       <Gamepad2 className="size-4" aria-hidden />
@@ -424,6 +366,20 @@ export default function StudioPage() {
                     >
                       <Github className="size-4" aria-hidden />
                       Исходники
+                    </a>
+                    <a
+                      href="/downloads/chest-thief/chest-thief.apk"
+                      className="inline-flex items-center gap-2 rounded-xl border border-[#a855f7]/60 hover:bg-[#a855f7]/10 px-4 py-2.5 font-bold transition-colors"
+                    >
+                      <Smartphone className="size-4" aria-hidden />
+                      Android (.apk)
+                    </a>
+                    <a
+                      href="/downloads/chest-thief/chest-thief-windows.zip"
+                      className="inline-flex items-center gap-2 rounded-xl border border-[#a855f7]/60 hover:bg-[#a855f7]/10 px-4 py-2.5 font-bold transition-colors"
+                    >
+                      <Monitor className="size-4" aria-hidden />
+                      ПК (Windows .zip)
                     </a>
                   </div>
                 </div>
@@ -700,110 +656,6 @@ export default function StudioPage() {
                   </a>
                   {" · "}
                   <a className="rps-a" href={CS_RELEASES_URL} target="_blank" rel="noopener noreferrer">
-                    все релизы
-                  </a>
-                </p>
-              </article>
-
-              {/* MUZSTUDIO */}
-              <article className="rps-panel rounded-2xl p-6 flex flex-col gap-3">
-                <div className="flex items-center gap-3">
-                  <Image
-                    src="/muz-studia/icon-192.png"
-                    alt="Иконка МузСтудии — пять цветных полос эквалайзера на тёмном фоне"
-                    width={48}
-                    height={48}
-                    className="rounded-2xl border border-[#E8B95C]/40 shrink-0"
-                  />
-                  <div className="flex flex-col">
-                    <h3 className="text-2xl font-bold text-[#E8B95C]" style={pixel}>
-                      MUZSTUDIO
-                    </h3>
-                    <span className="text-xs text-[#F2E3CF]/60">МузСтудия · v0.1.0</span>
-                  </div>
-                </div>
-                <p className="text-[#F2E3CF]/85">
-                  Мини-студия в кармане: запиши голос или любой звук с микрофона
-                  и собери трек на пяти дорожках — перетаскивай блоки с
-                  автопрокруткой и прилипанием, обрезай за края, двигай тон на
-                  ±12 полутонов, жми плей. Полностью офлайн: записи остаются на
-                  устройстве, без регистрации и облаков.
-                </p>
-                <div className="flex flex-wrap gap-2 text-xs">
-                  {["Приложение", "Офлайн", "5 дорожек", "Windows · Android · Web", "Релиз v0.1.0"].map((t) => (
-                    <span key={t} className="rounded-full bg-[#2a0923] border border-[#E8B95C]/30 px-2.5 py-1">
-                      {t}
-                    </span>
-                  ))}
-                </div>
-                <div className="grid grid-cols-3 gap-2">
-                  <div className="rounded-xl border border-[#E8B95C]/30 overflow-hidden">
-                    <Image
-                      src="/muz-studia/screenshots/editor-1280x720.png"
-                      alt="МузСтудия — редактор с блоками на пяти дорожках, тёмная тема"
-                      width={640}
-                      height={360}
-                      className="w-full h-auto"
-                    />
-                  </div>
-                  <div className="rounded-xl border border-[#E8B95C]/30 overflow-hidden">
-                    <Image
-                      src="/muz-studia/screenshots/block-modal-1280x720.png"
-                      alt="МузСтудия — настройки блока: название, дорожка, громкость, тон"
-                      width={640}
-                      height={360}
-                      className="w-full h-auto"
-                    />
-                  </div>
-                  <div className="rounded-xl border border-[#E8B95C]/30 overflow-hidden aspect-video">
-                    <Image
-                      src="/muz-studia/screenshots/editor-mobile-720x1280.png"
-                      alt="МузСтудия — мобильный вид редактора"
-                      width={360}
-                      height={640}
-                      className="w-full h-full object-cover object-top"
-                    />
-                  </div>
-                </div>
-                <div className="mt-auto pt-2 flex flex-wrap gap-2">
-                  <a
-                    href={MS_WEB_URL}
-                    className="inline-flex items-center gap-2 rounded-xl bg-[#E24B3B] hover:bg-[#c93f31] px-4 py-2.5 font-bold transition-colors"
-                  >
-                    <ExternalLink className="size-4" aria-hidden />
-                    Открыть веб-версию
-                  </a>
-                  <a
-                    href={MS_EXE_URL}
-                    className="inline-flex items-center gap-2 rounded-xl border border-[#E8B95C]/60 hover:bg-[#E8B95C]/10 px-4 py-2.5 font-bold transition-colors"
-                  >
-                    <Download className="size-4" aria-hidden />
-                    Windows (.exe)
-                  </a>
-                  <a
-                    href={MS_APK_URL}
-                    className="inline-flex items-center gap-2 rounded-xl border border-[#E8B95C]/60 hover:bg-[#E8B95C]/10 px-4 py-2.5 font-bold transition-colors"
-                  >
-                    <Download className="size-4" aria-hidden />
-                    Android (.apk)
-                  </a>
-                </div>
-                <p className="text-xs text-[#F2E3CF]/60">
-                  Как пользоваться: нажми «Запись» — браузер спросит доступ к
-                  микрофону, и после отсчёта «4-3-2-1» записанный блок появится
-                  на дорожке «Голос». Тяни блоки мышкой или пальцем (у края
-                  экрана лента сама прокручивается), тяни за белые риски по
-                  краям блока — обрежешь начало или конец, двойной тап —
-                  мгновенная копия. В «Настройках блока» — громкость и тон
-                  ±12 полутонов. Собери трек и жми «Плей».
-                </p>
-                <p className="text-xs text-[#F2E3CF]/60">
-                  Репозиторий и исходники:{" "}
-                  <a className="rps-a" href={MS_REPO_URL} target="_blank" rel="noopener noreferrer">
-                    github.com/Raidopert/E_qua_lizer
-                  </a>
-                  {" · "}
-                  <a className="rps-a" href={MS_RELEASES_URL} target="_blank" rel="noopener noreferrer">
                     все релизы
                   </a>
                 </p>
