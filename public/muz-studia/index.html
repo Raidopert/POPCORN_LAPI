@@ -1,0 +1,1101 @@
+<!DOCTYPE html>
+<html lang="ru" data-theme="dark">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover">
+<meta name="theme-color" content="#0a0a0c">
+<title>МузСтудия — запиши свой трек</title>
+<style>
+/* ============ Базовые переменные ============ */
+*{box-sizing:border-box;margin:0;padding:0;-webkit-tap-highlight-color:transparent}
+html{height:100%}
+:root{
+  --bg:#0a0a0c; --panel:#141418; --panel2:#1e1e24; --line:#2a2a32;
+  --text:#f4f4f7; --dim:#9a9aa6;
+  --accent:#ff2fa0; --danger:#ff5563;
+  --c0:#ff2fa0; --c1:#3f8cff; --c2:#2fd57c; --c3:#ff9f2f; --c4:#ffd12f;
+  --r:16px; --shadow:0 14px 44px rgba(0,0,0,.55);
+}
+html[data-theme="light"]{
+  --bg:#f1f1f5; --panel:#ffffff; --panel2:#e7e7ee; --line:#d7d7e0;
+  --text:#191920; --dim:#6c6c78;
+  --shadow:0 14px 36px rgba(30,30,60,.16);
+}
+body{
+  height:100%;
+  font-family:-apple-system,'SF Pro Text','Segoe UI',Roboto,'Helvetica Neue',Arial,sans-serif;
+  font-size:16px; background:var(--bg); color:var(--text);
+  user-select:none; -webkit-user-select:none; -webkit-touch-callout:none;
+  touch-action:manipulation; overscroll-behavior:none;
+}
+button{font:inherit;color:inherit;background:none;border:0;cursor:pointer}
+[hidden]{display:none!important}
+input{font:inherit;color:var(--text)}
+.dot{width:9px;height:9px;border-radius:50%;display:inline-block;flex-shrink:0}
+
+/* ============ Экраны ============ */
+.screen{position:fixed;inset:0;display:none;flex-direction:column;background:var(--bg)}
+.screen.active{display:flex}
+.topbar{
+  display:flex;align-items:center;gap:12px;flex-shrink:0;
+  padding:calc(10px + env(safe-area-inset-top)) 16px 10px;
+  background:var(--panel);border-bottom:1px solid var(--line);
+}
+.topbar h1{font-size:1.1rem;font-weight:700;flex:1}
+.btn-back{width:44px;height:44px;border-radius:12px;background:var(--panel2);display:flex;align-items:center;justify-content:center;font-size:1.3rem;flex-shrink:0}
+.btn-help{width:44px;height:44px;border-radius:50%;background:var(--panel2);border:1px solid var(--line);font-weight:700;flex-shrink:0}
+
+/* ============ Меню ============ */
+.menu{align-items:center;justify-content:center;text-align:center;padding:24px}
+.menu-card{width:100%;max-width:420px;display:flex;flex-direction:column;align-items:center;gap:18px}
+.logo-eq{display:flex;gap:6px;align-items:flex-end;height:44px;margin-bottom:2px}
+.logo-eq i{width:9px;border-radius:4px;display:block;transform-origin:bottom;animation:eq 1.25s ease-in-out infinite}
+.logo-eq i:nth-child(1){background:var(--c0);height:62%;animation-delay:0s}
+.logo-eq i:nth-child(2){background:var(--c1);height:92%;animation-delay:.15s}
+.logo-eq i:nth-child(3){background:var(--c2);height:74%;animation-delay:.3s}
+.logo-eq i:nth-child(4){background:var(--c3);height:100%;animation-delay:.45s}
+.logo-eq i:nth-child(5){background:var(--c4);height:55%;animation-delay:.6s}
+@keyframes eq{0%,100%{transform:scaleY(.5)}50%{transform:scaleY(1)}}
+.app-title{font-size:clamp(2.1rem,9vw,3rem);font-weight:800;letter-spacing:-.5px}
+.tagline{color:var(--dim);font-size:clamp(.95rem,3.6vw,1.05rem);line-height:1.5}
+.steps{display:flex;flex-wrap:wrap;justify-content:center;gap:8px;color:var(--dim);font-size:.85rem}
+.steps span{background:var(--panel);border:1px solid var(--line);border-radius:12px;padding:7px 11px}
+.btn{min-height:52px;border-radius:var(--r);font-weight:700;font-size:1.02rem;display:flex;align-items:center;justify-content:center;gap:10px;transition:transform .15s ease}
+.btn:active{transform:scale(.97)}
+.btn-primary{width:100%;background:linear-gradient(135deg,#ff2fa0,#c73bff);color:#fff;box-shadow:0 8px 24px rgba(255,47,160,.35)}
+.btn-ghost{width:100%;background:var(--panel);border:1px solid var(--line)}
+.btn-dark{background:var(--panel2);border:1px solid var(--line)}
+.btn-danger{background:rgba(255,85,99,.12);border:1px solid rgba(255,85,99,.4);color:var(--danger)}
+.btn-link{color:var(--dim);min-height:44px}
+.menu-note{color:var(--dim);font-size:.8rem;line-height:1.55}
+
+/* ============ Настройки ============ */
+.settings-body{flex:1;overflow-y:auto;padding:16px;display:flex;flex-direction:column;gap:12px;width:100%;max-width:560px;margin:0 auto}
+.card{background:var(--panel);border:1px solid var(--line);border-radius:var(--r);padding:16px 18px;display:flex;align-items:center;justify-content:space-between;gap:16px}
+.set-name{font-weight:600}
+.set-sub{color:var(--dim);font-size:.82rem;margin-top:3px;line-height:1.45}
+.range-wrap{display:flex;flex-direction:column;align-items:flex-end;gap:2px;flex-shrink:0}
+.range-wrap output{font-size:.82rem;color:var(--dim)}
+input[type=range]{width:min(150px,40vw);accent-color:var(--accent);min-height:44px}
+.toggle{width:58px;height:34px;border-radius:20px;background:var(--panel2);border:1px solid var(--line);position:relative;transition:background .2s;flex-shrink:0}
+.toggle .knob{position:absolute;top:3px;left:3px;width:26px;height:26px;border-radius:50%;background:var(--dim);transition:.2s}
+.toggle[aria-pressed="true"]{background:var(--accent);border-color:var(--accent)}
+.toggle[aria-pressed="true"] .knob{left:27px;background:#fff}
+.stepper{display:flex;align-items:center;gap:12px;flex-shrink:0}
+.stepper button{width:44px;height:44px;border-radius:12px;background:var(--panel2);border:1px solid var(--line);font-size:1.2rem}
+.stepper span{min-width:44px;text-align:center;font-weight:700}
+.seg{display:flex;background:var(--panel2);border:1px solid var(--line);border-radius:12px;padding:3px;gap:3px;flex-shrink:0}
+.seg button{min-height:38px;padding:0 14px;border-radius:9px;color:var(--dim);font-weight:600}
+.seg button.on{background:var(--accent);color:#fff}
+
+/* ============ Редактор ============ */
+.proj-name{flex:1;font-weight:700;font-size:1.05rem;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.tl-scroll{flex:1;overflow-x:auto;overflow-y:hidden;touch-action:pan-x pan-y}
+.tl-inner{position:relative;height:100%}
+.ruler{position:relative;height:28px;background:var(--panel);border-bottom:1px solid var(--line);touch-action:none;cursor:pointer}
+.ruler .tick{position:absolute;bottom:0;width:1px;height:8px;background:var(--line)}
+.ruler .tick.maj{height:14px;background:var(--dim)}
+.ruler .tlab{position:absolute;top:3px;font-size:10px;color:var(--dim);transform:translateX(4px)}
+.lane{position:relative;height:64px;border-bottom:1px solid var(--line)}
+.lane-label{
+  position:sticky;left:12px;z-index:5;pointer-events:none;margin-top:7px;
+  display:inline-flex;align-items:center;gap:7px;width:max-content;height:26px;padding:0 10px;
+  border-radius:13px;background:rgba(20,20,24,.72);border:1px solid var(--line);
+  font-size:.78rem;font-weight:600;backdrop-filter:blur(4px);
+}
+html[data-theme="light"] .lane-label{background:rgba(255,255,255,.78)}
+.block{
+  position:absolute;top:7px;height:50px;border-radius:10px;overflow:hidden;z-index:6;
+  touch-action:none;cursor:grab;border:1.5px solid;box-shadow:0 3px 10px rgba(0,0,0,.35);
+}
+.block canvas{position:absolute;inset:0;width:100%;height:100%}
+.block .bname{position:absolute;left:8px;bottom:2px;right:8px;font-size:9.5px;color:#fff;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;text-shadow:0 1px 2px rgba(0,0,0,.7);pointer-events:none}
+.block.sel{box-shadow:0 0 0 2px #fff,0 0 14px 2px currentColor;z-index:7}
+.block.dragging{opacity:.92;z-index:20;cursor:grabbing;transform:scale(1.04);box-shadow:0 0 0 2px #fff,0 14px 30px rgba(0,0,0,.55)}
+.block.live{filter:brightness(1.45) saturate(1.25);box-shadow:0 0 0 2px rgba(255,255,255,.9),0 0 18px 4px currentColor}
+.block.pop{animation:pop .28s ease-out}
+@keyframes pop{0%{transform:scale(.9)}60%{transform:scale(1.05)}100%{transform:scale(1)}}
+@keyframes btnpulse{0%,100%{box-shadow:0 0 0 0 rgba(47,213,124,0)}50%{box-shadow:0 0 14px 1px rgba(47,213,124,.45)}}
+@keyframes phpulse{0%,100%{box-shadow:0 0 6px rgba(160,160,180,.7)}50%{box-shadow:0 0 16px 2px rgba(255,255,255,.95)}}
+.bar-btn:active{transform:scale(.96)}
+.rh{position:absolute;top:0;bottom:0;width:20px;display:flex;align-items:center;justify-content:center;opacity:.45;transition:opacity .15s;touch-action:none;cursor:ew-resize;z-index:3}
+.rh i{width:3px;height:18px;border-radius:2px;background:#fff;box-shadow:0 0 3px rgba(0,0,0,.6)}
+.rh.l{left:0}.rh.r{right:0}
+.block.sel .rh{opacity:1}
+.block.sel .rh i{height:26px}
+.snapline{position:absolute;top:28px;bottom:0;width:2px;margin-left:-1px;background:#fff;box-shadow:0 0 10px rgba(255,255,255,.9);z-index:14;pointer-events:none;opacity:0;transition:opacity .2s}
+.snapline.show{opacity:.95}
+.dur-tip{position:absolute;z-index:16;background:rgba(10,10,14,.92);border:1px solid var(--line);color:#fff;font-size:11px;font-weight:600;padding:4px 9px;border-radius:9px;pointer-events:none;display:none;white-space:nowrap}
+.playhead{position:absolute;top:0;bottom:0;width:2px;margin-left:-1px;background:var(--text);box-shadow:0 0 10px rgba(160,160,180,.8);z-index:15;pointer-events:none;display:none}
+.playhead.on{display:block}
+#empty-hint{position:absolute;left:20px;top:52px;color:var(--dim);font-size:.9rem;line-height:1.5;pointer-events:none;max-width:300px}
+
+/* ============ Нижняя панель редактора ============ */
+.bottom-stack{flex-shrink:0;background:var(--panel);border-top:1px solid var(--line)}
+.selbar{display:flex;gap:10px;padding:10px 14px 0}
+.selbar.off{visibility:hidden;pointer-events:none}
+.playhead.run{animation:phpulse 1.1s ease-in-out infinite}
+.selbar button{flex:1;min-height:46px;border-radius:12px;background:var(--panel2);border:1px solid var(--line);font-weight:600;font-size:.95rem}
+.selbar .danger{color:var(--danger);border-color:rgba(255,85,99,.4)}
+.editor-bar{padding:12px 14px calc(12px + env(safe-area-inset-bottom));display:flex;flex-direction:column;gap:10px}
+.bar-row{display:flex;align-items:center;gap:10px}
+.bar-row.sub{justify-content:space-between}
+.bar-btn{flex:1;height:54px;border-radius:14px;font-weight:800;display:flex;align-items:center;justify-content:center;gap:9px}
+.btn-rec{background:linear-gradient(135deg,#ff3355,#ff2fa0);color:#fff;box-shadow:0 6px 18px rgba(255,51,85,.3)}
+.btn-play{background:var(--panel2);border:1px solid var(--line)}
+.btn-play.playing{background:rgba(47,213,124,.14);border-color:var(--c2);color:var(--c2);animation:btnpulse 1.6s ease-in-out infinite}
+.btn-stop{flex:none;width:60px;background:var(--panel2);border:1px solid var(--line);font-size:1.05rem}
+.rec-target{font-size:.82rem;color:var(--dim);display:flex;align-items:center;gap:7px;min-height:30px}
+.rec-target b{color:var(--text)}
+.tdot{width:10px;height:10px;border-radius:50%;background:var(--c0)}
+.time-disp{font-variant-numeric:tabular-nums;color:var(--dim);font-weight:600;font-size:.95rem}
+
+/* ============ Оверлеи и модалки ============ */
+.overlay{position:fixed;inset:0;z-index:50;display:flex;align-items:center;justify-content:center;background:rgba(5,5,8,.72);backdrop-filter:blur(6px);padding:20px}
+.overlay[hidden]{display:none}
+.sheet{width:100%;max-width:430px;background:var(--panel);border:1px solid var(--line);border-radius:20px;padding:22px;box-shadow:var(--shadow);display:flex;flex-direction:column;gap:15px;max-height:calc(100dvh - 48px);overflow-y:auto}
+.sheet h2{font-size:1.2rem}
+.field{display:flex;flex-direction:column;gap:8px}
+.field label{color:var(--dim);font-size:.85rem;font-weight:600;display:flex;justify-content:space-between;align-items:center}
+.field label b{color:var(--text)}
+.field input[type=range]{width:100%}
+input[type=text]{background:var(--panel2);border:1px solid var(--line);border-radius:12px;min-height:48px;padding:0 14px;width:100%;user-select:text;-webkit-user-select:text}
+.btn-row{display:flex;gap:10px}
+.btn-row .btn{flex:1;min-height:50px}
+.chip-row{display:flex;gap:8px;flex-wrap:wrap}
+.chip{padding:0 13px;min-height:40px;border-radius:20px;border:1.5px solid var(--line);background:var(--panel2);font-size:.85rem;font-weight:600;display:flex;align-items:center;gap:7px}
+.chip.on{border-color:currentColor}
+.rec-sheet{align-items:center;text-align:center}
+.rec-head{display:flex;gap:10px;align-items:center;justify-content:center;font-weight:800;letter-spacing:2px;font-size:.88rem}
+.rec-dot{width:15px;height:15px;border-radius:50%;background:#ff3355;animation:pulse 1s infinite}
+@keyframes pulse{0%,100%{opacity:1;transform:scale(1)}50%{opacity:.45;transform:scale(.78)}}
+.rec-sub{color:var(--dim);font-size:.88rem}
+.rec-time{font-size:clamp(2.6rem,13vw,3.6rem);font-weight:800;font-variant-numeric:tabular-nums;line-height:1}
+#wave-canvas{width:100%;height:110px;background:var(--panel2);border-radius:12px;border:1px solid var(--line)}
+.rec-progress{height:6px;width:100%;border-radius:3px;background:var(--panel2);overflow:hidden}
+.rec-progress i{display:block;height:100%;width:0;background:linear-gradient(90deg,#ff3355,#ff2fa0)}
+.help-step{display:flex;gap:14px;align-items:flex-start}
+.help-ico{width:46px;height:46px;border-radius:14px;display:flex;align-items:center;justify-content:center;font-size:1.25rem;flex-shrink:0;background:var(--panel2);border:1px solid var(--line)}
+.help-step p{color:var(--dim);font-size:.9rem;line-height:1.5;display:block;margin-top:2px}
+#toast{position:fixed;left:50%;bottom:calc(120px + env(safe-area-inset-bottom));transform:translateX(-50%) translateY(20px);background:#2a2a33;color:#fff;padding:11px 18px;border-radius:14px;font-size:.9rem;opacity:0;transition:.25s;z-index:80;pointer-events:none;max-width:86vw;text-align:center;box-shadow:var(--shadow)}
+#toast.show{opacity:1;transform:translateX(-50%) translateY(0)}
+@media (prefers-reduced-motion:reduce){*{animation:none!important;transition:none!important}}
+</style>
+</head>
+<body>
+<!-- ======== Экран: меню ======== -->
+<section id="screen-menu" class="screen menu active">
+  <div class="menu-card">
+    <div class="logo-eq"><i></i><i></i><i></i><i></i><i></i></div>
+    <h1 class="app-title">МузСтудия</h1>
+    <p class="tagline">Мини-студия в кармане:<br>собери свой трек из собственных записей</p>
+    <div class="steps"><span>1 · Запиши</span><span>2 · Перетащи</span><span>3 · Настрой</span><span>4 · Жми плей</span></div>
+    <button class="btn btn-primary" id="btn-create" data-goto="editor">＋&nbsp; Создать трек</button>
+    <button class="btn btn-ghost" id="btn-open-settings" data-goto="settings">⚙&nbsp; Настройки</button>
+    <p class="menu-note">Работает прямо в браузере телефона — ничего устанавливать не нужно.<br>Проект живёт до перезагрузки страницы (сохранение и экспорт — на следующем этапе).</p>
+  </div>
+</section>
+
+<!-- ======== Экран: настройки ======== -->
+<section id="screen-settings" class="screen">
+  <header class="topbar">
+    <button class="btn-back" data-goto="menu" aria-label="Назад">←</button>
+    <h1>Настройки</h1>
+  </header>
+  <div class="settings-body">
+    <div class="card">
+      <div><div class="set-name">Общая громкость</div><div class="set-sub">Мастер-громкость всего трека</div></div>
+      <div class="range-wrap"><output id="set-master-val">80%</output><input type="range" id="set-master" min="0" max="100" value="80" aria-label="Общая громкость"></div>
+    </div>
+    <div class="card">
+      <div><div class="set-name">Метроном</div><div class="set-sub">Щелчки в такт при записи и воспроизведении. Блоки начнут прилипать к долям.</div></div>
+      <button class="toggle" id="set-metronome" aria-pressed="false" aria-label="Метроном"><span class="knob"></span></button>
+    </div>
+    <div class="card" id="row-bpm" hidden>
+      <div><div class="set-name">Темп метронома</div><div class="set-sub">Ударов в минуту</div></div>
+      <div class="stepper"><button id="bpm-minus" aria-label="Медленнее">−</button><span id="bpm-value">120</span><button id="bpm-plus" aria-label="Быстрее">＋</button></div>
+    </div>
+    <div class="card">
+      <div><div class="set-name">Тема</div><div class="set-sub">Тёмная — как в настоящей студии</div></div>
+      <div class="seg"><button id="theme-dark" class="on">Тёмная</button><button id="theme-light">Светлая</button></div>
+    </div>
+  </div>
+</section>
+
+<!-- ======== Экран: редактор ======== -->
+<section id="screen-editor" class="screen">
+  <header class="topbar">
+    <button class="btn-back" data-goto="menu" aria-label="В меню">←</button>
+    <div class="proj-name">Мой трек</div>
+    <button class="btn-help" id="btn-help" aria-label="Подсказка">?</button>
+  </header>
+  <div class="tl-scroll" id="tl-scroll">
+    <div class="tl-inner" id="tl-inner">
+      <div class="ruler" id="ruler"></div>
+      <div id="lanes"></div>
+      <div id="empty-hint">Выбери дорожку слева → жми «● Запись» внизу.<br>Записанный блок появится на выбранной дорожке.</div>
+      <div class="playhead" id="playhead"></div>
+      <div class="snapline" id="snapline"></div>
+      <div class="dur-tip" id="dur-tip"></div>
+    </div>
+  </div>
+  <div class="bottom-stack">
+    <div class="selbar off" id="selbar">
+      <button id="btn-sel-settings">⚙&nbsp; Настройки блока</button>
+      <button id="btn-sel-del" class="danger">🗑&nbsp; Удалить</button>
+    </div>
+    <div class="editor-bar">
+      <div class="bar-row">
+        <button class="bar-btn btn-rec" id="btn-record">●&nbsp; Запись</button>
+        <button class="bar-btn btn-play" id="btn-play">▶&nbsp; Пуск</button>
+        <button class="bar-btn btn-stop" id="btn-stop" aria-label="Стоп">■</button>
+      </div>
+      <div class="bar-row sub">
+        <span class="rec-target"><i class="tdot" id="rec-dot-track"></i>Запись на: <b id="rec-track-name">Голос</b></span>
+        <span class="time-disp" id="time-disp">0:00.0</span>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ======== Оверлей записи ======== -->
+<div class="overlay" id="rec-overlay" hidden>
+  <div class="sheet rec-sheet">
+    <div class="rec-head"><span class="rec-dot"></span><span id="rec-state">ИДЁТ ЗАПИСЬ</span></div>
+    <div class="rec-sub">Дорожка: <b id="rec-overlay-track">Голос</b> · максимум 30 секунд</div>
+    <div class="rec-time" id="rec-time">0:00.0</div>
+    <canvas id="wave-canvas"></canvas>
+    <div class="rec-progress"><i id="rec-bar"></i></div>
+    <button class="btn btn-primary" id="btn-rec-stop">■&nbsp; Готово</button>
+    <button class="btn-link" id="btn-rec-cancel">Отменить запись</button>
+  </div>
+</div>
+
+<!-- ======== Модалка блока ======== -->
+<div class="overlay" id="block-modal" hidden>
+  <div class="sheet">
+    <h2>Настройки блока</h2>
+    <div class="field"><label for="bm-name">Название</label><input type="text" id="bm-name" maxlength="24"></div>
+    <div class="field"><label>Дорожка</label><div class="chip-row" id="bm-chips"></div></div>
+    <div class="field"><label>Длина блока <b id="bm-len">—</b></label><div class="set-sub" style="margin-top:0">Меняется тоном и растягиванием за края блока</div></div>
+    <div class="field"><label>Громкость <b id="bm-vol-val">100%</b></label><input type="range" id="bm-vol" min="0" max="150" value="100" aria-label="Громкость блока"></div>
+    <div class="field"><label>Тон <b id="bm-tone-val">0 пт</b></label><input type="range" id="bm-tone" min="-12" max="12" value="0" aria-label="Тон блока"></div>
+    <div class="btn-row"><button class="btn btn-dark" id="bm-preview">▶&nbsp; Прослушать</button><button class="btn btn-primary" id="bm-done">Готово</button></div>
+    <button class="btn btn-danger" id="bm-delete">🗑&nbsp; Удалить блок</button>
+  </div>
+</div>
+
+<!-- ======== Подсказка ======== -->
+<div class="overlay" id="help-overlay" hidden>
+  <div class="sheet">
+    <h2>Как собрать трек</h2>
+    <div class="help-step"><div class="help-ico">🎤</div><div><b>Запиши.</b><p>Выбери дорожку (Голос, Мелодия…) и нажми «Запись». Запись идёт до 30 секунд и сама остановится.</p></div></div>
+    <div class="help-step"><div class="help-ico">✋</div><div><b>Перетащи.</b><p>Тяни блок пальцем — у края экрана лента сама прокрутится. Белые риски по краям блока — растянуть или сжать (обрезка). Тап — выбрать, двойной тап — копия, лонг-тап — настройки.</p></div></div>
+    <div class="help-step"><div class="help-ico">🎚</div><div><b>Настрой.</b><p>В настройках блока меняй громкость и тон (±12 полутонов) и слушай результат кнопкой «Прослушать».</p></div></div>
+    <div class="help-step"><div class="help-ico">▶</div><div><b>Жми плей.</b><p>«Пуск» играет всё с позиции плейхеда. Плейхед тащится пальцем по линейке времени сверху.</p></div></div>
+    <button class="btn btn-primary" id="btn-help-ok">Понятно, поехали</button>
+  </div>
+</div>
+<div id="toast"></div>
+
+<script>
+'use strict';
+/* ================= Данные и состояние ================= */
+const TRACKS=[
+  {name:'Голос',   color:'#ff2fa0'},
+  {name:'Мелодия', color:'#3f8cff'},
+  {name:'Окружение',color:'#2fd57c'},
+  {name:'Ритм',    color:'#ff9f2f'},
+  {name:'Басы',    color:'#ffd12f'}
+];
+const PPS=60;          // пикселей на секунду
+const MAX_REC=30;      // лимит записи, секунд
+const TL0=45;          // стартовая длина таймлайна, секунд
+
+const $=s=>document.querySelector(s);
+const el=(t,c)=>{const n=document.createElement(t);if(c)n.className=c;return n;};
+const clamp=(v,a,b)=>Math.min(b,Math.max(a,v));
+const hexA=(h,a)=>{const n=parseInt(h.slice(1),16);return 'rgba('+(n>>16&255)+','+(n>>8&255)+','+(n&255)+','+a+')';};
+const fmt=t=>{t=Math.max(0,t);const m=Math.floor(t/60),s=t-m*60;return m+':'+(s<10?'0':'')+s.toFixed(1);};
+const fmtR=s=>Math.floor(s/60)+':'+String(s%60).padStart(2,'0');
+
+let blocks=[], seq=1;
+let timelineSec=TL0, selTrack=0, selBlock=null, helpShown=false;
+let settings={master:.8, metronome:false, bpm:120, theme:'dark'};
+
+/* ================= Аудио-ядро ================= */
+let AC=null, master=null;
+function audio(){
+  if(!AC){
+    AC=new (window.AudioContext||window.webkitAudioContext)();
+    master=AC.createGain();
+    master.gain.value=settings.master;
+    master.connect(AC.destination);
+  }
+  if(AC.state==='suspended')AC.resume();
+  return AC;
+}
+
+/* ================= Воспроизведение ================= */
+let playing=false, playPos=0, playAnchorCtx=0, playAnchorPos=0;
+let sources=[], raf=0, metTimer=0;
+const rateOf=b=>Math.pow(2,b.semitones/12);
+const playDur=b=>(b.end-b.start)/rateOf(b);
+const totalDur=()=>blocks.reduce((m,b)=>Math.max(m,b.time+playDur(b)),0);
+
+function playFrom(pos){
+  const ctx=audio();
+  stopSources(false);
+  playing=true; playAnchorPos=pos; playAnchorCtx=ctx.currentTime+0.08;
+  for(const b of blocks){
+    const dur=playDur(b), end=b.time+dur;
+    if(end<=pos+0.02)continue;
+    const src=ctx.createBufferSource();
+    src.buffer=b.buffer;
+    src.playbackRate.value=rateOf(b);
+    const g=ctx.createGain(); g.gain.value=b.gain;
+    src.connect(g); g.connect(master);
+    b._g=g;
+    const off=b.start+Math.max(0,pos-b.time)*rateOf(b);
+    const at=playAnchorCtx+Math.max(0,b.time-pos);
+    try{src.start(at,off,(dur-Math.max(0,pos-b.time))*rateOf(b));}catch(e){}
+    sources.push(src);
+    src.onended=()=>{sources=sources.filter(s=>s!==src); if(sources.length===0&&!playing)b._g=null;};
+  }
+  startMetronome(playAnchorCtx,pos);
+  updateBar(); loop();
+}
+function stopSources(clearPos){
+  sources.forEach(s=>{try{s.onended=null;s.stop();}catch(e){}});
+  sources=[];
+  blocks.forEach(b=>{if(b._live){b._live=false;if(b.el)b.el.classList.remove('live');}});
+  if(metTimer){clearInterval(metTimer);metTimer=0;}
+  playing=false;
+  cancelAnimationFrame(raf);
+  if(clearPos)playPos=0;
+  updateBar();
+}
+function pause(){ if(!playing)return; playPos=curPos(); stopSources(false); }
+function stopAll(){ stopSources(true); setPlayhead(0); }
+function togglePlay(){
+  if(playing){pause();return;}
+  if(!blocks.length){toast('Сначала запиши блок: жми «● Запись» внизу');return;}
+  let p=playPos;
+  if(p>=totalDur()-0.05)p=0;
+  playFrom(p);
+}
+function curPos(){
+  if(!playing)return playPos;
+  return Math.max(playAnchorPos, playAnchorPos+(AC.currentTime-playAnchorCtx));
+}
+function loop(){
+  raf=requestAnimationFrame(loop);
+  const pos=curPos();
+  setPlayhead(pos);
+  $('#playhead').classList.toggle('run',playing);
+  for(const b of blocks){
+    const on=playing&&pos>=b.time&&pos<b.time+playDur(b);
+    if(on!==b._live){b._live=on;if(b.el)b.el.classList.toggle('live',on);}
+  }
+  if(playing){
+    const sc=$('#tl-scroll'), x=pos*PPS;
+    if(x>sc.scrollLeft+sc.clientWidth-30)sc.scrollLeft=x-sc.clientWidth+90;
+  }
+  const end=totalDur();
+  if(playing&&end>0&&pos>=end){ stopSources(false); playPos=end; setPlayhead(end); }
+}
+function setPlayhead(pos){
+  $('#playhead').style.left=(pos*PPS)+'px';
+  $('#playhead').classList.add('on');
+  $('#time-disp').textContent=fmt(pos);
+}
+function updateBar(){
+  const p=$('#btn-play');
+  p.innerHTML=playing?'⏸&nbsp; Пауза':'▶&nbsp; Пуск';
+  p.classList.toggle('playing',playing);
+}
+
+/* ================= Метроном ================= */
+function startMetronome(t0,pos){
+  if(!settings.metronome)return;
+  if(metTimer)clearInterval(metTimer);
+  const beat=60/settings.bpm;
+  let i=Math.max(0,Math.ceil((pos-0.0001)/beat));
+  let next=t0+(i*beat-pos);
+  metTimer=setInterval(()=>{
+    while(next<AC.currentTime+0.2){
+      click(next,i%4===0);
+      i++; next+=beat;
+    }
+  },40);
+}
+function click(t,accent){
+  const o=AC.createOscillator(), g=AC.createGain();
+  o.type='square';
+  o.frequency.value=accent?1568:1046;
+  g.gain.setValueAtTime(0.0001,t);
+  g.gain.exponentialRampToValueAtTime(accent?0.45:0.28,t+0.004);
+  g.gain.exponentialRampToValueAtTime(0.0001,t+0.07);
+  o.connect(g); g.connect(master);
+  o.start(t); o.stop(t+0.09);
+}
+
+/* ================= Утилиты ================= */
+const sleep=ms=>new Promise(r=>setTimeout(r,ms));
+let toastT=0;
+function toast(msg){
+  const t=$('#toast');
+  t.textContent=msg; t.classList.add('show');
+  clearTimeout(toastT);
+  toastT=setTimeout(()=>t.classList.remove('show'),2600);
+}
+function showOverlay(id){$('#'+id).hidden=false;}
+function hideOverlay(id){$('#'+id).hidden=true;}
+function snapTime(t){
+  const g=settings.metronome?0.5:0.05;
+  return Math.max(0,Math.round(t/g)*g);
+}
+function findFreeTime(track,t,dur){
+  let placed=Math.max(0,t);
+  const others=blocks.filter(b=>b.track===track).sort((a,b)=>a.time-b.time);
+  let changed=true, guard=0;
+  while(changed&&guard++<50){
+    changed=false;
+    for(const o of others){
+      const oEnd=o.time+playDur(o);
+      if(placed<oEnd&&o.time<placed+dur){ placed=oEnd; changed=true; }
+    }
+  }
+  return placed;
+}
+/* ================= Запись с микрофона ================= */
+let recState='idle', recorder=null, recChunks=[], recStream=null;
+let recStartT=0, recTimerInt=0, recDiscard=false, recSrc=null, recAnalyser=null;
+let waveCanvas=null, waveCtx=null;
+const wdata=new Uint8Array(1024);
+
+async function startRec(){
+  if(recState!=='idle')return;
+  if(!navigator.mediaDevices||!navigator.mediaDevices.getUserMedia||!window.MediaRecorder){
+    toast('Этот браузер не умеет записывать звук — попробуй Chrome или Safari');
+    return;
+  }
+  const ctx=audio(); // контекст создаём в жесте пользователя
+  try{
+    recStream=await navigator.mediaDevices.getUserMedia({audio:true});
+  }catch(e){
+    toast('Нужен доступ к микрофону — разреши его в браузере');
+    return;
+  }
+  recState='count'; recChunks=[]; recDiscard=false;
+  $('#rec-overlay-track').textContent=TRACKS[selTrack].name;
+  $('#rec-overlay-track').style.color=TRACKS[selTrack].color;
+  showOverlay('rec-overlay');
+  setupWaveCanvas();
+  if(settings.metronome){ // отсчёт: один такт щелчков перед записью
+    $('#rec-state').textContent='ЗАПИСЬ ЧЕРЕЗ';
+    const beat=60/settings.bpm*1000;
+    for(let i=4;i>0;i--){
+      if(recState!=='count')break;
+      $('#rec-time').textContent=String(i);
+      $('#rec-bar').style.width=((4-i)/4*100)+'%';
+      click(ctx.currentTime+0.03,i===4);
+      await sleep(beat);
+    }
+  }
+  if(recState!=='count'){ // отменили во время отсчёта
+    if(recStream){recStream.getTracks().forEach(t=>t.stop());recStream=null;}
+    recState='idle';
+    return;
+  }
+  recState='rec';
+  $('#rec-state').textContent='ИДЁТ ЗАПИСЬ';
+  $('#rec-time').textContent='0:00.0';
+  $('#rec-bar').style.width='0%';
+  const mt=['audio/webm;codecs=opus','audio/webm','audio/mp4']
+    .find(m=>window.MediaRecorder.isTypeSupported&&MediaRecorder.isTypeSupported(m));
+  recorder=mt?new MediaRecorder(recStream,{mimeType:mt}):new MediaRecorder(recStream);
+  recorder.ondataavailable=e=>{if(e.data&&e.data.size)recChunks.push(e.data);};
+  recorder.onstop=onRecStop;
+  recorder.start();
+  recStartT=performance.now();
+  recSrc=ctx.createMediaStreamSource(recStream);
+  recAnalyser=ctx.createAnalyser(); recAnalyser.fftSize=1024;
+  recSrc.connect(recAnalyser);
+  recTimerInt=setInterval(recTick,100);
+  recTick();
+  startMetronome(ctx.currentTime+0.05,0);
+}
+function recTick(){
+  const t=(performance.now()-recStartT)/1000;
+  $('#rec-time').textContent=fmt(Math.min(t,MAX_REC));
+  $('#rec-bar').style.width=Math.min(100,t/MAX_REC*100)+'%';
+  drawWaveLive();
+  if(t>=MAX_REC)stopRec();
+}
+function stopRec(){
+  if(recState!=='rec')return;
+  recState='proc';
+  clearInterval(recTimerInt);
+  if(metTimer){clearInterval(metTimer);metTimer=0;}
+  try{recorder.stop();}catch(e){}
+  if(recSrc)recSrc.disconnect();
+}
+function cancelRec(){
+  recDiscard=true;
+  const wasCount=recState==='count';
+  recState='proc';
+  clearInterval(recTimerInt);
+  if(metTimer){clearInterval(metTimer);metTimer=0;}
+  try{if(recorder&&recorder.state!=='inactive')recorder.stop();}catch(e){}
+  if(recSrc)recSrc.disconnect();
+  if(wasCount&&recStream){recStream.getTracks().forEach(t=>t.stop());recStream=null;}
+  recState='idle';
+  hideOverlay('rec-overlay');
+}
+async function onRecStop(){
+  if(recStream)recStream.getTracks().forEach(t=>t.stop());
+  recStream=null; recAnalyser=null;
+  if(recDiscard){recState='idle';return;}
+  $('#rec-state').textContent='ОБРАБАТЫВАЮ…';
+  try{
+    const blob=new Blob(recChunks,{type:recorder.mimeType||'audio/webm'});
+    const buf=await audio().decodeAudioData(await blob.arrayBuffer());
+    if(buf.duration<0.15){
+      toast('Слишком коротко — попробуй ещё раз');
+    }else{
+      const t0=findFreeTime(selTrack,playPos,buf.duration);
+      const n=blocks.filter(b=>b.track===selTrack).length+1;
+      addBlock(selTrack,t0,buf,TRACKS[selTrack].name+' '+n);
+      extendTo(t0+buf.duration+5);
+      toast('Готово! Тяни блок пальцем или жми ▶');
+    }
+  }catch(e){
+    console.error(e);
+    toast('Не удалось обработать запись');
+  }
+  recState='idle';
+  hideOverlay('rec-overlay');
+}
+function setupWaveCanvas(){
+  waveCanvas=$('#wave-canvas');
+  const dpr=window.devicePixelRatio||1;
+  waveCanvas.width=Math.max(2,Math.round(waveCanvas.clientWidth*dpr));
+  waveCanvas.height=Math.max(2,Math.round(waveCanvas.clientHeight*dpr));
+  waveCtx=waveCanvas.getContext('2d');
+}
+function drawWaveLive(){
+  if(!recAnalyser||!waveCtx)return;
+  recAnalyser.getByteTimeDomainData(wdata);
+  let mn=255,mx=0;
+  for(let i=0;i<wdata.length;i++){const v=wdata[i];if(v<mn)mn=v;if(v>mx)mx=v;}
+  const c=waveCanvas, cx=waveCtx, W=c.width, H=c.height, mid=H/2;
+  const shift=Math.max(2,Math.round(W/60));
+  cx.globalCompositeOperation='copy';
+  cx.drawImage(c,-shift,0);
+  cx.globalCompositeOperation='source-over';
+  const amp=Math.max(1,(mx-mn)/255*H*0.5);
+  cx.fillStyle=(mx>248||mn<7)?'#ff5563':'#2fd57c';
+  cx.fillRect(W-shift,mid-amp,shift,amp*2);
+}
+
+/* ================= Дорожки и блоки ================= */
+function buildLanes(){
+  const box=$('#lanes'); box.innerHTML='';
+  TRACKS.forEach(t=>{
+    const l=el('div','lane');
+    const lab=el('span','lane-label');
+    lab.innerHTML='<i class="dot" style="background:'+t.color+'"></i>'+t.name;
+    l.appendChild(lab);
+    box.appendChild(l);
+  });
+}
+function applyTimelineSize(){ $('#tl-inner').style.width=(timelineSec*PPS)+'px'; }
+function buildRuler(){
+  const r=$('#ruler'); r.innerHTML='';
+  for(let s=0;s<=timelineSec;s++){
+    const tick=el('i',s%5===0?'tick maj':'tick');
+    tick.style.left=(s*PPS)+'px';
+    r.appendChild(tick);
+    if(s%5===0){
+      const t=el('span','tlab');
+      t.textContent=fmtR(s);
+      t.style.left=(s*PPS)+'px';
+      r.appendChild(t);
+    }
+  }
+}
+function extendTo(sec){
+  if(sec<=timelineSec)return;
+  timelineSec=Math.ceil(sec/10)*10;
+  applyTimelineSize(); buildRuler();
+}
+function addBlock(track,time,buffer,name){
+  const n=blocks.filter(b=>b.track===track).length+1;
+  const b={id:seq++,track:track,time:Math.max(0,time),buffer:buffer,start:0,end:buffer.duration,
+           name:name||TRACKS[track].name+' '+n,gain:1,semitones:0,el:null,_g:null};
+  blocks.push(b);
+  buildBlockEl(b);
+  updateEmptyHint();
+  return b;
+}
+function buildBlockEl(b){
+  const c=TRACKS[b.track].color;
+  const d=el('div','block');
+  d.style.borderColor=c;
+  d.style.color=c;
+  d.style.background=hexA(c,.16);
+  const cv=el('canvas'); d.appendChild(cv);
+  const nm=el('div','bname'); nm.textContent=b.name; d.appendChild(nm);
+  const hl=el('div','rh l'); hl.innerHTML='<i></i>';
+  const hr=el('div','rh r'); hr.innerHTML='<i></i>';
+  d.appendChild(hl); d.appendChild(hr);
+  b.el=d; b.canvas=cv; b.nameEl=nm;
+  d.addEventListener('animationend',()=>d.classList.remove('pop'));
+  $('#lanes').children[b.track].appendChild(d);
+  placeBlock(b); drawBlockWave(b); bindBlock(d,b,hl,hr);
+}
+function placeBlock(b){
+  b.el.style.left=(b.time*PPS)+'px';
+  b.el.style.width=Math.max(14,playDur(b)*PPS)+'px';
+}
+function recolorBlock(b){
+  const c=TRACKS[b.track].color;
+  b.el.style.borderColor=c; b.el.style.color=c; b.el.style.background=hexA(c,.16);
+  drawBlockWave(b);
+}
+function moveBlockTrack(b,tr){
+  if(tr===b.track)return;
+  b.track=tr;
+  $('#lanes').children[tr].appendChild(b.el);
+  recolorBlock(b);
+}
+function drawBlockWave(b){
+  const dpr=Math.min(2,window.devicePixelRatio||1);
+  const Wcss=parseFloat(b.el.style.width)||20;
+  const cv=b.canvas;
+  cv.width=Math.max(1,Math.round(Wcss*dpr));
+  cv.height=Math.round(44*dpr);
+  const cx=cv.getContext('2d');
+  const data=b.buffer.getChannelData(0);
+  const rate=rateOf(b), sr=b.buffer.sampleRate;
+  cx.fillStyle=TRACKS[b.track].color;
+  const capS=Math.max(1,Math.floor(b.end*sr));
+  const step=Math.max(1,Math.round(dpr));
+  for(let x=0;x<cv.width;x+=step){
+    const i0=Math.floor((b.start+(x/dpr/PPS)*rate)*sr);
+    const i1=Math.min(data.length,capS,Math.max(i0+1,Math.floor((b.start+((x+step)/dpr/PPS)*rate)*sr)));
+    let mn=1,mx=-1;
+    const stride=Math.max(1,Math.floor((i1-i0)/40));
+    for(let i=i0;i<i1;i+=stride){const v=data[i];if(v<mn)mn=v;if(v>mx)mx=v;}
+    if(mn>mx){mn=0;mx=0;}
+    const h=Math.max(2*dpr,(mx-mn)*cv.height*0.46);
+    cx.fillRect(x,cv.height/2-h/2,step,h);
+  }
+}
+function updateEmptyHint(){ $('#empty-hint').hidden=blocks.length>0; }
+function selectBlock(b){
+  if(selBlock&&selBlock.el)selBlock.el.classList.remove('sel');
+  selBlock=b;
+  if(b){ b.el.classList.add('sel'); $('#selbar').classList.remove('off'); }
+  else $('#selbar').classList.add('off');
+}
+function deleteBlock(b){
+  if(playing)pause();
+  if(selBlock===b)selectBlock(null);
+  if(modalBlock===b){modalBlock=null;hideOverlay('block-modal');}
+  if(b.el)b.el.remove();
+  blocks=blocks.filter(x=>x!==b);
+  updateEmptyHint();
+  toast('Блок удалён');
+}
+function setSelTrack(tr){
+  selTrack=tr;
+  [...$('#lanes').children].forEach((l,i)=>{
+    l.classList.toggle('sel-track',i===tr);
+    l.style.background=i===tr?hexA(TRACKS[i].color,.07):'';
+    l.querySelector('.lane-label').style.borderColor=i===tr?TRACKS[i].color:'';
+  });
+  $('#rec-track-name').textContent=TRACKS[tr].name;
+  $('#rec-dot-track').style.background=TRACKS[tr].color;
+}
+
+/* ================= Перетаскивание блоков ================= */
+let laneRects=[];
+function cacheLaneRects(){ return [...$('#lanes').children].map(l=>l.getBoundingClientRect()); }
+function hitLane(y){
+  for(let i=0;i<laneRects.length;i++){
+    const r=laneRects[i];
+    if(y>=r.top&&y<r.bottom)return i;
+  }
+  return -1;
+}
+/* ================= Движок перетаскивания и растягивания ================= */
+let dragCtx=null, asRaf=0, lastTap={t:0,id:0}, snapT=0;
+
+function innerLeft(){ return $('#tl-inner').getBoundingClientRect().left; }
+function startAutoScroll(){ if(!asRaf)asRaf=requestAnimationFrame(autoScrollTick); }
+function autoScrollTick(){
+  if(!dragCtx){asRaf=0;return;}
+  const sc=$('#tl-scroll'), r=sc.getBoundingClientRect(), x=dragCtx.clientX;
+  const edgeL=r.left+56, edgeR=r.right-56;
+  let v=0;
+  if(x<edgeL)v=-Math.min(20,(edgeL-x)/2.5);
+  else if(x>edgeR)v=Math.min(20,(x-edgeR)/2.5);
+  if(v)sc.scrollLeft=clamp(sc.scrollLeft+v,0,sc.scrollWidth-sc.clientWidth);
+  applyDragPos();
+  asRaf=requestAnimationFrame(autoScrollTick);
+}
+function applyDragPos(){
+  if(!dragCtx)return;
+  if(dragCtx.mode==='move')applyMovePos(dragCtx.clientX,dragCtx.clientY);
+  else applyResizePos(dragCtx.clientX);
+}
+function magnet(t,self){
+  const th=9/PPS;
+  const cands=[0,playPos];
+  for(const o of blocks){ if(o===self)continue; cands.push(o.time,o.time+playDur(o)); }
+  if(settings.metronome)cands.push(Math.round(t/0.5)*0.5);
+  let best=null,bd=th;
+  for(const c of cands){const d=Math.abs(c-t);if(d<bd){bd=d;best=c;}}
+  if(best!=null)showSnapline(best);
+  return best;
+}
+function showSnapline(t){
+  const s=$('#snapline');
+  s.style.left=(t*PPS)+'px';
+  s.classList.add('show');
+  clearTimeout(snapT);
+  snapT=setTimeout(()=>s.classList.remove('show'),380);
+}
+function applyMovePos(x,y){
+  const c=dragCtx; if(!c)return;
+  const b=c.b;
+  let t=(x-innerLeft())/PPS+c.grabOff;
+  const m=magnet(t,b);
+  t=m!=null?Math.max(0,m):snapTime(t);
+  b.time=Math.max(0,t);
+  const tr=hitLane(y);
+  if(tr>=0&&tr!==b.track)moveBlockTrack(b,tr);
+  placeBlock(b);
+}
+function applyResizePos(x){
+  const c=dragCtx; if(!c)return;
+  const b=c.b, rate=rateOf(b);
+  const dxT=(x-innerLeft())/PPS-c.startX;
+  if(c.side==='r'){
+    b.end=clamp(c.end0+dxT*rate,b.start+0.6*rate,b.buffer.duration);
+  }else{
+    const start=clamp(c.start0+dxT*rate,0,b.end-0.6*rate);
+    b.time=Math.max(0,c.time0+(start-c.start0)/rate);
+    b.start=start;
+  }
+  placeBlock(b); drawBlockWave(b);
+  const tip=$('#dur-tip');
+  tip.textContent=playDur(b).toFixed(1)+' с';
+  tip.style.left=(b.time*PPS+6)+'px';
+  tip.style.top=(12+b.track*64)+'px';
+}
+function bindBlock(d,b,hl,hr){
+  let sx=0,sy=0,st0=0,pid=null,moved=false,longT=0,downT=0;
+  d.addEventListener('pointerdown',e=>{
+    if(recState!=='idle')return;
+    e.preventDefault();
+    pid=e.pointerId;
+    try{d.setPointerCapture(pid);}catch(err){}
+    sx=e.clientX; sy=e.clientY;
+    st0=b.time; moved=false; downT=Date.now();
+    laneRects=cacheLaneRects();
+    longT=setTimeout(()=>{longT=0;openBlockModal(b);},600);
+  });
+  d.addEventListener('pointermove',e=>{
+    if(pid===null||e.pointerId!==pid)return;
+    if(!moved&&Math.hypot(e.clientX-sx,e.clientY-sy)>7){
+      moved=true;
+      if(longT){clearTimeout(longT);longT=0;}
+      d.classList.add('dragging');
+      selectBlock(b);
+      dragCtx={mode:'move',b:b,grabOff:st0-(sx-innerLeft())/PPS,clientX:sx,clientY:sy};
+      startAutoScroll();
+    }
+    if(!moved)return;
+    dragCtx.clientX=e.clientX; dragCtx.clientY=e.clientY;
+    applyDragPos();
+  });
+  const up=e=>{
+    if(pid===null||e.pointerId!==pid)return;
+    pid=null;
+    try{d.releasePointerCapture(e.pointerId);}catch(err){}
+    if(longT){clearTimeout(longT);longT=0;}
+    d.classList.remove('dragging');
+    if(moved){
+      resolveDrop(b);
+      placeBlock(b);
+      extendTo(b.time+playDur(b)+4);
+      b.el.classList.add('pop');
+    }else if(Date.now()-downT<600){
+      const now=Date.now();
+      if(now-lastTap.t<350&&lastTap.id===b.id){
+        lastTap={t:0,id:0};
+        duplicateBlock(b);
+      }else{
+        lastTap={t:now,id:b.id};
+        selectBlock(selBlock===b?null:b);
+      }
+    }
+    dragCtx=null;
+  };
+  d.addEventListener('pointerup',up);
+  d.addEventListener('pointercancel',up);
+  bindHandle(d,b,hl,'l');
+  bindHandle(d,b,hr,'r');
+}
+function bindHandle(d,b,rh,side){
+  let pid=null,sx=0;
+  rh.addEventListener('pointerdown',e=>{
+    if(recState!=='idle')return;
+    e.preventDefault(); e.stopPropagation();
+    pid=e.pointerId; sx=e.clientX;
+    try{rh.setPointerCapture(pid);}catch(err){}
+    dragCtx={mode:'resize',b:b,side:side,
+             startX:(sx-innerLeft())/PPS,
+             start0:b.start,end0:b.end,time0:b.time,clientX:sx};
+    $('#dur-tip').style.display='block';
+    startAutoScroll();
+  });
+  rh.addEventListener('pointermove',e=>{
+    if(pid===null||e.pointerId!==pid||!dragCtx)return;
+    dragCtx.clientX=e.clientX;
+    applyDragPos();
+  });
+  const up=e=>{
+    if(pid===null||e.pointerId!==pid)return;
+    pid=null;
+    try{rh.releasePointerCapture(e.pointerId);}catch(err){}
+    dragCtx=null;
+    $('#dur-tip').style.display='none';
+    extendTo(b.time+playDur(b)+4);
+  };
+  rh.addEventListener('pointerup',up);
+  rh.addEventListener('pointercancel',up);
+}
+function resolveDrop(b){
+  const dur=playDur(b);
+  const others=blocks.filter(x=>x!==b&&x.track===b.track);
+  const hit=others.find(o=>b.time<o.time+playDur(o)&&o.time<b.time+dur);
+  if(!hit)return;
+  const hEnd=hit.time+playDur(hit);
+  const cand=[hEnd,hit.time-dur];
+  let best=cand[0];
+  if(cand[1]>=0&&Math.abs(cand[1]-b.time)<Math.abs(best-b.time))best=cand[1];
+  const free=!others.find(o=>best<o.time+playDur(o)&&o.time<best+dur);
+  b.time=free?Math.max(0,best):findFreeTime(b.track,b.time,dur);
+}
+function duplicateBlock(b){
+  const dur=playDur(b);
+  const t0=findFreeTime(b.track,b.time+dur,dur);
+  const nb={id:seq++,track:b.track,time:t0,buffer:b.buffer,start:b.start,end:b.end,
+            name:b.name+' (копия)',gain:b.gain,semitones:b.semitones,el:null,_g:null};
+  blocks.push(nb);
+  extendTo(t0+dur+4);
+  buildBlockEl(nb);
+  updateEmptyHint();
+  nb.el.classList.add('pop');
+  selectBlock(nb);
+  toast('Копия готова — тяни куда нужно');
+}
+
+/* ================= Линейка времени (плейхед) ================= */
+let scrubbing=false;
+function seekTo(e){
+  const r=$('#tl-inner').getBoundingClientRect();
+  const t=clamp((e.clientX-r.left)/PPS,0,timelineSec);
+  if(playing){ stopSources(false); playPos=t; playFrom(t); }
+  else{ playPos=t; setPlayhead(t); }
+}
+function onLaneDown(e){
+  if(e.target.closest('.block')||recState!=='idle')return;
+  const lane=e.target.closest('.lane');
+  if(!lane)return;
+  setSelTrack([...$('#lanes').children].indexOf(lane));
+  if(selBlock)selectBlock(null);
+}
+
+/* ================= Модалка блока ================= */
+let modalBlock=null, previewSrc=null;
+function openBlockModal(b){
+  modalBlock=b; selectBlock(b);
+  $('#bm-name').value=b.name;
+  $('#bm-vol').value=Math.round(b.gain*100);
+  $('#bm-vol-val').textContent=Math.round(b.gain*100)+'%';
+  $('#bm-tone').value=b.semitones;
+  $('#bm-tone-val').textContent=(b.semitones>0?'+':'')+b.semitones+' пт';
+  $('#bm-len').textContent=playDur(b).toFixed(1)+' с';
+  renderModalChips(b.track);
+  showOverlay('block-modal');
+}
+function closeBlockModal(){
+  stopPreview();
+  modalBlock=null;
+  hideOverlay('block-modal');
+}
+function renderModalChips(tr){
+  const box=$('#bm-chips'); box.innerHTML='';
+  TRACKS.forEach((t,i)=>{
+    const c=el('button','chip'+(i===tr?' on':''));
+    c.style.color=t.color;
+    c.innerHTML='<i class="dot" style="background:'+t.color+'"></i>'+t.name;
+    c.addEventListener('click',()=>{
+      if(!modalBlock)return;
+      moveBlockTrack(modalBlock,i);
+      renderModalChips(i);
+    });
+    box.appendChild(c);
+  });
+}
+function previewBlock(){
+  const b=modalBlock; if(!b)return;
+  stopPreview();
+  const ctx=audio();
+  const src=ctx.createBufferSource();
+  src.buffer=b.buffer;
+  src.playbackRate.value=rateOf(b);
+  const g=ctx.createGain(); g.gain.value=b.gain;
+  src.connect(g); g.connect(master);
+  src.onended=()=>{previewSrc=null;$('#bm-preview').innerHTML='▶&nbsp; Прослушать';};
+  try{src.start(ctx.currentTime+0.02,b.start,b.end-b.start);}catch(e){}
+  previewSrc=src;
+  $('#bm-preview').innerHTML='■&nbsp; Стоп';
+}
+function stopPreview(){
+  if(previewSrc){
+    const s=previewSrc; previewSrc=null;
+    try{s.stop();}catch(e){}
+    $('#bm-preview').innerHTML='▶&nbsp; Прослушать';
+  }
+}
+
+/* ================= Экраны и настройки ================= */
+function goto(name){
+  if(name!=='editor'&&playing)pause();
+  document.querySelectorAll('.screen').forEach(s=>s.classList.remove('active'));
+  $('#screen-'+name).classList.add('active');
+  if(name==='editor'&&!helpShown){helpShown=true;showOverlay('help-overlay');}
+}
+function saveSettings(){
+  try{localStorage.setItem('muzstudia',JSON.stringify(settings));}catch(e){}
+}
+function loadSettings(){
+  try{
+    const s=JSON.parse(localStorage.getItem('muzstudia'));
+    if(s&&typeof s==='object')Object.assign(settings,s);
+  }catch(e){}
+}
+function applySettings(){
+  $('#set-master').value=Math.round(settings.master*100);
+  $('#set-master-val').textContent=Math.round(settings.master*100)+'%';
+  $('#set-metronome').setAttribute('aria-pressed',String(settings.metronome));
+  $('#row-bpm').hidden=!settings.metronome;
+  $('#bpm-value').textContent=settings.bpm;
+  document.documentElement.dataset.theme=settings.theme;
+  $('#theme-dark').classList.toggle('on',settings.theme==='dark');
+  $('#theme-light').classList.toggle('on',settings.theme==='light');
+  const meta=document.querySelector('meta[name=theme-color]');
+  if(meta)meta.content=settings.theme==='dark'?'#0a0a0c':'#f1f1f5';
+  if(master)master.gain.value=settings.master;
+}
+
+/* ================= Инициализация ================= */
+function init(){
+  loadSettings(); applySettings();
+  buildLanes(); applyTimelineSize(); buildRuler();
+  setSelTrack(0); updateEmptyHint();
+
+  document.querySelectorAll('[data-goto]').forEach(b=>
+    b.addEventListener('click',()=>goto(b.dataset.goto)));
+
+  $('#btn-record').addEventListener('click',startRec);
+  $('#btn-rec-stop').addEventListener('click',stopRec);
+  $('#btn-rec-cancel').addEventListener('click',cancelRec);
+  $('#btn-play').addEventListener('click',togglePlay);
+  $('#btn-stop').addEventListener('click',stopAll);
+  $('#btn-help').addEventListener('click',()=>showOverlay('help-overlay'));
+  $('#btn-help-ok').addEventListener('click',()=>hideOverlay('help-overlay'));
+  $('#btn-sel-settings').addEventListener('click',()=>{if(selBlock)openBlockModal(selBlock);});
+  $('#btn-sel-del').addEventListener('click',()=>{if(selBlock)deleteBlock(selBlock);});
+
+  $('#set-master').addEventListener('input',e=>{
+    settings.master=e.target.value/100;
+    $('#set-master-val').textContent=e.target.value+'%';
+    if(master)master.gain.value=settings.master;
+    saveSettings();
+  });
+  $('#set-metronome').addEventListener('click',()=>{
+    settings.metronome=!settings.metronome;
+    applySettings(); saveSettings();
+    if(settings.metronome)toast('Метроном включён — блоки прилипают к долям');
+  });
+  const setBpm=v=>{
+    settings.bpm=clamp(v,40,240);
+    $('#bpm-value').textContent=settings.bpm;
+    saveSettings();
+  };
+  $('#bpm-minus').addEventListener('click',()=>setBpm(settings.bpm-5));
+  $('#bpm-plus').addEventListener('click',()=>setBpm(settings.bpm+5));
+  $('#theme-dark').addEventListener('click',()=>{settings.theme='dark';applySettings();saveSettings();});
+  $('#theme-light').addEventListener('click',()=>{settings.theme='light';applySettings();saveSettings();});
+
+  $('#bm-name').addEventListener('input',e=>{
+    if(modalBlock){modalBlock.name=e.target.value;modalBlock.nameEl.textContent=e.target.value;}
+  });
+  $('#bm-vol').addEventListener('input',e=>{
+    if(!modalBlock)return;
+    modalBlock.gain=e.target.value/100;
+    $('#bm-vol-val').textContent=e.target.value+'%';
+    if(playing&&modalBlock._g)modalBlock._g.gain.value=modalBlock.gain;
+  });
+  $('#bm-tone').addEventListener('input',e=>{
+    if(!modalBlock)return;
+    modalBlock.semitones=+e.target.value;
+    $('#bm-tone-val').textContent=(modalBlock.semitones>0?'+':'')+modalBlock.semitones+' пт';
+    placeBlock(modalBlock);
+    drawBlockWave(modalBlock);
+    $('#bm-len').textContent=playDur(modalBlock).toFixed(1)+' с';
+    extendTo(modalBlock.time+playDur(modalBlock)+4);
+  });
+  $('#bm-preview').addEventListener('click',()=>{ if(previewSrc)stopPreview(); else previewBlock(); });
+  $('#bm-done').addEventListener('click',closeBlockModal);
+  $('#bm-delete').addEventListener('click',()=>{
+    if(modalBlock){const b=modalBlock;closeBlockModal();deleteBlock(b);}
+  });
+
+  ['block-modal','help-overlay'].forEach(id=>{
+    $('#'+id).addEventListener('click',e=>{
+      if(e.target.id!==id)return;
+      if(id==='block-modal')closeBlockModal(); else hideOverlay(id);
+    });
+  });
+
+  $('#lanes').addEventListener('pointerdown',onLaneDown);
+  const ruler=$('#ruler');
+  ruler.addEventListener('pointerdown',e=>{
+    e.preventDefault();
+    try{ruler.setPointerCapture(e.pointerId);}catch(err){}
+    scrubbing=true; seekTo(e);
+  });
+  ruler.addEventListener('pointermove',e=>{if(scrubbing)seekTo(e);});
+  const endScrub=()=>scrubbing=false;
+  ruler.addEventListener('pointerup',endScrub);
+  ruler.addEventListener('pointercancel',endScrub);
+
+  document.addEventListener('contextmenu',e=>{
+    if(e.target.closest&&e.target.closest('.block,.ruler'))e.preventDefault();
+  });
+  document.addEventListener('visibilitychange',()=>{
+    if(document.hidden&&playing)pause();
+  });
+}
+init();
+</script>
+</body>
+</html>
