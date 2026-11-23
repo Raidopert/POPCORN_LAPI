@@ -1,0 +1,21 @@
+{
+  "name": "Сундучный Вор: Тёмное Фэнтези",
+  "short_name": "СундучВор",
+  "description": "Готическая кликер-игра: души чумного воришку демоническим луком, открывай проклятые сундуки, собирай 1000 реликвий и сражайся с демонами склепа.",
+  "start_url": "./",
+  "scope": "./",
+  "display": "fullscreen",
+  "display_override": ["fullscreen", "standalone", "minimal-ui"],
+  "orientation": "any",
+  "background_color": "#08060a",
+  "theme_color": "#0a0a0f",
+  "lang": "ru",
+  "dir": "ltr",
+  "categories": ["games", "entertainment"],
+  "icons": [
+    { "src": "icon-192.png", "sizes": "192x192", "type": "image/png", "purpose": "any" },
+    { "src": "icon-192.png", "sizes": "192x192", "type": "image/png", "purpose": "maskable" },
+    { "src": "icon-512.png", "sizes": "512x512", "type": "image/png", "purpose": "any" },
+    { "src": "icon-512.png", "sizes": "512x512", "type": "image/png", "purpose": "maskable" }
+  ]
+}
