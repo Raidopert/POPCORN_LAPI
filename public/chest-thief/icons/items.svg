@@ -1,0 +1,93 @@
+<svg xmlns="http://www.w3.org/2000/svg" style="display:none">
+<!-- Меч -->
+<symbol id="icon-sword" viewBox="0 0 32 32">
+<path d="M16 4 L16 22 M12 22 L20 22 M14 22 L14 26 L18 26 L18 22" stroke="currentColor" stroke-width="2" fill="none" stroke-linecap="round"/>
+<path d="M16 4 L14 8 L18 8 Z" fill="currentColor"/>
+</symbol>
+<!-- Кинжал -->
+<symbol id="icon-dagger" viewBox="0 0 32 32">
+<path d="M16 6 L16 20 M13 20 L19 20 M15 20 L15 24 L17 24 L17 20" stroke="currentColor" stroke-width="2" fill="none" stroke-linecap="round"/>
+<path d="M16 6 L15 10 L17 10 Z" fill="currentColor"/>
+</symbol>
+<!-- Лук -->
+<symbol id="icon-bow" viewBox="0 0 32 32">
+<path d="M10 6 Q4 16 10 26" stroke="currentColor" stroke-width="2" fill="none"/>
+<path d="M10 6 L10 26" stroke="currentColor" stroke-width="1" stroke-dasharray="2 2"/>
+<path d="M14 16 L26 16" stroke="currentColor" stroke-width="1.5"/>
+<path d="M24 14 L28 16 L24 18" fill="currentColor"/>
+</symbol>
+<!-- Посох -->
+<symbol id="icon-staff" viewBox="0 0 32 32">
+<path d="M16 28 L16 8" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"/>
+<circle cx="16" cy="6" r="3" fill="currentColor" opacity="0.7"/>
+<circle cx="16" cy="6" r="1.5" fill="currentColor"/>
+</symbol>
+<!-- Молот -->
+<symbol id="icon-hammer" viewBox="0 0 32 32">
+<path d="M16 28 L16 14" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>
+<path d="M10 8 L22 8 L22 14 L10 14 Z" fill="currentColor" opacity="0.8"/>
+</symbol>
+<!-- Копьё -->
+<symbol id="icon-spear" viewBox="0 0 32 32">
+<path d="M16 28 L16 10" stroke="currentColor" stroke-width="2"/>
+<path d="M16 4 L12 12 L16 10 L20 12 Z" fill="currentColor"/>
+</symbol>
+<!-- Секира -->
+<symbol id="icon-axe" viewBox="0 0 32 32">
+<path d="M16 28 L16 10" stroke="currentColor" stroke-width="2"/>
+<path d="M8 8 Q16 4 24 8 L22 12 Q16 10 10 12 Z" fill="currentColor" opacity="0.8"/>
+</symbol>
+<!-- Щит -->
+<symbol id="icon-shield" viewBox="0 0 32 32">
+<path d="M16 4 L26 8 L26 16 Q26 22 16 28 Q6 22 6 16 L6 8 Z" stroke="currentColor" stroke-width="2" fill="currentColor" fill-opacity="0.2"/>
+</symbol>
+<!-- Шлем -->
+<symbol id="icon-helmet" viewBox="0 0 32 32">
+<path d="M10 8 Q16 4 22 8 L22 18 Q22 22 16 24 Q10 22 10 18 Z" stroke="currentColor" stroke-width="2" fill="currentColor" fill-opacity="0.2"/>
+<path d="M14 12 L14 16 M18 12 L18 16" stroke="currentColor" stroke-width="1"/>
+</symbol>
+<!-- Корона -->
+<symbol id="icon-crown" viewBox="0 0 32 32">
+<path d="M8 20 L8 10 L12 14 L16 8 L20 14 L24 10 L24 20 Z" stroke="currentColor" stroke-width="2" fill="currentColor" fill-opacity="0.3"/>
+<circle cx="16" cy="8" r="1.5" fill="currentColor"/>
+</symbol>
+<!-- Нагрудник -->
+<symbol id="icon-armor" viewBox="0 0 32 32">
+<path d="M10 6 L22 6 L24 10 L24 22 Q24 26 16 28 Q8 26 8 22 L8 10 Z" stroke="currentColor" stroke-width="2" fill="currentColor" fill-opacity="0.2"/>
+<path d="M16 10 L16 24" stroke="currentColor" stroke-width="1" opacity="0.5"/>
+</symbol>
+<!-- Сапоги -->
+<symbol id="icon-boots" viewBox="0 0 32 32">
+<path d="M12 4 L12 18 L12 22 L20 22 L20 18 L16 18 L16 4 Z" stroke="currentColor" stroke-width="2" fill="currentColor" fill-opacity="0.2"/>
+</symbol>
+<!-- Пояс -->
+<symbol id="icon-belt" viewBox="0 0 32 32">
+<rect x="6" y="14" width="20" height="4" rx="1" stroke="currentColor" stroke-width="2" fill="currentColor" fill-opacity="0.3"/>
+<rect x="14" y="12" width="4" height="8" fill="currentColor"/>
+</symbol>
+<!-- Амулет -->
+<symbol id="icon-amulet" viewBox="0 0 32 32">
+<path d="M12 6 Q16 10 20 6" stroke="currentColor" stroke-width="1.5" fill="none"/>
+<circle cx="16" cy="18" r="6" stroke="currentColor" stroke-width="2" fill="currentColor" fill-opacity="0.2"/>
+<circle cx="16" cy="18" r="2" fill="currentColor"/>
+</symbol>
+<!-- Кольцо -->
+<symbol id="icon-ring" viewBox="0 0 32 32">
+<circle cx="16" cy="18" r="8" stroke="currentColor" stroke-width="2.5" fill="none"/>
+<circle cx="16" cy="10" r="3" fill="currentColor" opacity="0.7"/>
+</symbol>
+<!-- Кристалл -->
+<symbol id="icon-crystal" viewBox="0 0 32 32">
+<path d="M16 4 L22 12 L16 28 L10 12 Z" stroke="currentColor" stroke-width="1.5" fill="currentColor" fill-opacity="0.3"/>
+<path d="M10 12 L22 12" stroke="currentColor" stroke-width="1"/>
+</symbol>
+<!-- Зелье -->
+<symbol id="icon-potion" viewBox="0 0 32 32">
+<path d="M12 4 L20 4 L20 8 L18 10 L18 22 Q18 26 16 28 Q14 26 14 22 L14 10 L12 8 Z" stroke="currentColor" stroke-width="1.5" fill="currentColor" fill-opacity="0.3"/>
+</symbol>
+<!-- Свиток -->
+<symbol id="icon-scroll" viewBox="0 0 32 32">
+<rect x="8" y="8" width="16" height="16" rx="2" stroke="currentColor" stroke-width="1.5" fill="currentColor" fill-opacity="0.2"/>
+<path d="M12 12 L20 12 M12 16 L20 16 M12 20 L18 20" stroke="currentColor" stroke-width="0.8"/>
+</symbol>
+</svg>

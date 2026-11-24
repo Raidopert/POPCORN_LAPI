@@ -367,20 +367,6 @@ export default function StudioPage() {
                       <Github className="size-4" aria-hidden />
                       Исходники
                     </a>
-                    <a
-                      href="/downloads/chest-thief/chest-thief.apk"
-                      className="inline-flex items-center gap-2 rounded-xl border border-[#a855f7]/60 hover:bg-[#a855f7]/10 px-4 py-2.5 font-bold transition-colors"
-                    >
-                      <Smartphone className="size-4" aria-hidden />
-                      Android (.apk)
-                    </a>
-                    <a
-                      href="/downloads/chest-thief/chest-thief-windows.zip"
-                      className="inline-flex items-center gap-2 rounded-xl border border-[#a855f7]/60 hover:bg-[#a855f7]/10 px-4 py-2.5 font-bold transition-colors"
-                    >
-                      <Monitor className="size-4" aria-hidden />
-                      ПК (Windows .zip)
-                    </a>
                   </div>
                 </div>
               </article>
