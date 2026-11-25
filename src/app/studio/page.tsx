@@ -1043,6 +1043,8 @@ export default function StudioPage() {
             {" · "}
             <a className="rps-a" href={LICENSE_URL}>лицензия</a>
             {" · "}
+            <Link className="rps-a" href="/privacy">политика</Link>
+            {" · "}
             <Link className="rps-a" href="/studio/internal">разработка</Link>
           </p>
         </div>

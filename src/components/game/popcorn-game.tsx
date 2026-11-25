@@ -4928,6 +4928,15 @@ function CreatorsOverlay({ t, onClose }: { t: TranslateFn; onClose: () => void }
           <p className="mt-1 font-ui text-[11px] leading-snug text-[#5C3A1E]">
             {t('creators.privacyText')}
           </p>
+          <a
+            href="/privacy"
+            target="_blank"
+            rel="noopener noreferrer"
+            onClick={() => audio.play('click')}
+            className="mt-1.5 inline-block font-ui text-[11px] font-bold underline underline-offset-2 text-[#8a5330] transition hover:text-[#B33A26]"
+          >
+            {t('creators.privacyLink')} →
+          </a>
         </div>
 
         {/* Донаты: QR + номер карты МИР (тап — копирование) */}

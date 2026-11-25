@@ -2770,6 +2770,12 @@ export const T: Record<string, Row> = {
     'Das Spiel speichert nur deinen Namen und Rekorde — für die Bestenliste. Keine persönlichen Daten. Zum Löschen deiner Daten schreib dem Autor in VK oder per E-Mail — wir löschen innerhalb von 24 Stunden.',
     'El juego guarda solo tu apodo y récords, para la tabla de líderes. No se recogen datos personales. Para borrar tus datos, escribe al autor por VK o correo: los borraremos en 24 horas.',
   ],
+  'creators.privacyLink': [
+    'Политика конфиденциальности',
+    'Full privacy policy',
+    'Vollständige Datenschutzerklärung',
+    'Política de privacidad completa',
+  ],
   'creators.support': ['💛 ПОДДЕРЖАТЬ АВТОРА', '💛 SUPPORT THE AUTHOR', '💛 AUTOR UNTERSTÜTZEN', '💛 APOYA AL AUTOR'],
   'creators.donateHint': [
     'Наведи камеру банковского приложения на QR — банк спросит, сколько перевести. Или тапни по номеру карты, чтобы скопировать.',
