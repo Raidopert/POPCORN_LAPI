@@ -1,0 +1,61 @@
+{
+  "name": "Тихая долина",
+  "short_name": "Долина",
+  "description": "Заботься о лесных куницах и котиках в 3D-мире. Сезоны, погода, локации, рост от котёнка до старика. Работает офлайн, можно как виджет.",
+  "start_url": "./index.html",
+  "scope": "./",
+  "display": "standalone",
+  "display_override": [
+    "window-controls-overlay",
+    "standalone",
+    "minimal-ui"
+  ],
+  "orientation": "any",
+  "background_color": "#2b2118",
+  "theme_color": "#2b2118",
+  "lang": "ru",
+  "categories": [
+    "games",
+    "entertainment"
+  ],
+  "icons": [
+    {
+      "src": "icon-192.png",
+      "sizes": "192x192",
+      "type": "image/png",
+      "purpose": "any"
+    },
+    {
+      "src": "icon-512.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "any"
+    },
+    {
+      "src": "icon-192-maskable.png",
+      "sizes": "192x192",
+      "type": "image/png",
+      "purpose": "maskable"
+    },
+    {
+      "src": "icon-512-maskable.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "maskable"
+    }
+  ],
+  "shortcuts": [
+    {
+      "name": "Обычная игра",
+      "url": "./index.html"
+    },
+    {
+      "name": "Виджет (мини)",
+      "url": "./index.html?mode=widget"
+    },
+    {
+      "name": "Оверлей (окно в углу)",
+      "url": "./index.html?mode=overlay"
+    }
+  ]
+}

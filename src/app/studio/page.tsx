@@ -429,6 +429,153 @@ export default function StudioPage() {
                 </div>
               </article>
             </div>
+
+            {/* ТИХАЯ ДОЛИНА — 3D-тамагочи (игра статикой в public/dolina/) */}
+            <article className="rps-panel rounded-2xl overflow-hidden flex flex-col">
+              <div className="flex items-center gap-4 p-5 sm:p-6 pb-0">
+                <Image
+                  src="/dolina/icon-512.png"
+                  alt="Тихая долина: 3D-зверёк в лесной поляне"
+                  width={96}
+                  height={96}
+                  className="rounded-xl"
+                />
+                <div>
+                  <h3 className="text-xl sm:text-2xl font-bold text-[#9ccf6e]" style={pixel}>
+                    ТИХАЯ ДОЛИНА
+                  </h3>
+                  <p className="text-sm font-bold text-[#F2E3CF]/90">3D-тамагочи о лесном зверьке</p>
+                </div>
+              </div>
+              <div className="p-5 sm:p-6 flex flex-col gap-3 flex-1">
+                <p className="text-[#F2E3CF]/85">
+                  Спокойный 3D-тамагочи одной рукой: тапай, корми, гуляй. Куница,
+                  кот, лис, заяц или ёж живёт своей жизнью — дышит, спит, бродит
+                  по локациям и стареет от котёнка до старика. Меняются сезоны и
+                  погода, день и ночь идут по реальному времени. Работает офлайн.
+                </p>
+                <div className="flex flex-wrap gap-2 text-xs">
+                  {["3D-тамагочи", "5 зверей", "Сезоны и погода", "PWA офлайн"].map(
+                    (t) => (
+                      <span key={t} className="rounded-full bg-[#2a0923] border border-[#9ccf6e]/30 px-2.5 py-1">
+                        {t}
+                      </span>
+                    )
+                  )}
+                </div>
+                <div className="flex flex-wrap gap-3 mt-auto pt-2">
+                  <a
+                    href="/dolina/"
+                    className="inline-flex items-center gap-2 rounded-xl bg-[#9ccf6e] hover:bg-[#7db552] px-4 py-2.5 font-bold transition-colors text-[#2a0923]"
+                  >
+                    <Gamepad2 className="size-4" aria-hidden />
+                    Играть онлайн
+                  </a>
+                  <a
+                    href="https://github.com/Raidopert/Zabotlivy"
+                    className="inline-flex items-center gap-2 rounded-xl border border-[#9ccf6e]/60 hover:bg-[#9ccf6e]/10 px-4 py-2.5 font-bold transition-colors"
+                  >
+                    <Github className="size-4" aria-hidden />
+                    Исходники
+                  </a>
+                </div>
+              </div>
+            </article>
+
+            {/* BALACLAVA RAVE — ритм-игра (игра статикой в public/balaclava-rave/) */}
+            <article className="rps-panel rounded-2xl overflow-hidden flex flex-col">
+              <div className="flex items-center gap-4 p-5 sm:p-6 pb-0">
+                <Image
+                  src="/balaclava-rave/icon-512.png"
+                  alt="Balaclava Rave: неоновая балаклава на ритм-дорожках"
+                  width={96}
+                  height={96}
+                  className="rounded-xl"
+                />
+                <div>
+                  <h3 className="text-xl sm:text-2xl font-bold text-[#e879f9]" style={pixel}>
+                    BALACLAVA RAVE
+                  </h3>
+                  <p className="text-sm font-bold text-[#F2E3CF]/90">Ритм-игра лондонского андеграунда</p>
+                </div>
+              </div>
+              <div className="p-5 sm:p-6 flex flex-col gap-3 flex-1">
+                <p className="text-[#F2E3CF]/85">
+                  Неон, балаклава и барабанные мелодии. Три дорожки — бас,
+                  мелодия, перкуссия — под классику, чиптюн и драм-энд-бейс:
+                  жги на клавиатуре, геймпаде или тапом по экрану. Музыка
+                  синтезируется прямо в браузере — ни одного аудиофайла.
+                </p>
+                <div className="flex flex-wrap gap-2 text-xs">
+                  {["Ритм-игра", "Web Audio — синтез вживую", "Геймпад + тач", "Браузерная · 0+"].map(
+                    (t) => (
+                      <span key={t} className="rounded-full bg-[#2a0923] border border-[#e879f9]/30 px-2.5 py-1">
+                        {t}
+                      </span>
+                    )
+                  )}
+                </div>
+                <div className="flex flex-wrap gap-3 mt-auto pt-2">
+                  <a
+                    href="/balaclava-rave/"
+                    className="inline-flex items-center gap-2 rounded-xl bg-[#e879f9] hover:bg-[#d656db] px-4 py-2.5 font-bold transition-colors text-[#2a0923]"
+                  >
+                    <Gamepad2 className="size-4" aria-hidden />
+                    Играть онлайн
+                  </a>
+                  <a
+                    href="https://github.com/Raidopert/BalaclavaRave"
+                    className="inline-flex items-center gap-2 rounded-xl border border-[#e879f9]/60 hover:bg-[#e879f9]/10 px-4 py-2.5 font-bold transition-colors"
+                  >
+                    <Github className="size-4" aria-hidden />
+                    Исходники
+                  </a>
+                </div>
+              </div>
+            </article>
+
+            {/* FOODSTORATOR TD — tower defense (веб-версия — отдельный деплой, скоро) */}
+            <article className="rps-panel rounded-2xl overflow-hidden flex flex-col">
+              <Image
+                src="/foodstorator/screenshot-menu.png"
+                alt="FOODSTORATOR TD: меню tower defense про здоровую и вредную еду"
+                width={1400}
+                height={900}
+                className="w-full h-auto"
+              />
+              <div className="p-5 sm:p-6 flex flex-col gap-3 flex-1">
+                <h3 className="text-xl sm:text-2xl font-bold text-[#a3e635]" style={pixel}>
+                  FOODSTORATOR TD
+                </h3>
+                <p className="text-sm font-bold text-[#F2E3CF]/90">Tower defense про еду</p>
+                <p className="text-[#F2E3CF]/85">
+                  Вредная еда — чипсы, кола, фри — едет по дороге к огромному
+                  открытому рту, а на пути стоят башни из здоровой еды:
+                  брокколи-пушки, морковные снайперы и чили-огнемёты. Шесть
+                  башен с уникальными механиками, девять видов джанк-фуда,
+                  20 волн с боссами и бесконечный режим.
+                </p>
+                <div className="flex flex-wrap gap-2 text-xs">
+                  {["Tower Defense", "6 башен · 9 врагов", "20 волн + бесконечный", "Векторная графика"].map(
+                    (t) => (
+                      <span key={t} className="rounded-full bg-[#2a0923] border border-[#a3e635]/30 px-2.5 py-1">
+                        {t}
+                      </span>
+                    )
+                  )}
+                </div>
+                <div className="flex flex-wrap gap-3 mt-auto pt-2 items-center">
+                  <a
+                    href="https://github.com/Raidopert/FOODSTORATOR"
+                    className="inline-flex items-center gap-2 rounded-xl border border-[#a3e635]/60 hover:bg-[#a3e635]/10 px-4 py-2.5 font-bold transition-colors"
+                  >
+                    <Github className="size-4" aria-hidden />
+                    Исходники
+                  </a>
+                  <span className="text-xs text-[#F2E3CF]/60">Веб-версия — скоро</span>
+                </div>
+              </div>
+            </article>
           </div>
         </section>
 
