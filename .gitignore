@@ -21,3 +21,7 @@ next-env.d.ts
 public/site-preview/
 agent-ctx/
 upload/
+desktop/app-electron/dist/
+desktop/app-electron/build/
+desktop/app-electron/node_modules/
+desktop/app-electron/bun.lock

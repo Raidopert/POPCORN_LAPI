@@ -1,1 +1,13 @@
-{"name":"popcorn-paws","productName":"POPCORN PAWS","version":"0.0.75","main":"main.js","author":"Raido Pert Studio","private":true}
+{
+  "name": "popcorn-paws",
+  "productName": "POPCORN PAWS",
+  "version": "0.0.84",
+  "main": "main.js",
+  "author": "Raido Pert Studio",
+  "private": true,
+  "description": "POPCORN PAWS — Кошачий попкорнный Беспредел",
+  "devDependencies": {
+    "electron": "33.0.2",
+    "electron-builder": "26.0.12"
+  }
+}

@@ -1,0 +1,37 @@
+# POPCORN PAWS — сборка Windows-установщика (electron-builder, NSIS).
+# Версия берётся из package.json; exe называется PopcornPaws.exe,
+# файл установщика — POPCORN-PAWS-Setup-<версия>.exe (как в релизах).
+appId: ru.raidopert.popcornpaws
+productName: PopcornPaws
+copyright: © 2025–2026 Raido Pert Studio
+
+directories:
+  output: dist
+  buildResources: build
+
+files:
+  - main.js
+  - web/**/*
+  - package.json
+
+win:
+  icon: build/icon.ico
+  target:
+    - target: nsis
+      arch: [x64]
+
+nsis:
+  oneClick: false
+  perMachine: true
+  allowToChangeInstallationDirectory: true
+  license: build/license-merged.txt
+  installerHeader: build/installerHeader.bmp
+  installerIcon: build/icon.ico
+  uninstallerIcon: build/icon.ico
+  shortcutName: POPCORN PAWS
+  menuCategory: Raido Pert Studio
+  createDesktopShortcut: true
+  createStartMenuShortcut: true
+  deleteAppDataOnUninstall: true
+  artifactName: POPCORN-PAWS-Setup-${version}.${ext}
+  warningsAsErrors: false

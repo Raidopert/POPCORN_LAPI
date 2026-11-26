@@ -67,11 +67,11 @@ const RELEASES_URL = "https://github.com/Raidopert/POPCORN_LAPI/releases";
 const LICENSE_URL =
   "https://github.com/Raidopert/POPCORN_LAPI/blob/main/LICENSE";
 
-/** Прямые ссылки на установщики в релизе v0.0.75 (GitHub Releases) */
+/** Прямые ссылки на установщики в релизе v0.0.84 (GitHub Releases) */
 const EXE_URL =
-  "https://github.com/Raidopert/POPCORN_LAPI/releases/download/v0.0.75/POPCORN-PAWS-Setup-0.0.75.exe";
+  "https://github.com/Raidopert/POPCORN_LAPI/releases/download/v0.0.84/POPCORN-PAWS-Setup-0.0.84.exe";
 const APK_URL =
-  "https://github.com/Raidopert/POPCORN_LAPI/releases/download/v0.0.75/POPCORN-PAWS-0.0.75.apk";
+  "https://github.com/Raidopert/POPCORN_LAPI/releases/download/v0.0.84/POPCORN-PAWS-0.0.84.apk";
 
 /** CatScribbles — вторая программа студии (P2P доска для рисования) */
 const CS_WEB_URL = "/catscribbles/";
@@ -593,10 +593,9 @@ export default function StudioPage() {
             </h2>
             <p className="text-[#F2E3CF]/80 mb-8">
               POPCORN PAWS v{GAME_VERSION} — на компьютер и на телефон.
-              Кнопки качают файлы напрямую из последнего релиза GitHub —
+              Кнопки качают файлы напрямую из актуального релиза GitHub —
               искать в блоке «Assets» не нужно. Онлайн-версия всегда свежая
-              (v{GAME_VERSION}); установщики — из релиза v0.0.75, обновим
-              в следующей сборке.
+              (v{GAME_VERSION}); установщики — того же релиза v0.0.84.
             </p>
 
             <div className="grid gap-6 md:grid-cols-2">
@@ -615,7 +614,7 @@ export default function StudioPage() {
                   работает офлайн, без браузера.
                 </p>
                 <div className="flex flex-wrap gap-2 text-xs">
-                  {["Windows 10/11 · 64-бит", ".exe · ~93 МБ", "Офлайн"].map((t) => (
+                  {["Windows 10/11 · 64-бит", ".exe · ~134 МБ", "Офлайн"].map((t) => (
                     <span key={t} className="rounded-full bg-[#2a0923] border border-[#E8B95C]/30 px-2.5 py-1">
                       {t}
                     </span>
@@ -650,7 +649,7 @@ export default function StudioPage() {
                   сохраняются на устройстве.
                 </p>
                 <div className="flex flex-wrap gap-2 text-xs">
-                  {["Android 8.0+", ".apk · ~16 МБ", "Офлайн", "Без разрешений"].map((t) => (
+                  {["Android 8.0+", ".apk · ~54 МБ", "Офлайн", "Без разрешений"].map((t) => (
                     <span key={t} className="rounded-full bg-[#2a0923] border border-[#E8B95C]/30 px-2.5 py-1">
                       {t}
                     </span>
