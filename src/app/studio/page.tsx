@@ -534,7 +534,7 @@ export default function StudioPage() {
               </div>
             </article>
 
-            {/* FOODSTORATOR TD — tower defense (веб-версия — отдельный деплой, скоро) */}
+            {/* FOODSTORATOR TD — tower defense (статический экспорт в public/foodstorator/) */}
             <article className="rps-panel rounded-2xl overflow-hidden flex flex-col">
               <Image
                 src="/foodstorator/screenshot-menu.png"
@@ -566,13 +566,19 @@ export default function StudioPage() {
                 </div>
                 <div className="flex flex-wrap gap-3 mt-auto pt-2 items-center">
                   <a
+                    href="/foodstorator/"
+                    className="inline-flex items-center gap-2 rounded-xl bg-[#a3e635] hover:bg-[#84cc16] px-4 py-2.5 font-bold transition-colors text-[#2a0923]"
+                  >
+                    <Gamepad2 className="size-4" aria-hidden />
+                    Играть онлайн
+                  </a>
+                  <a
                     href="https://github.com/Raidopert/FOODSTORATOR"
                     className="inline-flex items-center gap-2 rounded-xl border border-[#a3e635]/60 hover:bg-[#a3e635]/10 px-4 py-2.5 font-bold transition-colors"
                   >
                     <Github className="size-4" aria-hidden />
                     Исходники
                   </a>
-                  <span className="text-xs text-[#F2E3CF]/60">Веб-версия — скоро</span>
                 </div>
               </div>
             </article>
@@ -989,10 +995,10 @@ export default function StudioPage() {
               <p className="flex-1 text-[#F2E3CF]/85 text-center sm:text-left">
                 <span className="font-bold text-[#E8B95C]">Всё одним архивом:</span>{" "}
                 логотипы, скриншоты, факт-лист и тексты —{" "}
-                <span className="font-mono text-sm">popcorn-paws-presskit-0.0.78.zip</span> (~4 МБ).
+                <span className="font-mono text-sm">popcorn-paws-presskit-0.0.84.zip</span> (~4 МБ, включая скриншоты).
               </p>
               <a
-                href={`${PRESSKIT_DIR}/popcorn-paws-presskit-0.0.78.zip`}
+                href={`${PRESSKIT_DIR}/popcorn-paws-presskit-0.0.84.zip`}
                 download
                 className="shrink-0 inline-flex items-center gap-2 rounded-xl bg-[#E24B3B] hover:bg-[#c93f31] px-4 py-2.5 font-bold transition-colors"
               >

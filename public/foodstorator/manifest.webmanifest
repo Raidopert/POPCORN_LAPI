@@ -1,0 +1,37 @@
+{
+  "name": "FOODSTORATOR TD — вредная еда против здоровой кухни",
+  "short_name": "FOODSTORATOR TD",
+  "description": "Классический tower defense: сахар, чипсы и фри едут к огромному открытому рту, а башни из здоровой еды сбивают их на подлёте.",
+  "id": "/foodstorator/",
+  "start_url": "/foodstorator/",
+  "scope": "/foodstorator/",
+  "display": "fullscreen",
+  "orientation": "landscape",
+  "background_color": "#0c0a09",
+  "theme_color": "#14532d",
+  "lang": "ru",
+  "categories": [
+    "games",
+    "entertainment"
+  ],
+  "icons": [
+    {
+      "src": "/foodstorator/icons/icon-192.png",
+      "sizes": "192x192",
+      "type": "image/png",
+      "purpose": "any"
+    },
+    {
+      "src": "/foodstorator/icons/icon-512.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "any"
+    },
+    {
+      "src": "/foodstorator/icons/maskable-512.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "maskable"
+    }
+  ]
+}
