@@ -1017,7 +1017,7 @@ export default function StudioPage() {
                     ["Игра", "POPCORN PAWS «Кошачий попкорнный Беспредел»"],
                     ["Жанр", "рогалик-аркада, 8-бит"],
                     ["Платформы", "браузер/PWA, VK Mini App, Windows, Android"],
-                    ["Версия", `${GAME_VERSION} (21.11.2026) — браузер/PWA и VK; установщики — v0.0.75`],
+                    ["Версия", `${GAME_VERSION} (26.11.2026) — браузер/PWA, VK, Windows (.exe) и Android (.apk)`],
                     ["Цена", "бесплатно, без внутриигровых покупок"],
                     ["Рейтинг", "0+"],
                     ["Студия", "Raido Pert Studio — RaidoPert + Kate HeyNANAhey"],
