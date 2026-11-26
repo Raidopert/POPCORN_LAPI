@@ -1,0 +1,1760 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Kate Leopard — мягкое похудение для тинов и девушек 🐾 | Raidopert</title>
+<meta name="description" content="Kate Leopard — милое приложение для мягкого похудения для тинов (13–17) и девушек: вес с учётом цикла, шаги, дневник без калорий, пищевой портрет и марафоны. © Raidopert · raidopert.ru">
+<link rel="manifest" href="manifest.json">
+<meta name="theme-color" content="#FF8FBF">
+<link rel="icon" href="icons/favicon.ico" sizes="any">
+<link rel="apple-touch-icon" href="icons/apple-touch-icon.png">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-title" content="Kate Leopard">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Comfortaa:wght@400;600;700&family=Nunito:wght@400;600;800&family=Caveat:wght@600;700&display=swap" rel="stylesheet">
+<style>
+:root{
+  --bg:#FFF3F7; --card:#FFF9FB; --pink:#FF8FBF; --pink-deep:#EF6FA5; --pink-soft:#FFD3E4;
+  --pink-line:#F7BBD3; --btn1:#FFC9DF; --btn2:#FFA8CB; --btn3:#F98CBC;
+  --gold:#E9B94C; --gold-deep:#C9922E; --caramel:#A8683F;
+  --ink:#5B3648; --ink-soft:#93687C; --water:#A9D6F0;
+  --sc:240,120,168; --sd:214,86,138;
+  --shadow:0 10px 24px rgba(var(--sc),.18);
+}
+*{box-sizing:border-box;margin:0;padding:0;-webkit-tap-highlight-color:transparent}
+html{scroll-behavior:smooth}
+body{
+  font-family:'Nunito',system-ui,sans-serif;color:var(--ink);
+  background-color:#FBE9F1;
+  background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='150' height='150'%3E%3Cg fill='none' stroke='%23C98A6B' stroke-width='4' stroke-linecap='round' opacity='.26'%3E%3Cpath d='M22 34a16 16 0 1 1 10 13'/%3E%3Cpath d='M86 108a14 14 0 1 0 12 8'/%3E%3Cpath d='M112 26a12 12 0 1 1 7 10'/%3E%3C/g%3E%3Cg fill='%23A8683F' opacity='.2'%3E%3Ccircle cx='72' cy='44' r='4'/%3E%3Ccircle cx='34' cy='112' r='3.5'/%3E%3Ccircle cx='124' cy='76' r='3'/%3E%3C/g%3E%3C/svg%3E");
+  display:flex;justify-content:center;min-height:100vh;
+}
+#frame{width:100%;max-width:480px;min-height:100vh;background:linear-gradient(180deg,#FFF6FA 0%,#FFEAF2 100%);
+  box-shadow:0 0 60px rgba(238,120,168,.25);display:flex;flex-direction:column;position:relative;overflow:hidden}
+/* ---------- шапка ---------- */
+header{display:flex;align-items:center;justify-content:space-between;padding:18px 18px 6px;position:relative}
+.greet{font-family:'Comfortaa','Nunito',sans-serif;font-weight:700;font-size:clamp(18px,5vw,22px);color:var(--pink-deep)}
+.dateline{font-size:13px;color:var(--ink-soft);margin-top:2px}
+.gear{border:none;background:#fff;border-radius:18px;width:42px;height:42px;font-size:19px;cursor:pointer;
+  box-shadow:var(--shadow);transition:transform .15s}
+.gear:active{transform:scale(.92)}
+/* ---------- карточки ---------- */
+main{flex:1;padding:14px 16px 118px}
+.card{background:var(--card);border-radius:26px;padding:18px;box-shadow:var(--shadow);
+  border:1.5px solid #FFE0EC;margin-bottom:16px;position:relative;overflow:hidden}
+.card h3{font-family:'Comfortaa','Nunito',sans-serif;font-size:16.5px;font-weight:700;margin-bottom:8px;display:flex;align-items:center;gap:6px}
+.note{font-size:13.5px;color:var(--ink-soft);line-height:1.45;margin-bottom:10px}
+.hand{font-family:'Caveat',cursive;font-size:21px;line-height:1.25;color:var(--pink-deep);margin-top:8px}
+.hint{font-size:13.5px;color:var(--ink-soft);text-align:center;padding:14px 6px}
+.foot{text-align:center;font-size:11.5px;color:var(--ink-soft);opacity:.75;margin:4px 0 8px}
+.wrow{display:flex;gap:10px;align-items:stretch;margin-top:6px}
+.wrow.center{justify-content:center}
+.wrow>*:first-child{flex:1}
+.inp{width:100%;padding:12px 16px;border-radius:20px;border:2px solid var(--pink-line);background:#fff;
+  font:inherit;color:var(--ink);outline:none;transition:border-color .15s}
+.inp:focus{border-color:var(--pink)}
+select.inp{appearance:none}
+textarea.inp{resize:vertical;min-height:52px;margin-top:10px}
+.lbl{display:block;font-size:13px;font-weight:800;color:var(--ink-soft);margin:12px 0 5px}
+/* ---------- кнопки-подушки (v0.5: пушистые, с текстурой пуха) ---------- */
+.pillow{
+  border:2px solid rgba(255,255,255,.55);cursor:pointer;font-family:'Nunito',sans-serif;font-weight:800;font-size:15px;color:#7A2F52;
+  background-color:var(--btn2);
+  background-image:linear-gradient(180deg,rgba(255,255,255,.62) 0%,rgba(255,255,255,.1) 48%,rgba(var(--sd),.2) 100%),url(sprites/fluff-tex-2.jpg);
+  background-size:auto,175px;background-blend-mode:soft-light,normal;
+  border-radius:30px;padding:14px 24px;position:relative;
+  box-shadow:inset 0 8px 14px rgba(255,255,255,.75),inset 0 -10px 16px rgba(var(--sd),.28),
+    0 0 0 5px rgba(255,255,255,.4),0 10px 22px rgba(var(--sc),.35),0 2px 6px rgba(var(--sc),.25);
+  transition:transform .12s,box-shadow .12s;white-space:nowrap}
+.pillow:hover{transform:translateY(-1px) rotate(-.4deg)}
+.pillow:active{transform:translateY(3px) scale(.97);
+  box-shadow:inset 0 6px 10px rgba(var(--sd),.3),inset 0 4px 8px rgba(255,255,255,.5),0 0 0 4px rgba(255,255,255,.35),0 4px 10px rgba(var(--sc),.3)}
+.pillow.gold{background-color:#F7C964;color:#7A4A12;
+  background-image:linear-gradient(180deg,#FFE9AE 0%,#F7C964 55%,#EDB44A 100%),url(sprites/fluff-tex-3.jpg);
+  background-size:auto,175px;background-blend-mode:soft-light,normal;
+  box-shadow:inset 0 8px 14px rgba(255,255,255,.75),inset 0 -10px 16px rgba(186,132,38,.3),
+    0 0 0 5px rgba(255,255,255,.4),0 10px 22px rgba(220,160,60,.4),0 2px 6px rgba(220,160,60,.3)}
+.pillow.ghost{background-color:#fff;background-image:url(sprites/fluff-tex-1.jpg);background-size:150px;
+  background-blend-mode:soft-light;color:var(--pink-deep);border:2px solid var(--pink-line);
+  box-shadow:0 6px 16px rgba(var(--sc),.22)}
+.pillow.small{padding:9px 16px;font-size:13.5px;border-radius:22px}
+.pillow.wide{width:100%;justify-content:center}
+.filebtn{display:flex;align-items:center;justify-content:center;cursor:pointer}
+.skip{display:block;margin:12px auto 0;background:none;border:none;color:var(--ink-soft);
+  font:inherit;font-size:13px;text-decoration:underline;cursor:pointer}
+/* ---------- v0.5: пух-спрайты ---------- */
+.tabbtn.active{background-color:var(--btn3);
+  background-image:linear-gradient(180deg,var(--btn1),var(--btn3)),url(sprites/fluff-tex-2.jpg);
+  background-size:auto,170px;background-blend-mode:soft-light,normal}
+.toast{background-color:var(--btn3);
+  background-image:linear-gradient(180deg,var(--btn1),var(--btn3)),url(sprites/fluff-tex-2.jpg);
+  background-size:auto,150px;background-blend-mode:soft-light,normal}
+.peeker{position:absolute;right:10px;top:-4px;width:76px;pointer-events:none;
+  filter:drop-shadow(0 8px 14px rgba(var(--sc),.35));animation:bob 4.5s ease-in-out infinite}
+@keyframes bob{0%,100%{transform:rotate(5deg) translateY(0)}50%{transform:rotate(2deg) translateY(-6px)}}
+.spimg{display:inline-block;height:1.4em;vertical-align:-.35em;filter:drop-shadow(0 3px 6px rgba(var(--sc),.25))}
+.emptyart{text-align:center;margin:4px 0 8px}
+.emptyart img{width:130px;filter:drop-shadow(0 8px 16px rgba(var(--sc),.22))}
+.boom{position:fixed;inset:0;z-index:78;display:flex;align-items:center;justify-content:center;pointer-events:none}
+.boom img{width:min(66vw,310px);filter:drop-shadow(0 12px 30px rgba(214,86,138,.45));animation:pop .16s ease}
+.agechip{display:inline-flex;align-items:center;justify-content:center;min-width:52px;background:#fff;border:2px solid var(--pink-line);border-radius:18px;padding:8px 12px;font-weight:800;font-size:14px;cursor:pointer;color:var(--ink)}
+.agechip.sel{border-color:var(--gold);background:#FFF7E4}
+/* ---------- золотые блёстки ---------- */
+.glitter{background:linear-gradient(120deg,#B8860B,#FFD86B 30%,#FFF3B0 50%,#F5C542 70%,#C9922E);
+  -webkit-background-clip:text;background-clip:text;color:transparent;
+  background-size:200% auto;animation:shine 3.5s linear infinite}
+@keyframes shine{to{background-position:200% center}}
+.spark{position:absolute;width:16px;height:16px;color:var(--gold);opacity:.8;animation:twinkle 2.4s ease-in-out infinite;pointer-events:none}
+@keyframes twinkle{0%,100%{opacity:.25;transform:scale(.7) rotate(0deg)}50%{opacity:1;transform:scale(1.15) rotate(20deg)}}
+.s1{top:12px;right:14px}.s2{top:38px;right:44px;animation-delay:.7s;width:11px;height:11px}
+.s3{bottom:16px;left:18px;animation-delay:1.3s;width:12px;height:12px}
+/* ---------- заставка ---------- */
+#splash{position:fixed;inset:0;z-index:60;display:flex;flex-direction:column;align-items:center;justify-content:center;
+  background-color:#FFD7E8;
+  background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='150' height='150'%3E%3Cg fill='none' stroke='%23C98A6B' stroke-width='4' stroke-linecap='round' opacity='.3'%3E%3Cpath d='M22 34a16 16 0 1 1 10 13'/%3E%3Cpath d='M86 108a14 14 0 1 0 12 8'/%3E%3Cpath d='M112 26a12 12 0 1 1 7 10'/%3E%3C/g%3E%3Cg fill='%23A8683F' opacity='.24'%3E%3Ccircle cx='72' cy='44' r='4'/%3E%3Ccircle cx='34' cy='112' r='3.5'/%3E%3Ccircle cx='124' cy='76' r='3'/%3E%3C/g%3E%3C/svg%3E");
+  transition:opacity .6s ease;cursor:pointer}
+#splash.hide{opacity:0;pointer-events:none}
+#splash.gone{display:none}
+.sp-inner{display:flex;flex-direction:column;align-items:center;text-align:center;padding:20px;animation:pop .8s ease}
+@keyframes pop{from{opacity:0;transform:scale(.9)}to{opacity:1;transform:scale(1)}}
+.sp-paw{width:64px;height:64px;color:#fff;filter:drop-shadow(0 6px 14px rgba(214,86,138,.5));animation:pawpulse 2s ease-in-out infinite;margin-bottom:14px}
+@keyframes pawpulse{0%,100%{transform:scale(1) rotate(-6deg)}50%{transform:scale(1.12) rotate(6deg)}}
+.sp-studio{font-family:'Comfortaa','Nunito',sans-serif;font-weight:700;font-size:clamp(30px,9vw,44px);letter-spacing:.18em}
+.sp-sub{font-size:13px;color:#8A4A66;margin-top:6px;letter-spacing:.06em}
+.sp-presents{font-family:'Caveat',cursive;font-size:24px;color:#B05577;margin:26px 0 4px}
+.sp-app{font-family:'Comfortaa','Nunito',sans-serif;font-weight:700;font-size:clamp(34px,10vw,50px);color:#fff;
+  text-shadow:0 4px 18px rgba(214,86,138,.55)}
+.sp-tag{font-size:14.5px;color:#8A4A66;margin-top:8px}
+.sp-copy{position:absolute;bottom:18px;font-size:11.5px;color:#9A5A78;text-align:center;width:100%}
+/* ---------- вкладки ---------- */
+#tabs{position:fixed;bottom:10px;left:50%;transform:translateX(-50%);width:min(94%,456px);
+  display:flex;gap:6px;background:rgba(255,255,255,.9);backdrop-filter:blur(8px);
+  border-radius:30px;padding:8px;box-shadow:0 12px 30px rgba(238,120,168,.3);border:1.5px solid #FFE0EC;z-index:40}
+.tabbtn{flex:1;border:none;background:transparent;font-family:'Nunito',sans-serif;font-weight:800;font-size:10.5px;
+  color:var(--ink-soft);border-radius:24px;padding:8px 2px 7px;cursor:pointer;display:flex;flex-direction:column;align-items:center;gap:2px;transition:all .15s}
+.tabbtn .tico{font-size:17px;filter:grayscale(.6);opacity:.75;transition:all .15s}
+.tabbtn.active{background:linear-gradient(180deg,var(--btn1),var(--btn3));color:#7A2F52;
+  box-shadow:inset 0 5px 8px rgba(255,255,255,.7),inset 0 -6px 10px rgba(var(--sd),.25),0 6px 14px rgba(var(--sc),.35)}
+.tabbtn.active .tico{filter:none;opacity:1;transform:scale(1.12)}
+/* ---------- вес: график ---------- */
+#wchart{margin-top:10px}
+#wchart svg{width:100%;height:auto;display:block}
+/* ---------- шаги ---------- */
+.paws{display:flex;gap:6px;margin-top:10px}
+.paws svg{width:26px;height:26px;color:var(--pink-line)}
+.paws svg.full{color:var(--pink-deep)}
+.paws svg.today{color:var(--gold)}
+.bigsteps{font-family:'Comfortaa','Nunito',sans-serif;font-size:30px;font-weight:700;color:var(--pink-deep)}
+.smallnote{font-size:11.5px;color:var(--ink-soft);margin-top:6px}
+/* ---------- дневник ---------- */
+.stgrid{display:grid;grid-template-columns:repeat(auto-fill,minmax(105px,1fr));gap:8px;margin-top:4px}
+.stk{background:#fff;border:2px solid var(--pink-line);border-radius:20px;padding:10px 6px;text-align:center;
+  font-size:12px;font-weight:700;color:var(--ink);cursor:pointer;transition:all .12s;box-shadow:0 4px 10px rgba(240,120,170,.15)}
+.stk .se{font-size:23px;display:block;margin-bottom:3px}
+.stk.sel{border-color:var(--gold);background:#FFF7E4;transform:scale(1.03);box-shadow:0 6px 14px rgba(220,160,60,.3)}
+.aib{background:#FFF1F7;border-radius:16px 16px 16px 4px;padding:10px 13px;font-size:13.5px;line-height:1.45;
+  color:#7A3552;margin-top:8px;position:relative}
+.aib::before{content:'🐾';position:absolute;left:-7px;top:-9px;font-size:13px;background:#fff;border-radius:50%;padding:1px 2px}
+.ditem{border-top:1.5px dashed var(--pink-line);padding-top:10px;margin-top:10px}
+.ditem:first-child{border-top:none;padding-top:0;margin-top:0}
+.ddate{font-size:11.5px;font-weight:800;color:var(--ink-soft)}
+.dmood{font-size:15px;font-weight:800;margin:2px 0}
+.dtext{font-size:13.5px;color:var(--ink)}
+.dprev{max-width:120px;max-height:120px;border-radius:16px;margin-top:10px;display:none;border:2px solid var(--pink-line)}
+/* ---------- прогулка ---------- */
+.walkwrap{position:relative;width:210px;height:210px;margin:8px auto}
+.ringbg{fill:none;stroke:var(--pink-soft);stroke-width:12}
+.ringfg{fill:none;stroke:url(#ringGrad);stroke-width:12;stroke-linecap:round;
+  stroke-dasharray:440;stroke-dashoffset:440;transform:rotate(-90deg);transform-origin:center;transition:stroke-dashoffset .3s}
+.walkstate{position:absolute;top:56px;width:100%;text-align:center;font-family:'Comfortaa','Nunito',sans-serif;font-weight:700;font-size:16px;color:var(--pink-deep)}
+.walktime{position:absolute;top:82px;width:100%;text-align:center;font-family:'Comfortaa','Nunito',sans-serif;font-weight:700;font-size:30px;color:var(--ink)}
+.walkround{position:absolute;top:124px;width:100%;text-align:center;font-size:12.5px;color:var(--ink-soft);font-weight:800}
+#tab-walk.hot .card:first-child{background:linear-gradient(180deg,#FFF1F7,#FFDFEC)}
+/* ---------- марафон ---------- */
+.pbar{height:16px;background:var(--pink-soft);border-radius:10px;overflow:hidden;margin:8px 0 4px;box-shadow:inset 0 2px 5px rgba(var(--sd),.18)}
+.pfill{height:100%;border-radius:10px;background:linear-gradient(90deg,var(--btn3),#E9B94C 85%,#FFD86B);transition:width .4s;box-shadow:inset 0 2px 4px rgba(255,255,255,.5)}
+.mcard{background:#fff;border:2px solid var(--pink-line);border-radius:24px;padding:14px;margin-bottom:10px;display:flex;justify-content:space-between;align-items:center;gap:10px}
+.mcard h4{font-family:'Comfortaa','Nunito',sans-serif;font-size:15px;color:var(--ink)}
+.mcard .md{font-size:12px;color:var(--ink-soft);margin-top:2px}
+.price{font-family:'Comfortaa','Nunito',sans-serif;font-weight:700;color:var(--gold-deep);white-space:nowrap}
+.medalbox{display:flex;align-items:center;gap:12px;margin-top:10px}
+.medalbox svg{width:64px;height:64px;filter:drop-shadow(0 6px 12px rgba(201,146,46,.45))}
+/* ---------- тосты, модалки, конфетти ---------- */
+#toasts{position:fixed;bottom:86px;left:50%;transform:translateX(-50%);z-index:70;display:flex;flex-direction:column;gap:8px;align-items:center;width:min(92%,440px);pointer-events:none}
+.toast{background:linear-gradient(180deg,var(--btn1),var(--btn3));color:#7A2F52;font-weight:800;font-size:14px;
+  padding:12px 20px;border-radius:24px;box-shadow:0 10px 24px rgba(var(--sc),.4);animation:pop .25s ease;max-width:100%;text-align:center}
+.backdrop{position:fixed;inset:0;background:rgba(91,54,72,.5);backdrop-filter:blur(4px);z-index:80;display:flex;align-items:flex-end;justify-content:center}
+.mwin{background:var(--card);border-radius:30px 30px 0 0;width:min(100%,480px);max-height:86vh;overflow:auto;
+  padding:22px 20px 26px;animation:mup .3s ease;box-shadow:0 -14px 40px rgba(91,54,72,.3);position:relative}
+@keyframes mup{from{transform:translateY(60px);opacity:0}to{transform:translateY(0);opacity:1}}
+@media(min-width:560px){.backdrop{align-items:center}.mwin{border-radius:30px}}
+.mclose{position:absolute;top:14px;right:16px;border:none;background:#FFE4EF;border-radius:50%;width:32px;height:32px;font-size:15px;cursor:pointer;color:var(--ink)}
+.mhead{font-family:'Comfortaa','Nunito',sans-serif;font-size:19px;font-weight:700;color:var(--pink-deep);margin-bottom:10px}
+.pawconfetti{position:fixed;top:-30px;font-size:22px;z-index:75;pointer-events:none;animation:fall 2.2s ease-in forwards}
+@keyframes fall{to{transform:translateY(110vh) rotate(340deg);opacity:.6}}
+/* ---------- прочее ---------- */
+.licbox{background:#FFF7E4;border:1.5px solid #F2D99A;border-radius:18px;padding:12px 14px;font-size:12.5px;line-height:1.55;color:#7A4A12;margin-top:10px}
+/* ---------- v0.2: тема, зодиак, магия дня, статистика ---------- */
+.swrow{display:flex;flex-wrap:wrap;gap:8px;margin:6px 0 2px;align-items:center}
+.sw{width:34px;height:34px;border-radius:50%;border:2.5px solid #fff;box-shadow:0 3px 8px rgba(var(--sc),.35);cursor:pointer;padding:0}
+.sw.sel{outline:3px solid var(--gold)}
+.swc{width:34px;height:34px;padding:0;border:2.5px solid #fff;border-radius:50%;background:#fff;cursor:pointer}
+.zgrid{display:flex;flex-wrap:wrap;gap:6px;margin-top:4px}
+.zodchip{display:inline-flex;align-items:center;gap:4px;background:#fff;border:2px solid var(--pink-line);border-radius:16px;padding:5px 10px;font-weight:800;font-size:12.5px;cursor:pointer;color:var(--ink)}
+.zodchip.sel{border-color:var(--gold);background:#FFF7E4}
+.horoc{background:linear-gradient(135deg,#FFF7E4,#FFE9F4);border:1.5px solid #F2D99A;border-radius:22px;padding:14px}
+.horoc .hm{font-family:'Caveat',cursive;font-size:24px;color:#7A4A12;line-height:1.15;margin:4px 0}
+.moodbtns{display:grid;grid-template-columns:repeat(2,1fr);gap:8px}
+@media(min-width:430px){.moodbtns{grid-template-columns:repeat(4,1fr)}}
+.statgrid{display:grid;grid-template-columns:1fr 1fr;gap:10px}
+.st{background:#fff;border-radius:20px;padding:12px 14px;border:1.5px solid #FFE0EC;box-shadow:0 4px 12px rgba(var(--sc),.12)}
+.st b{font-family:'Comfortaa','Nunito',sans-serif;font-size:19px;color:var(--pink-deep);display:block;line-height:1.2}
+.st span{font-size:11px;color:var(--ink-soft)}
+.mweek{display:flex;justify-content:space-between;align-items:center;background:#fff;border-radius:18px;padding:8px 14px;border:1.5px solid #FFE0EC}
+details.tip{background:#fff;border:1.5px solid var(--pink-line);border-radius:18px;padding:11px 14px;margin-bottom:8px}
+details.tip summary{font-weight:800;cursor:pointer;font-size:13.5px;color:var(--ink);list-style:none}
+details.tip summary::-webkit-details-marker{display:none}
+details.tip summary::before{content:'🐾 ';color:var(--pink-deep)}
+details.tip[open] summary::before{content:'💗 '}
+details.tip p{font-size:13px;color:var(--ink-soft);margin-top:6px;line-height:1.5}
+.kcrow{display:grid;grid-template-columns:1fr 1fr;gap:8px}
+.chip{display:inline-block;background:#FFE4EF;color:var(--pink-deep);border-radius:16px;padding:4px 12px;font-size:12px;font-weight:800;margin:2px 4px 2px 0}
+@media(min-width:520px){
+  body{padding:24px 0}
+  #frame{border-radius:36px;min-height:calc(100vh - 48px)}
+  #tabs{bottom:24px}
+}
+</style>
+</head>
+<body>
+<!-- переиспользуемые иконки -->
+<svg width="0" height="0" style="position:absolute" aria-hidden="true">
+  <defs>
+    <linearGradient id="goldg" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#FFE9AE"/><stop offset=".5" stop-color="#F2C766"/><stop offset="1" stop-color="#D89B33"/>
+    </linearGradient>
+    <linearGradient id="ringGrad" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" style="stop-color:var(--pink-deep)"/><stop offset="1" stop-color="#E9B94C"/>
+    </linearGradient>
+  </defs>
+  <symbol id="paw" viewBox="0 0 24 24">
+    <g fill="currentColor"><ellipse cx="12" cy="16.2" rx="6.2" ry="5.4"/><circle cx="5.2" cy="10.5" r="2.7"/><circle cx="9.6" cy="7.4" r="2.7"/><circle cx="14.4" cy="7.4" r="2.7"/><circle cx="18.8" cy="10.5" r="2.7"/></g>
+  </symbol>
+  <symbol id="spark" viewBox="0 0 24 24">
+    <path fill="currentColor" d="M12 1.5l2 8.5 8.5 2-8.5 2-2 8.5-2-8.5L1.5 12l8.5-2z"/>
+  </symbol>
+  <symbol id="medal" viewBox="0 0 64 64">
+    <path d="M22 4h20l-6 18h-8z" fill="#EF6FA5"/><path d="M28 4h8l4 12h-8z" fill="#FFB7D5"/>
+    <circle cx="32" cy="40" r="16" fill="url(#goldg)" stroke="#C9922E" stroke-width="2"/>
+    <g transform="translate(22,30) scale(0.8)" fill="#FFF7E6"><ellipse cx="12" cy="16.2" rx="6.2" ry="5.4"/><circle cx="5.2" cy="10.5" r="2.7"/><circle cx="9.6" cy="7.4" r="2.7"/><circle cx="14.4" cy="7.4" r="2.7"/><circle cx="18.8" cy="10.5" r="2.7"/></g>
+  </symbol>
+</svg>
+
+<!-- заставка студии -->
+<div id="splash" onclick="hideSplash()">
+  <svg class="spark s1"><use href="#spark"/></svg>
+  <svg class="spark s2"><use href="#spark"/></svg>
+  <svg class="spark s3"><use href="#spark"/></svg>
+  <div class="sp-inner">
+    <svg class="sp-paw" style="display:none"><use href="#paw"/></svg>
+    <img src="sprites/fluff-cloud-96.png" alt="Пушистый котик-облако Kate Leopard"
+      style="width:128px;filter:drop-shadow(0 10px 24px rgba(214,86,138,.5));animation:pawpulse 2s ease-in-out infinite;margin-bottom:12px"
+      onerror="this.style.display='none';document.querySelector('.sp-paw').style.display='block'">
+    <div class="sp-studio glitter">RAIDOPERT</div>
+    <div class="sp-sub">студия мобильных приложений · raidopert.ru</div>
+    <div class="sp-presents">представляет</div>
+    <h1 class="sp-app">Kate <span class="glitter">Leopard</span></h1>
+    <div class="sp-tag">мягкое похудение · для тинов и девушек 🐾</div>
+  </div>
+  <div class="sp-copy">© 2026 Raidopert · raidopert.ru · все права защищены</div>
+</div>
+
+<div id="frame">
+  <header>
+    <div>
+      <div id="greet" class="greet">Мур-р, лапочка!</div>
+      <div id="dateline" class="dateline"></div>
+    </div>
+    <button class="gear" onclick="openSettings()" aria-label="Настройки">⚙️</button>
+  </header>
+  <main>
+    <!-- ГЛАВНАЯ -->
+    <section id="tab-home">
+      <div class="card" id="cycleCard">
+        <svg class="spark s1"><use href="#spark"/></svg>
+        <img class="peeker" src="sprites/fluff-cloud-96.png" alt="" onerror="this.style.display='none'">
+        <div id="cycleBody"></div>
+      </div>
+      <div class="card" id="magicCard"></div>
+      <div class="card" id="moodCard"></div>
+      <div class="card" id="cravingCard"></div>
+      <div class="card">
+        <h3>🐾 Вес и «зона воды»</h3>
+        <p class="note">Взвешивайся хотя бы через день. В жёлто-голубые дни цикла вес может «подпрыгнуть» на пару килограммов — это вода, а не жир, мур.</p>
+        <div class="wrow">
+          <input id="wInp" class="inp" type="number" step="0.1" min="30" max="250" inputmode="decimal" placeholder="Сегодня, кг">
+          <button class="pillow" onclick="addWeight()">Записать</button>
+        </div>
+        <div id="wchart"></div>
+        <p id="wComment" class="hand"></p>
+      </div>
+      <div class="card" id="stepsCard"></div>
+      <div class="card" id="waterCard"></div>
+      <div class="card" id="planCard"></div>
+      <div class="card">
+        <h3>✨ Честный калькулятор 7700</h3>
+        <p class="note" id="note7700">1 кг жира ≈ 7700 ккал. Переведём твою цель в еду — просто для наглядности, без запретов 🐾</p>
+        <div class="wrow">
+          <input id="kcal7700" class="inp" type="number" step="0.5" min="0.5" max="50" inputmode="decimal" placeholder="Сколько кг хочется скинуть">
+          <button class="pillow gold" onclick="calc7700()">Перевести</button>
+        </div>
+        <p id="res7700" class="note" style="margin-top:10px"></p>
+      </div>
+      <p class="foot">Kate Leopard v0.5 · © 2026 Raidopert · raidopert.ru</p>
+    </section>
+
+    <!-- ДНЕВНИК -->
+    <section id="tab-diary" hidden>
+      <div class="card">
+        <h3>📔 Дневник на 10 секунд</h3>
+        <p class="note">Без калорий и граммов. Отметь, как прошёл день, — котик всё поймёт 💗</p>
+        <div id="stickerGrid" class="stgrid"></div>
+        <textarea id="dText" class="inp" rows="2" maxlength="500" placeholder="Пара слов (можно пропустить)…"></textarea>
+        <img id="dPreview" class="dprev" alt="фото дня">
+        <div class="wrow">
+          <label class="pillow ghost filebtn">📷 Фото<input id="dPhoto" type="file" accept="image/*" hidden></label>
+          <button class="pillow" onclick="saveDiary()">Сохранить</button>
+        </div>
+      </div>
+      <div class="card">
+        <h3>🐾 Дневничок</h3>
+        <div id="dHist"></div>
+      </div>
+    </section>
+
+    <!-- ПРОГУЛКА -->
+    <section id="tab-walk" hidden>
+      <div class="card" id="pedCard"></div>
+      <div class="card">
+        <h3>🚶‍♀️ Японская ходьба (ИВТ)</h3>
+        <p class="note">Интервальная быстрая ходьба: <b>3 минуты быстро → 3 минуты спокойно</b>, ×5 кругов = 30 минут. По исследованиям: +20% выносливости и −20% рисков «болезней образа жизни» за полгода.</p>
+        <div class="walkwrap">
+          <svg viewBox="0 0 160 160" width="210" height="210">
+            <circle class="ringbg" cx="80" cy="80" r="70"/>
+            <circle id="ringfg" class="ringfg" cx="80" cy="80" r="70"/>
+          </svg>
+          <div id="walkState" class="walkstate">Готова?</div>
+          <div id="walkTime" class="walktime">30:00</div>
+          <div id="walkRound" class="walkround">круг 0/5</div>
+        </div>
+        <div class="wrow center">
+          <button id="walkBtn" class="pillow" onclick="walkToggle()">Начать прогулку 🐾</button>
+          <button id="walkStop" class="pillow ghost" onclick="walkFinish(true)" hidden>Закончить</button>
+        </div>
+      </div>
+      <div class="card" id="walkStats"></div>
+      <p class="foot">Шагомер работает по датчику движения телефона 📱. В нативном приложении подключим Health Connect (Android) и HealthKit (iPhone) — точнее и экономнее по батарее.</p>
+    </section>
+
+    <!-- МАРАФОН -->
+    <section id="tab-marathon" hidden>
+      <div class="card">
+        <svg class="spark s1"><use href="#spark"/></svg>
+        <h3>🏅 Марафоны с медалями</h3>
+        <div id="marBody"></div>
+      </div>
+      <div class="card">
+        <h3>🎁 Как это работает</h3>
+        <p class="note">Чек-ин каждый день: взвесилась, записала дневник или прошагала — засчитано. В конце — красивая цифровая медаль 🏅 <b>Все марафоны бесплатные</b>: монетизацию решим позже, когда спросим у вас, за что захочется платить.</p>
+      </div>
+    </section>
+
+    <!-- СТАТИСТИКА -->
+    <section id="tab-stats" hidden>
+      <div id="statsBody"></div>
+      <p class="foot">Kate Leopard v0.5 · © 2026 Raidopert · raidopert.ru</p>
+    </section>
+  </main>
+  <nav id="tabs">
+    <button class="tabbtn active" data-tab="home" onclick="goTab('home')"><span class="tico">🐾</span>Дом</button>
+    <button class="tabbtn" data-tab="diary" onclick="goTab('diary')"><span class="tico">📔</span>Дневник</button>
+    <button class="tabbtn" data-tab="walk" onclick="goTab('walk')"><span class="tico">🚶‍♀️</span>Прогулка</button>
+    <button class="tabbtn" data-tab="marathon" onclick="goTab('marathon')"><span class="tico">🏅</span>Марафон</button>
+    <button class="tabbtn" data-tab="stats" onclick="goTab('stats')"><span class="tico">📊</span>Статистика</button>
+  </nav>
+</div>
+<div id="toasts"></div>
+<div id="modal-root"></div>
+<script>
+'use strict';
+/* ================= Kate Leopard v0.5 · © Raidopert · raidopert.ru ================= */
+const LSKEY='kateLeopard_v1';
+const DEFAULTS={onboarded:false,name:'',age:0,cycleLen:28,lastPeriod:'',goal:'',goalSteps:6000,
+  weights:[],steps:{},diary:[],walks:0,marathon:{active:null,started:'',checkins:[]},
+  zodiac:'',zcustom:'',favColor:'#FF8FBF',moods:[],calc:{age:'',height:'',act:1.375},visits:0,lastVisit:'',
+  water:{},sleep:{},cravings:[],paws:0,goalWater:8,goalSleep:8,pace:'0.5',
+  reminder:{on:false,time:'20:00',last:''},
+  bodyType:'',habits:[],harmTop:[],goodTop:[]};
+function loadData(){
+  try{const raw=localStorage.getItem(LSKEY);
+    if(raw){const p=JSON.parse(raw);
+      return Object.assign({},DEFAULTS,p,{marathon:Object.assign({},DEFAULTS.marathon,p.marathon||{}),
+        calc:Object.assign({},DEFAULTS.calc,p.calc||{}),reminder:Object.assign({},DEFAULTS.reminder,p.reminder||{})});}
+  }catch(e){console.warn('load',e);}
+  return JSON.parse(JSON.stringify(DEFAULTS));
+}
+let data=loadData();
+function save(){try{localStorage.setItem(LSKEY,JSON.stringify(data));}catch(e){toast('У котика кончилась память — попробуй меньше фото 🙈');}}
+function fmtD(d){return d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0')+'-'+String(d.getDate()).padStart(2,'0');}
+function today(){return fmtD(new Date());}
+function parseD(s){const p=s.split('-').map(Number);return new Date(p[0],p[1]-1,p[2]);}
+function diffDays(a,b){return Math.round((parseD(b)-parseD(a))/864e5);}
+function esc(s){return String(s).replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));}
+function ruDate(s){return parseD(s).toLocaleDateString('ru-RU',{day:'numeric',month:'short'});}
+function $(id){return document.getElementById(id);}
+/* --- v0.5: возраст и подростковый режим (13–17) --- */
+function isTeen(){return data.age>=13&&data.age<=17;}
+const TEEN_NOTE='🌿 Тебе меньше 18 — включён мягкий подростковый режим: без дефицитов и гонки за весом. Организм ещё растёт, поэтому заметные изменения веса — только с врачом и родителями. Прогулки, вода, дневник, лапки и мур-поддержка — полностью твои 🐾';
+
+/* ================= цикл и «зона воды» ================= */
+function cycleDay(){
+  if(!data.lastPeriod)return null;
+  const n=diffDays(data.lastPeriod,today());
+  if(n<0)return null;
+  return (n%data.cycleLen)+1;
+}
+function phaseInfo(){
+  const cd=cycleDay();if(cd===null)return null;
+  const L=data.cycleLen;
+  if(cd<=5)return{t:'Месячные',e:'🌸',m:'Береги себя, лапочка. Вода уходит — скоро полегчает.'};
+  if(cd<=Math.round(L*.4))return{t:'Фолликулярная фаза',e:'🌱',m:'Энергия растёт, как у котёнка на солнышке. Отличное время для прогулок!'};
+  if(cd>=Math.round(L*.45)&&cd<=Math.round(L*.55))return{t:'Овуляция',e:'✨',m:'Возможны +0,5–1 кг воды и тяга к сладенькому — это гормоны, а не ты.'};
+  if(cd>=L-5)return{t:'ПМС — зона воды',e:'💧',m:'Организм держит до +2 кг воды. Вес «растёт», а жир — нет, мур.'};
+  return{t:'Лютеиновая фаза',e:'🌙',m:'Тело готовится к новому циклу. Наш стиль — мягкость: без героизма, с любовью.'};
+}
+function isWaterDay(dstr){
+  if(!data.lastPeriod)return false;
+  const d=diffDays(data.lastPeriod,dstr);
+  if(d<0)return false;
+  const L=data.cycleLen,cd=(d%L)+1;
+  return cd>=L-6||(cd>=Math.round(L*.45)&&cd<=Math.round(L*.55));
+}
+
+/* ================= вес и график ================= */
+function addWeight(){
+  const v=parseFloat($('wInp').value);
+  if(!v||v<30||v>250){toast('Введи вес от 30 до 250 кг 🙀');return;}
+  const t=today(),ex=data.weights.find(w=>w.d===t);
+  if(ex)ex.w=v;else data.weights.push({d:t,w:v});
+  data.weights.sort((a,b)=>a.d<b.d?-1:1);
+  save();$('wInp').value='';renderHome();
+  toast('Записала, мур-р 💗');
+}
+function weightComment(){
+  const el=$('wComment'),pts=data.weights.slice(-2);
+  if(pts.length<2){el.textContent='Добавь ещё одно взвешивание — и я начну понимать твою кривую 🐾';return;}
+  const d=+(pts[1].w-pts[0].w).toFixed(1),ph=phaseInfo();
+  const water=ph&&(ph.t==='ПМС — зона воды'||ph.t==='Овуляция');
+  let t;
+  if(d>0.05)t=water?`+${d} кг — это вода перед циклом, мур-р. Жир так быстро не появляется 💧💗`
+                   :`+${d} кг — просто такой день. Завтра продолжим мягко, без самобичевания 🐾`;
+  else if(d<-0.05)t=`−${Math.abs(d)} кг — ты большая молодец, лапочка! Так держать 💗`;
+  else t='Вес на месте — это тоже победа: стабильность значит, что всё под контролем, мур.';
+  el.textContent=t;
+}
+function chartSVG(){
+  const pts=data.weights.slice(-14);
+  if(pts.length<2)return'<div class="hint">Взвесься два дня подряд — и здесь появится твоя кривая 🐾</div>';
+  const W=340,H=190,padL=36,padR=14,padT=22,padB=26;
+  const ws=pts.map(p=>p.w),mn=Math.min(...ws),mx=Math.max(...ws);
+  const hasWater=pts.some(p=>isWaterDay(p.d));
+  const lo=mn-0.8,hi=Math.max(mx+(hasWater?2.6:1),mn+2.4);
+  const X=i=>padL+(W-padL-padR)*i/(pts.length-1);
+  const Y=v=>padT+(H-padT-padB)*(1-(v-lo)/(hi-lo));
+  let s='';
+  if(hasWater){
+    const idx=pts.map((p,i)=>isWaterDay(p.d)?i:null).filter(v=>v!==null);
+    const trend=pts.slice(-3).reduce((a,p)=>a+p.w,0)/Math.min(3,pts.length);
+    const x0=X(idx[0])-10,x1=X(idx[idx.length-1])+10;
+    const yT=Y(trend+2.2),yB=Y(trend);
+    if(yB>yT)s+=`<rect x="${x0}" y="${yT}" width="${Math.max(26,x1-x0)}" height="${yB-yT}" fill="${'#BFE3F7'}" opacity=".4" rx="8"/>
+      <text x="${x0+2}" y="${yT-5}" font-size="10" fill="#5A93B8" font-family="Nunito">зона воды (до +2 кг)</text>`;
+  }
+  if(data.goal&&data.goal>lo&&data.goal<hi)
+    s+=`<line x1="${padL}" x2="${W-padR}" y1="${Y(data.goal)}" y2="${Y(data.goal)}" stroke="#E9B94C" stroke-dasharray="5 4" stroke-width="1.5"/>
+      <text x="${padL+2}" y="${Y(data.goal)-4}" font-size="10" fill="#C9922E" font-family="Nunito">цель ${data.goal} кг</text>`;
+  s+=`<polyline points="${pts.map((p,i)=>X(i)+','+Y(p.w)).join(' ')}" fill="none" stroke="#EF6FA5" style="stroke:var(--pink-deep)" stroke-width="2.5" stroke-linejoin="round"/>`;
+  pts.forEach((p,i)=>{s+=`<circle cx="${X(i)}" cy="${Y(p.w)}" r="3.6" fill="#EF6FA5" style="fill:var(--pink-deep)" stroke="#fff" stroke-width="1.5"/>`;});
+  const lx=[0,Math.floor((pts.length-1)/2),pts.length-1];
+  lx.forEach(i=>{s+=`<text x="${X(i)}" y="${H-8}" font-size="10" fill="#93687C" text-anchor="middle" font-family="Nunito">${ruDate(pts[i].d)}</text>`;});
+  s+=`<text x="${padL-4}" y="${Y(hi)+9}" font-size="9.5" fill="#93687C" text-anchor="end" font-family="Nunito">${hi.toFixed(1)}</text>`;
+  s+=`<text x="${padL-4}" y="${Y(lo)+3}" font-size="9.5" fill="#93687C" text-anchor="end" font-family="Nunito">${lo.toFixed(1)}</text>`;
+  return`<svg viewBox="0 0 ${W} ${H}" role="img" aria-label="график веса">${s}</svg>`;
+}
+
+/* ================= шаги ================= */
+function addSteps(n){
+  const t=today();data.steps[t]=(data.steps[t]||0)+n;save();renderHome();
+  toast(n>=0?`+${n.toLocaleString('ru-RU')} шагов 🐾`:'Пересчитали!');
+}
+function stepsStreak(){
+  let s=0,d=new Date();
+  if((data.steps[fmtD(d)]||0)<data.goalSteps)d.setDate(d.getDate()-1);
+  while((data.steps[fmtD(d)]||0)>=data.goalSteps){s++;d.setDate(d.getDate()-1);}
+  return s;
+}
+function renderSteps(){
+  const t=today(),st=data.steps[t]||0,goal=data.goalSteps,pct=Math.min(100,Math.round(st/goal*100));
+  let paws='';
+  for(let i=6;i>=0;i--){
+    const d=new Date();d.setDate(d.getDate()-i);
+    const full=(data.steps[fmtD(d)]||0)>=goal;
+    paws+=`<svg class="${full?'full':''} ${i===0?'today':''}"><use href="#paw"/></svg>`;
+  }
+  const streak=stepsStreak();
+  $('stepsCard').innerHTML=`<h3>👣 Шаги</h3>
+    <div class="bigsteps">${st.toLocaleString('ru-RU')} <span style="font-size:14px;color:var(--ink-soft)">/ ${goal.toLocaleString('ru-RU')} · ${pct}%</span></div>
+    <div class="paws">${paws}</div>
+    <div class="note" style="margin-top:8px">Серия: <b>${streak} ${streak===1?'день':'дн.'}</b> подряд 🐾 Неделя лапок выше: золотая — сегодня.</div>
+    <div class="wrow">
+      <button class="pillow small" onclick="addSteps(1000)">+1000 шагов</button>
+      <button class="pillow small ghost" onclick="addSteps(500)">+500</button>
+      <button class="pillow small ghost" onclick="addSteps(-500)">−500</button>
+    </div>
+    <div class="smallnote">Шаги считает датчик во вкладке «Прогулка» (или добавь кнопками) — в мобильном приложении Health Connect / HealthKit подключатся сами.</div>`;
+}
+
+/* ================= дневник ================= */
+const STICKERS=[
+  {id:'calm',e:'😌',t:'всё мур-мур'},
+  {id:'happy',e:'🐱',t:'я — счастливый котик'},
+  {id:'treat',e:'🍰',t:'баловала себя вкусненьким'},
+  {id:'care',e:'🥗',t:'заботилась о себе'},
+  {id:'hard',e:'🥲',t:'было непросто'},
+  {id:'sleep',e:'😴',t:'спала как кот на солнышке'}];
+const AI_COMMENTS={
+  calm:['Так держать, лапочка — ровный и спокойный день. Это и есть баланс 💗','Мур-р. Спокойствие — лучший соус, ничего добавлять не нужно.'],
+  happy:['Смотри, как светится твой хвостик! Такие дни и держат всё остальное 🐾','Ура-ура! Котик очень тобой гордится.'],
+  treat:['Вкусненькое — часть жизни, а не срыв. Жизнь без тортика — грустная жизнь 🍰','Один десерт не решает ничего, кроме настроения. Всё под контролем, мур.'],
+  care:['Ты позаботилась о себе — это и есть путь: тихий и настоящий 💗','Каждый такой день — кирпичик в твою лёгкость. Мур-р.'],
+  hard:['Сложные дни — не поражение, а часть пути. Завтра будет мягче, я рядом 🐾','Ты не сорвалась — ты живёшь. Котик держит тебя за лапку.'],
+  sleep:['Сон — тайное оружие стройности. Ты всё сделала правильно 😴💗','Мур-р, выспавшаяся кошка — счастливая кошка.']};
+let selSticker=null,photoData=null;
+function renderStickers(){
+  $('stickerGrid').innerHTML=STICKERS.map(s=>
+    `<div class="stk ${selSticker===s.id?'sel':''}" onclick="pickSticker('${s.id}')"><span class="se">${s.e}</span>${s.t}</div>`).join('');
+}
+function pickSticker(id){selSticker=id;renderStickers();}
+function saveDiary(){
+  const tx=$('dText').value.trim();
+  if(!selSticker&&!tx&&!photoData){toast('Отметь стикер, напиши слово или добавь фото 🐾');return;}
+  const st=STICKERS.find(s=>s.id===selSticker);
+  const pool=AI_COMMENTS[selSticker]||['Спасибо, что записала день — котик читает и урчит 💗'];
+  const ai=pool[Math.floor(Math.random()*pool.length)];
+  data.diary.unshift({d:today(),sid:selSticker,tx:tx,ph:photoData,ai:ai});
+  if(data.diary.length>60)data.diary=data.diary.slice(0,60);
+  save();
+  selSticker=null;photoData=null;
+  $('dText').value='';$('dPhoto').value='';$('dPreview').style.display='none';
+  renderStickers();renderDiary();renderHome();
+  toast('Записала, мур-р 💗');
+}
+function renderDiary(){
+  const el=$('dHist');
+  if(!data.diary.length){el.innerHTML='<div class="emptyart"><img src="sprites/kw-cloudrain.png" alt="" onerror="this.style.display=\'none\'"><div class="hint">Пока пусто. Первый день — самый важный 🐾</div></div>';return;}
+  el.innerHTML=data.diary.slice(0,10).map(e=>{
+    const st=STICKERS.find(s=>s.id===e.sid);
+    const md=(e.sid&&String(e.sid).indexOf('mood:')===0)?MOODS.find(m=>m.s===+String(e.sid).slice(5)):null;
+    return`<div class="ditem">
+      <div class="ddate">${ruDate(e.d)} · ${md?'Настроение: '+md.e+' '+md.t:(st?st.e+' '+st.t:'дневник')}</div>
+      ${e.tx?`<div class="dtext">${esc(e.tx)}</div>`:''}
+      ${e.ph?`<img src="${e.ph}" alt="" style="max-width:110px;border-radius:14px;margin-top:6px;border:1.5px solid var(--pink-line)">`:''}
+      <div class="aib">${e.ai}</div></div>`;
+  }).join('');
+}
+document.addEventListener('DOMContentLoaded',()=>{
+  $('dPhoto').addEventListener('change',e=>{
+    const f=e.target.files[0];if(!f)return;
+    const r=new FileReader();
+    r.onload=()=>{const img=new Image();
+      img.onload=()=>{const S=180,sc=Math.min(S/img.width,S/img.height,1);
+        const c=document.createElement('canvas');
+        c.width=Math.round(img.width*sc);c.height=Math.round(img.height*sc);
+        c.getContext('2d').drawImage(img,0,0,c.width,c.height);
+        photoData=c.toDataURL('image/jpeg',.7);
+        const pv=$('dPreview');pv.src=photoData;pv.style.display='inline-block';};
+      img.src=r.result;};
+    r.readAsDataURL(f);
+  });
+});
+
+/* ================= прогулка ИВТ ================= */
+const FAST=180,CALM=180,ROUNDS=5;
+let walk={state:'idle',round:0,fast:true,endAt:0,left:FAST,timer:null};
+const RING_C=440;
+function walkTotalLeft(){const done=(walk.round-1)*(FAST+CALM)+(walk.fast?0:CALM);return (ROUNDS*(FAST+CALM))-done-walk.left;}
+function walkUpdate(){
+  $('walkTime').textContent=Math.floor(walk.left/60)+':'+String(Math.round(walk.left%60)).padStart(2,'0');
+  const fast=walk.fast&&walk.state==='run';
+  $('walkState').textContent=walk.state==='idle'?'Готова?':walk.state==='pause'?'ПАУЗА 🐾':fast?'БЫСТРО! 🐾':'СПОКОЙНО 💗';
+  $('walkState').style.color=fast?'#D6336C':'#93687C';
+  $('walkRound').textContent='круг '+walk.round+'/'+ROUNDS;
+  const total=ROUNDS*(FAST+CALM);
+  $('ringfg').style.strokeDashoffset=RING_C*(1-Math.min(1,walkTotalLeft()/total));
+}
+function walkToggle(){
+  if(walk.state==='run'){clearInterval(walk.timer);walk.state='pause';$('walkBtn').textContent='Продолжить 🐾';return;}
+  if(walk.state==='idle'){walk.round=1;walk.fast=true;walk.left=FAST;}
+  walk.state='run';
+  walk.endAt=Date.now()+walk.left*1000;
+  $('walkBtn').textContent='Пауза';
+  $('walkStop').hidden=false;
+  walk.timer=setInterval(()=>{
+    walk.left=Math.max(0,(walk.endAt-Date.now())/1000);
+    if(walk.left<=0)walkNext();
+    walkUpdate();
+  },250);
+  walkUpdate();
+}
+function walkNext(){
+  try{if(navigator.vibrate)navigator.vibrate(walk.fast?[300,120,300]:500);}catch(e){}
+  if(walk.fast){walk.fast=false;walk.left=CALM;}
+  else if(walk.round<ROUNDS){walk.fast=true;walk.round++;walk.left=FAST;}
+  else{walkFinish(false);return;}
+  walk.endAt=Date.now()+walk.left*1000;
+}
+function walkFinish(early){
+  clearInterval(walk.timer);
+  const finished=!early&&walk.round>ROUNDS;
+  const phaseLen=walk.fast?FAST:CALM;
+  const elapsedSec=Math.max(0,(walk.round-1)*(FAST+CALM)+(phaseLen-Math.max(0,walk.left)));
+  walk={state:'idle',round:0,fast:true,endAt:0,left:FAST,timer:null};
+  $('walkBtn').textContent='Начать прогулку 🐾';$('walkStop').hidden=true;
+  $('tab-walk').classList.remove('hot');
+  walkUpdate();
+  const mins=Math.round(elapsedSec/60);
+  data.walks++;
+  const t=today();
+  data.steps[t]=(data.steps[t]||0)+Math.round(mins*120);
+  save();renderHome();renderWalkStats();
+  if(finished){puffBoom();pawConfetti();medalModal('Прогулка завершена!','30 минут ИВТ — отличная работа, лапочка! +3600 шагов уже в твоём дневчике 🐾');}
+  else toast('Прогулка сохранена: ~'+mins+' мин 💗');
+}
+function renderWalkStats(){
+  const week=Object.entries(data.steps).filter(([d])=>diffDays(d,today())<7);
+  const sum=week.reduce((a,[,v])=>a+v,0);
+  $('walkStats').innerHTML=`<h3>🏃‍♀️ Твоя статистика</h3>
+    <div class="note" style="margin-top:6px">Прогулок ИВТ всего: <b>${data.walks}</b><br>
+    Шагов за 7 дней: <b>${sum.toLocaleString('ru-RU')}</b><br>
+    Серия дней по цели: <b>${stepsStreak()}</b> 🐾</div>`;
+}
+function pawConfetti(){
+  for(let i=0;i<18;i++){
+    const s=document.createElement('span');
+    s.className='pawconfetti';s.textContent='🐾';
+    s.style.left=Math.random()*90+5+'%';
+    s.style.animationDelay=Math.random()*.8+'s';
+    s.style.fontSize=16+Math.random()*16+'px';
+    document.body.appendChild(s);
+    setTimeout(()=>s.remove(),3200);
+  }
+}
+/* v0.5: взрыв пуха — 5 кадров спрайт-листа */
+function puffBoom(){
+  try{
+    const b=document.createElement('div');b.className='boom';
+    b.innerHTML='<img src="sprites/puff-f1.png" alt="">';
+    document.body.appendChild(b);
+    let i=1;
+    const t=setInterval(()=>{
+      if(i>=5){clearInterval(t);setTimeout(()=>b.remove(),300);return;}
+      b.innerHTML='<img src="sprites/puff-f'+(i+1)+'.png" alt="">';i++;
+    },130);
+  }catch(e){}
+}
+
+/* ================= марафоны ================= */
+const MARS={
+  soft:{n:'Мягкий марафон',days:14,d:'14 дней чек-инов + медаль'},
+  month:{n:'Месяц с котиком',days:30,d:'30 дней + большая медаль'},
+  express:{n:'Экспресс-мур',days:7,d:'7 дней разгона + бейдж'}};
+function activityToday(){
+  const t=today();
+  return !!data.weights.find(w=>w.d===t)||data.diary.some(e=>e.d===t)||(data.steps[t]||0)>0;
+}
+function joinMar(key){
+  const m=MARS[key];
+  modal(`<div class="mhead">${m.n} — бесплатно 🎉</div>
+    <p class="note">${m.days} дней чек-инов, прогресс-лапки и в конце — медалька. Всё бесплатно: платим только старанием 🐾</p>
+    <button class="pillow gold wide" onclick="activateMar('${key}')">Начать марафон 🏅</button>
+    <button class="skip" onclick="closeModal()">Позже</button>`);
+}
+function activateMar(key){
+  data.marathon={active:key,started:today(),checkins:[]};
+  save();closeModal();renderMarathon();
+  toast('Марафон начался! Удачи, лапочка 🐾');
+}
+function leaveMar(){
+  modal(`<div class="mhead">Выйти из марафона?</div>
+    <p class="note">Прогресс обнулится, мур. Ты уверена?</p>
+    <button class="pillow ghost wide" onclick="doLeave()">Выйти</button>
+    <button class="skip" onclick="closeModal()">Остаться</button>`);
+}
+function doLeave(){data.marathon={active:null,started:'',checkins:[]};save();closeModal();renderMarathon();}
+function checkin(){
+  const m=data.marathon,def=MARS[m.active];
+  if(!m.active||m.checkins.includes(today()))return;
+  if(!activityToday()){toast('Сначала маленькое дело: взвесься, запиши дневник или добавь шаги 🐾');return;}
+  m.checkins.push(today());save();renderMarathon();
+  if(m.checkins.length>=def.days){puffBoom();pawConfetti();medalModal('МЕДАЛЬ ТВОЯ! 🏅',`«${def.n}» пройден полностью! ${m.checkins.length} чек-инов — ты настоящая леопард-лапка. Медаль уже мурчит на полке 💗`);}
+  else if(m.checkins.length%7===0){pawConfetti();toast(`Серебряная лапка за ${m.checkins.length} дней! 🥈`);}
+  else toast('Чек-ин засчитан, мур-р 💗');
+}
+function renderMarathon(){
+  const el=$('marBody'),m=data.marathon;
+  if(!m.active){
+    el.innerHTML=`<p class="note">Выбирай марафон — все бесплатные, а пользы на месяц 🎉</p>`+
+      Object.entries(MARS).map(([k,v])=>`<div class="mcard"><div><h4>${v.n}</h4><div class="md">${v.d}</div></div>
+        <div style="text-align:right"><div class="price">Бесплатно</div>
+        <button class="pillow small" style="margin-top:6px" onclick="joinMar('${k}')">Хочу!</button></div></div>`).join('')+
+      `<div class="smallnote">С тобой идут 2 340 мур-котиков (в прототипе — демо-счётчик).</div>`;
+    return;
+  }
+  const def=MARS[m.active];
+  const dayN=Math.min(diffDays(m.started,today())+1,def.days);
+  const done=m.checkins.length,checked=m.checkins.includes(today());
+  const pct=Math.round(done/def.days*100);
+  const finished=done>=def.days;
+  el.innerHTML=`<h4 style="font-family:Comfortaa,'Nunito',sans-serif;color:var(--pink-deep);margin-bottom:4px">${def.n}</h4>
+    <div class="note">День ${dayN} из ${def.days} · чек-инов: ${done} · осталось ${Math.max(0,def.days-done)} 🐾</div>
+    <div class="pbar"><div class="pfill" style="width:${pct}%"></div></div>
+    <div style="font-size:12px;color:var(--ink-soft);text-align:right">${pct}%</div>
+    ${finished?`<div class="medalbox"><svg><use href="#medal"/></svg><div><b>Медаль получена!</b><br>
+      <span style="font-size:12.5px;color:var(--ink-soft)">«${def.n}» пройден, лапка-леопард 💗</span></div></div>`
+      :`<button class="pillow ${checked?'ghost':''} wide" style="margin-top:10px" onclick="checkin()" ${checked?'disabled':''}>
+        ${checked?'Сегодня уже отмечено ✔':'Чек-ин за сегодня 🐾'}</button>`}
+    <div class="smallnote">Бейджи-лапки: ${'🐾'.repeat(Math.min(9,Math.floor(done/7))||0)||'пока 0'} (за каждые 7 дней)</div>
+    <button class="skip" onclick="leaveMar()">выйти из марафона</button>`;
+}
+
+/* ================= калькулятор 7700 ================= */
+function plural(n,f){
+  const n10=n%10,n100=n%100;
+  return f[(n10===1&&n100!==11)?0:(n10>=2&&n10<=4&&(n100<10||n100>=20))?1:2];
+}
+function calc7700(){
+  const kg=parseFloat($('kcal7700').value);
+  if(!kg||kg<=0||kg>50){toast('Введи цель от 0,5 до 50 кг 🐾');return;}
+  const kcal=Math.round(kg*7700);
+  const sh=Math.max(1,Math.round(kcal/550)),bo=Math.max(1,Math.round(kcal/250));
+  const teen=isTeen()?'<div class="licbox" style="margin-top:8px">🌿 Ты до 18 — «скидывать» сейчас не задача: тело растёт и само решает, куда что класть. Цифра ниже — просто математика для любопытных. Про питание — с врачом 🌷</div>':'';
+  $('res7700').innerHTML=teen+`−${String(kg).replace('.',',')} кг ≈ <b>${kcal.toLocaleString('ru-RU')} ккал</b> — это как <b>${sh} ${plural(sh,['шаверма','шавермы','шаверм'])}</b> или <b>${bo} ${plural(bo,['тарелка','тарелки','тарелок'])} борща</b> 🍜<br>
+    <span style="font-size:12px">Мур: это не про запреты, а про наглядность. Маленький дефицит + прогулки = мягкий путь 💗</span>`;
+}
+
+/* ================= модалки, тосты, настройки ================= */
+function toast(msg){
+  const box=$('toasts'),t=document.createElement('div');
+  t.className='toast';t.textContent=msg;box.appendChild(t);
+  setTimeout(()=>t.remove(),2600);
+}
+function modal(html){
+  $('modal-root').innerHTML=`<div class="backdrop" onclick="if(event.target===this)closeModal()">
+    <div class="mwin">
+      <button class="mclose" onclick="closeModal()">✕</button>${html}</div></div>`;
+}
+function closeModal(){$('modal-root').innerHTML='';}
+function medalModal(title,text){
+  modal(`<div style="text-align:center">
+    <img src="sprites/kw-rainbow.png" alt="" style="width:120px;filter:drop-shadow(0 8px 18px rgba(201,146,46,.5))" onerror="this.style.display='none'">
+    <div class="mhead" style="margin-top:10px">${title}</div>
+    <p class="note">${text}</p>
+    <button class="pillow gold wide" onclick="closeModal()">Мур-р! 💗</button></div>`);
+}
+const LICENSE_TXT=`© 2026 RAIDOPERT (raidopert.ru). Все права защищены.
+
+Приложение Kate Leopard, его код, дизайн, тексты и графика — исключительная собственность студии Raidopert. Копирование, распространение, продажа и создание производных работ без письменного разрешения студии запрещены.
+
+Kate Leopard™ и Raidopert™ — торговые марки Raidopert.
+
+Полный текст лицензии: файл LICENSE.txt в репозитории проекта.`;
+function openSettings(){
+  window._zodSel=data.zodiac||'';window._colSel=data.favColor||'#FF8FBF';
+  window._bodySel=data.bodyType||'';window._habSel=(data.habits||[]).slice();
+  window._harmList=(data.harmTop||[]).slice();window._goodList=(data.goodTop||[]).slice();
+  const lenOpts=Array.from({length:20},(_,i)=>i+21).map(n=>
+    `<option ${n===data.cycleLen?'selected':''} value="${n}">${n} дней</option>`).join('');
+  modal(`<div class="mhead">Профиль 🐾</div>
+    <label class="lbl">Имя (можно псевдоним)</label>
+    <input id="pfName" class="inp" value="${esc(data.name)}">
+    <label class="lbl">Знак зодиака — для ежедневного гороскопа</label>
+    <div id="zodBox"></div>
+    <label class="lbl">Любимый цвет — перекрасит всё приложение</label>
+    <div id="colBox"></div>
+    <div class="kcrow">
+      <div><label class="lbl">Длина цикла</label>
+      <select id="pfLen" class="inp">${lenOpts}</select></div>
+      <div><label class="lbl">Цель по весу, кг</label>
+      <input id="pfGoal" class="inp" type="number" step="0.1" inputmode="decimal" value="${data.goal}"></div>
+    </div>
+    <label class="lbl">Первый день последних месячных</label>
+    <input id="pfPeriod" class="inp" type="date" value="${data.lastPeriod}">
+    <div class="kcrow">
+      <div><label class="lbl">Возраст (13–17 — мягкий режим)</label><input id="pfAge" class="inp" type="number" inputmode="numeric" min="10" max="99" placeholder="лет" value="${esc(String(data.age||data.calc.age||''))}"></div>
+      <div><label class="lbl">Рост, см</label><input id="pfH" class="inp" type="number" inputmode="numeric" placeholder="см" value="${esc(String(data.calc.height||''))}"></div>
+    </div>
+    <div id="pfTeenNote" class="licbox" style="display:none"></div>
+    <label class="lbl">Активность (для калькулятора калорий)</label>
+    <select id="pfAct" class="inp">
+      <option value="1.2"${data.calc.act==1.2?' selected':''}>низкая — сидячая жизнь</option>
+      <option value="1.375"${data.calc.act==1.375?' selected':''}>средняя — прогулки несколько раз в неделю</option>
+      <option value="1.55"${data.calc.act==1.55?' selected':''}>высокая — зал или активная работа</option>
+    </select>
+    <label class="lbl">Цель шагов в день</label>
+    <input id="pfSteps" class="inp" type="number" inputmode="numeric" value="${data.goalSteps}">
+    <div class="kcrow">
+      <div><label class="lbl">Цель воды, стаканов</label><input id="pfWater" class="inp" type="number" inputmode="numeric" value="${data.goalWater}"></div>
+      <div><label class="lbl">Цель сна, ч</label><input id="pfSleep" class="inp" type="number" inputmode="numeric" value="${data.goalSleep}"></div>
+    </div>
+    <div class="kcrow">
+      <div><label class="lbl">Напоминание вечером</label>
+      <select id="pfRem" class="inp">
+        <option value="0"${!data.reminder.on?' selected':''}>выкл</option>
+        <option value="1"${data.reminder.on?' selected':''}>вкл</option>
+      </select></div>
+      <div><label class="lbl">Время напоминания</label><input id="pfRemTime" class="inp" type="time" value="${data.reminder.time}"></div>
+    </div>
+    <div class="mhead" style="font-size:16px;margin-top:18px">🍽 Пищевой портрет</div>
+    <p class="note">Подсказки, замены и «Хочу съесть» подстраиваются под этот портрет.</p>
+    <label class="lbl">Тип фигуры (для тёплых подсказок)</label>
+    <div id="pfBodyBox"></div>
+    <div id="pfBodyTip" class="aib" style="display:none"></div>
+    <label class="lbl">Пищевые привычки</label>
+    <div id="pfHabBox"></div>
+    <label class="lbl">Топ вредных желаний (до 6) — первыми в «Хочу съесть»</label>
+    <div id="pfHarmBox"></div>
+    <label class="lbl">Полезные любимчики (до 6) — предлагаются как замены</label>
+    <div id="pfGoodBox"></div>
+    <button class="pillow small ghost wide" style="margin-top:10px" onclick="openInstall()">Установить на телефон 📲</button>
+    <button class="pillow small ghost wide" style="margin-top:10px" onclick="testPush()">Проверить уведомления 🔔</button>
+    <div class="smallnote">Пока страница открыта — напомним в назначенное время, если дневник ещё пуст. В мобильном приложении будут настоящие push, даже когда всё закрыто.</div>
+    <button class="pillow wide" style="margin-top:16px" onclick="saveProfile()">Сохранить 🐾</button>
+    <p class="note" style="margin-top:14px"><b>Приватность.</b> Все данные живут только в памяти твоего телефона. Никаких почт, паролей и передач третьим лицам — только ты и котик 💗</p>
+    <p class="note"><b>О студии.</b> Kate Leopard — продукт студии <b>Raidopert</b> · <a href="https://raidopert.ru" target="_blank" rel="noopener">raidopert.ru</a></p>
+    <div class="licbox"><b>Лицензия</b><br>${LICENSE_TXT.replace(/\n/g,'<br>')}</div>
+    <button class="skip" onclick="resetData()">сбросить все данные</button>`);
+  renderZodChips('zodBox',window._zodSel);
+  renderSwatches('colBox',window._colSel);
+  renderBodyChips('pfBodyBox',window._bodySel);
+  renderHabitChips('pfHabBox');
+  renderPortLists();
+  const ageIn=$('pfAge'),tnt=$('pfTeenNote');
+  if(ageIn&&tnt){const upd=()=>{const a=parseInt(ageIn.value,10);
+    tnt.textContent=TEEN_NOTE;tnt.style.display=(a>=13&&a<=17)?'block':'none';};
+    ageIn.addEventListener('input',upd);upd();}
+}
+function saveProfile(){
+  data.name=$('pfName').value.trim()||'лапочка';
+  data.zodiac=window._zodSel||'';
+  if(data.zodiac==='custom'){const c=$('zodBoxCustom');data.zcustom=(c&&c.value.trim())||'Свой знак';}
+  data.favColor=window._colSel||'#FF8FBF';
+  applyTheme(data.favColor);
+  data.bodyType=window._bodySel||'';
+  data.habits=(window._habSel||[]).slice();
+  data.harmTop=window._harmList.slice();
+  data.goodTop=window._goodList.slice();
+  data.cycleLen=parseInt($('pfLen').value,10)||28;
+  const g=parseFloat($('pfGoal').value);
+  data.goal=(g&&g>30&&g<250)?g:'';
+  const p=$('pfPeriod').value;
+  if(p&&diffDays(p,today())>=0)data.lastPeriod=p;
+  data.calc={age:$('pfAge').value.trim(),height:$('pfH').value.trim(),act:parseFloat($('pfAct').value)||1.375};
+  data.age=parseInt($('pfAge').value,10)||0;
+  const gs=parseInt($('pfSteps').value,10);
+  if(gs>=1000&&gs<=30000)data.goalSteps=gs;
+  const gw=parseInt($('pfWater').value,10);
+  if(gw>=4&&gw<=15)data.goalWater=gw;
+  const gsL=parseInt($('pfSleep').value,10);
+  if(gsL>=6&&gsL<=12)data.goalSleep=gsL;
+  data.reminder={on:$('pfRem').value==='1',time:$('pfRemTime').value||'20:00',last:data.reminder.last||''};
+  data.onboarded=true;save();closeModal();renderHome();
+  toast('Сохранено, мур-р 💗');
+}
+function resetData(){
+  modal(`<div class="mhead">Точно сбросить всё?</div>
+    <p class="note">Вес, дневник, шаги и марафоны исчезнут навсегда, мур.</p>
+    <button class="pillow ghost wide" onclick="doReset()">Да, сбросить</button>
+    <button class="skip" onclick="closeModal()">Оставить</button>`);
+}
+function doReset(){localStorage.removeItem(LSKEY);location.reload();}
+
+/* ================= v0.4: пищевой портрет ================= */
+const BODYTYPES=[
+  {id:'apple',e:'🍎',n:'Яблоко',tip:'Запасы любят талию, в том числе внутренний жир — а он первым уходит при дефиците и ходьбе. Сон и поменьше сахара — твои лучшие друзья.'},
+  {id:'pear',e:'🍐',n:'Груша',tip:'Бёдра держат запасы крепче всего — это генетика, а не слабость воли. Упражнения с весом тела и терпение: низ подтянется следом.'},
+  {id:'hourglass',e:'⏳',n:'Песочные часы',tip:'Жир распределяется и уходит равномерно — просто держи мягкий темп, и пропорции сохранятся.'},
+  {id:'rect',e:'📐',n:'Прямоугольник',tip:'Талия от природы скромная — точечно её не «похудеть», зато мышцы рисуют силуэт: приседания и планка делают своё.'},
+  {id:'inverted',e:'🔺',n:'Перевёрнутый треугольник',tip:'Широкие плечи — достоинство, оно останется с тобой. Худей мягко и равномерно: силуэт будет только интереснее.'},
+  {id:'secret',e:'🤫',n:'Не хочу указывать',tip:'И отлично: тип фигуры здесь — только для тёплых подсказок, а цифры тренда важнее всяких силуэтов 🐾'}];
+const HABITS=[
+  {id:'sweets',e:'🍫',n:'тяга к сладкому и выпечке'},
+  {id:'salty',e:'🍟',n:'солёненькое, чипсы'},
+  {id:'fastfood',e:'🍔',n:'фастфуд-дни'},
+  {id:'night',e:'🌙',n:'ночные набеги на холодильник'},
+  {id:'emotions',e:'😿',n:'заедаю стресс или скуку'},
+  {id:'portions',e:'🍽',n:'большие порции'},
+  {id:'veg',e:'🥗',n:'мало овощей и зелени'},
+  {id:'soda',e:'🥤',n:'сладкие напитки'},
+  {id:'skipmeals',e:'⏰',n:'пропускаю приёмы пищи'},
+  {id:'fast',e:'⚡️',n:'ем быстро, на бегу'}];
+const HABIT_TIPS={
+  sweets:'Сладкое побеждается не запретом, а заменой из твоего полезного списка: ягоды, печёное яблоко, какао без сахара. В ПМС тяга усиливается — это гормоны, а не характер.',
+  salty:'Солёненькое держит воду: чипсы могут дать +1–1,5 кг на весах, которые уйдут за пару дней. Попкорн без масла и огуречные чипсы — честная замена.',
+  fastfood:'Фастфуд не запрещаем: курица гриль вместо двойного сыра и большой салат вприкуску — та же радость, заметно меньше ккал.',
+  night:'Ночные набеги лечатся днём: ужин с белком и ранний сон работают лучше силы воли. Чистка зубов в 21:30 закрывает кухню 🐾',
+  emotions:'Заедание стресса — нормальная защита, а не преступление. Пауза: вода, 10 минут, позвонить подруге — еда нужна реже, чем кажется.',
+  portions:'Меньше тарелка — меньше порция: работает без подсчёта граммов. «Половинку» в «Хочу съесть» — тоже честный ответ.',
+  veg:'Овощи — объём почти без ккал: половина тарелки по правилу тарелки. Замороженные тоже считаются — и они даже дешевле.',
+  soda:'Сладкие напитки — самые незаметные ккал: сытости ноль. Кола без сахара или вода с лимоном — и −200–300 ккал в день сами.',
+  skipmeals:'Пропущенный обед возвращается ночным жором. Ешь регулярно — пусть «Пора поесть» станет якорем дня.',
+  fast:'Сигнал о сытости доходит до мозга 15–20 минут. Вилка на столе между укусами — и наедаешься меньшим.'};
+function bodyInfo(){return BODYTYPES.find(b=>b.id===data.bodyType)||null;}
+function renderBodyChips(id,cur){
+  const box=$(id);if(!box)return;
+  box.innerHTML='<div class="zgrid">'+BODYTYPES.map(b=>
+    `<span class="zodchip ${cur===b.id?'sel':''}" onclick="pickBody('${b.id}','${id}')">${b.e} ${b.n}</span>`).join('')+'</div>';
+}
+function pickBody(v,id){
+  window._bodySel=v;renderBodyChips(id,v);
+  const tip=$(id.replace(/Box$/,'')+'Tip');
+  if(tip){const b=BODYTYPES.find(x=>x.id===v);
+    if(b){tip.textContent=b.tip;tip.style.display='block';}else tip.style.display='none';}
+}
+function renderHabitChips(id){
+  const box=$(id);if(!box)return;
+  box.innerHTML='<div class="zgrid">'+HABITS.map(h=>
+    `<span class="zodchip ${(window._habSel||[]).includes(h.id)?'sel':''}" onclick="toggleHabit('${h.id}','${id}')">${h.e} ${h.n}</span>`).join('')+'</div>';
+}
+function toggleHabit(idv,id){
+  const arr=window._habSel||[];
+  const i=arr.indexOf(idv);
+  if(i>=0)arr.splice(i,1);else arr.push(idv);
+  window._habSel=arr;renderHabitChips(id);
+}
+function portItemChips(list,delFn){
+  if(!list.length)return'<div class="smallnote">пока пусто — добавь пару пунктов ниже 🐾</div>';
+  return'<div class="zgrid">'+list.map((x,i)=>
+    `<span class="zodchip">${esc(x.n)}${x.kcal?' · ~'+x.kcal+' ккал':''} <b style="cursor:pointer;color:var(--pink-deep)" onclick="${delFn}(${i})">✕</b></span>`).join('')+'</div>';
+}
+function renderPortLists(){
+  [['ob','obHarmName','obHarmKcal','obGoodName','obGoodKcal'],
+   ['pf','pfHarmName','pfHarmKcal','pfGoodName','pfGoodKcal']].forEach(([p,hn,hk,gn,gk])=>{
+    const hb=$(p+'HarmBox'),gb=$(p+'GoodBox');
+    if(!hb&&!gb)return;
+    if(hb)hb.innerHTML=portItemChips(window._harmList,`portDel('${p}','harm')`)+
+      `<div class="wrow" style="margin-top:8px"><input id="${hn}" class="inp" placeholder="Например: чипсы со сметаной">
+        <input id="${hk}" class="inp" type="number" inputmode="numeric" style="max-width:96px" placeholder="ккал">
+        <button class="pillow small" onclick="portAdd('${p}','harm')">+</button></div>`;
+    if(gb)gb.innerHTML=portItemChips(window._goodList,`portDel('${p}','good')`)+
+      `<div class="wrow" style="margin-top:8px"><input id="${gn}" class="inp" placeholder="Например: творог с ягодами">
+        <input id="${gk}" class="inp" type="number" inputmode="numeric" style="max-width:96px" placeholder="ккал">
+        <button class="pillow small" onclick="portAdd('${p}','good')">+</button></div>`;
+  });
+}
+function portAdd(p,kind){
+  const list=kind==='harm'?window._harmList:window._goodList;
+  if(list.length>=6){toast('Шесть пунктов — уже целый топ, хватит 🐾');return;}
+  const name=$(p+(kind==='harm'?'Harm':'Good')+'Name').value.trim();
+  if(!name){toast('Напиши название блюда 🐾');return;}
+  const k=parseInt($(p+(kind==='harm'?'Harm':'Good')+'Kcal').value,10);
+  list.push({n:name.slice(0,40),kcal:(k&&k>=10&&k<=2000)?k:(kind==='harm'?400:150)});
+  $(p+(kind==='harm'?'Harm':'Good')+'Name').value='';
+  $(p+(kind==='harm'?'Harm':'Good')+'Kcal').value='';
+  renderPortLists();
+}
+function portDel(p,kind,i){
+  const list=kind==='harm'?window._harmList:window._goodList;
+  list.splice(i,1);renderPortLists();
+}
+
+/* ================= онбординг ================= */
+function openOnboarding(){
+  window._zodSel=data.zodiac||'';window._colSel=data.favColor||'#FF8FBF';
+  const lenOpts=Array.from({length:20},(_,i)=>i+21).map(n=>
+    `<option ${n===data.cycleLen?'selected':''} value="${n}">${n} дней</option>`).join('');
+  modal(`<div class="mhead">Знакомство 🐾 · шаг 1 из 2</div>
+    <p class="note">Данные живут только на твоём телефоне. Никаких почт и паролей — только ты и котик 💗</p>
+    <label class="lbl">Как тебя звать? (можно псевдоним)</label>
+    <input id="obName" class="inp" placeholder="лапочка" value="${esc(data.name)}">
+    <label class="lbl">Сколько тебе лет? — включит самый мягкий режим</label>
+    <div id="obAgeBox" class="zgrid"></div>
+    <div id="obTeenNote" class="licbox" style="display:none"></div>
+    <label class="lbl">Твой знак зодиака (для ежедневного гороскопа)</label>
+    <div id="zodBox"></div>
+    <label class="lbl">Любимый цвет — красит всё приложение</label>
+    <div id="colBox"></div>
+    <label class="lbl">Средняя длина цикла</label>
+    <select id="obLen" class="inp">${lenOpts}</select>
+    <label class="lbl">Первый день последних месячных</label>
+    <input id="obPeriod" class="inp" type="date" value="${data.lastPeriod}">
+    <label class="lbl">Цель по весу, кг (необязательно)</label>
+    <input id="obGoal" class="inp" type="number" step="0.1" inputmode="decimal" placeholder="например, 58" value="${data.goal}">
+    <button class="pillow wide" style="margin-top:16px" onclick="obStep2()">Дальше — пищевой портрет 🍽</button>
+    <button class="skip" onclick="saveOnboarding(true)">Позже</button>`);
+  window._obAge=data.age||0;
+  renderAgeChips('obAgeBox');
+  renderZodChips('zodBox',window._zodSel);
+  renderSwatches('colBox',window._colSel);
+}
+function renderAgeChips(id){
+  const box=$(id);if(!box)return;
+  box.innerHTML=[13,14,15,16,17,18].map(a=>
+    `<span class="agechip ${window._obAge===a?'sel':''}" onclick="pickAge(${a},'${id}')">${a===18?'18+':a}</span>`).join('');
+  const note=$('obTeenNote');
+  if(note){const teen=window._obAge>=13&&window._obAge<=17;
+    note.textContent=TEEN_NOTE;note.style.display=teen?'block':'none';}
+}
+function pickAge(v,id){window._obAge=v;renderAgeChips(id);}
+function obStep1(){
+  data.name=$('obName').value.trim()||'лапочка';
+  data.age=window._obAge||data.age||0;
+  data.zodiac=window._zodSel||'';
+  if(data.zodiac==='custom'){const c=$('zodBoxCustom');data.zcustom=(c&&c.value.trim())||'Свой знак';}
+  data.favColor=window._colSel||'#FF8FBF';
+  applyTheme(data.favColor);
+  data.cycleLen=parseInt($('obLen').value,10)||28;
+  const p=$('obPeriod').value;
+  if(p&&diffDays(p,today())>=0)data.lastPeriod=p;
+  const g=parseFloat($('obGoal').value);
+  data.goal=(g&&g>30&&g<250)?g:'';
+}
+function obStep2(){
+  obStep1();
+  window._bodySel=data.bodyType||'';
+  window._habSel=(data.habits||[]).slice();
+  window._harmList=(data.harmTop||[]).slice();
+  window._goodList=(data.goodTop||[]).slice();
+  modal(`<div class="mhead">Пищевой портрет 🍽 · 2/2</div>
+    <p class="note">Это не экзамен, а настройка: подсказки, замены и «Хочу съесть» станут именно твоими. Всё можно изменить в профиле.</p>
+    <label class="lbl">Тип фигуры — для тёплых подсказок. Точечно похудеть нельзя (это генетика), но знать особенности полезно</label>
+    <div id="obBodyBox"></div>
+    <div id="obBodyTip" class="aib" style="display:none"></div>
+    <label class="lbl">Твои пищевые привычки — отметь что угодно, честность здесь валюта</label>
+    <div id="obHabBox"></div>
+    <label class="lbl">Топ вредных желаний (до 6) — они будут первыми в «Хочу съесть»</label>
+    <div id="obHarmBox"></div>
+    <label class="lbl">Полезные любимчики (до 6) — станут предлагаться как замены</label>
+    <div id="obGoodBox"></div>
+    <button class="pillow wide" style="margin-top:16px" onclick="saveOnboarding(false)">Мы готовы! 🐾</button>
+    <button class="skip" onclick="saveOnboarding(true)">Позже</button>`);
+  renderBodyChips('obBodyBox',window._bodySel);
+  renderHabitChips('obHabBox');
+  renderPortLists();
+}
+function saveOnboarding(skip){
+  if(!skip){data.bodyType=window._bodySel||'';data.habits=(window._habSel||[]).slice();
+    data.harmTop=window._harmList.slice();data.goodTop=window._goodList.slice();}
+  data.onboarded=true;save();closeModal();renderHome();
+  if(!skip)toast(`Мур-р, ${data.name}! Всё готово 🐾`);
+}
+
+/* ================= главная ================= */
+function renderHome(){
+  const zi=zodInfo();
+  $('greet').textContent=`Мур-р, ${uname()}${zi?' '+zi.e:''}!`;
+  $('dateline').textContent=new Date().toLocaleDateString('ru-RU',{weekday:'long',day:'numeric',month:'long'});
+  const cb=$('cycleBody'),ph=phaseInfo();
+  if(ph){
+    const cd=cycleDay();
+    const umb=(ph.t.indexOf('зона воды')>=0||ph.t==='Овуляция')?'<img class="spimg" src="sprites/kw-umbrella.png" alt="" onerror="this.style.display=\'none\'"> ':'';
+    cb.innerHTML=`<h3>💗 Цикл и настроение веса</h3>
+      <div style="font-size:15px;font-weight:800;margin:4px 0">${ph.e} ${ph.t} · день цикла ${cd}</div>
+      <p class="hand" style="margin-top:2px">${umb}${ph.m}</p>
+      ${isTeen()?'<div class="smallnote" style="margin-top:6px">🌿 В первые годы цикл бывает нерегулярным — это норма. Приложение лишь подсказывает, не диагностирует 🌷</div>':''}`;
+  }else{
+    cb.innerHTML=`<h3>💗 Цикл и настроение веса</h3>
+      <p class="note">Заполни дату цикла в профиле — и я начну подсказывать, когда вес «прыгает» из-за воды, а не из-за еды 💗</p>
+      <button class="pillow small" onclick="openOnboarding()">Заполнить профиль 🐾</button>`;
+  }
+  const n7=$('note7700');
+  if(n7)n7.textContent=isTeen()?'Тебе меньше 18 — дефициты не нужны: организм ещё растёт. Здесь только наглядность «с чем это сравнимо», а решения о весе — вместе с врачом и родителями 🌷':'1 кг жира ≈ 7700 ккал. Переведём твою цель в еду — просто для наглядности, без запретов 🐾';
+  $('wchart').innerHTML=chartSVG();
+  weightComment();
+  renderSteps();
+  renderMagic();
+  renderMood();
+  renderCraving();
+  renderWater();
+  renderPlan();
+}
+
+/* ================= v0.2: тема, зодиак, гороскоп, комплименты ================= */
+function hexToRgb(h){h=h.replace('#','');if(h.length===3)h=h.split('').map(c=>c+c).join('');
+  return{r:parseInt(h.slice(0,2),16),g:parseInt(h.slice(2,4),16),b:parseInt(h.slice(4,6),16)};}
+function rgbToHex(r,g,b){return'#'+[r,g,b].map(v=>Math.max(0,Math.min(255,Math.round(v))).toString(16).padStart(2,'0')).join('');}
+function shade(hex,p){const c=hexToRgb(hex);const t=p<0?0:255,a=Math.abs(p);
+  return rgbToHex((t-c.r)*a+c.r,(t-c.g)*a+c.g,(t-c.b)*a+c.b);}
+function applyTheme(c){
+  if(!c||!/^#([0-9a-f]{3}|[0-9a-f]{6})$/i.test(c))c='#FF8FBF';
+  const s=document.documentElement.style;
+  const dk=hexToRgb(shade(c,-0.35)),sc=hexToRgb(shade(c,-0.10));
+  s.setProperty('--pink',c);
+  s.setProperty('--pink-deep',shade(c,-0.14));
+  s.setProperty('--pink-soft',shade(c,0.66));
+  s.setProperty('--pink-line',shade(c,0.42));
+  s.setProperty('--btn1',shade(c,0.34));
+  s.setProperty('--btn2',c);
+  s.setProperty('--btn3',shade(c,-0.10));
+  s.setProperty('--sc',sc.r+','+sc.g+','+sc.b);
+  s.setProperty('--sd',dk.r+','+dk.g+','+dk.b);
+}
+const PALETTE=['#FF8FBF','#C9A0F0','#8FD9B5','#FFA98C','#8FC3F2','#F2D979','#EFA6A2','#D5A7E8'];
+const ZODIAC=[['oven','Овен','♈'],['telets','Телец','♉'],['bliznecy','Близнецы','♊'],['rak','Рак','♋'],
+  ['lev','Лев','♌'],['deva','Дева','♍'],['vesy','Весы','♎'],['skorpion','Скорпион','♏'],
+  ['strelec','Стрелец','♐'],['kozerog','Козерог','♑'],['vodoley','Водолей','♒'],['ryby','Рыбы','♓']];
+function zodInfo(){
+  if(!data.zodiac)return null;
+  if(data.zodiac==='custom')return{n:data.zcustom||'Свой знак',e:'✨'};
+  const z=ZODIAC.find(x=>x[0]===data.zodiac);
+  return z?{n:z[1],e:z[2]}:null;
+}
+function hash(s){let h=0;for(let i=0;i<s.length;i++)h=(h*31+s.charCodeAt(i))|0;return Math.abs(h);}
+function uname(){return data.name||'лапочка';}
+const HOR_MOODS=['день мягкий, как подушечка лапки','энергия течёт ручьём — лови волну','хочется объятий и чего-то тёплого','внутри тихо и ясно — идеальный день для себя','сегодня ты притягиваешь комплименты','день для маленьких побед, а не подвигов','мир настроен дружелюбно — улыбнись первой','лёгкость в теле, лёгкость в мыслях','день просит медленных прогулок и вкусного чая','твоя интуиция сегодня умнее любого калькулятора','хочется блистать — и ты будешь блестеть','день-подушка: разрешено быть нежной с собой'];
+const HOR_ACTS=['прогуляйся 20 минут — прогулка сегодня особенно любит тебя','выпей стакан воды прямо сейчас, котик следит 🐾','запиши одну строчку в дневник — завтра скажешь спасибо','сделай 10 глубоких вдохов перед зеркалом и подмигни себе','порадуй себя чем-нибудь маленьким: цветок, сериал, какао','ложись спать на 30 минут раньше — это твоя суперсила сегодня','пройди лишнюю остановку пешком — удача любит шагающих','приготовь себе самый красивый завтрак недели','напиши себе комплимент в дневник — от котика, с золотой печатью','растянись 5 минут после подъёма — тело скажет мур','съешь что-нибудь зелёное — сегодня это приносит спокойствие','скажи «нет» одной лишней обязанности — день за тебя','заведи 15 минут тишины: без телефона, просто ты и плед','пообещай себе не взвешиваться сегодня — вес подождёт, а покой нет'];
+function horoscopeOfDay(){
+  const z=zodInfo();if(!z)return null;
+  const seed=hash(today()+'::'+data.zodiac);
+  return{z:z,mood:HOR_MOODS[seed%HOR_MOODS.length],act:HOR_ACTS[(seed>>3)%HOR_ACTS.length],lucky:seed%9+1};
+}
+const COMPL_VISIT=['ты выглядишь лучше, чем на фото в паспорте — это наука говорит, а не я','с твоей улыбкой можно заряжать телефоны','у тебя походка человека, у которого всё получится','ты — как золотая блёстка: там, где ты, сразу светлее','такие, как ты, — причина, почему котики доверяют людям','твоя упрямость (в хорошем смысле) — самое сильное, что есть в этом приложении','если бы усердие было шерстью, ты была бы уже леопардом','ты справлялась с вещами пострашнее дефицита калорий','мягкость — не слабость; ты это доказываешь каждый день','с тобой даже подсчёт шагов становится милым','твой внутренний котик сегодня в великолепной форме','на тебя смотрят и думают: «хочу так же»','ты умеешь начинать заново — это редкий талант','пусть день будет вкусным, а ты — довольной','ты ярче, чем любой из восьми цветов этой темы'];
+const COMPL_DAILY=['сегодня достаточно быть, а не успевать','твоё тело работает на тебя круглосуточно — скажи ему спасибо','маленькие шаги сегодня — большой хвост завтра','ты не обязана быть идеальной — только настоящей','сегодня лучший день, чтобы быть себе подругой','даже леопарды отдыхают на ветках — отдыхай без вины','твоя сила — в постоянстве, а не в рывках','сравнивай себя только с собой вчерашней','красота — это как ты себя чувствуешь, а не цифра на весах','сегодня выбирай еду, которая говорит тебе «мур»','твоя нежность к себе — часть тренировки, самая важная','пусть сегодня всё идёт мягко и мур-мур','ты заслуживаешь добрых слов — вот, держи ещё одно','золотая блёстка дня уже нашла тебя — просто ещё не видна','каждый твой чек-ин — кирпичик в крепость спокойствия'];
+const COMPL_STREAK=['{n}, это уже {s} дней подряд — так держать, чемпионка мур-лиги 🏅','{s} дней без пропусков! Котик вешает на твою лапку золотую медальку 🐾','серия {s}! Ты стабильнее швейцарских часов в пушистом исполнении 💗'];
+const COMPL_PLATEAU=['вес стоит на месте? Отлично: значит, ты уже не набираешь. Плато — это привал, а не тупик 🐾','стрелка замерла, а ты — нет: сон, силы и привычки продолжают улучшаться. Мур 💗'];
+const COMPL_VISIT_TEEN=['ты справляешься с самым сложным на свете — быть подростком — и ещё находишь время на шаги','школа, уроки, жизнь — и ты всё ещё тут, следишь за собой. Уважение, мур-р 🐾','ты ярче любого теста по математике, честно','с тобой даже контрольные не так страшны — держись, лапка рядом','ты не обязана быть идеальной ни в весе, ни в оценках — только собой','такие, как ты, потом становятся теми, на кого хотят быть похожими','твой внутренний леопардёнок сегодня в отличной форме','ты умеешь просить помощь — это суперсила, а не слабость 💗'];
+const COMPL_DAILY_TEEN=['сегодня достаточно просто учиться и быть — остальное приложится','твое тело растёт, меняется и работает на тебя — скажи ему спасибо и не ругай','сравнивай себя только с собой вчерашней — остальные сравнивают себя с фильтрами','перекус после школы — это не срыв, это обед второго дня 🐾','сон до полуночи — враг настроения: сегодня попробуй лечь чуть раньше','сегодня лучший день, чтобы быть себе подругой — особенно перед одноклассниками','даже леопарды отдыхают на ветках — отдых без вины тоже важен','твоя сила — в постоянстве: 10 минут прогулки сегодня = победа','красота — это как ты себя чувствуешь, а не лайки и не цифра на весах','выбери еду, которая говорит тебе «мур», — и не слушай никого про «надо»'];
+function plateauNow(){
+  const pts=data.weights.slice(-5);
+  if(pts.length<5)return false;
+  const span=Math.max(...pts.map(p=>p.w))-Math.min(...pts.map(p=>p.w));
+  return span<=0.25&&diffDays(pts[0].d,today())<=9;
+}
+function visitCompliment(pause){
+  if(pause>=4)return `С возвращением, ${uname()}! Мы скучали — котик берёг твою кривую веса 💗`;
+  const st=stepsStreak();
+  if(st>=7)return COMPL_STREAK[hash(today()+'st')%COMPL_STREAK.length].replace('{n}',uname()).replace('{s}',st);
+  if(plateauNow())return COMPL_PLATEAU[hash(today()+'pl')%COMPL_PLATEAU.length];
+  const pool=isTeen()?COMPL_VISIT_TEEN:COMPL_VISIT;
+  return pool[Math.floor(Math.random()*pool.length)].replace('{n}',uname());
+}
+function renderMagic(){
+  const el=$('magicCard');if(!el)return;
+  const dpool=isTeen()?COMPL_DAILY_TEEN:COMPL_DAILY;
+  const c=dpool[hash(today()+'day')%dpool.length];
+  const h=horoscopeOfDay();
+  const sun=`<img class="spimg" src="sprites/kw-sun.png" alt="" onerror="this.style.display='none'">`;
+  const horo=h?`<div class="horoc">
+      <div style="font-weight:800;font-size:13px;color:#B05577">${h.z.e} Гороскоп · ${esc(h.z.n)}</div>
+      <div class="hm">«${h.mood}»</div>
+      <div style="font-size:13.5px;line-height:1.45;color:#7A4A12">→ ${h.act}</div>
+      <div style="font-size:11.5px;color:#B05577;margin-top:6px">лапка удачи: ${h.lucky} · гороскоп — для настроения, решения — по графику веса 🐾</div>
+    </div>`
+    :`<p class="note">Выбери знак зодиака в профиле — и каждый день здесь будет гороскоп с микро-делом дня ✨</p>
+      <button class="pillow small" onclick="openSettings()">Выбрать знак 🐾</button>`;
+  el.innerHTML=`<h3>✨ Магия дня ${sun}</h3>
+    <p class="hand" style="margin:2px 0 10px">💗 ${c}</p>${horo}`;
+}
+
+/* ================= v0.2: вопрос дня «как продвигается?» ================= */
+const MOODS=[
+  {s:4,e:'🐆',t:'на коня-лапке, всё получается!'},
+  {s:3,e:'😌',t:'ровно и мур-мур'},
+  {s:2,e:'🥲',t:'так себе'},
+  {s:1,e:'😿',t:'держусь из последних'}];
+const MOOD_AI={
+  4:['Лови лапку удачи и беги дальше — такие дни надо запоминать золотыми чернилами 🐾','Ура! Запишем этот день блёстками ✨'],
+  3:['Ровный день — тихая сила. Именно из таких складывается весь путь 💗','Мур-р, стабильность — это тоже победа.'],
+  2:['«Так себе» — это честно, а честность здесь ценится. Завтра будет мягче 🐾','Обними себя от котика. Плед и чай разрешены официально 💗'],
+  1:['Держаться из последних — тоже подвиг, и ты его сегодня совершила 🐾','Ты большая молодец, что отметила. Погладь что-нибудь мягкое — работает лучше советов 💗']};
+function moodLabel(s){const m=MOODS.find(x=>x.s===s);return m?m.e+' '+m.t:'';}
+function sleepRow(){
+  if(data.sleep[today()])return'';
+  return`<div class="smallnote" style="margin-top:10px">А вчера сколько спалось? Сон — тайное оружие стройности 😴</div>
+    <div class="moodbtns" style="margin-top:6px">${[5,6,7,8,9,10].map(h=>`<div class="stk" onclick="saveSleep(${h})"><span class="se">${h>=9?'😴':h>=7?'😊':'🥱'}</span>${h} ч</div>`).join('')}</div>`;
+}
+function saveSleep(h){data.sleep[today()]=h;save();renderMood();toast('Сон записан, мур 😴');}
+function renderMood(){
+  const el=$('moodCard');if(!el)return;
+  const t=today(),ex=data.moods.find(m=>m.d===t);
+  if(ex){
+    el.innerHTML=`<h3>💬 Как продвигается?</h3>
+      <p class="note">Сегодня ты уже ответила: <b>${moodLabel(ex.s)}</b> — ответ лежит в дневнике 🐾</p>
+      <button class="pillow small ghost" onclick="renderMood()">Изменить ответ</button>${sleepRow()}`;
+    return;
+  }
+  el.innerHTML=`<h3>💬 Как продвигается?</h3>
+    <p class="note">Одно касание — и ответ аккуратно уедет в дневник 🐾</p>
+    <div class="moodbtns">${MOODS.map(m=>`<div class="stk" onclick="saveMood(${m.s})"><span class="se">${m.e}</span>${m.t}</div>`).join('')}</div>${sleepRow()}`;
+}
+function saveMood(s){
+  const t=today(),ex=data.moods.find(m=>m.d===t);
+  if(ex){ex.s=s;}else{data.moods.push({d:t,s:s});}
+  data.diary.unshift({d:t,sid:'mood:'+s,tx:'',ph:null,ai:MOOD_AI[s][Math.floor(Math.random()*MOOD_AI[s].length)]});
+  if(data.diary.length>60)data.diary=data.diary.slice(0,60);
+  save();renderMood();renderDiary();
+  toast('Ответ уехал в дневник, мур-р 💗');
+}
+function renderZodChips(id,cur){
+  const box=$(id);if(!box)return;
+  box.innerHTML='<div class="zgrid">'+ZODIAC.map(z=>`<span class="zodchip ${cur===z[0]?'sel':''}" onclick="pickZod('${z[0]}','${id}')">${z[2]} ${z[1]}</span>`).join('')
+    +`<span class="zodchip ${cur==='custom'?'sel':''}" onclick="pickZod('custom','${id}')">✨ Свой</span></div>`
+    +(cur==='custom'?`<input id="${id}Custom" class="inp" placeholder="название своего знака" value="${esc(data.zcustom||'')}" style="margin-top:8px">`:'');
+}
+function pickZod(v,id){window._zodSel=v;renderZodChips(id,v);}
+function renderSwatches(id,cur){
+  const box=$(id);if(!box)return;
+  box.innerHTML='<div class="swrow">'+PALETTE.map(c=>`<button class="sw ${cur===c?'sel':''}" style="background:${c}" onclick="pickColor('${c}','${id}')" aria-label="цвет ${c}"></button>`).join('')
+    +`<input type="color" class="swc" value="${/^#[0-9a-f]{6}$/i.test(cur)?cur:'#FF8FBF'}" oninput="pickColor(this.value,'${id}')" aria-label="свой цвет">`+'</div>';
+}
+function pickColor(c,id){window._colSel=c;applyTheme(c);renderSwatches(id,c);}
+
+/* ================= v0.2: статистика, прогноз, калькулятор калорий, наука ================= */
+function wDelta(days){
+  const pts=data.weights;if(pts.length<2)return null;
+  const last=pts[pts.length-1];let past=null;
+  for(const p of pts){if(diffDays(p.d,last.d)>=days)past=p;}
+  return past?+(last.w-past.w).toFixed(1):null;
+}
+function avgSteps(n){
+  const keys=Object.keys(data.steps).filter(d=>{const dd=diffDays(d,today());return dd>=0&&dd<n;});
+  if(!keys.length)return 0;
+  return Math.round(keys.reduce((a,k)=>a+data.steps[k],0)/keys.length);
+}
+function topSticker(){
+  const cnt={};
+  data.diary.forEach(e=>{if(e.sid&&String(e.sid).indexOf('mood:')!==0)cnt[e.sid]=(cnt[e.sid]||0)+1;});
+  const top=Object.entries(cnt).sort((a,b)=>b[1]-a[1])[0];
+  if(!top)return null;
+  const st=STICKERS.find(s=>s.id===top[0]);
+  return st?st.e+' «'+st.t+'»':null;
+}
+function renderForecast(){
+  const el=$('fcOut');if(!el)return;
+  const pace=parseFloat($('fcPace').value);
+  const pts=data.weights;
+  if(!pts.length){el.innerHTML='Сначала запиши вес на главном экране — и здесь появится прогноз 🐾';return;}
+  const cur=pts[pts.length-1].w;
+  const f=n=>String((cur-pace*n).toFixed(1)).replace('.',',');
+  const teenN=isTeen()?'<div class="licbox" style="margin-top:8px">🌿 Тебе меньше 18: это просто математика «что если». Организм ещё растёт — вес сам найдёт своё правильное место. Задача сейчас — привычки, а не цифры 🌷</div>':'';
+  el.innerHTML=teenN+`Сейчас <b>${String(cur).replace('.',',')} кг</b>. При темпе <b>−${String(pace).replace('.',',')} кг/нед</b>: через 4 недели ≈ <b>${f(4)} кг</b>, через 8 ≈ <b>${f(8)} кг</b>, через 12 ≈ <b>${f(12)} кг</b>.<br>
+  <span style="font-size:11.5px;color:var(--ink-soft)">Это математика формулы 7700. В жизни вес идёт лесенкой: вода и цикл рисуют свои зигзаги — ориентируйся на тренд, а не на день 🐾</span>`;
+}
+function calcKcal(){
+  const age=parseInt($('kcAge').value,10),h=parseFloat($('kcH').value),w=parseFloat($('kcW').value);
+  if(!age||!h||!w||age<10||age>90||h<120||h>220||w<30||w>250){toast('Заполни возраст, рост и вес — котик считает только точные данные 🐾');return;}
+  const act=parseFloat($('kcAct').value)||1.375;
+  const bmr=Math.round(10*w+6.25*h-5*age-161);
+  const tdee=Math.round(bmr*act);
+  const pace=parseFloat($('kcPace').value);
+  const def={0.25:275,0.5:550,0.75:825}[pace]||550;
+  const target=Math.max(0,tdee-def);
+  $('kcOut').innerHTML=`Базовый обмен (BMR): <b>≈ ${bmr.toLocaleString('ru-RU')} ккал</b><br>
+    Расход с активностью (TDEE): <b>≈ ${tdee.toLocaleString('ru-RU')} ккал</b><br>
+    Для удержания веса: ≈ ${tdee.toLocaleString('ru-RU')} ккал/день<br>
+    Цель при темпе −${String(pace).replace('.',',')} кг/нед: <b style="color:var(--pink-deep)">≈ ${target.toLocaleString('ru-RU')} ккал/день</b>
+    ${target<1200?'<div class="licbox">⚠️ Ниже 1200 ккал самостоятельно опускаться нельзя — это территория врача. Выбери темп поменьше, мур.</div>':''}
+    ${age<18?'<div class="licbox">🌿 Тебе меньше 18: дефицит калорий в этом возрасте не рекомендуется — организм растёт. Цифры выше показаны для понимания, питание — только по согласованию с врачом 🌷</div>':''}
+    <div style="font-size:11.5px;color:var(--ink-soft);margin-top:6px">Формула Миффлина—Сан Жеора, погрешность ±10%. Ориентир, а не медицинская рекомендация 🐾</div>`;
+}
+const TIPS=[
+  ['Взвешивание — самый рабочий инструмент самоконтроля','Регулярное взвешивание само по себе помогает держать вес: так работает самоконтроль — самый надёжный предиктор успеха в поведенческих исследованиях. Взвешивайся утром, натощак, и оценивай тренд недели, а не один день.'],
+  ['7–8 тысяч шагов каждый день','Ходьба — самый недооценённый инструмент: не поднимает аппетит как тяжёлые тренировки, складывается из обычной жизни и почти не требует силы воли. Хочешь больше эффекта — включай японскую ходьбу ИВТ из вкладки «Прогулка».'],
+  ['Сон 7–9 часов','Недосып путает гормоны голода и сытости — наутро сильнее тянет на сладкое и калорийное. Сон — бесплатное похудение, просто без красивой обложки.'],
+  ['Белок в каждый приём пищи','Белок — самый сытный макронутриент: тарелка с белком удерживает от перекусов заметно дольше. Ориентир — примерно 1–1,5 г на кг веса в день (при здоровых почках).'],
+  ['Стакан воды перед едой','Эффект скромный, но бесплатный: вода помогает съесть немного меньше и не путать «голод» с «жаждой».'],
+  ['Маленькая тарелка и «среда победы»','Мы едим глазами: та же порция на маленькой тарелке кажется больше. Убери сладости с видного места — силу воли не понадобится: менять среду проще, чем себя.'],
+  ['Регулярность бьёт жёсткость','Мягкие правила, которые ты соблюдаешь всегда, сильнее жёсткой диеты, которую срываешь: после срыва мозг включает «какая теперь разница» и добирает всё обратно. Правило Kate Leopard: вкусненькое можно, просто не всё и не каждый день.'],
+  ['Сравнивай вес по фазам цикла','Сравнивай вес с тем же днём прошлого цикла, а не со вчера: ПМС-вода до +2 кг может нарисовать «набор», которого не было. Приложение само подсвечивает эти дни голубой зоной на графике.'],
+  ['🍽 Осознанное питание: 20 минут и без экрана','Сигнал о насыщении доходит до мозга примерно через 15–20 минут. Ешь медленнее, клади вилку между укусами — и наедаешься меньшим объёмом. Еда перед телефоном или телевизором = плюс сотни незаметных ккал.'],
+  ['🍳 Белковый завтрак','Завтрак с белком (яйца, творог, сыр) дольше держит сытость и снижает вечерний «жор». Пропущенный завтрак часто возвращается ночными набегами на холодильник.'],
+  ['🥤 Скрытые калории напитков и соусов','Сок, латте с сиропом и «чуть-чуть майонеза» легко дают 300–500 ккал, которые не вызывают сытости. Проверь напитки: часто там вся разница между удержанием и набором.'],
+  ['📺 Еда на автомате','«Доесть за сериалом» — самый незаметный способ переесть: внимание занято, а рука тянется сама. Правило: еда — за столом, сериал — отдельно.'],
+  ['🧠 Эмоциональный голод не лечится едой','Физический голод растёт постепенно и согласен на борщ. Эмоциональный — внезапный и требует строго конкретного тортик. Пауза 10 минут, вода, прогулка — и часто «голод» уходит сам.'],
+  ['🏋️‍♀️ Мышцы — печь калорий','Мышечная масса тратит энергию даже на диване. Два раза в неделю простые упражнения с весом тела (приседания, отжимания от опоры) держат обмен бодрым — особенно важно при похудении после 30.'],
+  ['📏 «Правило тарелки»','Половина тарелки — овощи, четверть — белок, четверть — гарнир. Не надо считать граммы: геометрия делает баланс за тебя.']];
+function renderStats(){
+  const el=$('statsBody');if(!el)return;
+  const t=today(),pts=data.weights;
+  const cur=pts.length?pts[pts.length-1].w:null;
+  const dAll=pts.length?+(pts[pts.length-1].w-pts[0].w).toFixed(1):null;
+  const d7=wDelta(5),d30=wDelta(28);
+  const st=stepsStreak(),avg7=avgSteps(7);
+  const keys7=Object.keys(data.steps).filter(d=>{const dd=diffDays(d,t);return dd>=0&&dd<7;});
+  const total7=keys7.reduce((a,k)=>a+data.steps[k],0);
+  const best=keys7.length?Math.max(...keys7.map(k=>data.steps[k])):0;
+  const dw=data.diary.filter(e=>{const dd=diffDays(e.d,t);return dd>=0&&dd<7;}).length;
+  const dtot=data.diary.length;
+  const ph=phaseInfo(),cd=cycleDay(),L=data.cycleLen;
+  const toPms=(cd!==null&&cd<L-5)?L-5-cd:(ph&&ph.t==='ПМС — зона воды'?0:null);
+  let moodDots='';
+  for(let i=6;i>=0;i--){const d=new Date();d.setDate(d.getDate()-i);
+    const m=data.moods.find(x=>x.d===fmtD(d));
+    moodDots+=`<span style="font-size:17px">${m?MOODS.find(y=>y.s===m.s).e:'·'}</span>`;}
+  const mDays=data.moods.filter(m=>{const dd=diffDays(m.d,t);return dd>=0&&dd<7;});
+  const mAvg=mDays.length?(mDays.reduce((a,m)=>a+m.s,0)/mDays.length).toFixed(1):null;
+  const sign=v=>v>0?'+'+String(v).replace('.',','):String(v).replace('.',',');
+  const mar=data.marathon.active?MARS[data.marathon.active]:null;
+  const marDone=data.marathon.checkins.length;
+  const top=topSticker();
+  const cr7=data.cravings.filter(c=>{const dd=diffDays(c.d,t);return dd>=0&&dd<7;});
+  const saved7=cr7.reduce((a,c)=>a+(c.saved||0),0);
+  const honest7=cr7.filter(c=>c.choice==='Осознанно съела').length;
+  const wT=data.water[t]||0;
+  const wKeys=Object.keys(data.water).filter(d=>{const dd=diffDays(d,t);return dd>=0&&dd<7;});
+  const wAvg=wKeys.length?(wKeys.reduce((a,k)=>a+data.water[k],0)/wKeys.length):null;
+  const sKeys=Object.keys(data.sleep).filter(d=>{const dd=diffDays(d,t);return dd>=0&&dd<7;});
+  const sAvg=sKeys.length?(sKeys.reduce((a,k)=>a+data.sleep[k],0)/sKeys.length):null;
+  const pn=v=>String(v).replace('.',',');
+  const bt=bodyInfo();
+  const hab=(data.habits||[]).map(id=>HABITS.find(x=>x.id===id)).filter(Boolean);
+  const perTips=(data.habits||[]).filter(id=>HABIT_TIPS[id]).map(id=>HABIT_TIPS[id]).slice(0,3);
+  const portraitFilled=!!(bt||hab.length||(data.harmTop||[]).length||(data.goodTop||[]).length);
+  el.innerHTML=`
+  <div class="card">
+    <h3>📊 Главные цифры</h3>
+    <div class="statgrid">
+      <div class="st"><b>${cur!==null?String(cur).replace('.',',')+' кг':'—'}</b><span>текущий вес</span></div>
+      <div class="st"><b>${dAll===null?'—':sign(dAll)+' кг'}</b><span>с начала пути</span></div>
+      <div class="st"><b>${d7===null?'—':sign(d7)+' кг'}</b><span>за последние ~7 дней</span></div>
+      <div class="st"><b>${st}</b><span>серия дней по шагам</span></div>
+    </div>
+  </div>
+  <div class="card">
+    <h3>🔮 Прогноз веса (математика 7700)</h3>
+    <div class="wrow">
+      <select id="fcPace" class="inp" onchange="renderForecast()">
+        <option value="0.25">−0,25 кг в неделю (самый мягкий)</option>
+        <option value="0.5" selected>−0,5 кг в неделю</option>
+        <option value="0.75">−0,75 кг в неделю</option>
+      </select>
+    </div>
+    <div id="fcOut" class="note" style="margin-top:10px"></div>
+  </div>
+  <div class="card">
+    <h3>👣 Активность и прогулки</h3>
+    <div class="statgrid">
+      <div class="st"><b>${total7.toLocaleString('ru-RU')}</b><span>шагов за 7 дней</span></div>
+      <div class="st"><b>${avg7.toLocaleString('ru-RU')}</b><span>среднее в день</span></div>
+      <div class="st"><b>${best.toLocaleString('ru-RU')}</b><span>лучший день недели</span></div>
+      <div class="st"><b>${data.walks}</b><span>прогулок ИВТ всего</span></div>
+    </div>
+  </div>
+  <div class="card">
+    <h3>📔 Дневник и настроение</h3>
+    <div class="statgrid">
+      <div class="st"><b>${dtot}</b><span>записей всего</span></div>
+      <div class="st"><b>${dw}</b><span>за последние 7 дней</span></div>
+      <div class="st"><b style="font-size:14px">${top||'—'}</b><span>любимый стикер</span></div>
+      <div class="st"><b>${mAvg?mAvg+' из 4':'—'}</b><span>настроение недели</span></div>
+    </div>
+    <div class="mweek" style="margin-top:10px"><span style="font-size:12px;color:var(--ink-soft);font-weight:800">7 дней:</span>${moodDots}</div>
+  </div>
+  <div class="card">
+    <h3>🌙 Цикл</h3>
+    <p class="note">${ph?`${ph.e} <b>${ph.t}</b> — день цикла ${cd}. ${toPms===0?'ПМС уже здесь: держится «зона воды», это нормально.':'До ПМС ещё '+toPms+' дн. — самое мягкое время для прогресса.'}`:'Заполни цикл в профиле — и здесь появится умная подсказка про фазы и воду 💗'}</p>
+  </div>
+  <div class="card">
+    <h3>🏅 Марафон</h3>
+    ${mar?`<p class="note">«${mar.n}»: день ${Math.min(diffDays(data.marathon.started,t)+1,mar.days)} из ${mar.days} · чек-инов ${marDone} (${Math.round(marDone/mar.days*100)}%). ${marDone>=mar.days?'Медаль уже твоя! 🏅':'Продолжай, лапка!'}</p>`:'<p class="note">Активного марафона нет. Загляни во вкладку «Марафон» — медальки сами себя не выиграют 🐾</p>'}
+  </div>
+  <div class="card">
+    <h3>🧮 Калькулятор калорий</h3>
+    <p class="note">Научная оценка потребности — формула Миффлина—Сан Жеора (для девушек). Вес подтянется из дневника, заполни остальное.</p>
+    <div class="kcrow">
+      <div><label class="lbl">Возраст</label><input id="kcAge" class="inp" type="number" inputmode="numeric" placeholder="лет" value="${esc(String(data.age||data.calc.age||''))}"></div>
+      <div><label class="lbl">Рост, см</label><input id="kcH" class="inp" type="number" inputmode="numeric" placeholder="см" value="${esc(String(data.calc.height||''))}"></div>
+    </div>
+    <div class="wrow"><input id="kcW" class="inp" type="number" step="0.1" inputmode="decimal" placeholder="Вес, кг" value="${cur!==null?cur:''}"></div>
+    <label class="lbl">Активность</label>
+    <select id="kcAct" class="inp">
+      <option value="1.2">низкая — сидячая жизнь</option>
+      <option value="1.375" selected>средняя — прогулки несколько раз в неделю</option>
+      <option value="1.55">высокая — зал или активная работа</option>
+    </select>
+    <label class="lbl">Темп цели</label>
+    <select id="kcPace" class="inp">
+      <option value="0.25">−0,25 кг/нед (≈275 ккал дефицита)</option>
+      <option value="0.5" selected>−0,5 кг/нед (≈550 ккал дефицита)</option>
+      <option value="0.75">−0,75 кг/нед (≈825 ккал дефицита)</option>
+    </select>
+    <button class="pillow wide" style="margin-top:12px" onclick="calcKcal()">Рассчитать 🐾</button>
+    <div id="kcOut" class="note" style="margin-top:10px"></div>
+  </div>
+  <div class="card">
+    <h3>🏆 Награды за выбор</h3>
+    <div class="statgrid">
+      <div class="st"><b>${data.paws||0} 🐾</b><span>лапки мудрости всего</span></div>
+      <div class="st"><b>${cr7.length}</b><span>осознанных выборов за 7 дней</span></div>
+      <div class="st"><b>${saved7.toLocaleString('ru-RU')} ккал</b><span>сохранено заменами за 7 дней</span></div>
+      <div class="st"><b>≈ −${pn((saved7/7700).toFixed(2))} кг</b><span>та же польза в кг (формула 7700)</span></div>
+    </div>
+    <div class="smallnote">Здоровая замена +2 🐾, половинка и «вода-подожди» +1 🐾, осознанное «да» — без лапок, но с гордостью 💗 Таких было: ${honest7} за неделю.</div>
+  </div>
+  <div class="card">
+    <h3>🍽 Пищевой портрет</h3>
+    ${portraitFilled?`
+      ${bt?`<p class="note"><b>${bt.e} ${bt.n}</b> — ${bt.tip}</p>`
+        :'<p class="note">Тип фигуры не указан: укажи его — или честно выбери «не хочу указывать» 🐾</p>'}
+      ${hab.length?`<div style="margin-top:4px">${hab.map(x=>`<span class="chip">${x.e} ${x.n}</span>`).join('')}</div>`:''}
+      ${(data.harmTop||[]).length?`<p class="note" style="margin-top:8px"><b>Твои вредные желания</b> (они первыми в «Хочу съесть»): ${data.harmTop.map(x=>esc(x.n)).join(' · ')}</p>`:''}
+      ${(data.goodTop||[]).length?`<p class="note"><b>Полезные любимчики</b> (предлагаются как замены): ${data.goodTop.map(x=>esc(x.n)).join(' · ')}</p>`:''}
+      ${perTips.map(tp=>`<div class="aib">${tp}</div>`).join('')}
+      <button class="pillow small ghost" style="margin-top:10px" onclick="openSettings()">Изменить портрет 🐾</button>`
+    :`<p class="note">Расскажи про тип фигуры, привычки и любимые блюда — и советы, замены и «Хочу съесть» станут твоими, а не средними по больнице.</p>
+      <button class="pillow small" onclick="openSettings()">Заполнить портрет 🍽</button>`}
+  </div>
+  <div class="card">
+    <h3>💧 Вода и сон</h3>
+    <div class="statgrid">
+      <div class="st"><b>${wT}/${data.goalWater}</b><span>стаканов сегодня</span></div>
+      <div class="st"><b>${wAvg!==null?pn(wAvg.toFixed(1)):'—'}</b><span>вода, среднее за 7 дней</span></div>
+      <div class="st"><b>${sAvg!==null?pn(sAvg.toFixed(1))+' ч':'—'}</b><span>сон, среднее за 7 дней</span></div>
+      <div class="st"><b>${data.goalSleep} ч</b><span>твоя цель сна</span></div>
+    </div>
+    <div class="smallnote">${sAvg!==null&&sAvg<7?'Спишь меньше 7 часов — гормоны голода путаются, и тянет на сладкое. Ложись чуть раньше: это бесплатное похудение.':'Сон и вода — тихие герои похудения: держи их рядом 💗'}</div>
+  </div>
+  <div class="card">
+    <h3>📚 Наука о весе: 15 мягких способов самоконтроля</h3>
+    <p class="note">Только то, что подтверждено исследованиями поведения и физиологии — без магии и жёстких диет. Это информация, а не медицинская рекомендация.</p>
+    ${TIPS.map(x=>`<details class="tip"><summary>${x[0]}</summary><p>${x[1]}</p></details>`).join('')}
+  </div>`;
+  renderForecast();
+}
+
+/* ================= v0.3: вода, сон-цель, «хочу съесть», награды, план, шагомер, напоминания ================= */
+function renderWater(){
+  const el=$('waterCard');if(!el)return;
+  const t=today(),n=data.water[t]||0,g=data.goalWater;
+  const wKeys=Object.keys(data.water).filter(d=>{const dd=diffDays(d,t);return dd>=0&&dd<7;});
+  const wAvg=wKeys.length?(wKeys.reduce((a,k)=>a+data.water[k],0)/wKeys.length).toFixed(1).replace('.',','):null;
+  el.innerHTML=`<h3>💧 Вода <img class="spimg" src="sprites/kw-balloon.png" alt="" onerror="this.style.display='none'"></h3>
+    <div class="bigsteps" style="font-size:24px">${n} <span style="font-size:13px;color:var(--ink-soft)">/ ${g} стаканов</span></div>
+    <div style="font-size:17px;margin:6px 0;letter-spacing:2px">${'🥛'.repeat(Math.min(n,10))||'—'}</div>
+    <div class="wrow"><button class="pillow small" onclick="addWater(1)">+ стакан</button><button class="pillow small ghost" onclick="addWater(-1)">−</button></div>
+    <div class="smallnote">${wAvg?'Среднее за 7 дней: '+wAvg+' · ':''}Стакан воды перед едой — самый дешёвый помощник сытости.</div>`;
+}
+function addWater(d){
+  const t=today();data.water[t]=Math.max(0,(data.water[t]||0)+d);save();renderWater();
+  if(d>0&&data.water[t]===data.goalWater){toast('Цель по воде на сегодня выполнена! 💧🐾');puffBoom();pawConfetti();}
+  else if(d>0)toast('Стаканчик засчитан 💧');
+}
+/* --- «Я хочу съесть» --- */
+const CRAVINGS=[
+  {id:'shava',e:'🌯',n:'Шаверма',kcal:850,swaps:[
+    {e:'🌯',t:'Лаваш-ролл с курицей гриль и овощами',kcal:430},
+    {e:'🥗',t:'Половина порции + большой салат',kcal:500},
+    {e:'🍲',t:'Сначала тарелка супа — потом решить',kcal:280}]},
+  {id:'choc',e:'🍫',n:'Шоколадка',kcal:550,swaps:[
+    {e:'🍫',t:'2–3 квадратика вместо целой',kcal:120},
+    {e:'🍌',t:'Банан с чайной ложкой какао',kcal:110},
+    {e:'🥛',t:'Какао на молоке без сахара',kcal:150}]},
+  {id:'chips',e:'🍟',n:'Чипсы',kcal:540,swaps:[
+    {e:'🍿',t:'Воздушный попкорн без масла',kcal:180},
+    {e:'🥒',t:'Огуречные чипсы из духовки',kcal:90},
+    {e:'🧀',t:'Кубик сыра + орехи (20 г)',kcal:160}]},
+  {id:'pizza',e:'🍕',n:'Пицца',kcal:950,swaps:[
+    {e:'🍕',t:'Два куска вместо четырёх + салат',kcal:560},
+    {e:'🍅',t:'Лаваш-пицца с овощами',kcal:450},
+    {e:'🥣',t:'Сначала тарелка супа',kcal:280}]},
+  {id:'cola',e:'🥤',n:'Кола',kcal:210,swaps:[
+    {e:'🥤',t:'Кола без сахара',kcal:2},
+    {e:'🍋',t:'Вода с лимоном и льдом',kcal:5},
+    {e:'🍊',t:'Апельсин + газировка',kcal:70}]},
+  {id:'ice',e:'🍦',n:'Мороженое',kcal:280,swaps:[
+    {e:'🍦',t:'Мини-стаканчик вместо большого',kcal:120},
+    {e:'🫐',t:'Замороженные ягоды',kcal:70},
+    {e:'🥛',t:'Замороженный йогурт',kcal:130}]},
+  {id:'cake',e:'🍰',n:'Тортик',kcal:480,swaps:[
+    {e:'🍰',t:'Маленький кусочек, красиво на тарелке',kcal:180},
+    {e:'🍎',t:'Печёное яблоко с корицей',kcal:130},
+    {e:'🫐',t:'Ягоды с ложкой взбитых сливок',kcal:110}]},
+  {id:'burger',e:'🍔',n:'Бургер',kcal:750,swaps:[
+    {e:'🍔',t:'Куриный бургер вместо двойного',kcal:450},
+    {e:'🌯',t:'Ролл с курицей и овощами',kcal:430},
+    {e:'🍳',t:'Домашний бургер на лаваше',kcal:380}]},
+  {id:'pelmeni',e:'🥟',n:'Пельмени',kcal:620,swaps:[
+    {e:'🥟',t:'Половина порции + ложка сметаны',kcal:380},
+    {e:'🍜',t:'Куриный бульон с зеленью',kcal:220},
+    {e:'🍳',t:'Омлет с овощами',kcal:260}]},
+  {id:'fries',e:'🍟',n:'Картошка фри',kcal:450,swaps:[
+    {e:'🥔',t:'Запечённый картофель с паприкой',kcal:180},
+    {e:'🌽',t:'Овощи гриль',kcal:150},
+    {e:'🍟',t:'Мини-порция вместо большой',kcal:190}]},
+  {id:'rolls',e:'🍣',n:'Роллы',kcal:600,swaps:[
+    {e:'🍣',t:'Половина сета + мисо-суп',kcal:380},
+    {e:'🐟',t:'Сашими или рыба гриль',kcal:250},
+    {e:'🍙',t:'Онигири с лососем',kcal:230}]},
+  {id:'sausage',e:'🌭',n:'Сосиска в тесте',kcal:420,swaps:[
+    {e:'🥪',t:'Цельнозерновой сэндвич с курицей',kcal:280},
+    {e:'🍳',t:'Яйцо + лаваш',kcal:220},
+    {e:'🌽',t:'Кукуруза + кубик сыра',kcal:160}]}];
+let crState={item:null};
+function renderCraving(){
+  const el=$('cravingCard');if(!el)return;
+  const p=data.paws||0,last=data.cravings[0];
+  const t=today(),c7=data.cravings.filter(c=>{const dd=diffDays(c.d,t);return dd>=0&&dd<7;});
+  const s7=c7.reduce((a,c)=>a+(c.saved||0),0);
+  const mine=(data.harmTop||[]).length;
+  el.innerHTML=`<h3>🍩 Хочу съесть… <img class="spimg" src="sprites/kw-cake.png" alt="" onerror="this.style.display='none'"></h3>
+    <p class="note">Сказать желанию «нельзя» — худший план. Выбери честно: замену, половинку или «осознанно да» — котик посчитает пользу и даст лапки 🐾</p>
+    <div class="chip">🐾 Лапки мудрости: ${p}</div>${s7>0?`<div class="chip">сохранено за неделю: ≈ ${s7.toLocaleString('ru-RU')} ккал</div>`:''}
+    ${mine?`<div class="chip">твоих желаний в списке: ${mine}</div>`:''}
+    ${last?`<div class="smallnote" style="margin-top:8px">Последний выбор: ${esc(last.it)} → ${esc(last.choice)}${last.saved>0?' (−'+last.saved+' ккал)':''}</div>`:''}
+    <button class="pillow" style="margin-top:10px" onclick="openCraving()">Выбрать желание 🍩</button>`;
+}
+function openCraving(){crState={item:null,swaps:[]};cravingStep1();}
+function cravingStep1(){
+  const mine=data.harmTop||[];
+  modal(`<div class="mhead">Я хочу съесть… 🍩</div>
+    <p class="note">Честно и без вины: выбери желание — и котик покажет варианты с их пользой 🐾</p>
+    ${mine.length?`<label class="lbl">Твои желания — из пищевого портрета</label>
+    <div class="stgrid">${mine.map((c,i)=>`<div class="stk" onclick="cravingPickPersonal(${i})"><span class="se">🍽</span>${esc(c.n)}</div>`).join('')}</div>
+    <label class="lbl">Обычные желания</label>`:''}
+    <div class="stgrid">${CRAVINGS.map(c=>`<div class="stk" onclick="cravingPick('${c.id}')"><span class="se">${c.e}</span>${c.n}</div>`).join('')}</div>
+    <label class="lbl">Своё желание</label>
+    <div class="wrow"><input id="crCustom" class="inp" placeholder="Например: бабушкин пирожок"><button class="pillow" onclick="cravingPickCustom()">Дальше</button></div>
+    <button class="skip" onclick="closeModal()">Позже</button>`);
+}
+function cravingPick(id){crState.item=CRAVINGS.find(c=>c.id===id);crState.swaps=crState.item.swaps;cravingStep2();}
+function cravingPickPersonal(i){
+  const x=data.harmTop[i];
+  crState.item={e:'🍽',n:x.n,kcal:x.kcal||400,personal:true};
+  crState.swaps=(data.goodTop||[]).map(g=>({e:'💗',t:g.n+' — из твоего полезного списка',kcal:g.kcal||150,mine:true}));
+  cravingStep2();
+}
+function cravingPickCustom(){
+  const v=$('crCustom').value.trim();
+  if(!v){toast('Напиши, чего хочется 🐾');return;}
+  crState.item={e:'🍩',n:v,kcal:400,custom:true};
+  crState.swaps=(data.goodTop||[]).map(g=>({e:'💗',t:g.n+' — из твоего полезного списка',kcal:g.kcal||150,mine:true}));
+  cravingStep2();
+}
+function cravingHint(it){
+  const h=data.habits||[],hour=new Date().getHours(),ph=phaseInfo();
+  if(hour>=21&&h.includes('night'))return'Ночь за окном — это привычка, а не голод. Чай без сахара и почистить зубы: желание обычно уходит само 🐾';
+  if(ph&&ph.t==='ПМС — зона воды'&&h.includes('sweets'))return'ПМС тянет на сладенькое — это гормоны, а не слабость. Ягоды или какао честно закрывают вопрос.';
+  if(ph&&ph.t==='Овуляция'&&h.includes('sweets'))return'В овуляцию тяга к сладкому усиливают гормоны. Половинка или ягоды — и всё под контролем.';
+  if(h.includes('emotions'))return'Если это эмоции, а не желудок: вода, 10 минут и плед часто работают лучше тортика. А если нет — съешь осознанно, без вины 💗';
+  if(h.includes('skipmeals')&&(hour<11||hour>=17))return'Пропущенный приём пищи делает желания громче. Полноценная еда вовремя — и тяга стихает сама.';
+  return'';
+}
+function cravingStep2(){
+  const it=crState.item;
+  const rows=crState.swaps||[];
+  const hint=cravingHint(it);
+  const goodNote=(it.personal||it.custom)&&!(data.goodTop||[]).length?
+    '<div class="smallnote">💡 Добавь 2–3 полезных любимчика в профиль — и я буду предлагать их здесь как замены.</div>':'';
+  modal(`<div class="mhead">${it.e} ${esc(it.n)} <span style="font-size:13px;color:var(--ink-soft)">~${it.kcal} ккал${it.custom||it.personal?' (оценка)':''}</span></div>
+    <p class="note">Выбирай, что сделаешь на самом деле. Здесь нет неверных ответов — есть разная польза 🐾</p>
+    ${hint?`<div class="aib">${hint}</div>`:''}
+    ${rows.map((s,i)=>`<div class="mcard"><div><h4>${s.e} ${esc(s.t)}</h4><div class="md">≈ ${s.kcal} ккал · сохранишь ≈ <b>${Math.max(0,it.kcal-s.kcal)} ккал</b> · +2 🐾</div></div>
+      <button class="pillow small" onclick="cravingChoice('swap',${i})">Так и сделаю</button></div>`).join('')}
+    ${goodNote}
+    <div class="mcard"><div><h4>✌️ Половинку</h4><div class="md">≈ ${Math.round(it.kcal/2)} ккал · сохранишь ≈ <b>${Math.round(it.kcal/2)} ккал</b> · +1 🐾</div></div>
+      <button class="pillow small" onclick="cravingChoice('half',0)">Так и сделаю</button></div>
+    <div class="mcard"><div><h4>💧 Вода и 10 минут</h4><div class="md">Часто «хочу есть» — это жажда. Передумаешь — не потеряешь ничего, кроме желания</div></div>
+      <button class="pillow small" onclick="cravingChoice('water',0)">Попробую</button></div>
+    <div class="mcard"><div><h4>💗 Осознанно съела, как хотела</h4><div class="md">Без вины и совещаний. Осознанность — тоже навык</div></div>
+      <button class="pillow small ghost" onclick="cravingChoice('honest',0)">Так и сделаю</button></div>
+    <button class="skip" onclick="cravingStep1()">← другое желание</button>`);
+}
+function cravingChoice(kind,i){
+  const it=crState.item;if(!it)return;
+  let label,saved,paws,ai;
+  if(kind==='swap'){const s=(crState.swaps||[])[i];label=s.t;saved=Math.max(0,it.kcal-s.kcal);paws=2;
+    ai=s.mine?'Замена из твоего полезного списка — стратегия вкуса и ума 🐾':'Мирный договор с желанием: все довольны 🐾';}
+  else if(kind==='half'){label='Половинка';saved=Math.round(it.kcal/2);paws=1;ai='Половинка — это математика и свобода одновременно 💗';}
+  else if(kind==='water'){label='Вода и 10 минут';saved=0;paws=1;ai='Храброе решение: вода часто глушит желание 🐾';}
+  else{label='Осознанно съела';saved=0;paws=0;ai='Осознанность — тоже победа. Котик гордится тобой не меньше 💗';}
+  data.cravings.unshift({d:today(),it:it.e+' '+it.n,choice:label,saved:saved,paws:paws});
+  if(data.cravings.length>60)data.cravings=data.cravings.slice(0,60);
+  const prevPaws=data.paws||0;
+  data.paws=prevPaws+paws;
+  save();closeModal();renderHome();
+  if(saved>0)toast(`Польза: ≈ −${saved} ккал 🐾 +${paws} лапки`);
+  else if(paws>0)toast('+1 лапка за хитрость с водой 🐾');
+  else toast(ai);
+  const hit=[5,15,30,50].find(m=>prevPaws<m&&data.paws>=m);
+  if(hit){puffBoom();pawConfetti();medalModal('Лапки мудрости! 🐾',`У тебя уже ${data.paws} лапок за правильные выборы. Так держать, мудрая леопард-лапка 💗`);}
+}
+/* --- Твой мягкий план --- */
+function renderPlan(){
+  const el=$('planCard');if(!el)return;
+  const pts=data.weights,cur=pts.length?pts[pts.length-1].w:null;
+  const pace=parseFloat(data.pace)||0.5;
+  if(isTeen()){
+    const age=parseInt(data.age,10);
+    let kcal='';
+    const h=parseFloat(data.calc.height);
+    if(age&&h&&cur){
+      const bmr=Math.round(10*cur+6.25*h-5*age-161),tdee=Math.round(bmr*(data.calc.act||1.375));
+      kcal=`Твой расход ≈ <b>${tdee.toLocaleString('ru-RU')} ккал</b>/день — ешь примерно столько же, без дефицита: организму в рост нужно всё своё 🌷 `;
+    }
+    el.innerHTML=`<h3>🗺 Твой мягкий план</h3>
+      <div class="licbox">🌿 Подростковый режим (13–17): без дефицитов и темпов «минус кг/нед». Твой план — это привычки: шаги, вода, сон и дневник. Взвешивать и сравнивать можно, гоняться за цифрой — незачем. Серьёзные изменения веса — с врачом 🌷</div>
+      <p class="note">${kcal}Шаги: <b>${data.goalSteps.toLocaleString('ru-RU')}</b>/день · Вода: <b>${data.goalWater}</b> стаканов · Сон: <b>${data.goalSleep} ч</b> · Дневник — 10 секунд.</p>
+      <p class="note">Правило тренда: смотри на вес раз в неделю и не в «зоне воды». Цифры — информацией бывают, а ты — просто ты 🐾</p>`;
+    return;
+  }
+  if(cur===null){
+    el.innerHTML=`<h3>🗺 Твой мягкий план</h3>
+      <p class="note">Запиши вес и цель в профиле — и котик соберёт личный путь: калории, шаги, вода и сон 🐾</p>`;
+    return;
+  }
+  let eta='';
+  const toLose=data.goal?+(cur-data.goal).toFixed(1):null;
+  if(data.goal&&toLose>0){
+    const weeks=Math.ceil(toLose/pace),d=new Date();d.setDate(d.getDate()+weeks*7);
+    eta=`Цель <b>${data.goal} кг</b> при темпе −${String(pace).replace('.',',')} кг/нед ≈ <b>${d.toLocaleDateString('ru-RU',{day:'numeric',month:'long'})}</b> (${weeks} ${plural(weeks,['неделя','недели','недель'])}). `;
+  }else if(data.goal&&toLose<=0){eta='Цель уже достигнута — держим и гордимся! 🎉 ';}
+  else{eta='Поставь цель в профиле — и покажу дату, когда она твоя. ';}
+  let kcal='';
+  const age=parseInt(data.calc.age,10),h=parseFloat(data.calc.height);
+  if(age&&h&&cur){
+    const bmr=Math.round(10*cur+6.25*h-5*age-161),tdee=Math.round(bmr*(data.calc.act||1.375));
+    const tgt=Math.max(1200,tdee-Math.round(pace*1100));
+    kcal=`Калории: ≈ <b>${tgt.toLocaleString('ru-RU')} ккал</b>/день (не ниже 1200!). `;
+  }
+  el.innerHTML=`<h3>🗺 Твой мягкий план</h3>
+    <p class="note">${eta}${kcal}Шаги: <b>${data.goalSteps.toLocaleString('ru-RU')}</b>/день · Вода: <b>${data.goalWater}</b> стаканов · Сон: <b>${data.goalSleep} ч</b> · Дневник — 10 секунд.</p>
+    <p class="note">Правило тренда: сравнивай вес раз в неделю, в одну и ту же фазу цикла. В «зоне воды» цифры врут — а ты нет 🐾</p>
+    <div class="wrow"><select id="planPace" class="inp" onchange="setPace(this.value)">
+      <option value="0.25"${pace==0.25?' selected':''}>темп −0,25 кг/нед (самый мягкий)</option>
+      <option value="0.5"${pace==0.5?' selected':''}>темп −0,5 кг/нед</option>
+      <option value="0.75"${pace==0.75?' selected':''}>темп −0,75 кг/нед</option>
+    </select></div>`;
+}
+function setPace(v){data.pace=v;save();renderPlan();toast('План обновлён, мур 🐾');}
+/* --- Шагомер (датчик движения) --- */
+let ped={on:false,steps:0,events:0,last:0};
+function renderPed(){
+  const el=$('pedCard');if(!el)return;
+  const todaySteps=data.steps[today()]||0;
+  el.innerHTML=`<h3>📱 Шагомер</h3>
+    <div class="bigsteps">${todaySteps.toLocaleString('ru-RU')} <span style="font-size:14px;color:var(--ink-soft)">сегодня</span></div>
+    ${ped.on?`<div class="note" style="margin-top:6px">Датчик считает: <b id="pedLive">${ped.steps}</b> шагов</div>
+      <div class="wrow"><button class="pillow gold" onclick="pedStop(true)">Стоп — записать ${ped.steps} шагов</button></div>`
+      :`<div class="wrow" style="margin-top:6px"><button class="pillow" onclick="pedToggle()">▶ Включить шагомер</button></div>`}
+    <div class="smallnote">Работает в браузере телефона (Chrome/Safari) по датчику движения. Если датчик молчит — добавь шаги кнопками во вкладке «Дом».</div>`;
+}
+function pedToggle(){
+  if(ped.on){pedStop(true);return;}
+  if(!('DeviceMotionEvent' in window)){toast('Здесь нет датчика движения — добавь шаги кнопками 🐾');return;}
+  if(typeof DeviceMotionEvent.requestPermission==='function'){
+    DeviceMotionEvent.requestPermission().then(s=>{if(s==='granted')pedStart();else toast('Датчик запрещён в настройках — шаги можно добавить кнопками 🐾');})
+      .catch(()=>toast('Датчик недоступен — шаги можно добавить кнопками 🐾'));
+  }else pedStart();
+}
+function pedStart(){
+  ped={on:true,steps:0,events:0,last:0};
+  window.addEventListener('devicemotion',pedMotion,false);
+  renderPed();
+  toast('Шагомер включён — носи телефон с собой 🐾');
+  setTimeout(()=>{if(ped.on&&ped.events===0){toast('Датчик молчит на этом устройстве — шаги можно добавить кнопками 🐾');pedStop(false);}},4000);
+}
+function pedMotion(ev){
+  const a=ev.accelerationIncludingGravity;
+  if(!a||a.x===null||a.x===undefined)return;
+  ped.events++;
+  const m=Math.sqrt(a.x*a.x+a.y*a.y+a.z*a.z),now=Date.now();
+  if(m>11.5&&now-ped.last>300){
+    ped.steps++;ped.last=now;
+    const e=$('pedLive');if(e)e.textContent=ped.steps;
+    const btn=document.querySelector('#pedCard .pillow.gold');if(btn)btn.textContent='Стоп — записать '+ped.steps+' шагов';
+  }
+}
+function pedStop(count){
+  window.removeEventListener('devicemotion',pedMotion,false);
+  const n=ped.steps;ped={on:false,steps:0,events:0,last:0};
+  renderPed();
+  if(count&&n>0){const t=today();data.steps[t]=(data.steps[t]||0)+n;save();renderHome();toast(`+${n} шагов от датчика 🐾`);}
+}
+/* --- Напоминания --- */
+let deferredPrompt=null;
+addEventListener('beforeinstallprompt',e=>{e.preventDefault();deferredPrompt=e;});
+function openInstall(){
+  const btn=deferredPrompt?`<button class="pillow wide" onclick="doInstall()">Установить сейчас — одно касание 🐾</button>`
+    :`<div class="smallnote" style="text-align:center">Кнопка «Установить» появится, когда откроешь приложение в браузере телефона (Chrome на Android поддерживает установку сразу).</div>`;
+  modal(`<div class="mhead">Как установить Kate Leopard 📲</div>
+    <p class="note">Приложение ставится прямо из браузера — без магазинов и регистраций. Появится иконка леопардёнка на главном экране, работать будет даже без интернета 💗</p>
+    <div class="licbox"><b>🤖 Android (Chrome)</b><br>1. Открой этот сайт в Chrome<br>2. Меню ⋮ → «Установить приложение»<br>3. Иконка появится на главном экране</div>
+    <div class="licbox" style="margin-top:8px"><b>🍏 iPhone / iPad (Safari)</b><br>1. Открой этот сайт в Safari<br>2. Кнопка «Поделиться» (квадрат со стрелкой)<br>3. «На экран „Домой“» → «Добавить»</div>
+    ${btn}
+    <button class="skip" onclick="closeModal()">Понятно 🐾</button>`);
+}
+function doInstall(){
+  if(!deferredPrompt){toast('Установка доступна из браузера телефона 🐾');return;}
+  deferredPrompt.prompt();
+  deferredPrompt.userChoice.then(()=>{deferredPrompt=null;closeModal();});
+}
+function testPush(){
+  if(!('Notification' in window)){toast('Этот браузер не умеет уведомления — в мобильном приложении будут настоящие пуши 🐾');return;}
+  Notification.requestPermission().then(p=>{
+    if(p==='granted'){
+      toast('Уведомления включены, мур! 💗');
+      try{new Notification('Kate Leopard 🐾',{body:'Котик будет напоминать про вечерний чек-ин 💗'});}catch(e){}
+    }else toast('Пуши запрещены в браузере — напомню тостами, пока приложение открыто 🐾');
+  });
+}
+function reminderTick(){
+  if(!data.reminder.on)return;
+  const now=new Date();
+  const hm=String(now.getHours()).padStart(2,'0')+':'+String(now.getMinutes()).padStart(2,'0');
+  if(hm!==data.reminder.time||data.reminder.last===today())return;
+  data.reminder.last=today();save();
+  if(data.diary.some(e=>e.d===today()))return;
+  const msg='Вечерний чек-ин: одна строчка в дневник — и спокойный сон 🐾';
+  toast('💗 '+msg);
+  if('Notification' in window&&Notification.permission==='granted'){
+    try{new Notification('Kate Leopard 🐾',{body:msg});}catch(e){}
+  }
+}
+
+/* ================= вкладки ================= */
+function goTab(name){
+  document.querySelectorAll('main section').forEach(s=>s.hidden=s.id!=='tab-'+name);
+  document.querySelectorAll('.tabbtn').forEach(b=>b.classList.toggle('active',b.dataset.tab===name));
+  if(name==='walk'){renderWalkStats();renderPed();}
+  if(name==='marathon')renderMarathon();
+  if(name==='diary')renderDiary();
+  if(name==='stats')renderStats();
+  window.scrollTo({top:0,behavior:'smooth'});
+}
+
+/* ================= заставка и старт ================= */
+function hideSplash(){
+  const s=$('splash');if(!s||s.classList.contains('hide'))return;
+  s.classList.add('hide');
+  setTimeout(()=>s.classList.add('gone'),700);
+}
+document.addEventListener('DOMContentLoaded',()=>{
+  applyTheme(data.favColor||'#FF8FBF');
+  const pause=data.lastVisit?diffDays(data.lastVisit,today()):0;
+  data.visits=(data.visits||0)+1;
+  data.lastVisit=today();save();
+  renderHome();renderStickers();renderDiary();renderMarathon();renderWalkStats();
+  if(!data.onboarded)setTimeout(openOnboarding,3100);
+  setTimeout(hideSplash,2800);
+  setTimeout(()=>toast('💗 '+visitCompliment(pause)),3400);
+  setInterval(reminderTick,30000);
+});
+/* PWA: сервис-воркер — только на http(s), не на file:// */
+if('serviceWorker' in navigator&&/^https?:$/.test(location.protocol)){
+  addEventListener('load',()=>navigator.serviceWorker.register('sw.js').catch(()=>{}));
+}
+</script>
+</body>
+</html>

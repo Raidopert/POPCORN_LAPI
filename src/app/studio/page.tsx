@@ -91,6 +91,10 @@ const MS_EXE_URL =
 const MS_APK_URL =
   "https://github.com/Raidopert/E_qua_lizer/releases/download/v0.1.0/MuzStudio-0.1.0.apk";
 
+/** Kate Leopard — прототип мягкого похудения (веб-версия в public/kate-leopard/) */
+const KL_WEB_URL = "/kate-leopard/";
+const KL_REPO_URL = "https://github.com/Raidopert/KAteLeoPard";
+
 /** Пресс-кит: файлы лежат в public/studio/presskit/ */
 const PRESSKIT_DIR = "/studio/presskit";
 
@@ -575,6 +579,57 @@ export default function StudioPage() {
                   <a
                     href="https://github.com/Raidopert/FOODSTORATOR"
                     className="inline-flex items-center gap-2 rounded-xl border border-[#a3e635]/60 hover:bg-[#a3e635]/10 px-4 py-2.5 font-bold transition-colors"
+                  >
+                    <Github className="size-4" aria-hidden />
+                    Исходники
+                  </a>
+                </div>
+              </div>
+            </article>
+
+            {/* KATE LEOPARD — мягкое похудение (веб-версия в public/kate-leopard/) */}
+            <article className="rps-panel rounded-2xl overflow-hidden flex flex-col">
+              <Image
+                src="/kate-leopard/icons/icon-512.png"
+                alt="Kate Leopard: пушистый розовый леопард-маскот приложения для мягкого похудения"
+                width={512}
+                height={512}
+                className="w-full h-auto"
+              />
+              <div className="p-5 sm:p-6 flex flex-col gap-3 flex-1">
+                <h3 className="text-xl sm:text-2xl font-bold text-[#FF8FBF]" style={pixel}>
+                  KATE LEOPARD
+                </h3>
+                <p className="text-sm font-bold text-[#F2E3CF]/90">
+                  Мягкое похудение 🐾 · прототип v0.5
+                </p>
+                <p className="text-[#F2E3CF]/85">
+                  Розовый леопард, кошачьи лапки и золотые блёстки: милое
+                  приложение, где вес объясняют гормонами и водой, а не стыдят
+                  за еду. Дневник без калорий, «Хочу съесть» с заменами, шаги,
+                  вода, марафоны и ПУШИСТЫЕ кнопки. Подростковый режим 13–17 —
+                  без дефицитов; серьёзные решения о весе — с врачом.
+                </p>
+                <div className="flex flex-wrap gap-2 text-xs">
+                  {["PWA · офлайн", "Без регистрации", "Данные только на телефоне", "Teen-режим 13–17"].map(
+                    (t) => (
+                      <span key={t} className="rounded-full bg-[#2a0923] border border-[#FF8FBF]/30 px-2.5 py-1">
+                        {t}
+                      </span>
+                    )
+                  )}
+                </div>
+                <div className="flex flex-wrap gap-3 mt-auto pt-2 items-center">
+                  <a
+                    href={KL_WEB_URL}
+                    className="inline-flex items-center gap-2 rounded-xl bg-[#FF8FBF] hover:bg-[#EF6FA5] px-4 py-2.5 font-bold transition-colors text-[#2a0923]"
+                  >
+                    <PawPrint className="size-4" aria-hidden />
+                    Открыть приложение
+                  </a>
+                  <a
+                    href={KL_REPO_URL}
+                    className="inline-flex items-center gap-2 rounded-xl border border-[#FF8FBF]/60 hover:bg-[#FF8FBF]/10 px-4 py-2.5 font-bold transition-colors"
                   >
                     <Github className="size-4" aria-hidden />
                     Исходники
