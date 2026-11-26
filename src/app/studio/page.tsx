@@ -725,6 +725,46 @@ export default function StudioPage() {
               </div>
             </div>
 
+            {/* МузСтудия — третья программа студии, тоже с установщиками */}
+            <div className="rps-panel rounded-2xl mt-6 p-5 flex flex-col sm:flex-row items-center gap-4">
+              <Image
+                src="/muz-studia/icon-192.png"
+                alt="Иконка МузСтудии — пять цветных полос эквалайзера на тёмном фоне"
+                width={44}
+                height={44}
+                className="rounded-xl border border-[#E8B95C]/40 shrink-0"
+              />
+              <p className="text-[#F2E3CF]/85 flex-1 text-center sm:text-left">
+                <span className="font-bold text-[#E8B95C]">МузСтудия (MUZSTUDIO)</span>{" "}
+                — мини-студия для записи треков на пяти дорожках. Установщики
+                тоже есть: Windows и Android, а на iPhone — веб-версия без
+                установки.
+              </p>
+              <div className="shrink-0 flex flex-wrap justify-center gap-2">
+                <a
+                  href={MS_EXE_URL}
+                  className="inline-flex items-center gap-1.5 rounded-xl border border-[#E8B95C]/60 hover:bg-[#E8B95C]/10 px-3 py-2 text-sm font-bold transition-colors"
+                >
+                  <Download className="size-4" aria-hidden />
+                  .exe
+                </a>
+                <a
+                  href={MS_APK_URL}
+                  className="inline-flex items-center gap-1.5 rounded-xl border border-[#E8B95C]/60 hover:bg-[#E8B95C]/10 px-3 py-2 text-sm font-bold transition-colors"
+                >
+                  <Download className="size-4" aria-hidden />
+                  .apk
+                </a>
+                <a
+                  href={MS_WEB_URL}
+                  className="inline-flex items-center gap-1.5 rounded-xl border border-[#E8B95C]/60 hover:bg-[#E8B95C]/10 px-3 py-2 text-sm font-bold transition-colors"
+                >
+                  <ExternalLink className="size-4" aria-hidden />
+                  Открыть
+                </a>
+              </div>
+            </div>
+
             <p className="text-center text-xs text-[#F2E3CF]/55 mt-4">
               История версий и все релизы:{" "}
               <a className="rps-a" href={RELEASES_URL} target="_blank" rel="noopener noreferrer">
@@ -875,11 +915,13 @@ export default function StudioPage() {
                   </div>
                 </div>
                 <p className="text-[#F2E3CF]/85">
-                  Мини-студия в кармане: запиши голос или любой звук с микрофона
-                  и собери трек на пяти дорожках — перетаскивай блоки с
-                  автопрокруткой и прилипанием, обрезай за края, двигай тон на
-                  ±12 полутонов, жми плей. Полностью офлайн: записи остаются на
-                  устройстве, без регистрации и облаков.
+                  Мини-студия в кармане: запиши голос, добавь музыку файлом с
+                  устройства и собери трек на пяти дорожках — перетаскивай блоки
+                  с автопрокруткой и прилипанием, обрезай за края, растягивай за
+                  угол ◢ (скорость 0.25×–4×), двигай тон на ±12 полутонов, жми
+                  плей. Готовый трек сохраняется в WAV одной кнопкой, а проект
+                  автосохраняется на устройстве. Полностью офлайн: записи
+                  остаются на устройстве, без регистрации и облаков.
                 </p>
                 <div className="flex flex-wrap gap-2 text-xs">
                   {["Приложение", "Офлайн", "5 дорожек", "Windows · Android · Web", "Релиз v0.1.0"].map((t) => (
@@ -943,11 +985,14 @@ export default function StudioPage() {
                 <p className="text-xs text-[#F2E3CF]/60">
                   Как пользоваться: нажми «Запись» — браузер спросит доступ к
                   микрофону, и после отсчёта «4-3-2-1» записанный блок появится
-                  на дорожке «Голос». Тяни блоки мышкой или пальцем (у края
-                  экрана лента сама прокручивается), тяни за белые риски по
-                  краям блока — обрежешь начало или конец, двойной тап —
-                  мгновенная копия. В «Настройках блока» — громкость и тон
-                  ±12 полутонов. Собери трек и жми «Плей».
+                  на дорожке «Голос». Кнопка «С устройства» добавит mp3 или wav
+                  с телефона. Тяни блоки мышкой или пальцем (у края экрана лента
+                  сама прокручивается), белые риски — обрезка краёв, белый
+                  уголок ◢ — растягивание звука (меняются темп и тон, как на
+                  кассете), двойной тап — мгновенная копия. В «Настройках
+                  блока» — громкость, тон ±12 полутонов и скорость. «Сохранить
+                  трек» соберёт всё в один WAV — можно сразу делиться. Проект
+                  сам сохраняется: закрывай и открывай смело.
                 </p>
                 <p className="text-xs text-[#F2E3CF]/60">
                   Репозиторий и исходники:{" "}
