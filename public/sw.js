@@ -5,7 +5,7 @@
  *  - API /api/leaders не кэшируем — лидерборд всегда живой.
  */
 
-const VERSION = 'popcorn-v29'
+const VERSION = 'popcorn-v30'
 const CORE = [
   '/',
   '/manifest.json',
@@ -69,8 +69,11 @@ self.addEventListener('fetch', (event) => {
     event.respondWith(
       fetch(req)
         .then((res) => {
-          const copy = res.clone()
-          caches.open(VERSION).then((c) => c.put('/', copy))
+          /* в кэш оболочки — только успешные ответы, иначе битая страница залипает для офлайна */
+          if (res.ok) {
+            const copy = res.clone()
+            caches.open(VERSION).then((c) => c.put('/', copy))
+          }
           return res
         })
         .catch(() => caches.match('/').then((r) => r || Response.error())),
