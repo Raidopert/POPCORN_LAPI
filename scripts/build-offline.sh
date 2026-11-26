@@ -2,7 +2,9 @@
 # ОФЛАЙН-СБОРКА POPCORN PAWS (v0.0.72) для Windows-установщика и Android-APK.
 #
 # Что делает:
-#   1) временно убирает src/app/api (серверные роуты не живут в статике);
+#   1) временно прячет src/app/api и все app/route.ts (серверные и
+#      redirect-роуты не живут в статическом экспорте: Next падает на
+#      «Failed to collect page data»);
 #   2) собирает статический экспорт Next.js (POPCORN_EXPORT=1, distDir=.next-export);
 #   3) копирует результат в desktop-build/web (без VK-архивов *.zip).
 #
@@ -13,17 +15,39 @@ cd "$(dirname "$0")/.."
 
 STASH=".api-stash"
 
-# страховка: если прошлый запуск оборвался — вернуть api на место
-if [ -d "$STASH" ] && [ ! -d src/app/api ]; then
-  echo ">> найден незавершённый stash — восстанавливаю src/app/api"
-  mv "$STASH" src/app/api
-fi
+# страховка: если прошлый запуск оборвался — вернуть всё на место
+restore() {
+  if [ -d "$STASH/api" ] && [ ! -d src/app/api ]; then mv "$STASH/api" src/app/api; fi
+  if [ -d "$STASH/app" ]; then
+    (cd "$STASH/app" && find . -type f -print0) | while IFS= read -r -d '' f; do
+      dest="src/app/${f#./}"
+      if [ ! -e "$dest" ]; then
+        mkdir -p "$(dirname "$dest")"
+        mv "$STASH/app/$f" "$dest"
+      fi
+    done
+    rm -rf "$STASH/app"
+  fi
+  rmdir "$STASH" 2>/dev/null || true
+}
 
-restore() { if [ -d "$STASH" ] && [ ! -d src/app/api ]; then mv "$STASH" src/app/api; fi }
+# прячем api-каталог и все route.ts целиком (с сохранением путей)
+stash() {
+  rm -rf "$STASH"
+  mkdir -p "$STASH/app"
+  if [ -d src/app/api ]; then mv src/app/api "$STASH/api"; fi
+  find src/app -mindepth 2 -name 'route.ts' -print0 | while IFS= read -r -d '' f; do
+    rel="${f#src/app/}"
+    mkdir -p "$STASH/app/$(dirname "$rel")"
+    mv "$f" "$STASH/app/$rel"
+  done
+}
+
+restore   # на случай незавершённого прошлого запуска
 trap restore EXIT
 
-echo ">> прячу src/app/api (на время экспорта)"
-mv src/app/api "$STASH"
+stash
+echo ">> спрятано: src/app/api и все route.ts (на время экспорта)"
 
 rm -rf .next-export
 echo ">> next build (статический экспорт)…"
