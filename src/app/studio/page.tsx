@@ -820,6 +820,131 @@ export default function StudioPage() {
               </div>
             </div>
 
+            {/* Kate Leopard — веб-приложение (прототип) */}
+            <div className="rps-panel rounded-2xl mt-6 p-5 flex flex-col sm:flex-row items-center gap-4">
+              <Image
+                src="/kate-leopard/icons/icon-192.png"
+                alt="Иконка Kate Leopard — пушистый розовый леопард"
+                width={44}
+                height={44}
+                className="rounded-xl border border-[#E8B95C]/40 shrink-0"
+              />
+              <p className="text-[#F2E3CF]/85 flex-1 text-center sm:text-left">
+                <span className="font-bold text-[#E8B95C]">Kate Leopard</span>{" "}
+                — мягкое похудение 🐾: дневник без калорий, «Хочу съесть» с
+                заменами, шаги, вода, марафоны и пушистые кнопки. Подростковый
+                режим 13–17. Пока веб-версия (прототип v0.5), установщики —
+                вместе с релизом.
+              </p>
+              <div className="shrink-0 flex flex-wrap justify-center gap-2">
+                <a
+                  href={KL_WEB_URL}
+                  className="inline-flex items-center gap-1.5 rounded-xl border border-[#E8B95C]/60 hover:bg-[#E8B95C]/10 px-3 py-2 text-sm font-bold transition-colors"
+                >
+                  <ExternalLink className="size-4" aria-hidden />
+                  Открыть
+                </a>
+              </div>
+            </div>
+
+            {/* Foodstorator — веб-игра */}
+            <div className="rps-panel rounded-2xl mt-6 p-5 flex flex-col sm:flex-row items-center gap-4">
+              <Image
+                src="/foodstorator/icons/icon-192.png"
+                alt="Иконка Foodstorator — башня из здоровой еды"
+                width={44}
+                height={44}
+                className="rounded-xl border border-[#E8B95C]/40 shrink-0"
+              />
+              <p className="text-[#F2E3CF]/85 flex-1 text-center sm:text-left">
+                <span className="font-bold text-[#E8B95C]">FOODSTORATOR</span>{" "}
+                — tower-defense про здоровую еду: брокколи-пушки и чили-огнемёты
+                против чипсов и колы. Шесть башен, 20 волн с боссами,
+                бесконечный режим. Веб-версия.
+              </p>
+              <div className="shrink-0 flex flex-wrap justify-center gap-2">
+                <a
+                  href="/foodstorator/"
+                  className="inline-flex items-center gap-1.5 rounded-xl border border-[#E8B95C]/60 hover:bg-[#E8B95C]/10 px-3 py-2 text-sm font-bold transition-colors"
+                >
+                  <ExternalLink className="size-4" aria-hidden />
+                  Открыть
+                </a>
+              </div>
+            </div>
+
+            {/* Тихая Долина — веб-игра */}
+            <div className="rps-panel rounded-2xl mt-6 p-5 flex flex-col sm:flex-row items-center gap-4">
+              <Image
+                src="/dolina/icon-192.png"
+                alt="Иконка Тихой Долины — куница-тамагочи"
+                width={44}
+                height={44}
+                className="rounded-xl border border-[#E8B95C]/40 shrink-0"
+              />
+              <p className="text-[#F2E3CF]/85 flex-1 text-center sm:text-left">
+                <span className="font-bold text-[#E8B95C]">ТИХАЯ ДОЛИНА</span>{" "}
+                — спокойный 3D-тамагочи одной рукой: тапай, корми, гуляй.
+                Куница, кот, лис, заяц или ёж живёт своей жизнью — от котёнка
+                до старика. Работает офлайн. Веб-версия.
+              </p>
+              <div className="shrink-0 flex flex-wrap justify-center gap-2">
+                <a
+                  href="/dolina/"
+                  className="inline-flex items-center gap-1.5 rounded-xl border border-[#E8B95C]/60 hover:bg-[#E8B95C]/10 px-3 py-2 text-sm font-bold transition-colors"
+                >
+                  <ExternalLink className="size-4" aria-hidden />
+                  Открыть
+                </a>
+              </div>
+            </div>
+
+            {/* Balaclava Rave — веб-игра */}
+            <div className="rps-panel rounded-2xl mt-6 p-5 flex flex-col sm:flex-row items-center gap-4">
+              <Image
+                src="/balaclava-rave/icon-192.png"
+                alt="Иконка Balaclava Rave — неоновая балаклава"
+                width={44}
+                height={44}
+                className="rounded-xl border border-[#E8B95C]/40 shrink-0"
+              />
+              <p className="text-[#F2E3CF]/85 flex-1 text-center sm:text-left">
+                <span className="font-bold text-[#E8B95C]">BALACLAVA RAVE</span>{" "}
+                — неон, балаклава и барабанные мелодии: три дорожки (бас,
+                мелодия, перкуссия) под классику, чиптюн и драм-энд-бейс.
+                Музыка синтезируется прямо в браузере. Веб-версия.
+              </p>
+              <div className="shrink-0 flex flex-wrap justify-center gap-2">
+                <a
+                  href="/balaclava-rave/"
+                  className="inline-flex items-center gap-1.5 rounded-xl border border-[#E8B95C]/60 hover:bg-[#E8B95C]/10 px-3 py-2 text-sm font-bold transition-colors"
+                >
+                  <ExternalLink className="size-4" aria-hidden />
+                  Открыть
+                </a>
+              </div>
+            </div>
+
+            {/* Кото-Лут — веб-игра */}
+            <div className="rps-panel rounded-2xl mt-6 p-5 flex flex-col sm:flex-row items-center gap-4">
+              <Gamepad2 className="size-8 text-[#E8B95C] shrink-0" aria-hidden />
+              <p className="text-[#F2E3CF]/85 flex-1 text-center sm:text-left">
+                <span className="font-bold text-[#E8B95C]">КОТО-ЛУТ</span>{" "}
+                — бой идёт сам: рыцарь рубит мобов, кот Рыбец даёт ауры и
+                комментирует. Арена, гача, колесо рыб, кузница и чиптюн.
+                Веб-версия.
+              </p>
+              <div className="shrink-0 flex flex-wrap justify-center gap-2">
+                <a
+                  href="/koto-lut/index.html"
+                  className="inline-flex items-center gap-1.5 rounded-xl border border-[#E8B95C]/60 hover:bg-[#E8B95C]/10 px-3 py-2 text-sm font-bold transition-colors"
+                >
+                  <ExternalLink className="size-4" aria-hidden />
+                  Открыть
+                </a>
+              </div>
+            </div>
+
             <p className="text-center text-xs text-[#F2E3CF]/55 mt-4">
               История версий и все релизы:{" "}
               <a className="rps-a" href={RELEASES_URL} target="_blank" rel="noopener noreferrer">

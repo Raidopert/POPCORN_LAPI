@@ -1,5 +1,5 @@
 /* Kate Leopard · © Raidopert — сервис-воркер: кэш приложения для работы офлайн */
-const CACHE = 'kate-leopard-v0.5';
+const CACHE = 'kate-leopard-v0.5.1';
 const ASSETS = [
   './',
   './index.html',
@@ -36,7 +36,8 @@ self.addEventListener('fetch', e => {
   if (e.request.method !== 'GET') return;
   e.respondWith(
     caches.match(e.request, { ignoreSearch: true }).then(hit => hit || fetch(e.request).then(res => {
-      try { caches.open(CACHE).then(c => c.put(e.request, res.clone())); } catch (_) {}
+      /* кэшируем только успешные ответы — иначе битый ответ (404/500) залипает навсегда */
+      if (res && res.ok) { try { caches.open(CACHE).then(c => c.put(e.request, res.clone())); } catch (_) {} }
       return res;
     }).catch(() => caches.match('./index.html')))
   );

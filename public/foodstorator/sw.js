@@ -1,5 +1,5 @@
 // Service Worker: офлайн-кэш оболочки игры (PWA)
-const CACHE = 'chef-conveyor-v2'
+const CACHE = 'chef-conveyor-v3'
 const CORE = [
   '/',
   '/manifest.webmanifest',
@@ -34,8 +34,10 @@ self.addEventListener('fetch', (event) => {
     event.respondWith(
       fetch(req)
         .then((res) => {
-          const copy = res.clone()
-          caches.open(CACHE).then((c) => c.put('/', copy)).catch(() => {})
+          if (res.ok) {
+            const copy = res.clone()
+            caches.open(CACHE).then((c) => c.put('/', copy)).catch(() => {})
+          }
           return res
         })
         .catch(() => caches.match('/').then((r) => r || Response.error()))
@@ -50,8 +52,10 @@ self.addEventListener('fetch', (event) => {
         (cached) =>
           cached ||
           fetch(req).then((res) => {
-            const copy = res.clone()
-            caches.open(CACHE).then((c) => c.put(req, copy)).catch(() => {})
+            if (res.ok) {
+              const copy = res.clone()
+              caches.open(CACHE).then((c) => c.put(req, copy)).catch(() => {})
+            }
             return res
           })
       )
