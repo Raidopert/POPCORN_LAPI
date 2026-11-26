@@ -123,6 +123,9 @@ html[data-theme="light"] .lane-label{background:rgba(255,255,255,.78)}
 .rh.l{left:0}.rh.r{right:0}
 .block.sel .rh{opacity:1}
 .block.sel .rh i{height:26px}
+.stx{position:absolute;right:0;bottom:0;width:26px;height:26px;display:flex;align-items:flex-end;justify-content:flex-end;opacity:.5;transition:opacity .15s;touch-action:none;cursor:nwse-resize;z-index:4}
+.stx i{width:0;height:0;border-style:solid;border-width:0 0 13px 13px;border-color:transparent transparent #fff transparent;filter:drop-shadow(0 1px 2px rgba(0,0,0,.6))}
+.block.sel .stx{opacity:1}
 .snapline{position:absolute;top:28px;bottom:0;width:2px;margin-left:-1px;background:#fff;box-shadow:0 0 10px rgba(255,255,255,.9);z-index:14;pointer-events:none;opacity:0;transition:opacity .2s}
 .snapline.show{opacity:.95}
 .dur-tip{position:absolute;z-index:16;background:rgba(10,10,14,.92);border:1px solid var(--line);color:#fff;font-size:11px;font-weight:600;padding:4px 9px;border-radius:9px;pointer-events:none;display:none;white-space:nowrap}
@@ -145,6 +148,9 @@ html[data-theme="light"] .lane-label{background:rgba(255,255,255,.78)}
 .btn-play{background:var(--panel2);border:1px solid var(--line)}
 .btn-play.playing{background:rgba(47,213,124,.14);border-color:var(--c2);color:var(--c2);animation:btnpulse 1.6s ease-in-out infinite}
 .btn-stop{flex:none;width:60px;background:var(--panel2);border:1px solid var(--line);font-size:1.05rem}
+.btn-file{background:var(--panel2);border:1px solid var(--line);font-size:.98rem}
+.btn-export{background:rgba(47,213,124,.14);border:1px solid var(--c2);color:var(--c2);font-size:.98rem}
+.btn-export:disabled{opacity:.5}
 .rec-target{font-size:.82rem;color:var(--dim);display:flex;align-items:center;gap:7px;min-height:30px}
 .rec-target b{color:var(--text)}
 .tdot{width:10px;height:10px;border-radius:50%;background:var(--c0)}
@@ -192,7 +198,7 @@ input[type=text]{background:var(--panel2);border:1px solid var(--line);border-ra
     <div class="steps"><span>1 · Запиши</span><span>2 · Перетащи</span><span>3 · Настрой</span><span>4 · Жми плей</span></div>
     <button class="btn btn-primary" id="btn-create" data-goto="editor">＋&nbsp; Создать трек</button>
     <button class="btn btn-ghost" id="btn-open-settings" data-goto="settings">⚙&nbsp; Настройки</button>
-    <p class="menu-note">Работает прямо в браузере телефона — ничего устанавливать не нужно.<br>Проект живёт до перезагрузки страницы (сохранение и экспорт — на следующем этапе).</p>
+    <p class="menu-note">Проект автосохраняется на устройстве — закрывай и открывай смело.<br>Готовый трек сохраняй кнопкой «💾 Сохранить трек» в редакторе.</p>
   </div>
 </section>
 
@@ -219,6 +225,10 @@ input[type=text]{background:var(--panel2);border:1px solid var(--line);border-ra
       <div><div class="set-name">Тема</div><div class="set-sub">Тёмная — как в настоящей студии</div></div>
       <div class="seg"><button id="theme-dark" class="on">Тёмная</button><button id="theme-light">Светлая</button></div>
     </div>
+    <div class="card">
+      <div><div class="set-name">Стереть проект</div><div class="set-sub">Удалит все блоки текущего трека с этого устройства. Отменить нельзя.</div></div>
+      <button class="btn btn-danger" id="btn-clear" style="min-height:44px;padding:0 14px;flex-shrink:0">Стереть</button>
+    </div>
   </div>
 </section>
 
@@ -233,7 +243,7 @@ input[type=text]{background:var(--panel2);border:1px solid var(--line);border-ra
     <div class="tl-inner" id="tl-inner">
       <div class="ruler" id="ruler"></div>
       <div id="lanes"></div>
-      <div id="empty-hint">Выбери дорожку слева → жми «● Запись» внизу.<br>Записанный блок появится на выбранной дорожке.</div>
+      <div id="empty-hint">Выбери дорожку слева → жми «● Запись» или «📁 Файл» внизу.<br>Записанный блок появится на выбранной дорожке.</div>
       <div class="playhead" id="playhead"></div>
       <div class="snapline" id="snapline"></div>
       <div class="dur-tip" id="dur-tip"></div>
@@ -249,6 +259,10 @@ input[type=text]{background:var(--panel2);border:1px solid var(--line);border-ra
         <button class="bar-btn btn-rec" id="btn-record">●&nbsp; Запись</button>
         <button class="bar-btn btn-play" id="btn-play">▶&nbsp; Пуск</button>
         <button class="bar-btn btn-stop" id="btn-stop" aria-label="Стоп">■</button>
+      </div>
+      <div class="bar-row">
+        <button class="bar-btn btn-file" id="btn-file">📁&nbsp; С устройства</button>
+        <button class="bar-btn btn-export" id="btn-export">💾&nbsp; Сохранить трек</button>
       </div>
       <div class="bar-row sub">
         <span class="rec-target"><i class="tdot" id="rec-dot-track"></i>Запись на: <b id="rec-track-name">Голос</b></span>
@@ -277,9 +291,10 @@ input[type=text]{background:var(--panel2);border:1px solid var(--line);border-ra
     <h2>Настройки блока</h2>
     <div class="field"><label for="bm-name">Название</label><input type="text" id="bm-name" maxlength="24"></div>
     <div class="field"><label>Дорожка</label><div class="chip-row" id="bm-chips"></div></div>
-    <div class="field"><label>Длина блока <b id="bm-len">—</b></label><div class="set-sub" style="margin-top:0">Меняется тоном и растягиванием за края блока</div></div>
+    <div class="field"><label>Длина блока <b id="bm-len">—</b></label><div class="set-sub" style="margin-top:0">Меняется тоном, скоростью и растягиванием за угол ◢ блока</div></div>
     <div class="field"><label>Громкость <b id="bm-vol-val">100%</b></label><input type="range" id="bm-vol" min="0" max="150" value="100" aria-label="Громкость блока"></div>
     <div class="field"><label>Тон <b id="bm-tone-val">0 пт</b></label><input type="range" id="bm-tone" min="-12" max="12" value="0" aria-label="Тон блока"></div>
+    <div class="field"><label>Скорость <b id="bm-rate-val">1.00×</b></label><input type="range" id="bm-rate" min="25" max="400" step="5" value="100" aria-label="Скорость блока"><div class="set-sub" style="margin-top:0">0.25×–4×. Меняет и темп, и тон — как замедленная кассета</div></div>
     <div class="btn-row"><button class="btn btn-dark" id="bm-preview">▶&nbsp; Прослушать</button><button class="btn btn-primary" id="bm-done">Готово</button></div>
     <button class="btn btn-danger" id="bm-delete">🗑&nbsp; Удалить блок</button>
   </div>
@@ -290,12 +305,14 @@ input[type=text]{background:var(--panel2);border:1px solid var(--line);border-ra
   <div class="sheet">
     <h2>Как собрать трек</h2>
     <div class="help-step"><div class="help-ico">🎤</div><div><b>Запиши.</b><p>Выбери дорожку (Голос, Мелодия…) и нажми «Запись». Запись идёт до 30 секунд и сама остановится.</p></div></div>
-    <div class="help-step"><div class="help-ico">✋</div><div><b>Перетащи.</b><p>Тяни блок пальцем — у края экрана лента сама прокрутится. Белые риски по краям блока — растянуть или сжать (обрезка). Тап — выбрать, двойной тап — копия, лонг-тап — настройки.</p></div></div>
-    <div class="help-step"><div class="help-ico">🎚</div><div><b>Настрой.</b><p>В настройках блока меняй громкость и тон (±12 полутонов) и слушай результат кнопкой «Прослушать».</p></div></div>
+    <div class="help-step"><div class="help-ico">✋</div><div><b>Перетащи.</b><p>Тяни блок пальцем — у края экрана лента сама прокрутится. Белые риски — обрезка по краям, белый уголок ◢ справа внизу — растянуть или сжать звук (меняется темп и тон, как на кассете). Тап — выбрать, двойной тап — копия, лонг-тап — настройки.</p></div></div>
+    <div class="help-step"><div class="help-ico">🎚</div><div><b>Настрой.</b><p>В настройках блока меняй громкость, тон (±12 полутонов) и скорость (0.25×–4×), слушай результат кнопкой «Прослушать».</p></div></div>
     <div class="help-step"><div class="help-ico">▶</div><div><b>Жми плей.</b><p>«Пуск» играет всё с позиции плейхеда. Плейхед тащится пальцем по линейке времени сверху.</p></div></div>
+    <div class="help-step"><div class="help-ico">💾</div><div><b>Сохрани.</b><p>«📁 Файл» добавит музыку с устройства как блок. «💾 Сохранить трек» соберёт всё в один WAV — можно делиться. Проект сам сохраняется на устройстве.</p></div></div>
     <button class="btn btn-primary" id="btn-help-ok">Понятно, поехали</button>
   </div>
 </div>
+<input type="file" id="file-inp" accept="audio/*" multiple hidden>
 <div id="toast"></div>
 
 <script>
@@ -340,7 +357,8 @@ function audio(){
 let playing=false, playPos=0, playAnchorCtx=0, playAnchorPos=0;
 let sources=[], raf=0, metTimer=0;
 const rateOf=b=>Math.pow(2,b.semitones/12);
-const playDur=b=>(b.end-b.start)/rateOf(b);
+const totalRate=b=>(b.rate||1)*rateOf(b);
+const playDur=b=>(b.end-b.start)/totalRate(b);
 const totalDur=()=>blocks.reduce((m,b)=>Math.max(m,b.time+playDur(b)),0);
 
 function playFrom(pos){
@@ -352,13 +370,13 @@ function playFrom(pos){
     if(end<=pos+0.02)continue;
     const src=ctx.createBufferSource();
     src.buffer=b.buffer;
-    src.playbackRate.value=rateOf(b);
+    src.playbackRate.value=totalRate(b);
     const g=ctx.createGain(); g.gain.value=b.gain;
     src.connect(g); g.connect(master);
     b._g=g;
-    const off=b.start+Math.max(0,pos-b.time)*rateOf(b);
+    const off=b.start+Math.max(0,pos-b.time)*totalRate(b);
     const at=playAnchorCtx+Math.max(0,b.time-pos);
-    try{src.start(at,off,(dur-Math.max(0,pos-b.time))*rateOf(b));}catch(e){}
+    try{src.start(at,off,(dur-Math.max(0,pos-b.time))*totalRate(b));}catch(e){}
     sources.push(src);
     src.onended=()=>{sources=sources.filter(s=>s!==src); if(sources.length===0&&!playing)b._g=null;};
   }
@@ -633,10 +651,11 @@ function extendTo(sec){
 function addBlock(track,time,buffer,name){
   const n=blocks.filter(b=>b.track===track).length+1;
   const b={id:seq++,track:track,time:Math.max(0,time),buffer:buffer,start:0,end:buffer.duration,
-           name:name||TRACKS[track].name+' '+n,gain:1,semitones:0,el:null,_g:null};
+           name:name||TRACKS[track].name+' '+n,gain:1,semitones:0,rate:1,el:null,_g:null};
   blocks.push(b);
   buildBlockEl(b);
   updateEmptyHint();
+  scheduleSave();
   return b;
 }
 function buildBlockEl(b){
@@ -649,11 +668,12 @@ function buildBlockEl(b){
   const nm=el('div','bname'); nm.textContent=b.name; d.appendChild(nm);
   const hl=el('div','rh l'); hl.innerHTML='<i></i>';
   const hr=el('div','rh r'); hr.innerHTML='<i></i>';
-  d.appendChild(hl); d.appendChild(hr);
+  const stx=el('div','stx'); stx.innerHTML='<i></i>';
+  d.appendChild(hl); d.appendChild(hr); d.appendChild(stx);
   b.el=d; b.canvas=cv; b.nameEl=nm;
   d.addEventListener('animationend',()=>d.classList.remove('pop'));
   $('#lanes').children[b.track].appendChild(d);
-  placeBlock(b); drawBlockWave(b); bindBlock(d,b,hl,hr);
+  placeBlock(b); drawBlockWave(b); bindBlock(d,b,hl,hr); bindStretch(d,b,stx);
 }
 function placeBlock(b){
   b.el.style.left=(b.time*PPS)+'px';
@@ -678,7 +698,7 @@ function drawBlockWave(b){
   cv.height=Math.round(44*dpr);
   const cx=cv.getContext('2d');
   const data=b.buffer.getChannelData(0);
-  const rate=rateOf(b), sr=b.buffer.sampleRate;
+  const rate=totalRate(b), sr=b.buffer.sampleRate;
   cx.fillStyle=TRACKS[b.track].color;
   const capS=Math.max(1,Math.floor(b.end*sr));
   const step=Math.max(1,Math.round(dpr));
@@ -707,6 +727,7 @@ function deleteBlock(b){
   if(b.el)b.el.remove();
   blocks=blocks.filter(x=>x!==b);
   updateEmptyHint();
+  scheduleSave();
   toast('Блок удалён');
 }
 function setSelTrack(tr){
@@ -749,6 +770,7 @@ function autoScrollTick(){
 function applyDragPos(){
   if(!dragCtx)return;
   if(dragCtx.mode==='move')applyMovePos(dragCtx.clientX,dragCtx.clientY);
+  else if(dragCtx.mode==='stretch')applyStretchPos(dragCtx.clientX);
   else applyResizePos(dragCtx.clientX);
 }
 function magnet(t,self){
@@ -781,7 +803,7 @@ function applyMovePos(x,y){
 }
 function applyResizePos(x){
   const c=dragCtx; if(!c)return;
-  const b=c.b, rate=rateOf(b);
+  const b=c.b, rate=totalRate(b);
   const dxT=(x-innerLeft())/PPS-c.startX;
   if(c.side==='r'){
     b.end=clamp(c.end0+dxT*rate,b.start+0.6*rate,b.buffer.duration);
@@ -833,6 +855,7 @@ function bindBlock(d,b,hl,hr){
       placeBlock(b);
       extendTo(b.time+playDur(b)+4);
       b.el.classList.add('pop');
+      scheduleSave();
     }else if(Date.now()-downT<600){
       const now=Date.now();
       if(now-lastTap.t<350&&lastTap.id===b.id){
@@ -875,9 +898,50 @@ function bindHandle(d,b,rh,side){
     dragCtx=null;
     $('#dur-tip').style.display='none';
     extendTo(b.time+playDur(b)+4);
+    scheduleSave();
   };
   rh.addEventListener('pointerup',up);
   rh.addEventListener('pointercancel',up);
+}
+/* Ручка ◢: растягивание/сжатие звука — меняются темп и тон, как на кассете */
+function bindStretch(d,b,stx){
+  let pid=null,x0=0;
+  stx.addEventListener('pointerdown',e=>{
+    if(recState!=='idle')return;
+    e.preventDefault(); e.stopPropagation();
+    pid=e.pointerId; x0=e.clientX;
+    try{stx.setPointerCapture(pid);}catch(err){}
+    dragCtx={mode:'stretch',b:b,x0:x0,S0:Math.max(0.2,playDur(b)),rate0:b.rate||1,clientX:x0};
+    $('#dur-tip').style.display='block';
+    startAutoScroll();
+  });
+  stx.addEventListener('pointermove',e=>{
+    if(pid===null||e.pointerId!==pid||!dragCtx)return;
+    dragCtx.clientX=e.clientX;
+    applyDragPos();
+  });
+  const up=e=>{
+    if(pid===null||e.pointerId!==pid)return;
+    pid=null;
+    try{stx.releasePointerCapture(e.pointerId);}catch(err){}
+    dragCtx=null;
+    $('#dur-tip').style.display='none';
+    extendTo(b.time+playDur(b)+4);
+    scheduleSave();
+  };
+  stx.addEventListener('pointerup',up);
+  stx.addEventListener('pointercancel',up);
+}
+function applyStretchPos(x){
+  const c=dragCtx; if(!c)return;
+  const b=c.b;
+  const S1=Math.max(0.2,c.S0+(x-c.x0)/PPS);
+  b.rate=clamp(c.rate0*c.S0/S1,0.25,4);
+  placeBlock(b); drawBlockWave(b);
+  const tip=$('#dur-tip');
+  tip.textContent='×'+b.rate.toFixed(2)+' · '+playDur(b).toFixed(1)+' с';
+  tip.style.left=(b.time*PPS+6)+'px';
+  tip.style.top=(12+b.track*64)+'px';
 }
 function resolveDrop(b){
   const dur=playDur(b);
@@ -895,13 +959,14 @@ function duplicateBlock(b){
   const dur=playDur(b);
   const t0=findFreeTime(b.track,b.time+dur,dur);
   const nb={id:seq++,track:b.track,time:t0,buffer:b.buffer,start:b.start,end:b.end,
-            name:b.name+' (копия)',gain:b.gain,semitones:b.semitones,el:null,_g:null};
+            name:b.name+' (копия)',gain:b.gain,semitones:b.semitones,rate:b.rate,el:null,_g:null};
   blocks.push(nb);
   extendTo(t0+dur+4);
   buildBlockEl(nb);
   updateEmptyHint();
   nb.el.classList.add('pop');
   selectBlock(nb);
+  scheduleSave();
   toast('Копия готова — тяни куда нужно');
 }
 
@@ -930,6 +995,8 @@ function openBlockModal(b){
   $('#bm-vol-val').textContent=Math.round(b.gain*100)+'%';
   $('#bm-tone').value=b.semitones;
   $('#bm-tone-val').textContent=(b.semitones>0?'+':'')+b.semitones+' пт';
+  $('#bm-rate').value=Math.round((b.rate||1)*100);
+  $('#bm-rate-val').textContent=(b.rate||1).toFixed(2)+'×';
   $('#bm-len').textContent=playDur(b).toFixed(1)+' с';
   renderModalChips(b.track);
   showOverlay('block-modal');
@@ -949,6 +1016,7 @@ function renderModalChips(tr){
       if(!modalBlock)return;
       moveBlockTrack(modalBlock,i);
       renderModalChips(i);
+      scheduleSave();
     });
     box.appendChild(c);
   });
@@ -959,7 +1027,7 @@ function previewBlock(){
   const ctx=audio();
   const src=ctx.createBufferSource();
   src.buffer=b.buffer;
-  src.playbackRate.value=rateOf(b);
+  src.playbackRate.value=totalRate(b);
   const g=ctx.createGain(); g.gain.value=b.gain;
   src.connect(g); g.connect(master);
   src.onended=()=>{previewSrc=null;$('#bm-preview').innerHTML='▶&nbsp; Прослушать';};
@@ -973,6 +1041,155 @@ function stopPreview(){
     try{s.stop();}catch(e){}
     $('#bm-preview').innerHTML='▶&nbsp; Прослушать';
   }
+}
+
+/* ================= Импорт файла с устройства ================= */
+async function importFiles(list){
+  const files=[...list||[]];
+  if(!files.length)return;
+  audio(); // контекст создаём в жесте пользователя
+  let okN=0;
+  for(const f of files){
+    try{
+      const buf=await audio().decodeAudioData(await f.arrayBuffer());
+      if(buf.duration<0.15){toast('Файл слишком короткий');continue;}
+      const t0=findFreeTime(selTrack,playPos,buf.duration);
+      const nm=f.name.replace(/\.[a-z0-9]+$/i,'').slice(0,20)||TRACKS[selTrack].name;
+      const b=addBlock(selTrack,t0,buf,nm);
+      extendTo(b.time+playDur(b)+5);
+      okN++;
+    }catch(err){
+      console.error(err);
+      toast('Браузер не понял «'+(f.name||'файл').slice(0,16)+'» — попробуй mp3 или wav');
+    }
+  }
+  if(okN)toast(okN>1?('Добавлено блоков: '+okN):'Готово! Тяни блок пальцем или жми ▶');
+}
+
+/* ================= Экспорт трека в WAV (офлайн-рендер) ================= */
+function audioBufferToWav(buf){
+  const nCh=Math.min(2,buf.numberOfChannels);
+  const sr=buf.sampleRate, len=buf.length;
+  const bytes=44+len*nCh*2;
+  const ab=new ArrayBuffer(bytes), v=new DataView(ab);
+  const ws=(o,s)=>{for(let i=0;i<s.length;i++)v.setUint8(o+i,s.charCodeAt(i));};
+  ws(0,'RIFF'); v.setUint32(4,bytes-8,true); ws(8,'WAVE'); ws(12,'fmt ');
+  v.setUint32(16,16,true); v.setUint16(20,1,true); v.setUint16(22,nCh,true);
+  v.setUint32(24,sr,true); v.setUint32(28,sr*nCh*2,true); v.setUint16(32,nCh*2,true);
+  v.setUint16(34,16,true); ws(36,'data'); v.setUint32(40,len*nCh*2,true);
+  const chs=[]; for(let c=0;c<nCh;c++)chs.push(buf.getChannelData(c));
+  let o=44;
+  for(let i=0;i<len;i++)for(let c=0;c<nCh;c++){
+    const s=clamp(chs[c][i],-1,1);
+    v.setInt16(o,s<0?s*0x8000:s*0x7FFF,true); o+=2;
+  }
+  return new Blob([ab],{type:'audio/wav'});
+}
+async function exportTrack(){
+  if(recState!=='idle')return;
+  if(playing)pause();
+  if(!blocks.length){toast('Сначала запиши или добавь блок');return;}
+  const btn=$('#btn-export'); btn.disabled=true;
+  toast('Собираю трек…');
+  try{
+    const sr=44100, tail=0.5;
+    const len=Math.max(1,Math.ceil((totalDur()+tail)*sr));
+    const oc=new OfflineAudioContext(2,len,sr);
+    const om=oc.createGain(); om.gain.value=settings.master; om.connect(oc.destination);
+    for(const b of blocks){
+      const r=totalRate(b);
+      const src=oc.createBufferSource();
+      src.buffer=b.buffer;
+      src.playbackRate.value=r;
+      const g=oc.createGain(); g.gain.value=b.gain;
+      src.connect(g); g.connect(om);
+      src.start(b.time,b.start,(b.end-b.start)/r);
+    }
+    const mix=await oc.startRendering();
+    const blob=audioBufferToWav(mix);
+    const d=new Date(), pad=n=>String(n).padStart(2,'0');
+    const name='muzstudio-'+d.getFullYear()+pad(d.getMonth()+1)+pad(d.getDate())+'-'+pad(d.getHours())+pad(d.getMinutes())+'.wav';
+    const file=new File([blob],name,{type:'audio/wav'});
+    if(navigator.canShare&&navigator.canShare({files:[file]})){
+      try{await navigator.share({files:[file],title:'МузСтудия — трек'});}
+      catch(e){if(e&&e.name!=='AbortError')throw e;}
+    }else{
+      const a=el('a'); a.href=URL.createObjectURL(blob); a.download=name;
+      document.body.appendChild(a); a.click(); a.remove();
+      setTimeout(()=>URL.revokeObjectURL(a.href),8000);
+      toast('Скачано: '+name);
+    }
+  }catch(e){
+    console.error(e);
+    toast('Не получилось собрать трек — попробуй ещё раз');
+  }
+  btn.disabled=false;
+}
+
+/* ================= Автосохранение проекта (IndexedDB) ================= */
+let idb=null, saveT=0;
+function idbOpen(){
+  return new Promise(res=>{
+    if(idb)return res(idb);
+    try{
+      const rq=indexedDB.open('muzstudia',1);
+      rq.onupgradeneeded=()=>{rq.result.createObjectStore('project');};
+      rq.onsuccess=()=>{idb=rq.result;res(idb);};
+      rq.onerror=()=>res(null);
+    }catch(e){res(null);}
+  });
+}
+function scheduleSave(){
+  clearTimeout(saveT);
+  saveT=setTimeout(saveProject,700);
+}
+async function saveProject(){
+  const db=await idbOpen(); if(!db)return;
+  const seen=new Map(), bufs=[];
+  for(const b of blocks){
+    if(!seen.has(b.buffer)){
+      seen.set(b.buffer,seen.size);
+      bufs.push({id:seen.get(b.buffer),wav:audioBufferToWav(b.buffer)});
+    }
+  }
+  const data={seq:seq,timeline:timelineSec,blocks:blocks.map(b=>({
+    track:b.track,time:b.time,start:b.start,end:b.end,gain:b.gain,
+    semitones:b.semitones,rate:b.rate||1,name:b.name,bufId:seen.get(b.buffer)})),bufs:bufs};
+  try{
+    const st=db.transaction('project','readwrite').objectStore('project');
+    if(blocks.length)st.put(data,'current'); else st.delete('current');
+  }catch(e){}
+}
+async function restoreProject(){
+  const db=await idbOpen(); if(!db)return;
+  try{
+    const rq=db.transaction('project').objectStore('project').get('current');
+    rq.onsuccess=async ()=>{
+      const data=rq.result;
+      if(!data||!data.blocks||!data.blocks.length)return;
+      try{
+        const bufs=new Map();
+        for(const x of (data.bufs||[])){
+          bufs.set(x.id,await audio().decodeAudioData(await x.wav.arrayBuffer()));
+        }
+        let maxSeq=1;
+        for(const s of data.blocks){
+          const buf=bufs.get(s.bufId); if(!buf)continue;
+          const b=addBlock(clamp(s.track|0,0,TRACKS.length-1),Math.max(0,+s.time||0),buf,String(s.name||''));
+          b.start=Math.max(0,+s.start||0);
+          b.end=clamp(+s.end||buf.duration,0.1,buf.duration);
+          b.gain=clamp(+s.gain||1,0,1.5);
+          b.semitones=clamp(+s.semitones||0,-12,12);
+          b.rate=clamp(+s.rate||1,0.25,4);
+          placeBlock(b); drawBlockWave(b);
+          maxSeq=Math.max(maxSeq,b.id+1);
+        }
+        seq=Math.max(seq,maxSeq);
+        extendTo(totalDur()+8);
+        toast('Проект восстановлен: блоков — '+data.blocks.length);
+      }catch(e){console.error(e);}
+    };
+  }catch(e){}
 }
 
 /* ================= Экраны и настройки ================= */
@@ -1010,6 +1227,7 @@ function init(){
   loadSettings(); applySettings();
   buildLanes(); applyTimelineSize(); buildRuler();
   setSelTrack(0); updateEmptyHint();
+  restoreProject();
 
   document.querySelectorAll('[data-goto]').forEach(b=>
     b.addEventListener('click',()=>goto(b.dataset.goto)));
@@ -1023,6 +1241,20 @@ function init(){
   $('#btn-help-ok').addEventListener('click',()=>hideOverlay('help-overlay'));
   $('#btn-sel-settings').addEventListener('click',()=>{if(selBlock)openBlockModal(selBlock);});
   $('#btn-sel-del').addEventListener('click',()=>{if(selBlock)deleteBlock(selBlock);});
+  $('#btn-file').addEventListener('click',()=>$('#file-inp').click());
+  $('#file-inp').addEventListener('change',e=>{
+    const files=[...e.target.files]; e.target.value='';
+    importFiles(files);
+  });
+  $('#btn-export').addEventListener('click',exportTrack);
+  $('#btn-clear').addEventListener('click',()=>{
+    if(!blocks.length){toast('Проект и так пуст');return;}
+    if(!confirm('Стереть все блоки проекта? Отменить нельзя.'))return;
+    if(playing)stopAll();
+    blocks.forEach(b=>{if(b.el)b.el.remove();});
+    blocks=[]; selectBlock(null); updateEmptyHint(); saveProject();
+    toast('Проект стёрт');
+  });
 
   $('#set-master').addEventListener('input',e=>{
     settings.master=e.target.value/100;
@@ -1046,13 +1278,14 @@ function init(){
   $('#theme-light').addEventListener('click',()=>{settings.theme='light';applySettings();saveSettings();});
 
   $('#bm-name').addEventListener('input',e=>{
-    if(modalBlock){modalBlock.name=e.target.value;modalBlock.nameEl.textContent=e.target.value;}
+    if(modalBlock){modalBlock.name=e.target.value;modalBlock.nameEl.textContent=e.target.value;scheduleSave();}
   });
   $('#bm-vol').addEventListener('input',e=>{
     if(!modalBlock)return;
     modalBlock.gain=e.target.value/100;
     $('#bm-vol-val').textContent=e.target.value+'%';
     if(playing&&modalBlock._g)modalBlock._g.gain.value=modalBlock.gain;
+    scheduleSave();
   });
   $('#bm-tone').addEventListener('input',e=>{
     if(!modalBlock)return;
@@ -1062,6 +1295,17 @@ function init(){
     drawBlockWave(modalBlock);
     $('#bm-len').textContent=playDur(modalBlock).toFixed(1)+' с';
     extendTo(modalBlock.time+playDur(modalBlock)+4);
+    scheduleSave();
+  });
+  $('#bm-rate').addEventListener('input',e=>{
+    if(!modalBlock)return;
+    modalBlock.rate=e.target.value/100;
+    $('#bm-rate-val').textContent=modalBlock.rate.toFixed(2)+'×';
+    placeBlock(modalBlock);
+    drawBlockWave(modalBlock);
+    $('#bm-len').textContent=playDur(modalBlock).toFixed(1)+' с';
+    extendTo(modalBlock.time+playDur(modalBlock)+4);
+    scheduleSave();
   });
   $('#bm-preview').addEventListener('click',()=>{ if(previewSrc)stopPreview(); else previewBlock(); });
   $('#bm-done').addEventListener('click',closeBlockModal);
@@ -1092,7 +1336,7 @@ function init(){
     if(e.target.closest&&e.target.closest('.block,.ruler'))e.preventDefault();
   });
   document.addEventListener('visibilitychange',()=>{
-    if(document.hidden&&playing)pause();
+    if(document.hidden){if(playing)pause();saveProject();}
   });
 }
 init();
