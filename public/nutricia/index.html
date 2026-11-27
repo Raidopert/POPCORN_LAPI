@@ -3,9 +3,9 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover">
-<meta name="theme-color" content="#0EA5E9">
+<meta name="theme-color" content="#1E40AF">
 <meta name="apple-mobile-web-app-capable" content="yes">
-<meta name="apple-mobile-web-app-status-bar-style" content="default">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
 <meta name="apple-mobile-web-app-title" content="Рацион">
 <meta name="description" content="Личный кабинет клиента нутрициолога: дневник питания, меню, вес, чат с врачом">
 <title>Рацион — кабинет нутрициолога</title>
@@ -88,6 +88,13 @@ a{color:var(--primary-dark)}
   color:var(--muted); font-size:10px; font-weight:500; border-radius:10px}
 .bottomnav button.active{color:var(--primary)}
 .bottomnav button .ico{font-size:20px; line-height:1}
+
+/* FAB — плавающая кнопка быстрого действия (над bottomnav) */
+.fab{position:fixed; right:max(16px,calc(50% - 240px + 16px)); bottom:calc(max(70px,env(safe-area-inset-bottom) + 70px));
+  width:56px; height:56px; border-radius:50%; background:linear-gradient(135deg,var(--primary),var(--primary-dark));
+  color:#fff; font-size:30px; line-height:1; font-weight:300; border:none; box-shadow:var(--shadow-lg); z-index:28;
+  display:flex; align-items:center; justify-content:center; cursor:pointer; transition:transform .15s}
+.fab:active{transform:scale(.92)}
 
 /* Stat / progress */
 .stat-grid{display:grid; grid-template-columns:repeat(2,1fr); gap:10px; margin-bottom:14px}
@@ -347,9 +354,41 @@ const FOOD_DB = [
   {n:"Оливье",k:197,p:5.4,f:16,c:7,cat:"Прочее"},
   {n:"Суп куриный",k:35,p:2,f:1.5,c:3,cat:"Прочее"},
   {n:"Борщ",k:49,p:1.5,f:2.2,c:6,cat:"Прочее"},
-  {n:"Суп-пюре овощной",k:55,p:1.5,f:2,c:7,cat:"Прочее"}
+  {n:"Суп-пюре овощной",k:55,p:1.5,f:2,c:7,cat:"Прочее"},
+
+  // Орехи / семена (КБЖУ на 100 г)
+  {n:"Миндаль",k:609,p:21,f:50,c:22,cat:"Орехи"},
+  {n:"Грецкий орех",k:654,p:15,f:65,c:14,cat:"Орехи"},
+  {n:"Кешью",k:574,p:18,f:44,c:30,cat:"Орехи"},
+  {n:"Фундук",k:628,p:15,f:61,c:17,cat:"Орехи"},
+  {n:"Арахис",k:567,p:26,f:49,c:16,cat:"Орехи"},
+  {n:"Арахисовая паста",k:588,p:25,f:50,c:20,cat:"Орехи"},
+  {n:"Тыквенные семечки",k:559,p:24,f:46,c:13,cat:"Орехи"},
+  {n:"Семена подсолнечника",k:584,p:21,f:51,c:20,cat:"Орехи"},
+  {n:"Семена чиа",k:486,p:17,f:31,c:42,cat:"Орехи"},
+  {n:"Семена льна",k:534,p:18,f:42,c:29,cat:"Орехи"},
+  {n:"Кедровые орехи",k:673,p:14,f:68,c:13,cat:"Орехи"},
+  {n:"Бразильский орех",k:656,p:14,f:67,c:12,cat:"Орехи"},
+
+  // Напитки (КБЖУ на 100 мл/г)
+  {n:"Чай зелёный (без сахара)",k:1,p:0,f:0,c:0,cat:"Напитки"},
+  {n:"Чай чёрный (без сахара)",k:1,p:0,f:0,c:0,cat:"Напитки"},
+  {n:"Кофе чёрный (без сахара)",k:2,p:0.3,f:0,c:0,cat:"Напитки"},
+  {n:"Кофе с молоком (латте)",k:56,p:3,f:3,c:5,cat:"Напитки"},
+  {n:"Капучино",k:46,p:2.7,f:2.7,c:4,cat:"Напитки"},
+  {n:"Какао на молоке",k:88,p:3.5,f:3.5,c:10,cat:"Напитки"},
+  {n:"Компот (без сахара)",k:25,p:0.2,f:0,c:6,cat:"Напитки"},
+  {n:"Морс клюквенный",k:41,p:0,f:0,c:10,cat:"Напитки"},
+  {n:"Сок апельсиновый",k:45,p:0.7,f:0.2,c:10,cat:"Напитки"},
+  {n:"Сок яблочный",k:46,p:0.5,f:0.1,c:11,cat:"Напитки"},
+  {n:"Минеральная вода",k:0,p:0,f:0,c:0,cat:"Напитки"},
+  {n:"Квас",k:27,p:0.2,f:0,c:6,cat:"Напитки"},
+  {n:"Кефир 2.5% (напиток)",k:53,p:2.9,f:2.5,c:4,cat:"Напитки"},
+  {n:"Ряженка 4%",k:67,p:2.8,f:4,c:4.7,cat:"Напитки"},
+  {n:"Пиво светлое",k:43,p:0.5,f:0,c:3.6,cat:"Напитки"},
+  {n:"Вино красное сухое",k:65,p:0.2,f:0,c:0.3,cat:"Напитки"}
 ];
-const FOOD_CATS = ["Белки","Гарниры","Овощи","Фрукты","Хлеб","Жиры","Прочее"];
+const FOOD_CATS = ["Белки","Гарниры","Овощи","Фрукты","Хлеб","Жиры","Орехи","Напитки","Прочее"];
 
 /* ---------- Расчёт норм по Миффлину-Сан Жеору ---------- */
 const ACTIVITY = [
@@ -392,6 +431,53 @@ function round1(n){return Math.round(n*10)/10}
 function initials(name){return (name||"?").split(/\s+/).map(w=>w[0]).slice(0,2).join("").toUpperCase()}
 function clamp(v,a,b){return Math.max(a,Math.min(b,v))}
 async function fileToDataUrl(file){return new Promise((res,rej)=>{const r=new FileReader();r.onload=()=>res(r.result);r.onerror=rej;r.readAsDataURL(file)})}
+/* Загрузка фото в Supabase Storage (bucket chat-photos).
+   Сжимает до max 1000px / JPEG 0.7 — чтобы не тратить место и трафик.
+   Возвращает публичный URL. Если Storage недоступен (нет bucket/policy
+   или нет сети) — fallback на base64 (работает офлайн, но распухает kv). */
+async function uploadPhoto(file){
+  // 1. Сжимаем через canvas
+  const compressed = await compressImage(file, 1000, 0.7);
+  const blob = compressed.blob;
+  const ext = compressed.ext;
+  const sb = await ensureSupabase();
+  if(sb){
+    try{
+      const path = `${Date.now()}-${Math.random().toString(36).slice(2,8)}.${ext}`;
+      const { error } = await sb.storage.from("chat-photos").upload(path, blob, {contentType: blob.type, upsert:false});
+      if(!error){
+        return sb.storage.from("chat-photos").getPublicUrl(path).data.publicUrl;
+      }
+      console.warn("storage upload failed, fallback to base64", error);
+    }catch(e){ console.warn("uploadPhoto storage error", e) }
+  }
+  // fallback: base64 (распухает kv, но работает без Storage)
+  return await fileToDataUrl(blob);
+}
+/* Сжатие изображения через canvas. Возвращает {blob, ext}. */
+async function compressImage(file, maxDim, quality){
+  return new Promise((resolve)=>{
+    const img = new Image();
+    const url = URL.createObjectURL(file);
+    img.onload = ()=>{
+      let {width, height} = img;
+      if(width > maxDim || height > maxDim){
+        const scale = maxDim / Math.max(width, height);
+        width = Math.round(width*scale); height = Math.round(height*scale);
+      }
+      const canvas = document.createElement("canvas");
+      canvas.width = width; canvas.height = height;
+      const ctx = canvas.getContext("2d");
+      ctx.drawImage(img, 0, 0, width, height);
+      canvas.toBlob((blob)=>{
+        URL.revokeObjectURL(url);
+        resolve({blob: blob||file, ext: "jpg"});
+      }, "image/jpeg", quality);
+    };
+    img.onerror = ()=>{ URL.revokeObjectURL(url); resolve({blob: file, ext: file.name.split(".").pop()||"jpg"}) };
+    img.src = url;
+  });
+}
 function toast(msg){const t=document.createElement("div");t.className="toast";t.textContent=msg;document.body.appendChild(t);setTimeout(()=>t.remove(),2200)}
 
 /* ---------- IndexedDB слой ---------- */
@@ -799,10 +885,11 @@ async function renderDoctorHome(a){
       ${clients.length===0?`<div class="empty"><span class="ico">👥</span>Пока нет клиентов.<br>Нажмите «+» чтобы пригласить первого.</div>`:
         clients.map(c=>clientListItem(c)).join("")}
     </div>
-    <button class="btn btn-primary" style="position:fixed;bottom:max(20px,env(safe-area-inset-bottom));right:max(16px,calc(50% - 240px));width:auto;padding:14px 18px;border-radius:30px;box-shadow:var(--shadow-lg);z-index:25" id="b_add">＋ Пригласить клиента</button>
+    ${doctorFab()}
+    ${doctorBottomNav("clients")}
   `;
   $$(".list-item",a).forEach(el=>{ el.onclick = ()=>navigate("doctor_client",{cid:el.dataset.cid}) });
-  $("#b_add",a).onclick = ()=>openInviteModal();
+  $("#fab_invite",a).onclick = ()=>openInviteModal();
 }
 
 function clientListItem(c){
@@ -965,7 +1052,7 @@ async function doctorChat(c, msgs){
   for(const m of msgs){
     html += msgHtml(m, c);
   }
-  html += `</div><div class="chat-input"><textarea id="ci" placeholder="Сообщение клиенту..." rows="1"></textarea><button id="cs">➤</button></div></div>`;
+  html += `</div><div class="chat-input"><textarea id="ci" placeholder="Сообщение клиенту..." rows="1"></textarea><button id="cp">📷</button><button id="cs">➤</button></div></div>`;
   return html;
 }
 function msgHtml(m, c){
@@ -1045,6 +1132,23 @@ function bindChat(c, msgs, body){
   cs.onclick = send;
   ci.onkeydown = e=>{ if(e.key==="Enter"&&!e.shiftKey){ e.preventDefault(); send() } };
   ci.oninput = ()=>{ ci.style.height="auto"; ci.style.height=ci.scrollHeight+"px" };
+  // отправка фото (в Storage, fallback на base64)
+  const cp = $("#cp",body);
+  if(cp){
+    cp.onclick = ()=>{
+      const inp = document.createElement("input"); inp.type="file"; inp.accept="image/*"; inp.capture="environment";
+      inp.onchange = async ()=>{
+        const f = inp.files[0]; if(!f) return;
+        toast("Загружаем фото...");
+        const url = await uploadPhoto(f);
+        const m = {id:uid(), from:"doctor", photo:url, text:"", time:Date.now()};
+        msgs.push(m); await Store.setMessages(c.id, msgs);
+        if(await ensureSupabase()) sbUpsert("messages:"+c.id, msgs);
+        cm.insertAdjacentHTML("beforeend", msgHtml(m,c)); scroll();
+      };
+      inp.click();
+    };
+  }
   // realtime: когда клиент пишет — перерисовываем
   subscribeMessages(c.id, (newArr)=>{
     // сколько сообщений было до — определяем новые
@@ -1241,6 +1345,7 @@ async function renderClientHome(a){
       <div class="section-title">Меню от врача на сегодня</div>
       ${(await clientMenuToday(c)).html}
     </div>
+    ${clientFab()}
     ${clientBottomNav("home")}
   `;
 }
@@ -1273,9 +1378,27 @@ function clientBottomNav(active){
       <button class="${active==="home"?"active":""}" onclick="navigate('client_home')"><span class="ico">🏠</span>Главная</button>
       <button class="${active==="diary"?"active":""}" onclick="navigate('client_diary')"><span class="ico">🍽</span>Дневник</button>
       <button class="${active==="menu"?"active":""}" onclick="navigate('client_menu')"><span class="ico">📋</span>Меню</button>
-      <button class="${active==="weight"?"active":""}" onclick="navigate('client_weight')"><span class="ico">⚖</span>Вес</button>
       <button class="${active==="chat"?"active":""}" onclick="navigate('client_chat')"><span class="ico">💬</span>Чат</button>
+      <button class="${active==="profile"?"active":""}" onclick="navigate('client_profile')"><span class="ico">👤</span>Профиль</button>
     </div>`;
+}
+/* FAB «+ еду» — плавающая кнопка быстрого добавления в дневник.
+   Показывается на главных экранах клиента (не на diary, там уже форма). */
+function clientFab(){
+  return `<button class="fab" onclick="navigate('client_diary')" title="Добавить еду"><span>＋</span></button>`;
+}
+/* Навигация врача (нижняя панель) — показывается на главном экране и настройках.
+   Внутри карточки клиента остаются pill-вкладки Обзор/Меню/Чат. */
+function doctorBottomNav(active){
+  return `
+    <div class="bottomnav">
+      <button class="${active==="clients"?"active":""}" onclick="navigate('doctor_home')"><span class="ico">👥</span>Клиенты</button>
+      <button class="${active==="settings"?"active":""}" onclick="navigate('settings')"><span class="ico">⚙</span>Настройки</button>
+    </div>`;
+}
+/* FAB врача — пригласить клиента. Показывается только на главном экране. */
+function doctorFab(){
+  return `<button class="fab" id="fab_invite" title="Пригласить клиента"><span>＋</span></button>`;
 }
 
 /* ---------- Дневник питания (клиент) ---------- */
@@ -1431,6 +1554,7 @@ async function renderClientChat(a){
         <button id="cs">➤</button>
       </div>
     </div>
+    ${clientBottomNav("chat")}
   `;
   const cm = $("#cm",a); cm.scrollTop = cm.scrollHeight;
   const ci = $("#ci",a);
@@ -1448,12 +1572,12 @@ async function renderClientChat(a){
     const inp = document.createElement("input"); inp.type="file"; inp.accept="image/*"; inp.capture="environment";
     inp.onchange = async ()=>{
       const f = inp.files[0]; if(!f) return;
-      if(f.size>1500000){ toast("Фото слишком большое (макс 1.5 МБ)"); return }
-      const url = await fileToDataUrl(f);
+      toast("Загружаем фото...");
+      const url = await uploadPhoto(f);
       const m = {id:uid(), from:"client", photo:url, text:"", time:Date.now(), read:false};
       msgs.push(m); await Store.setMessages(c.id, msgs);
       if(await ensureSupabase()) sbUpsert("messages:"+c.id, msgs);
-      cm.insertAdjacentHTML("beforeend", msgHtml(m,c)); cm.scrollTop=cm.scrollHeight;
+      cm.insertAdjacentHTML("beforeend", msgHtml(m,c)); cm.scrollTop = cm.scrollHeight;
     };
     inp.click();
   };
@@ -1486,6 +1610,7 @@ async function renderClientProfile(a){
           <div class="avatar" style="width:54px;height:54px;font-size:20px">${initials(c.name)}</div>
           <div><div style="font-weight:600;font-size:17px">${esc(c.name)}</div><div class="small muted">${c.age?c.age+" лет, ":""}${c.sex==="m"?"муж.":"жен."}</div></div>
         </div>
+        <button class="btn btn-outline btn-sm mt8" style="width:100%" onclick="navigate('client_weight')">⚖ Контроль веса и динамика</button>
       </div>
       <div class="section-title">Мои нормы</div>
       <div class="card">
@@ -1505,14 +1630,18 @@ async function renderClientProfile(a){
       </div>
       <div class="section-title">Установка приложения</div>
       <div class="card">
-        <p class="small muted mb8">Чтобы открыть приложение одним касанием, добавьте его на главный экран:</p>
-        <p class="small"><b>iPhone (Safari):</b> кнопка «Поделиться» → «На экран Домой».</p>
-        <p class="small"><b>Android (Chrome):</b> меню ⋮ → «Установить приложение» / «Добавить на главный экран».</p>
+        <p class="small muted mb8">Установите «Рацион» на телефон — иконка на главном экране, работает офлайн, открывается как нативное приложение.</p>
+        <a class="btn btn-primary btn-sm mt8" href="./install.html" style="display:block;text-align:center;text-decoration:none">📲 Открыть страницу установки (QR-код)</a>
+        <div class="divider mt8"></div>
+        <p class="small"><b>iPhone (Safari):</b> «Поделиться» → «На экран Домой».</p>
+        <p class="small"><b>Android (Chrome):</b> меню ⋮ → «Установить приложение».</p>
+        <p class="small muted">Или отсканируйте QR-код со второго телефона — на странице установки.</p>
       </div>
       <div class="section-title">Сброс</div>
       <button class="btn btn-danger" id="b_reset">Выйти и стереть данные на устройстве</button>
       <p class="hint center mt8">Внимание: это удалит вашу анкету и дневник с этого телефона. Облачные данные врача не затронет.</p>
     </div>
+    ${clientBottomNav("profile")}
   `;
   $("#b_reset",a).onclick = async ()=>{
     if(!confirm("Точно стереть все данные с этого устройства?")) return;
@@ -1524,7 +1653,7 @@ async function renderClientProfile(a){
       }
     }
     state.user=null;
-    navigate("setup");
+    navigate("login");
   };
 }
 
@@ -1559,6 +1688,7 @@ async function renderSettings(a){
       <div class="section-title">О приложении</div>
       <div class="card"><p class="small muted">Рацион v1.0 — приложение для ведения клиентов нутрициологом. Данные хранятся локально и (опционально) в вашем Supabase.</p></div>
     </div>
+    ${doctorBottomNav("settings")}
   `;
   $("#s_save",a).onclick = async ()=>{
     const url=$("#s_url",a).value.trim(), key=$("#s_key",a).value.trim();
