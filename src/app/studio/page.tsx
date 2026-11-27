@@ -95,6 +95,10 @@ const MS_APK_URL =
 const KL_WEB_URL = "/kate-leopard/";
 const KL_REPO_URL = "https://github.com/Raidopert/KAteLeoPard";
 
+/** Рацион — кабинет нутрициолога (веб-версия в public/nutricia/) */
+const NT_WEB_URL = "/nutricia/";
+const NT_REPO_URL = "https://github.com/Raidopert/Nutricia-";
+
 /** Пресс-кит: файлы лежат в public/studio/presskit/ */
 const PRESSKIT_DIR = "/studio/presskit";
 
@@ -630,6 +634,59 @@ export default function StudioPage() {
                   <a
                     href={KL_REPO_URL}
                     className="inline-flex items-center gap-2 rounded-xl border border-[#FF8FBF]/60 hover:bg-[#FF8FBF]/10 px-4 py-2.5 font-bold transition-colors"
+                  >
+                    <Github className="size-4" aria-hidden />
+                    Исходники
+                  </a>
+                </div>
+              </div>
+            </article>
+
+            {/* РАЦИОН — кабинет нутрициолога (веб-версия в public/nutricia/) */}
+            <article className="rps-panel rounded-2xl overflow-hidden flex flex-col">
+              <Image
+                src="/nutricia/icons/icon-512.png"
+                alt="Рацион: голубая иконка с вилкой и ложкой — приложение кабинета нутрициолога"
+                width={512}
+                height={512}
+                className="w-full h-auto"
+              />
+              <div className="p-5 sm:p-6 flex flex-col gap-3 flex-1">
+                <h3 className="text-xl sm:text-2xl font-bold text-[#0EA5E9]" style={pixel}>
+                  РАЦИОН
+                </h3>
+                <p className="text-sm font-bold text-[#F2E3CF]/90">
+                  Кабинет нутрициолога 🍽️ · v1.0.0
+                </p>
+                <p className="text-[#F2E3CF]/85">
+                  Приложение для врача-нутрициолога и его клиентов: дневник
+                  питания с базой из 120+ продуктов, расчёт калорий и БЖУ по
+                  формуле Миффлина-Сан Жеора, меню от врача на день или неделю,
+                  контроль веса с графиком динамики и чат с поддержкой фото
+                  блюд. Врач видит всех своих клиентов с любого устройства,
+                  realtime-обновления сообщений. Данные — на телефоне,
+                  синхронизация через Supabase по желанию.
+                </p>
+                <div className="flex flex-wrap gap-2 text-xs">
+                  {["PWA · офлайн", "Без регистрации", "Дневник + меню + чат", "Realtime-синхронизация"].map(
+                    (t) => (
+                      <span key={t} className="rounded-full bg-[#0c1e2a] border border-[#0EA5E9]/30 px-2.5 py-1">
+                        {t}
+                      </span>
+                    )
+                  )}
+                </div>
+                <div className="flex flex-wrap gap-3 mt-auto pt-2 items-center">
+                  <a
+                    href={NT_WEB_URL}
+                    className="inline-flex items-center gap-2 rounded-xl bg-[#0EA5E9] hover:bg-[#0284C7] px-4 py-2.5 font-bold transition-colors text-white"
+                  >
+                    <Heart className="size-4" aria-hidden />
+                    Открыть приложение
+                  </a>
+                  <a
+                    href={NT_REPO_URL}
+                    className="inline-flex items-center gap-2 rounded-xl border border-[#0EA5E9]/60 hover:bg-[#0EA5E9]/10 px-4 py-2.5 font-bold transition-colors"
                   >
                     <Github className="size-4" aria-hidden />
                     Исходники
