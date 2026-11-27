@@ -1,0 +1,1625 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover">
+<meta name="theme-color" content="#0EA5E9">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="default">
+<meta name="apple-mobile-web-app-title" content="Рацион">
+<meta name="description" content="Личный кабинет клиента нутрициолога: дневник питания, меню, вес, чат с врачом">
+<title>Рацион — кабинет нутрициолога</title>
+<link rel="manifest" href="./manifest.json">
+<link rel="apple-touch-icon" href="./icons/apple-touch-icon.png">
+<link rel="icon" type="image/png" sizes="192x192" href="./icons/icon-192.png">
+<link rel="icon" type="image/png" sizes="512x512" href="./icons/icon-512.png">
+<link rel="icon" type="image/x-icon" href="./icons/favicon.ico">
+<style>
+:root{
+  --primary:#0EA5E9; --primary-dark:#0284C7; --primary-light:#E0F2FE; --primary-lighter:#F0F9FF;
+  --bg:#F8FAFC; --card:#FFFFFF; --text:#0F172A; --muted:#64748B; --border:#E2E8F0;
+  --success:#10B981; --warning:#F59E0B; --danger:#EF4444;
+  --radius:16px; --radius-sm:10px;
+  --shadow:0 1px 3px rgba(15,23,42,.06),0 1px 2px rgba(15,23,42,.04);
+  --shadow-lg:0 10px 30px rgba(14,165,233,.12);
+}
+*{box-sizing:border-box;-webkit-tap-highlight-color:transparent}
+html,body{margin:0;padding:0}
+body{
+  font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,"Helvetica Neue",Arial,sans-serif;
+  background:var(--bg); color:var(--text); font-size:16px; line-height:1.5;
+  -webkit-font-smoothing:antialiased; padding-bottom:env(safe-area-inset-bottom);
+}
+h1,h2,h3,h4{margin:0 0 .4em; font-weight:600; line-height:1.25}
+p{margin:0 0 .6em}
+button{font-family:inherit; cursor:pointer; border:none; background:none}
+input,select,textarea{font-family:inherit; font-size:16px; color:var(--text)}
+a{color:var(--primary-dark)}
+.app{max-width:480px; margin:0 auto; min-height:100vh; min-height:100dvh; background:var(--bg); position:relative}
+
+/* Buttons */
+.btn{display:inline-flex; align-items:center; justify-content:center; gap:8px; padding:13px 18px;
+  border-radius:var(--radius-sm); font-size:15px; font-weight:600; transition:.15s; width:100%}
+.btn-primary{background:var(--primary); color:#fff}
+.btn-primary:active{background:var(--primary-dark)}
+.btn-ghost{background:var(--primary-light); color:var(--primary-dark)}
+.btn-ghost:active{background:var(--primary)}
+.btn-outline{background:#fff; color:var(--text); border:1.5px solid var(--border)}
+.btn-outline:active{border-color:var(--primary)}
+.btn-danger{background:#FEF2F2; color:var(--danger)}
+.btn-sm{padding:8px 12px; font-size:13px; width:auto; border-radius:8px}
+.btn-icon{width:40px;height:40px;padding:0;border-radius:10px;display:inline-flex;align-items:center;justify-content:center}
+.btn:disabled{opacity:.5; cursor:not-allowed}
+
+/* Inputs */
+.field{margin-bottom:14px}
+.field label{display:block; font-size:13px; color:var(--muted); margin-bottom:6px; font-weight:500}
+.field input,.field select,.field textarea{
+  width:100%; padding:12px 14px; border:1.5px solid var(--border); border-radius:var(--radius-sm);
+  background:#fff; transition:.15s
+}
+.field input:focus,.field select:focus,.field textarea:focus{outline:none; border-color:var(--primary); box-shadow:0 0 0 3px var(--primary-light)}
+.field textarea{resize:vertical; min-height:80px}
+.field-row{display:flex; gap:10px}
+.field-row>*{flex:1}
+
+/* Cards */
+.card{background:var(--card); border-radius:var(--radius); padding:18px; box-shadow:var(--shadow); margin-bottom:14px}
+.card-tight{padding:14px}
+
+/* Top bar */
+.topbar{position:sticky; top:0; z-index:20; background:rgba(255,255,255,.92); backdrop-filter:blur(10px);
+  border-bottom:1px solid var(--border); padding:14px 16px; display:flex; align-items:center; gap:12px;
+  padding-top:max(14px,env(safe-area-inset-top))}
+.topbar h1{font-size:18px; margin:0; flex:1}
+.topbar .logo{width:34px;height:34px;border-radius:9px;background:var(--primary);display:flex;align-items:center;justify-content:center;color:#fff;font-weight:700;font-size:16px}
+
+/* Screens */
+.screen{padding:16px 16px 100px}
+.screen-full{padding:0 0 100px}
+.center-screen{min-height:100vh; min-height:100dvh; display:flex; flex-direction:column; align-items:center; justify-content:center; padding:32px 24px; text-align:center}
+.center-screen .logo-big{width:80px;height:80px;border-radius:20px;background:linear-gradient(135deg,var(--primary),var(--primary-dark));display:flex;align-items:center;justify-content:center;color:#fff;font-weight:700;font-size:34px;margin-bottom:20px;box-shadow:var(--shadow-lg)}
+
+/* Bottom nav */
+.bottomnav{position:fixed; bottom:0; left:50%; transform:translateX(-50%); width:100%; max-width:480px;
+  background:rgba(255,255,255,.95); backdrop-filter:blur(10px); border-top:1px solid var(--border);
+  display:flex; padding:6px 4px; padding-bottom:max(6px,env(safe-area-inset-bottom)); z-index:30}
+.bottomnav button{flex:1; display:flex; flex-direction:column; align-items:center; gap:2px; padding:8px 2px;
+  color:var(--muted); font-size:10px; font-weight:500; border-radius:10px}
+.bottomnav button.active{color:var(--primary)}
+.bottomnav button .ico{font-size:20px; line-height:1}
+
+/* Stat / progress */
+.stat-grid{display:grid; grid-template-columns:repeat(2,1fr); gap:10px; margin-bottom:14px}
+.stat{background:#fff; border-radius:var(--radius-sm); padding:14px; text-align:center; box-shadow:var(--shadow)}
+.stat .val{font-size:22px; font-weight:700; color:var(--text)}
+.stat .lbl{font-size:11px; color:var(--muted); margin-top:2px}
+.stat.p .val{color:var(--primary-dark)}
+.stat.f .val{color:#F59E0B}
+.stat.c .val{color:#10B981}
+.stat.k .val{color:#0F172A}
+
+.ring-wrap{display:flex; align-items:center; gap:18px}
+.ring{position:relative; width:110px; height:110px; flex-shrink:0}
+.ring svg{transform:rotate(-90deg)}
+.ring .ring-val{position:absolute; inset:0; display:flex; flex-direction:column; align-items:center; justify-content:center}
+.ring .ring-val .num{font-size:24px; font-weight:700}
+.ring .ring-val .unit{font-size:11px; color:var(--muted)}
+
+.bar{height:8px; background:var(--border); border-radius:4px; overflow:hidden; margin:6px 0}
+.bar>div{height:100%; border-radius:4px; transition:width .4s}
+.bar.p>div{background:var(--primary)}
+.bar.f>div{background:#F59E0B}
+.bar.c>div{background:#10B981}
+
+.macro-row{display:flex; align-items:center; gap:10px; margin-bottom:10px}
+.macro-row .dot{width:10px;height:10px;border-radius:50%;flex-shrink:0}
+.macro-row .name{font-size:13px; width:60px; color:var(--muted)}
+.macro-row .vals{flex:1; font-size:13px}
+.macro-row .vals b{font-weight:600}
+
+/* Meal list */
+.meal-block{background:#fff; border-radius:var(--radius); padding:14px; margin-bottom:12px; box-shadow:var(--shadow)}
+.meal-block .meal-head{display:flex; align-items:center; justify-content:space-between; margin-bottom:10px}
+.meal-block .meal-head h3{font-size:15px; margin:0}
+.meal-block .meal-head .kcal{font-size:13px; color:var(--muted); font-weight:500}
+.food-item{display:flex; align-items:center; justify-content:space-between; padding:8px 0; border-bottom:1px solid var(--border); font-size:14px}
+.food-item:last-child{border-bottom:none}
+.food-item .fi-name{flex:1}
+.food-item .fi-qty{color:var(--muted); font-size:12px; margin-right:10px}
+.food-item .fi-kcal{font-weight:600; font-size:13px; width:60px; text-align:right}
+.food-item .fi-del{color:var(--danger); padding:4px 8px; font-size:18px; margin-left:6px}
+
+.empty{text-align:center; padding:24px 12px; color:var(--muted); font-size:14px}
+.empty .ico{font-size:36px; display:block; margin-bottom:8px; opacity:.5}
+
+/* List items */
+.list-item{display:flex; align-items:center; gap:12px; padding:14px; background:#fff; border-radius:var(--radius); margin-bottom:10px; box-shadow:var(--shadow); cursor:pointer}
+.list-item:active{background:var(--primary-lighter)}
+.list-item .avatar{width:44px;height:44px;border-radius:50%;background:var(--primary-light);color:var(--primary-dark);display:flex;align-items:center;justify-content:center;font-weight:600;font-size:16px;flex-shrink:0}
+.list-item .li-body{flex:1; min-width:0}
+.list-item .li-title{font-weight:600; font-size:15px}
+.list-item .li-sub{font-size:13px; color:var(--muted); white-space:nowrap; overflow:hidden; text-overflow:ellipsis}
+.list-item .li-meta{font-size:11px; color:var(--muted); text-align:right; flex-shrink:0}
+
+/* Chips */
+.chips{display:flex; gap:8px; overflow-x:auto; padding:4px 0 8px; -webkit-overflow-scrolling:touch}
+.chips::-webkit-scrollbar{display:none}
+.chip{padding:7px 14px; border-radius:20px; background:#fff; border:1.5px solid var(--border); font-size:13px; white-space:nowrap; color:var(--muted)}
+.chip.active{background:var(--primary); border-color:var(--primary); color:#fff}
+
+/* Tabs */
+.tabs{display:flex; background:var(--primary-light); border-radius:var(--radius-sm); padding:4px; margin-bottom:14px}
+.tabs button{flex:1; padding:9px; border-radius:8px; font-size:13px; font-weight:600; color:var(--muted)}
+.tabs button.active{background:#fff; color:var(--primary-dark); box-shadow:var(--shadow)}
+
+/* Modal */
+.modal-backdrop{position:fixed; inset:0; background:rgba(15,23,42,.5); z-index:50; display:flex; align-items:flex-end; justify-content:center}
+.modal{background:#fff; width:100%; max-width:480px; border-radius:24px 24px 0 0; padding:20px 16px max(20px,env(safe-area-inset-bottom)); max-height:92vh; overflow-y:auto; animation:slideUp .25s}
+@keyframes slideUp{from{transform:translateY(100%)}to{transform:translateY(0)}}
+.modal h2{font-size:18px; margin-bottom:14px}
+.modal-handle{width:40px;height:4px;background:var(--border);border-radius:2px;margin:0 auto 14px}
+
+/* Chat */
+.chat-wrap{display:flex; flex-direction:column; height:calc(100vh - 130px); height:calc(100dvh - 130px)}
+.chat-msgs{flex:1; overflow-y:auto; padding:14px 16px; -webkit-overflow-scrolling:touch}
+.msg{max-width:78%; margin-bottom:10px; padding:10px 14px; border-radius:16px; font-size:14px; word-wrap:break-word}
+.msg.them{background:#fff; border-bottom-left-radius:4px; align-self:flex-start; box-shadow:var(--shadow)}
+.msg.me{background:var(--primary); color:#fff; border-bottom-right-radius:4px; align-self:flex-end; margin-left:auto}
+.msg .time{font-size:10px; opacity:.7; margin-top:4px; display:block}
+.msg img{max-width:100%; border-radius:10px; margin-top:6px; display:block}
+.chat-input{display:flex; gap:8px; padding:10px 12px max(10px,env(safe-area-inset-bottom)); background:#fff; border-top:1px solid var(--border); align-items:flex-end}
+.chat-input textarea{flex:1; padding:10px 12px; border:1.5px solid var(--border); border-radius:18px; min-height:42px; max-height:100px; resize:none}
+.chat-input button{width:42px;height:42px;border-radius:50%;background:var(--primary);color:#fff;font-size:18px;flex-shrink:0;display:flex;align-items:center;justify-content:center}
+
+/* Chart */
+.chart-wrap{background:#fff; border-radius:var(--radius); padding:16px; box-shadow:var(--shadow)}
+.chart-svg{width:100%; height:180px}
+
+/* Misc */
+.section-title{font-size:13px; color:var(--muted); text-transform:uppercase; letter-spacing:.5px; margin:18px 0 8px; font-weight:600; padding:0 2px}
+.badge{display:inline-block; padding:3px 9px; border-radius:20px; font-size:11px; font-weight:600}
+.badge-ok{background:#D1FAE5; color:#065F46}
+.badge-warn{background:#FEF3C7; color:#92400E}
+.badge-info{background:var(--primary-light); color:var(--primary-dark)}
+.divider{height:1px; background:var(--border); margin:14px 0}
+.kv{display:flex; justify-content:space-between; padding:8px 0; border-bottom:1px solid var(--border); font-size:14px}
+.kv:last-child{border-bottom:none}
+.kv .k{color:var(--muted)}
+.kv .v{font-weight:600}
+.hint{font-size:12px; color:var(--muted); margin-top:6px}
+.spin{display:inline-block;width:18px;height:18px;border:2px solid var(--primary-light);border-top-color:var(--primary);border-radius:50%;animation:rot .8s linear infinite}
+@keyframes rot{to{transform:rotate(360deg)}}
+.toast{position:fixed; bottom:90px; left:50%; transform:translateX(-50%); background:#0F172A; color:#fff; padding:10px 18px; border-radius:20px; font-size:13px; z-index:100; animation:fadeIn .2s}
+@keyframes fadeIn{from{opacity:0;transform:translate(-50%,10px)}to{opacity:1;transform:translate(-50%,0)}}
+.hidden{display:none!important}
+.right{float:right}
+.muted{color:var(--muted)}
+.small{font-size:13px}
+.center{text-align:center}
+.mt8{margin-top:8px}.mt16{margin-top:16px}.mb8{margin-bottom:8px}
+.flex{display:flex}.gap8{gap:8px}.aic{align-items:center}.jcb{justify-content:space-between}
+.photo-thumb{width:64px;height:64px;border-radius:10px;object-fit:cover;margin-right:8px}
+</style>
+</head>
+<body>
+<div class="app" id="app"></div>
+
+<script>
+/* ============================================================
+   РАЦИОН — приложение для нутрициолога и клиентов
+   Один файл: данные локально (IndexedDB) + опц. синхр. Supabase
+   ============================================================ */
+
+/* ---------- База продуктов (КБЖУ на 100 г) ---------- */
+const FOOD_DB = [
+  // Белковые
+  {n:"Куриная грудка (отварная)",k:165,p:31,f:3.6,c:0,cat:"Белки"},
+  {n:"Куриное филе (жареное)",k:197,p:30,f:7.8,c:0,cat:"Белки"},
+  {n:"Курица (бедро, без кожи)",k:209,p:26,f:11,c:0,cat:"Белки"},
+  {n:"Индейка (грудка)",k:135,p:30,f:1,c:0,cat:"Белки"},
+  {n:"Говядина (постная)",k:187,p:26,f:8.5,c:0,cat:"Белки"},
+  {n:"Говядина (тушёная)",k:232,p:26,f:14,c:0,cat:"Белки"},
+  {n:"Свинина (постная)",k:242,p:27,f:14,c:0,cat:"Белки"},
+  {n:"Телятина",k:131,p:24,f:2.5,c:0,cat:"Белки"},
+  {n:"Яйцо куриное (целое)",k:155,p:13,f:11,c:1.1,cat:"Белки"},
+  {n:"Яичный белок",k:52,p:11,f:0.2,c:0.7,cat:"Белки"},
+  {n:"Яичница (из 1 яйца)",k:196,p:14,f:15,c:1,cat:"Белки"},
+  {n:"Творог 5%",k:121,p:17,f:5,c:1.8,cat:"Белки"},
+  {n:"Творог 9%",k:159,p:16.7,f:9,c:2,cat:"Белки"},
+  {n:"Творог 0% (обезжиренный)",k:71,p:16,f:0.6,c:1.8,cat:"Белки"},
+  {n:"Греческий йогурт 2%",k:73,p:10,f:2,c:3.5,cat:"Белки"},
+  {n:"Йогурт натуральный 3.2%",k:81,p:5,f:3.2,c:6,cat:"Белки"},
+  {n:"Кефир 2.5%",k:53,p:2.9,f:2.5,c:4,cat:"Белки"},
+  {n:"Молоко 2.5%",k:52,p:2.9,f:2.5,c:4.7,cat:"Белки"},
+  {n:"Молоко 3.2%",k:60,p:2.9,f:3.2,c:4.7,cat:"Белки"},
+  {n:"Сыр твёрдый (Российский)",k:361,p:23,f:30,c:0,cat:"Белки"},
+  {n:"Сыр Моцарелла",k:280,p:28,f:20,c:3,cat:"Белки"},
+  {n:"Брынза",k:260,p:22,f:20,c:2,cat:"Белки"},
+  {n:"Лосось / сёмга (запечённый)",k:206,p:22,f:13,c:0,cat:"Белки"},
+  {n:"Тунец (консерв., в собств. соку)",k:116,p:26,f:1,c:0,cat:"Белки"},
+  {n:"Горбуша (отварная)",k:168,p:22,f:7,c:0,cat:"Белки"},
+  {n:"Сельдь солёная",k:217,p:20,f:15,c:0,cat:"Белки"},
+  {n:"Треска (запечённая)",k:90,p:17,f:1.3,c:0,cat:"Белки"},
+  {n:"Креветки варёные",k:95,p:20,f:1.7,c:0,cat:"Белки"},
+  {n:"Кальмар варёный",k:92,p:18,f:1.4,c:2.2,cat:"Белки"},
+  {n:"Фасоль красная (варёная)",k:127,p:8.7,f:0.5,c:22,cat:"Белки"},
+  {n:"Чечевица варёная",k:116,p:9,f:0.4,c:20,cat:"Белки"},
+  {n:"Нут варёный",k:164,p:8.9,f:2.6,c:27,cat:"Белки"},
+  {n:"Тофу",k:76,p:8,f:4.8,c:1.9,cat:"Белки"},
+  {n:"Протеиновый коктейль (порция)",k:120,p:24,f:1.5,c:2,cat:"Белки"},
+
+  // Крупы / гарниры
+  {n:"Гречка варёная",k:110,p:4,f:1.1,c:21,cat:"Гарниры"},
+  {n:"Рис белый варёный",k:130,p:2.7,f:0.3,c:28,cat:"Гарниры"},
+  {n:"Рис бурый варёный",k:123,p:2.7,f:1,c:26,cat:"Гарниры"},
+  {n:"Овсянка на воде",k:88,p:3,f:1.7,c:15,cat:"Гарниры"},
+  {n:"Овсянка на молоке",k:102,p:3.2,f:2.5,c:15,cat:"Гарниры"},
+  {n:"Киноа варёная",k:120,p:4.4,f:1.9,c:21,cat:"Гарниры"},
+  {n:"Булгур варёный",k:83,p:3.1,f:0.2,c:19,cat:"Гарниры"},
+  {n:"Перловка варёная",k:123,p:2.9,f:0.4,c:26,cat:"Гарниры"},
+  {n:"Пшено варёное",k:118,p:3.5,f:1,c:24,cat:"Гарниры"},
+  {n:"Кукуруза варёная",k:96,p:3.4,f:1.3,c:21,cat:"Гарниры"},
+  {n:"Картофель отварной",k:82,p:2,f:0.4,c:17,cat:"Гарниры"},
+  {n:"Картофель запечённый",k:93,p:2,f:0.2,c:21,cat:"Гарниры"},
+  {n:"Картофельное пюре",k:106,p:2,f:3.5,c:14,cat:"Гарниры"},
+  {n:"Картофель фри",k:312,p:3.4,f:15,c:41,cat:"Гарниры"},
+  {n:"Макароны варёные",k:131,p:5,f:1.1,c:25,cat:"Гарниры"},
+  {n:"Макароны из твёрдых сортов",k:114,p:4.5,f:0.7,c:23,cat:"Гарниры"},
+
+  // Овощи
+  {n:"Помидор",k:18,p:0.9,f:0.2,c:3.9,cat:"Овощи"},
+  {n:"Огурец",k:15,p:0.7,f:0.1,c:3.6,cat:"Овощи"},
+  {n:"Перец болгарский",k:31,p:1,f:0.3,c:6,cat:"Овощи"},
+  {n:"Капуста белокочанная",k:28,p:1.8,f:0.1,c:4.7,cat:"Овощи"},
+  {n:"Капуста брокколи",k:34,p:2.8,f:0.4,c:7,cat:"Овощи"},
+  {n:"Цветная капуста",k:25,p:2,f:0.1,c:4.7,cat:"Овощи"},
+  {n:"Морковь (сырая)",k:41,p:1.3,f:0.1,c:10,cat:"Овощи"},
+  {n:"Морковь (тушёная)",k:75,p:1.5,f:5,c:7,cat:"Овощи"},
+  {n:"Лук репчатый",k:41,p:1.4,f:0.2,c:9,cat:"Овощи"},
+  {n:"Зелень (укроп, петрушка)",k:38,p:3,f:0.4,c:6,cat:"Овощи"},
+  {n:"Шпинат",k:23,p:2.9,f:0.4,c:3.6,cat:"Овощи"},
+  {n:"Салат листовой",k:15,p:1.4,f:0.2,c:2,cat:"Овощи"},
+  {n:"Кабачок (тушёный)",k:40,p:1.2,f:2,c:4,cat:"Овощи"},
+  {n:"Баклажан (запечённый)",k:24,p:1,f:0.2,c:5.5,cat:"Овощи"},
+  {n:"Тыква (запечённая)",k:45,p:1.2,f:0.3,c:10,cat:"Овощи"},
+  {n:"Свёкла варёная",k:44,p:1.7,f:0.2,c:10,cat:"Овощи"},
+  {n:"Горошек зелёный",k:81,p:5,f:0.2,c:14,cat:"Овощи"},
+  {n:"Овощной салат (масло)",k:90,p:1.5,f:7,c:5,cat:"Овощи"},
+
+  // Фрукты / ягоды
+  {n:"Яблоко",k:52,p:0.3,f:0.2,c:14,cat:"Фрукты"},
+  {n:"Банан",k:89,p:1.5,f:0.1,c:23,cat:"Фрукты"},
+  {n:"Груша",k:57,p:0.4,f:0.1,c:15,cat:"Фрукты"},
+  {n:"Апельсин",k:47,p:0.9,f:0.1,c:12,cat:"Фрукты"},
+  {n:"Грейпфрут",k:42,p:0.8,f:0.1,c:11,cat:"Фрукты"},
+  {n:"Мандарин",k:53,p:0.8,f:0.3,c:13,cat:"Фрукты"},
+  {n:"Киви",k:61,p:1.1,f:0.5,c:15,cat:"Фрукты"},
+  {n:"Виноград",k:69,p:0.6,f:0.2,c:18,cat:"Фрукты"},
+  {n:"Гранат",k:72,p:1,f:0.3,c:18,cat:"Фрукты"},
+  {n:"Лимон",k:29,p:0.9,f:0.1,c:9,cat:"Фрукты"},
+  {n:"Авокадо",k:160,p:2,f:15,c:9,cat:"Фрукты"},
+  {n:"Клубника",k:32,p:0.7,f:0.3,c:7.7,cat:"Фрукты"},
+  {n:"Черника",k:57,p:0.7,f:0.3,c:14,cat:"Фрукты"},
+  {n:"Малина",k:53,p:1.2,f:0.7,c:12,cat:"Фрукты"},
+  {n:"Смородина чёрная",k:63,p:1,f:0.4,c:15,cat:"Фрукты"},
+
+  // Хлеб / выпечка
+  {n:"Хлеб ржаной",k:250,p:6.6,f:1.2,c:48,cat:"Хлеб"},
+  {n:"Хлеб белый",k:265,p:8,f:2,c:50,cat:"Хлеб"},
+  {n:"Хлеб цельнозерновой",k:247,p:13,f:3.4,c:41,cat:"Хлеб"},
+  {n:"Хлебцы гречневые",k:330,p:12,f:2,c:67,cat:"Хлеб"},
+  {n:"Лаваш тонкий",k:277,p:9,f:1.2,c:56,cat:"Хлеб"},
+  {n:"Батон нарезной",k:264,p:7.5,f:2.9,c:51,cat:"Хлеб"},
+  {n:"Булочка",k:297,p:7,f:5,c:56,cat:"Хлеб"},
+
+  // Орехи / семена / жиры
+  {n:"Грецкий орех",k:654,p:15,f:65,c:14,cat:"Жиры"},
+  {n:"Миндаль",k:579,p:21,f:50,c:22,cat:"Жиры"},
+  {n:"Кешью",k:553,p:18,f:44,c:30,cat:"Жиры"},
+  {n:"Арахис",k:567,p:26,f:49,c:16,cat:"Жиры"},
+  {n:"Семена чиа",k:486,p:17,f:31,c:42,cat:"Жиры"},
+  {n:"Семена льна",k:534,p:18,f:42,c:29,cat:"Жиры"},
+  {n:"Масло оливковое",k:884,p:0,f:100,c:0,cat:"Жиры"},
+  {n:"Масло сливочное",k:717,p:0.9,f:81,c:0.1,cat:"Жиры"},
+  {n:"Масло подсолнечное",k:900,p:0,f:100,c:0,cat:"Жиры"},
+  {n:"Сметана 15%",k:158,p:2.6,f:15,c:2,cat:"Жиры"},
+  {n:"Майонез",k:680,p:1,f:72,c:3,cat:"Жиры"},
+  {n:"Сало",k:797,p:1.4,f:90,c:0,cat:"Жиры"},
+
+  // Сладкое / напитки / прочее
+  {n:"Мёд",k:327,p:0.3,f:0,c:82,cat:"Прочее"},
+  {n:"Сахар",k:387,p:0,f:0,c:99,cat:"Прочее"},
+  {n:"Шоколад горький 70%",k:598,p:7.4,f:43,c:46,cat:"Прочее"},
+  {n:"Шоколад молочный",k:535,p:7.7,f:30,c:59,cat:"Прочее"},
+  {n:"Печенье овсяное",k:430,p:7,f:14,c:71,cat:"Прочее"},
+  {n:"Зефир",k:326,p:0.8,f:0,c:80,cat:"Прочее"},
+  {n:"Мармелад",k:293,p:0,f:0,c:74,cat:"Прочее"},
+  {n:"Мороженое пломбир",k:207,p:3.8,f:11,c:24,cat:"Прочее"},
+  {n:"Варенье клубничное",k:271,p:0.3,f:0,c:70,cat:"Прочее"},
+  {n:"Кофе чёрный",k:2,p:0.2,f:0,c:0.3,cat:"Прочее"},
+  {n:"Чай зелёный",k:1,p:0,f:0,c:0,cat:"Прочее"},
+  {n:"Какао на молоке",k:112,p:3.5,f:3.5,c:16,cat:"Прочее"},
+  {n:"Сок апельсиновый",k:45,p:0.7,f:0.2,c:10,cat:"Прочее"},
+  {n:"Компот",k:60,p:0.2,f:0,c:15,cat:"Прочее"},
+  {n:"Пельмени (варёные)",k:275,p:11,f:12,c:29,cat:"Прочее"},
+  {n:"Винегрет",k:88,p:1.7,f:4.5,c:11,cat:"Прочее"},
+  {n:"Оливье",k:197,p:5.4,f:16,c:7,cat:"Прочее"},
+  {n:"Суп куриный",k:35,p:2,f:1.5,c:3,cat:"Прочее"},
+  {n:"Борщ",k:49,p:1.5,f:2.2,c:6,cat:"Прочее"},
+  {n:"Суп-пюре овощной",k:55,p:1.5,f:2,c:7,cat:"Прочее"}
+];
+const FOOD_CATS = ["Белки","Гарниры","Овощи","Фрукты","Хлеб","Жиры","Прочее"];
+
+/* ---------- Расчёт норм по Миффлину-Сан Жеору ---------- */
+const ACTIVITY = [
+  {v:1.2, t:"Сидячий (офис, нет тренировок)"},
+  {v:1.375, t:"Лёгкая активность (1-3 тр./нед)"},
+  {v:1.55, t:"Средняя (3-5 тр./нед)"},
+  {v:1.725, t:"Высокая (6-7 тр./нед)"},
+  {v:1.9, t:"Очень высокая (физ. труд + тр.)"}
+];
+const GOALS = [
+  {v:"lose", t:"Снижение веса", adj:0.80},
+  {v:"keep", t:"Поддержание", adj:1.0},
+  {v:"gain", t:"Набор массы", adj:1.12}
+];
+function calcNorms({sex,age,weight,height,activity,goal}){
+  if(!sex||!age||!weight||!height) return null;
+  let bmr = 10*weight + 6.25*height - 5*age;
+  bmr += (sex==="m") ? 5 : -161;
+  let tdee = bmr * activity;
+  const g = GOALS.find(g=>g.v===goal) || GOALS[1];
+  let kcal = Math.round(tdee * g.adj);
+  // БЖУ: белок 1.8 г/кг (при похудении 2.0), жиры 1 г/кг, углеводы — остаток
+  let protein = Math.round(weight * (goal==="lose"?2.0:1.8));
+  let fat = Math.round(weight * 1.0);
+  let carb = Math.round((kcal - protein*4 - fat*9)/4);
+  if(carb < 30) carb = 30;
+  return {kcal, protein, fat, carb, bmr:Math.round(bmr), tdee:Math.round(tdee)};
+}
+
+/* ---------- Утилиты ---------- */
+const $ = (s,el=document)=>el.querySelector(s);
+const $$ = (s,el=document)=>[...el.querySelectorAll(s)];
+const todayStr = ()=>new Date().toISOString().slice(0,10);
+function fmtDate(d){const dt=new Date(d);return dt.toLocaleDateString("ru-RU",{day:"numeric",month:"short"})}
+function fmtDateFull(d){const dt=new Date(d);return dt.toLocaleDateString("ru-RU",{weekday:"long",day:"numeric",month:"long"})}
+function weekDay(d){return ["Вс","Пн","Вт","Ср","Чт","Пт","Сб"][new Date(d).getDay()]}
+function uid(){return Date.now().toString(36)+Math.random().toString(36).slice(2,8)}
+function esc(s){return String(s??"").replace(/[&<>"']/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]))}
+function round1(n){return Math.round(n*10)/10}
+function initials(name){return (name||"?").split(/\s+/).map(w=>w[0]).slice(0,2).join("").toUpperCase()}
+function clamp(v,a,b){return Math.max(a,Math.min(b,v))}
+async function fileToDataUrl(file){return new Promise((res,rej)=>{const r=new FileReader();r.onload=()=>res(r.result);r.onerror=rej;r.readAsDataURL(file)})}
+function toast(msg){const t=document.createElement("div");t.className="toast";t.textContent=msg;document.body.appendChild(t);setTimeout(()=>t.remove(),2200)}
+
+/* ---------- IndexedDB слой ---------- */
+const DB_NAME="ration_db", DB_VER=1, STORE="kv";
+let _db=null;
+function idbOpen(){
+  return new Promise((res,rej)=>{
+    const r=indexedDB.open(DB_NAME,DB_VER);
+    r.onupgradeneeded=e=>{const db=e.target.result;if(!db.objectStoreNames.contains(STORE))db.createObjectStore(STORE)};
+    r.onsuccess=()=>res(r.result); r.onerror=()=>rej(r.error);
+  });
+}
+async function idbGet(key){
+  _db=_db||await idbOpen();
+  return new Promise((res,rej)=>{const tx=_db.transaction(STORE,"readonly");const r=tx.objectStore(STORE).get(key);r.onsuccess=()=>res(r.result);r.onerror=()=>rej(r.error)});
+}
+async function idbSet(key,val){
+  _db=_db||await idbOpen();
+  return new Promise((res,rej)=>{const tx=_db.transaction(STORE,"readwrite");tx.objectStore(STORE).put(val,key);tx.oncomplete=()=>res();tx.onerror=()=>rej(tx.error)});
+}
+async function idbKeys(){
+  _db=_db||await idbOpen();
+  return new Promise((res,rej)=>{const tx=_db.transaction(STORE,"readonly");const r=tx.objectStore(STORE).getAllKeys();r.onsuccess=()=>res(r.result);r.onerror=()=>rej(r.error)});
+}
+async function idbDel(key){
+  _db=_db||await idbOpen();
+  return new Promise((res,rej)=>{const tx=_db.transaction(STORE,"readwrite");tx.objectStore(STORE).delete(key);tx.oncomplete=()=>res();tx.onerror=()=>rej(tx.error)});
+}
+
+/* ---------- Глобальное состояние ---------- */
+const state = {
+  role: null,        // "doctor" | "client"
+  user: null,        // текущий профиль (объект)
+  supabase: null,    // {url,key} если настроен
+  sbClient: null,    // supabase-js клиент
+  route: "setup",    // текущий экран
+  sub: {},           // параметры маршрута
+  demo: false,       // demo-режим (без supabase)
+};
+
+/* Ключ сессии: кто сейчас залогинен на этом устройстве.
+   Значение: {role:"doctor"} | {role:"client", cid:"<id>"} */
+const Session = {
+  async get(){ return (await idbGet("session"))||null },
+  async set(s){ s?await idbSet("session",s):await idbDel("session") },
+};
+
+/* ---------- API хранилища: унифицированный доступ к данным ---------- */
+/*
+  Данные хранятся локально в IndexedDB.
+  Ключи:
+    cfg:supabase  -> {url,key}
+    cfg:demo      -> true
+    user:doctor   -> профиль врача
+    user:<id>     -> профиль клиента
+    clients       -> [массив id клиентов, которые врач создал]
+    diary:<cid>:<date> -> [{foodId,name,qty,kcal,p,f,c,meal,photo,time}]
+    weight:<cid>  -> [{date,weight}]
+    menu:<cid>    -> {day: [{meal,items:[{name,qty}],note}]} (7 дней пн..вс) или {date:[...]}
+    menu:meta:<cid> -> {mode:"week"|"day", updatedAt}
+    messages:<cid> -> [{id,from,text,photo,time}]
+    notes:<cid>   -> текст приватных заметок врача
+    custom:<cid>  -> [пользовательские блюда клиента]
+*/
+const Store = {
+  async getCfg(){ return (await idbGet("cfg:supabase"))||null },
+  async setCfg(c){ c?await idbSet("cfg:supabase",c):await idbDel("cfg:supabase") },
+  async isDemo(){ return (await idbGet("cfg:demo"))===true },
+  async setDemo(v){ await idbSet("cfg:demo",v) },
+  async getDoctor(){ return (await idbGet("user:doctor"))||null },
+  async setDoctor(d){ await idbSet("user:doctor",d) },
+  async getClient(id){ return await idbGet("user:"+id) },
+  async setClient(c){ await idbSet("user:"+c.id,c) },
+  async getClientIds(){ return (await idbGet("clients"))||[] },
+  async setClientIds(arr){ await idbSet("clients",arr) },
+  async getDiary(cid,date){ return (await idbGet(`diary:${cid}:${date}`))||[] },
+  async setDiary(cid,date,items){ await idbSet(`diary:${cid}:${date}`,items) },
+  async getWeight(cid){ return (await idbGet(`weight:${cid}`))||[] },
+  async setWeight(cid,arr){ await idbSet(`weight:${cid}`,arr) },
+  async getMenu(cid){ return (await idbGet(`menu:${cid}`))||{} },
+  async setMenu(cid,m){ await idbSet(`menu:${cid}`,m) },
+  async getMenuMeta(cid){ return (await idbGet(`menu:meta:${cid}`))||{mode:"day",updatedAt:null} },
+  async setMenuMeta(cid,m){ await idbSet(`menu:meta:${cid}`,m) },
+  async getMessages(cid){ return (await idbGet(`messages:${cid}`))||[] },
+  async setMessages(cid,arr){ await idbSet(`messages:${cid}`,arr) },
+  async getNotes(cid){ return (await idbGet(`notes:${cid}`))||"" },
+  async setNotes(cid,t){ await idbSet(`notes:${cid}`,t) },
+  async getCustom(cid){ return (await idbGet(`custom:${cid}`))||[] },
+  async setCustom(cid,arr){ await idbSet(`custom:${cid}`,arr) },
+  // перебрать все ключи с префиксом (для синхронизации/экспорта)
+  async keys(prefix){ const all=await idbKeys(); return all.filter(k=>String(k).startsWith(prefix)).map(k=>String(k)) },
+  async exportAll(){
+    const all=await idbKeys(); const out={};
+    for(const k of all){ out[k]=await idbGet(k) }
+    return out;
+  }
+};
+
+/* ---------- Supabase sync (опционально) ---------- */
+let SB_LOADED=false, SB_LIB=null;
+async function loadSupabaseLib(){
+  if(SB_LOADED) return SB_LIB;
+  try{
+    SB_LIB = await import("https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/+esm");
+    SB_LOADED=true; return SB_LIB;
+  }catch(e){ console.warn("Supabase lib load failed",e); return null }
+}
+async function ensureSupabase(){
+  const cfg = await Store.getCfg();
+  if(!cfg || !cfg.url || !cfg.key){ return null }
+  if(state.sbClient) return state.sbClient;
+  const lib = await loadSupabaseLib();
+  if(!lib) return null;
+  try{
+    state.sbClient = lib.createClient(cfg.url, cfg.key, {auth:{persistSession:false}});
+    return state.sbClient;
+  }catch(e){ console.warn(e); return null }
+}
+/* Синхронизация: простая модель — каждое значение пишем в таблицу kv (key,text).
+   SQL для Supabase прилагается в README/setup-экране. */
+async function sbUpsert(key, value){
+  const sb = await ensureSupabase();
+  if(!sb) return false;
+  try{
+    const payload = JSON.stringify(value);
+    await sb.from("kv").upsert({key, value: payload}, {onConflict:"key"});
+    return true;
+  }catch(e){ console.warn("sb upsert fail",key,e); return false }
+}
+async function sbFetch(key){
+  const sb = await ensureSupabase();
+  if(!sb) return undefined;
+  try{
+    const {data,error} = await sb.from("kv").select("value").eq("key",key).maybeSingle();
+    if(error||!data) return undefined;
+    return JSON.parse(data.value);
+  }catch(e){ return undefined }
+}
+async function sbFetchAll(prefix){
+  const sb = await ensureSupabase();
+  if(!sb) return {};
+  try{
+    const {data,error} = await sb.from("kv").select("key,value").like("key",prefix+"%");
+    if(error||!data) return {};
+    const out={}; for(const r of data){ try{out[r.key]=JSON.parse(r.value)}catch{} }
+    return out;
+  }catch(e){ return {} }
+}
+
+/* ============================================================
+   РОУТЕР И ЭКРАНЫ
+   ============================================================ */
+
+const app = ()=>document.getElementById("app");
+
+function render(){
+  const a = app();
+  a.innerHTML = "";
+  const r = state.route;
+  if(r==="setup") return renderSetup(a);
+  if(r==="login") return renderLogin(a);
+  if(r==="login_doctor") return renderLoginDoctor(a);
+  if(r==="login_client") return renderLoginClient(a);
+  if(r==="doctor_home") return renderDoctorHome(a);
+  if(r==="doctor_client") return renderDoctorClient(a);
+  if(r==="doctor_menu") return renderDoctorMenu(a);
+  if(r==="settings") return renderSettings(a);
+  if(r==="client_home") return renderClientHome(a);
+  if(r==="client_diary") return renderClientDiary(a);
+  if(r==="client_menu") return renderClientMenu(a);
+  if(r==="client_weight") return renderClientWeight(a);
+  if(r==="client_chat") return renderClientChat(a);
+  if(r==="client_profile") return renderClientProfile(a);
+  a.innerHTML = `<div class="center-screen"><p>Экран не найден: ${esc(r)}</p></div>`;
+}
+
+function navigate(route, sub={}){
+  state.route = route; state.sub = sub;
+  render();
+  window.scrollTo(0,0);
+}
+
+/* ---------- Стартовая логика ---------- */
+async function boot(){
+  const cfg = await Store.getCfg();
+  const demo = await Store.isDemo();
+  if(!cfg && !demo){ navigate("setup"); return; }
+  const session = await Session.get();
+  if(!session){ navigate("login"); return; }
+  if(session.role==="doctor"){
+    const doctor = await Store.getDoctor();
+    if(!doctor){ navigate("login_doctor"); return; }
+    state.user = doctor; navigate("doctor_home"); return;
+  }
+  if(session.role==="client" && session.cid){
+    const c = await Store.getClient(session.cid);
+    if(!c){ navigate("login_client"); return; }
+    state.user = c; navigate("client_home"); return;
+  }
+  navigate("login");
+}
+
+/* ---------- SETUP экран ---------- */
+function renderSetup(a){
+  a.innerHTML = `
+    <div class="center-screen">
+      <div class="logo-big">Р</div>
+      <h1 style="font-size:24px">Рацион</h1>
+      <p class="muted" style="max-width:320px;margin-bottom:24px">
+        Личный кабинет клиента нутрициолога. Дневник питания, меню от врача, контроль веса и чат.
+      </p>
+      <div style="width:100%;max-width:340px">
+        <button class="btn btn-primary mb8" id="b_demo">Открыть демо-режим</button>
+        <p class="hint center mb16">Все данные сохранятся только на этом устройстве. Подходит для знакомства и для одного клиента.</p>
+        <div class="divider"></div>
+        <button class="btn btn-outline mb8" id="b_sb">Подключить облачную синхронизацию</button>
+        <p class="hint center">Если врач хочет видеть нескольких клиентов. Нужен бесплатный аккаунт Supabase (см. инструкцию ниже).</p>
+      </div>
+      <details style="width:100%;max-width:340px;margin-top:24px;text-align:left">
+        <summary style="font-size:13px;color:var(--primary-dark);cursor:pointer;font-weight:600">Как подключить Supabase — 5 шагов</summary>
+        <div style="font-size:13px;color:var(--muted);margin-top:10px;line-height:1.7">
+          <p><b>1.</b> Зайдите на <a href="https://supabase.com" target="_blank">supabase.com</a>, зарегистрируйтесь бесплатно.</p>
+          <p><b>2.</b> Нажмите «New project», придумайте пароль для БД, регион — Frankfurt.</p>
+          <p><b>3.</b> Дождитесь создания (≈2 мин). Слева откройте <b>SQL Editor</b> → New query.</p>
+          <p><b>4.</b> Вставьте этот код и нажмите Run:</p>
+          <pre style="background:#0F172A;color:#7DD3FC;padding:12px;border-radius:8px;overflow-x:auto;font-size:11px;white-space:pre-wrap">create table if not exists kv (
+  key text primary key,
+  value jsonb,
+  updated_at timestamptz default now()
+);
+alter table kv enable row level security;
+create policy "all" on kv for all using (true) with check (true);</pre>
+          <p><b>5.</b> Откройте <b>Project Settings → API</b>. Скопируйте <b>Project URL</b> и <b>anon public key</b>. Вставьте их в форме ниже.</p>
+        </div>
+      </details>
+      <div id="sb_form" class="hidden" style="width:100%;max-width:340px;margin-top:20px;text-align:left">
+        <div class="card">
+          <h3 style="font-size:15px;margin-bottom:10px">Подключение Supabase</h3>
+          <div class="field"><label>Project URL</label><input id="sb_url" placeholder="https://xxxx.supabase.co"></div>
+          <div class="field"><label>anon public key</label><input id="sb_key" placeholder="eyJhbGciOi..." style="font-size:12px"></div>
+          <button class="btn btn-primary" id="b_sb_save">Сохранить и продолжить</button>
+          <p class="hint">Данные хранятся в облаке, доступны врачу с любого устройства.</p>
+        </div>
+      </div>
+    </div>`;
+  $("#b_demo",a).onclick = async ()=>{
+    await Store.setDemo(true);
+    navigate("login");
+  };
+  $("#b_sb",a).onclick = ()=>{
+    $("#sb_form",a).classList.remove("hidden");
+    $("#sb_form",a).scrollIntoView({behavior:"smooth"});
+  };
+  $("#b_sb_save",a).onclick = async ()=>{
+    const url = $("#sb_url",a).value.trim();
+    const key = $("#sb_key",a).value.trim();
+    if(!url||!key){ toast("Заполните оба поля"); return; }
+    await Store.setCfg({url,key});
+    await Store.setDemo(false);
+    toast("Подключено!");
+    navigate("login");
+  };
+}
+
+/* ---------- LOGIN: выбор роли + создание профиля ---------- */
+function renderLogin(a){
+  a.innerHTML = `
+    <div class="center-screen">
+      <div class="logo-big">Р</div>
+      <h1 style="font-size:22px">С чего начнём?</h1>
+      <p class="muted" style="margin-bottom:24px">Выберите, кто вы в этом приложении</p>
+      <div style="width:100%;max-width:340px">
+        <button class="btn btn-primary mb10" id="b_doc">Я врач-нутрициолог</button>
+        <p class="hint center mb16">Управляю клиентами, меню, чатом и заметками.</p>
+        <button class="btn btn-outline" id="b_cli">Я клиент</button>
+        <p class="hint center">Веду дневник питания, следую меню врача, отслеживаю вес.</p>
+      </div>
+    </div>`;
+  $("#b_doc",a).onclick = ()=>navigate("login_doctor");
+  $("#b_cli",a).onclick = ()=>navigate("login_client");
+}
+
+/* ---------- Форма входа врача ---------- */
+function renderLoginDoctor(a){
+  a.innerHTML = `
+    <div class="screen center-screen" style="justify-content:flex-start;padding-top:max(40px,env(safe-area-inset-top))">
+      <button class="btn btn-ghost btn-sm" style="position:absolute;top:14px;left:14px;width:auto" onclick="navigate('login')">← Назад</button>
+      <div class="logo-big" style="margin-top:30px">Р</div>
+      <h1 style="font-size:20px;text-align:center">Профиль врача</h1>
+      <p class="muted" style="text-align:center;margin-bottom:24px">Заполните карточку — её увидят клиенты</p>
+      <div style="width:100%;max-width:340px">
+        <div class="field"><label>Ваше имя</label><input id="d_name" placeholder="Напр. Анна Петровна"></div>
+        <div class="field"><label>Специализация</label><input id="d_spec" placeholder="Нутрициолог, диетолог"></div>
+        <div class="field"><label>Короткое описание (для клиентов)</label><textarea id="d_bio" placeholder="Помогаю выстроить здоровое питание без стресса..."></textarea></div>
+        <button class="btn btn-primary" id="b_save">Сохранить и войти</button>
+      </div>
+    </div>`;
+  $("#b_save",a).onclick = async ()=>{
+    const name = $("#d_name",a).value.trim();
+    if(!name){ toast("Введите имя"); return; }
+    const doctor = {id:"doctor", role:"doctor", name, spec:$("#d_spec",a).value.trim(), bio:$("#d_bio",a).value.trim(), createdAt:Date.now()};
+    await Store.setDoctor(doctor);
+    await Session.set({role:"doctor"});
+    state.user = doctor;
+    navigate("doctor_home");
+  };
+}
+
+/* ---------- Форма входа клиента ---------- */
+function renderLoginClient(a){
+  a.innerHTML = `
+    <div class="screen center-screen" style="justify-content:flex-start;padding-top:max(40px,env(safe-area-inset-top))">
+      <button class="btn btn-ghost btn-sm" style="position:absolute;top:14px;left:14px;width:auto" onclick="navigate('login')">← Назад</button>
+      <div class="logo-big" style="margin-top:30px">Р</div>
+      <h1 style="font-size:20px;text-align:center">Анкета клиента</h1>
+      <p class="muted" style="text-align:center;margin-bottom:24px">По этим данным рассчитаем норму калорий и БЖУ</p>
+      <div style="width:100%;max-width:340px">
+        <div class="field"><label>Имя</label><input id="c_name" placeholder="Как к вам обращаться"></div>
+        <div class="field-row">
+          <div class="field"><label>Пол</label><select id="c_sex"><option value="f">Женский</option><option value="m">Мужской</option></select></div>
+          <div class="field"><label>Возраст</label><input id="c_age" type="number" inputmode="numeric" placeholder="35"></div>
+        </div>
+        <div class="field-row">
+          <div class="field"><label>Рост, см</label><input id="c_height" type="number" inputmode="numeric" placeholder="170"></div>
+          <div class="field"><label>Вес, кг</label><input id="c_weight" type="number" inputmode="decimal" placeholder="68"></div>
+        </div>
+        <div class="field"><label>Активность</label><select id="c_act">${ACTIVITY.map((x,i)=>`<option value="${x.v}" ${i===0?"":""}>${x.t}</option>`).join("")}</select></div>
+        <div class="field"><label>Цель</label><select id="c_goal">${GOALS.map(g=>`<option value="${g.v}">${g.t}</option>`).join("")}</select></div>
+        <div class="field"><label>Аллергии / ограничения (необязательно)</label><input id="c_alerg" placeholder="Напр. лактоза, орехи"></div>
+        <button class="btn btn-primary" id="b_save">Рассчитать норму и войти</button>
+      </div>
+    </div>`;
+  $("#b_save",a).onclick = async ()=>{
+    const name = $("#c_name",a).value.trim();
+    const age = +$("#c_age",a).value;
+    const height = +$("#c_height",a).value;
+    const weight = +$("#c_weight",a).value;
+    if(!name){ toast("Введите имя"); return; }
+    if(!age||!height||!weight){ toast("Заполните рост, вес, возраст"); return; }
+    const sex = $("#c_sex",a).value;
+    const activity = +$("#c_act",a).value;
+    const goal = $("#c_goal",a).value;
+    const alerg = $("#c_alerg",a).value.trim();
+    const id = uid();
+    const norms = calcNorms({sex,age,weight,height,activity,goal});
+    const client = {id, role:"client", name, sex, age, height, weight, activity, goal, alerg,
+                    norms, createdAt:Date.now(), doctorId:"doctor"};
+    await Store.setClient(client);
+    // если врач уже создал этот id в списке клиентов — не дублируем
+    const ids = await Store.getClientIds();
+    if(!ids.includes(id)){ ids.push(id); await Store.setClientIds(ids) }
+    // стартовая запись веса
+    const w = await Store.getWeight(id);
+    if(!w.length){ await Store.setWeight(id, [{date:todayStr(), weight}]) }
+    await Session.set({role:"client", cid:id});
+    state.user = client;
+    navigate("client_home");
+  };
+}
+
+/* ============================================================
+   КАБИНЕТ ВРАЧА
+   ============================================================ */
+async function renderDoctorHome(a){
+  const doctor = await Store.getDoctor();
+  state.user = doctor;
+  const ids = await Store.getClientIds();
+  const clients = [];
+  for(const id of ids){ const c = await Store.getClient(id); if(c && c.role==="client") clients.push(c) }
+  // Синхронизация с облаком: подтянуть клиентов оттуда
+  if(await ensureSupabase()){
+    const remote = await sbFetchAll("user:");
+    for(const k in remote){ const c = remote[k]; if(c && c.role==="client" && !clients.find(x=>x.id===c.id)){ clients.push(c); await Store.setClient(c); const _ids = await Store.getClientIds(); if(!_ids.includes(c.id)){_ids.push(c.id); await Store.setClientIds(_ids)} } }
+  }
+  a.innerHTML = `
+    <div class="topbar">
+      <div class="logo">Р</div>
+      <h1>Клиенты</h1>
+      <button class="btn-icon btn-outline" onclick="navigate('settings')" title="Настройки">⚙</button>
+    </div>
+    <div class="screen">
+      <div class="card card-tight" style="display:flex;gap:12px;align-items:center;background:var(--primary-lighter);border:1px solid var(--primary-light)">
+        <div class="avatar" style="background:var(--primary);color:#fff">${initials(doctor.name)}</div>
+        <div style="flex:1">
+          <div style="font-weight:600">${esc(doctor.name)}</div>
+          <div class="small muted">${esc(doctor.spec||"Врач-нутрициолог")}</div>
+        </div>
+        <span class="badge badge-info">${clients.length}/20</span>
+      </div>
+      <div class="section-title">Активные клиенты</div>
+      ${clients.length===0?`<div class="empty"><span class="ico">👥</span>Пока нет клиентов.<br>Нажмите «+» чтобы пригласить первого.</div>`:
+        clients.map(c=>clientListItem(c)).join("")}
+    </div>
+    <button class="btn btn-primary" style="position:fixed;bottom:max(20px,env(safe-area-inset-bottom));right:max(16px,calc(50% - 240px));width:auto;padding:14px 18px;border-radius:30px;box-shadow:var(--shadow-lg);z-index:25" id="b_add">＋ Пригласить клиента</button>
+  `;
+  $$(".list-item",a).forEach(el=>{ el.onclick = ()=>navigate("doctor_client",{cid:el.dataset.cid}) });
+  $("#b_add",a).onclick = ()=>openInviteModal();
+}
+
+function clientListItem(c){
+  const age = c.age?`, ${c.age} лет`:"";
+  return `<div class="list-item" data-cid="${c.id}">
+    <div class="avatar">${initials(c.name)}</div>
+    <div class="li-body">
+      <div class="li-title">${esc(c.name)}</div>
+      <div class="li-sub">${esc(GOALS.find(g=>g.v===c.goal)?.t||"Поддержание")}${age}</div>
+    </div>
+    <div class="li-meta">${c.norms?c.norms.kcal+" ккал":""}</div>
+  </div>`;
+}
+
+function openInviteModal(){
+  const m = document.createElement("div"); m.className="modal-backdrop";
+  m.innerHTML = `<div class="modal" onclick="event.stopPropagation()">
+    <div class="modal-handle"></div>
+    <h2>Пригласить клиента</h2>
+    <p class="muted small" style="margin-top:-8px">Отправьте клиенту ссылку или код — он откроет приложение и заполнит анкету сам.</p>
+    <div class="card" style="background:var(--primary-lighter);border:1px dashed var(--primary)">
+      <div class="small muted" style="margin-bottom:6px">Ссылка-приглашение:</div>
+      <div style="font-size:13px;word-break:break-all;font-family:monospace" id="inv_link">${location.origin}${location.pathname}#invite=${uid().slice(0,8)}</div>
+      <button class="btn btn-ghost btn-sm mt8" id="b_copy">📋 Скопировать</button>
+    </div>
+    <div class="divider"></div>
+    <p class="small muted">Или создайте карточку клиента вручную — он дополнит анкету позже:</p>
+    <button class="btn btn-outline" id="b_manual">Создать вручную</button>
+    <button class="btn btn-ghost mt8" id="b_close">Закрыть</button>
+  </div>`;
+  m.onclick = ()=>m.remove();
+  document.body.appendChild(m);
+  $("#b_copy",m).onclick = async ()=>{
+    try{ await navigator.clipboard.writeText($("#inv_link",m).textContent); toast("Ссылка скопирована") }catch{ toast("Скопируйте вручную") }
+  };
+  $("#b_manual",m).onclick = async ()=>{ m.remove(); await createManualClient() };
+  $("#b_close",m).onclick = ()=>m.remove();
+}
+
+async function createManualClient(){
+  const id = uid();
+  const name = "Новый клиент";
+  const client = {id, role:"client", name, sex:"f", age:null, height:null, weight:null, activity:1.2, goal:"keep", alerg:"", norms:null, createdAt:Date.now(), doctorId:"doctor", draft:true};
+  await Store.setClient(client);
+  const ids = await Store.getClientIds(); ids.push(id); await Store.setClientIds(ids);
+  if(await ensureSupabase()){ await sbUpsert("user:"+id, client) }
+  navigate("doctor_client",{cid:id});
+}
+
+/* ---------- Карточка клиента (врач) ---------- */
+async function renderDoctorClient(a){
+  const cid = state.sub.cid;
+  const c = await Store.getClient(cid);
+  if(!c){ navigate("doctor_home"); return }
+  state.user = await Store.getDoctor();
+  const date = state.sub.date || todayStr();
+  const diary = await Store.getDiary(cid, date);
+  const msgs = await Store.getMessages(cid);
+  const notes = await Store.getNotes(cid);
+  const w = await Store.getWeight(cid);
+  const lastWeight = w.length?w[w.length-1].weight:null;
+  const todayKcal = diary.reduce((s,x)=>s+x.kcal,0);
+
+  a.innerHTML = `
+    <div class="topbar">
+      <button class="btn-icon btn-outline" onclick="navigate('doctor_home')">←</button>
+      <h1>${esc(c.name)}</h1>
+      <button class="btn-icon btn-outline" onclick="navigate('settings')">⚙</button>
+    </div>
+    <div class="screen">
+      <div class="card">
+        <div class="flex aic gap8 mb8">
+          <div class="avatar" style="width:52px;height:52px;font-size:18px">${initials(c.name)}</div>
+          <div style="flex:1">
+            <div style="font-weight:600;font-size:16px">${esc(c.name)}</div>
+            <div class="small muted">${c.age?c.age+" лет, ":""}${c.sex==="m"?"муж.":"жен."}${lastWeight?`, ${lastWeight} кг`:""}</div>
+          </div>
+        </div>
+        ${c.normas?``:`<div class="badge badge-warn">Анкета не заполнена</div>`}
+      </div>
+
+      <div class="tabs">
+        <button class="active" data-tab="overview" id="t_over">Обзор</button>
+        <button data-tab="menu" id="t_menu">Меню</button>
+        <button data-tab="chat" id="t_chat">Чат</button>
+      </div>
+      <div id="tab_body"></div>
+    </div>`;
+
+  let tab = "overview";
+  async function drawTab(){
+    const body = $("#tab_body",a);
+    if(tab==="overview"){
+      body.innerHTML = await doctorOverview(c, date, diary, todayKcal, w, notes);
+      bindOverview(c);
+    } else if(tab==="menu"){
+      body.innerHTML = "";
+      navigate("doctor_menu",{cid});
+    } else if(tab==="chat"){
+      body.innerHTML = await doctorChat(c, msgs);
+      bindChat(c, msgs, body);
+    }
+  }
+  $("#t_over",a).onclick = ()=>{ tab="overview"; $$(".tabs button",a).forEach(b=>b.classList.remove("active")); $("#t_over",a).classList.add("active"); drawTab() };
+  $("#t_menu",a).onclick = ()=>{ tab="menu"; navigate("doctor_menu",{cid}) };
+  $("#t_chat",a).onclick = ()=>{ tab="chat"; $$(".tabs button",a).forEach(b=>b.classList.remove("active")); $("#t_chat",a).classList.add("active"); drawTab() };
+  drawTab();
+}
+
+async function doctorOverview(c, date, diary, todayKcal, w, notes){
+  const norms = c.norms||{kcal:0,protein:0,fat:0,carb:0};
+  const p = diary.reduce((s,x)=>s+x.p,0), f = diary.reduce((s,x)=>s+x.f,0), carb = diary.reduce((s,x)=>s+x.c,0);
+  const meals = ["Завтрак","Обед","Перекус","Ужин"];
+  let diaryHtml = "";
+  for(const m of meals){
+    const items = diary.filter(x=>x.meal===m);
+    if(!items.length) continue;
+    diaryHtml += `<div class="meal-block"><div class="meal-head"><h3>${m}</h3><span class="kcal">${items.reduce((s,x)=>s+x.kcal,0)} ккал</span></div>${items.map(it=>`<div class="food-item"><div class="fi-name">${esc(it.name)}</div><div class="fi-qty">${it.qty} г</div><div class="fi-kcal">${it.kcal}</div></div>`).join("")}</div>`;
+  }
+  if(!diaryHtml) diaryHtml = `<div class="empty"><span class="ico">🍽</span>Клиент сегодня ничего не записал</div>`;
+  const weightChart = w.length>1?makeWeightChart(w):"";
+  return `
+    <div class="card">
+      <div class="kv"><span class="k">Цель</span><span class="v">${esc(GOALS.find(g=>g.v===c.goal)?.t||"—")}</span></div>
+      <div class="kv"><span class="k">Норма калорий</span><span class="v">${norms.kcal||"—"} ккал/день</span></div>
+      <div class="kv"><span class="k">Белки / Жиры / Углеводы</span><span class="v">${norms.protein||"—"} / ${norms.fat||"—"} / ${norms.carb||"—"} г</span></div>
+      <div class="kv"><span class="k">Активность</span><span class="v">${esc(ACTIVITY.find(x=>x.v===c.activity)?.t||"—")}</span></div>
+      <div class="kv"><span class="k">Ограничения</span><span class="v">${esc(c.alerg||"—")}</span></div>
+    </div>
+    <div class="section-title">Сегодня (${fmtDate(date)})</div>
+    <div class="card">
+      <div class="ring-wrap">
+        ${makeRing(todayKcal, norms.kcal||todayKcal, "ккал")}
+        <div style="flex:1">
+          <div class="macro-row"><div class="dot" style="background:var(--primary)"></div><div class="name">Белки</div><div class="vals"><b>${round1(p)}</b> / ${norms.protein||"—"} г</div></div>
+          <div class="bar p"><div style="width:${clamp(p/(norms.protein||1)*100,0,100)}%"></div></div>
+          <div class="macro-row"><div class="dot" style="background:#F59E0B"></div><div class="name">Жиры</div><div class="vals"><b>${round1(f)}</b> / ${norms.fat||"—"} г</div></div>
+          <div class="bar f"><div style="width:${clamp(f/(norms.fat||1)*100,0,100)}%"></div></div>
+          <div class="macro-row"><div class="dot" style="background:#10B981"></div><div class="name">Углев.</div><div class="vals"><b>${round1(carb)}</b> / ${norms.carb||"—"} г</div></div>
+          <div class="bar c"><div style="width:${clamp(carb/(norms.carb||1)*100,0,100)}%"></div></div>
+        </div>
+      </div>
+    </div>
+    <div class="section-title">Дневник питания клиента</div>
+    ${diaryHtml}
+    ${weightChart?`<div class="section-title">Динамика веса</div>${weightChart}`:""}
+    <div class="section-title">Приватные заметки</div>
+    <div class="card"><textarea id="doc_notes" style="width:100%;min-height:120px;border:none;padding:0;resize:vertical;font-size:14px" placeholder="Заметки видны только вам...">${esc(notes)}</textarea></div>
+  `;
+}
+function bindOverview(c){
+  const ta = document.getElementById("doc_notes");
+  if(ta){
+    let t; ta.oninput = ()=>{ clearTimeout(t); t=setTimeout(async ()=>{ await Store.setNotes(c.id, ta.value); if(await ensureSupabase()) sbUpsert("notes:"+c.id, ta.value) }, 600) };
+  }
+}
+
+async function doctorChat(c, msgs){
+  let html = `<div class="chat-wrap"><div class="chat-msgs" id="cm">`;
+  for(const m of msgs){
+    html += msgHtml(m, c);
+  }
+  html += `</div><div class="chat-input"><textarea id="ci" placeholder="Сообщение клиенту..." rows="1"></textarea><button id="cs">➤</button></div></div>`;
+  return html;
+}
+function msgHtml(m, c){
+  // «моё» сообщение = от того, кто сейчас смотрит (врач видит свои справа, клиент — свои справа)
+  const viewerIsDoctor = !!(state.user && state.user.role==="doctor");
+  const mine = viewerIsDoctor ? (m.from==="doctor") : (m.from==="client");
+  const time = new Date(m.time).toLocaleTimeString("ru-RU",{hour:"2-digit",minute:"2-digit"});
+  return `<div class="msg ${mine?"me":"them"}">${m.photo?`<img src="${m.photo}">`:esc(m.text)}<span class="time">${time}</span></div>`;
+}
+/* Realtime-подписка на обновления сообщений клиента.
+   Возвращает функцию отписки. При изменении строки в таблице kv
+   с ключом messages:<cid> — перезагружаем сообщения и перерисовываем. */
+let _activeChatSub = null;
+async function subscribeMessages(cid, onNew){
+  // отписываемся от предыдущей подписки (если была)
+  if(_activeChatSub){ try{ _activeChatSub.unsubscribe() }catch{}; _activeChatSub=null }
+  const sb = await ensureSupabase();
+  if(!sb) return ()=>{};
+  const key = "messages:"+cid;
+  try{
+    // realtime по умолчанию работает на событиях postgres_changes
+    const ch = sb.channel("msgs-"+cid)
+      .on("postgres_changes",
+          {event:"UPDATE", schema:"public", table:"kv", filter:`key=eq.${key}`},
+          async (payload)=>{
+            try{
+              const newVal = JSON.parse(payload.new.value);
+              await Store.setMessages(cid, newVal);
+              onNew(newVal);
+            }catch(e){ console.warn("rt parse",e) }
+          })
+      .on("postgres_changes",
+          {event:"INSERT", schema:"public", table:"kv", filter:`key=eq.${key}`},
+          async (payload)=>{
+            try{
+              const newVal = JSON.parse(payload.new.value);
+              await Store.setMessages(cid, newVal);
+              onNew(newVal);
+            }catch(e){}
+          })
+      .subscribe();
+    _activeChatSub = ch;
+    return ()=>{ try{ ch.unsubscribe() }catch{}; _activeChatSub=null };
+  }catch(e){ console.warn("rt sub fail",e); return ()=>{} }
+}
+let _activeMenuSub = null;
+async function subscribeMenu(cid, onNew){
+  if(_activeMenuSub){ try{ _activeMenuSub.unsubscribe() }catch{}; _activeMenuSub=null }
+  const sb = await ensureSupabase();
+  if(!sb) return ()=>{};
+  const key = "menu:"+cid;
+  try{
+    const ch = sb.channel("menu-"+cid)
+      .on("postgres_changes",
+          {event:"*", schema:"public", table:"kv", filter:`key=eq.${key}`},
+          async (payload)=>{
+            try{ const v = JSON.parse(payload.new.value); onNew(v) }catch(e){}
+          })
+      .subscribe();
+    _activeMenuSub = ch;
+    return ()=>{ try{ ch.unsubscribe() }catch{}; _activeMenuSub=null };
+  }catch(e){ return ()=>{} }
+}
+
+function bindChat(c, msgs, body){
+  const cm = $("#cm",body), ci = $("#ci",body), cs = $("#cs",body);
+  const scroll = ()=>cm.scrollTop = cm.scrollHeight;
+  scroll();
+  const redrawAll = (arr)=>{ cm.innerHTML = arr.map(m=>msgHtml(m,c)).join(""); scroll() };
+  const send = async ()=>{
+    const t = ci.value.trim(); if(!t) return;
+    const m = {id:uid(), from:"doctor", text:t, time:Date.now()};
+    msgs.push(m); await Store.setMessages(c.id, msgs);
+    if(await ensureSupabase()) sbUpsert("messages:"+c.id, msgs);
+    cm.insertAdjacentHTML("beforeend", msgHtml(m,c)); ci.value=""; ci.style.height="auto"; scroll();
+  };
+  cs.onclick = send;
+  ci.onkeydown = e=>{ if(e.key==="Enter"&&!e.shiftKey){ e.preventDefault(); send() } };
+  ci.oninput = ()=>{ ci.style.height="auto"; ci.style.height=ci.scrollHeight+"px" };
+  // realtime: когда клиент пишет — перерисовываем
+  subscribeMessages(c.id, (newArr)=>{
+    // сколько сообщений было до — определяем новые
+    const prev = cm.querySelectorAll(".msg").length;
+    if(newArr.length > prev){
+      redrawAll(newArr);
+    }
+  });
+}
+
+/* ---------- Редактор меню (врач) ---------- */
+async function renderDoctorMenu(a){
+  const cid = state.sub.cid;
+  const c = await Store.getClient(cid);
+  if(!c){ navigate("doctor_home"); return }
+  const menu = await Store.getMenu(cid);
+  const meta = await Store.getMenuMeta(cid);
+  const days = ["Пн","Вт","Ср","Чт","Пт","Сб","Вс"];
+  const meals = ["Завтрак","Обед","Перекус","Ужин"];
+
+  a.innerHTML = `
+    <div class="topbar">
+      <button class="btn-icon btn-outline" onclick="navigate('doctor_client',{cid:'${cid}'})">←</button>
+      <h1>Меню · ${esc(c.name)}</h1>
+    </div>
+    <div class="screen">
+      <div class="tabs">
+        <button data-m="day" id="m_day" class="${meta.mode==="day"?"active":""}">На день</button>
+        <button data-m="week" id="m_week" class="${meta.mode==="week"?"active":""}">На неделю</button>
+      </div>
+      <div id="menu_body"></div>
+    </div>`;
+
+  let mode = meta.mode||"day";
+  let curDay = 0; // индекс дня недели для week-режима
+  function draw(){
+    const body = $("#menu_body",a);
+    if(mode==="day"){
+      const date = state.sub.date || todayStr();
+      const items = menu[date]||[];
+      body.innerHTML = `
+        <div class="card"><div class="flex jcb aic mb8"><b>${fmtDateFull(date)}</b><input type="date" id="md_date" value="${date}"></div></div>
+        ${meals.map(mn=>{
+          const its = items.filter(x=>x.meal===mn);
+          return `<div class="meal-block">
+            <div class="meal-head"><h3>${mn}</h3><button class="btn btn-ghost btn-sm" data-add="${mn}">+ блюдо</button></div>
+            ${its.length?its.map((it,i)=>`<div class="food-item"><div class="fi-name">${esc(it.name)} <span class="fi-qty">· ${it.qty} г</span></div><button class="fi-del" data-del="${mn}:${i}">×</button></div>`).join(""):`<div class="small muted">Пусто</div>`}
+            ${it_note(its)}
+          </div>`;
+        }).join("")}
+        <button class="btn btn-primary mt8" id="b_save">Сохранить</button>`;
+      // NOTE: it_note placeholder defined below
+    } else {
+      // недельное меню
+      body.innerHTML = `
+        <div class="chips mb8">${days.map((d,i)=>`<button class="chip ${i===curDay?"active":""}" data-day="${i}">${d}</button>`).join("")}</div>
+        ${meals.map(mn=>{
+          const dayKey = "w"+curDay;
+          const items = (menu[dayKey]||[]).filter(x=>x.meal===mn);
+          return `<div class="meal-block">
+            <div class="meal-head"><h3>${mn}</h3><button class="btn btn-ghost btn-sm" data-addw="${mn}">+ блюдо</button></div>
+            ${items.length?items.map((it,i)=>`<div class="food-item"><div class="fi-name">${esc(it.name)} <span class="fi-qty">· ${it.qty} г</span></div><button class="fi-del" data-delw="${mn}:${i}">×</button></div>`).join(""):`<div class="small muted">Пусто</div>`}
+          </div>`;
+        }).join("")}
+        <button class="btn btn-primary mt8" id="b_save">Сохранить</button>`;
+    }
+  }
+  function it_note(its){ return "" } // заметки по приёму — упрощённо
+  draw();
+
+  // переключение режимов
+  $("#m_day",a).onclick = async ()=>{ mode="day"; await Store.setMenuMeta(cid,{mode,updatedAt:Date.now()}); $$("#menu_body",a); $$(".tabs button",a).forEach(b=>b.classList.remove("active")); $("#m_day",a).classList.add("active"); draw() };
+  $("#m_week",a).onclick = async ()=>{ mode="week"; await Store.setMenuMeta(cid,{mode,updatedAt:Date.now()}); $$(".tabs button",a).forEach(b=>b.classList.remove("active")); $("#m_week",a).classList.add("active"); draw() };
+  // делегирование
+  $("#menu_body",a).onclick = async (e)=>{
+    const t = e.target;
+    if(t.dataset.day!==undefined){ curDay=+t.dataset.day; draw() }
+    else if(t.dataset.add){ openFoodPicker(c, async (sel)=>{ const date=state.sub.date||todayStr(); const arr=menu[date]||[]; arr.push({meal:t.dataset.add, name:sel.name, qty:sel.qty}); menu[date]=arr; await Store.setMenu(cid,menu); draw() }) }
+    else if(t.dataset.addw){ openFoodPicker(c, async (sel)=>{ const dk="w"+curDay; const arr=menu[dk]||[]; arr.push({meal:t.dataset.addw, name:sel.name, qty:sel.qty}); menu[dk]=arr; await Store.setMenu(cid,menu); draw() }) }
+    else if(t.dataset.del){ const [mn,i]=t.dataset.del.split(":"); const date=state.sub.date||todayStr(); const arr=(menu[date]||[]); const idx = arr.findIndex((x,idx)=>x.meal===mn && idx>=0); /* удалить i-й элемент этого meal */ const filtered = arr.filter((x,idx)=>!(x.meal===mn && idx===+i+arr.filter((y,yy)=>y.meal===mn&&yy<i).length)); /* упрощаем: удаляем по индексу в meal-группе */ ; menu[date]=filtered; await Store.setMenu(cid,menu); draw() }
+    else if(t.dataset.delw){ const [mn,i]=t.dataset.delw.split(":"); const dk="w"+curDay; const arr=menu[dk]||[]; const filtered=arr.filter((x,idx)=>!(x.meal===mn&&idx===+i)); menu[dk]=filtered; await Store.setMenu(cid,menu); draw() }
+    else if(t.id==="b_save"){ if(await ensureSupabase()) await sbUpsert("menu:"+cid, menu); toast("Меню сохранено"); }
+    else if(t.id==="md_date"){ state.sub.date = t.value; draw() }
+  };
+  $("#menu_body",a).oninput = (e)=>{ if(e.target.id==="md_date"){ state.sub.date = e.target.value; draw() } };
+}
+
+/* Универсальный выбор блюда из базы */
+function openFoodPicker(client, onPick){
+  const m = document.createElement("div"); m.className="modal-backdrop";
+  let curCat = "Все";
+  let q = "";
+  const all = [...FOOD_DB, ...(client?[]:[])];
+  function list(){
+    let arr = all.filter(f=> curCat==="Все"||f.cat===curCat);
+    if(q) arr = arr.filter(f=> f.n.toLowerCase().includes(q.toLowerCase()));
+    return arr;
+  }
+  function body(){
+    const arr = list();
+    return `
+      <div class="modal-handle"></div>
+      <h2>Добавить блюдо</h2>
+      <div class="field"><input id="fp_q" placeholder="Поиск..." value="${esc(q)}"></div>
+      <div class="chips"><button class="chip ${curCat==="Все"?"active":""}" data-cat="Все">Все</button>${FOOD_CATS.map(c=>`<button class="chip ${curCat===c?"active":""}" data-cat="${c}">${c}</button>`).join("")}</div>
+      <div style="max-height:50vh;overflow-y:auto">
+        ${arr.length?arr.map(f=>`<div class="list-item" data-food="${f.n}"><div class="li-body"><div class="li-title">${esc(f.n)}</div><div class="li-sub">${f.k} ккал · Б${f.p}/Ж${f.f}/У${f.c} · на 100 г</div></div></div>`).join(""):`<div class="empty">Не найдено</div>`}
+      </div>
+      <div id="fp_qty_wrap" class="hidden">
+        <div class="card mt8"><div class="field"><label>Количество, г</label><input id="fp_qty" type="number" value="100" inputmode="numeric"></div><button class="btn btn-primary" id="fp_ok">Добавить</button></div>
+      </div>`;
+  }
+  m.innerHTML = `<div class="modal" onclick="event.stopPropagation()">${body()}</div>`;
+  m.onclick = ()=>m.remove();
+  document.body.appendChild(m);
+  let selected = null;
+  function refresh(){ $(".modal",m).innerHTML = body(); bind() }
+  function bind(){
+    $("#fp_q",m).oninput = (e)=>{ q=e.target.value; refresh(); $("#fp_q",m).focus() };
+    $$(".chip",m).forEach(c=>c.onclick=()=>{ curCat=c.dataset.cat; refresh() });
+    $$(".list-item",m).forEach(el=>el.onclick=()=>{
+      selected = all.find(f=>f.n===el.dataset.food);
+      $("#fp_qty_wrap",m).classList.remove("hidden");
+      $("#fp_qty",m).focus();
+    });
+    if($("#fp_ok",m)) $("#fp_ok",m).onclick=()=>{
+      const qty = +$("#fp_qty",m).value||100;
+      m.remove();
+      onPick({name:selected.n, qty, kcal:Math.round(selected.k*qty/100), p:round1(selected.p*qty/100), f:round1(selected.f*qty/100), c:round1(selected.c*qty/100)});
+    };
+  }
+  bind();
+}
+
+/* ============================================================
+   КАБИНЕТ КЛИЕНТА
+   ============================================================ */
+async function renderClientHome(a){
+  // Текущий клиент — из сессии
+  let c = state.user && state.user.role==="client" ? state.user : null;
+  if(!c){
+    const session = await Session.get();
+    if(session && session.role==="client" && session.cid){ c = await Store.getClient(session.cid) }
+  }
+  if(!c){
+    // нет сессии клиента — попробуем последнего созданного (для демо)
+    const ids = await Store.getClientIds();
+    if(ids.length){ c = await Store.getClient(ids[ids.length-1]) }
+  }
+  if(!c){ navigate("login_client"); return }
+  state.user = c;
+  const date = todayStr();
+  const diary = await Store.getDiary(c.id, date);
+  const norms = c.norms||{kcal:0,protein:0,fat:0,carb:0};
+  const kcal = diary.reduce((s,x)=>s+x.kcal,0);
+  const p = diary.reduce((s,x)=>s+x.p,0);
+  const f = diary.reduce((s,x)=>s+x.f,0);
+  const carb = diary.reduce((s,x)=>s+x.c,0);
+  const msgs = await Store.getMessages(c.id);
+  const unread = msgs.filter(m=>m.from==="doctor"&&!m.read).length;
+  const w = await Store.getWeight(c.id);
+
+  a.innerHTML = `
+    <div class="topbar">
+      <div class="logo">Р</div>
+      <h1>Привет, ${esc(c.name.split(" ")[0])}!</h1>
+      <button class="btn-icon btn-outline" onclick="navigate('client_profile')">⚙</button>
+    </div>
+    <div class="screen">
+      <div class="card">
+        <div class="flex aic jcb mb8">
+          <div><div class="small muted">Сегодня съедено</div><div style="font-size:26px;font-weight:700">${kcal} <span class="small muted">/ ${norms.kcal||"—"} ккал</span></div></div>
+          ${makeRing(kcal, norms.kcal||kcal, "ккал", 80)}
+        </div>
+        <div class="macro-row"><div class="dot" style="background:var(--primary)"></div><div class="name">Белки</div><div class="vals"><b>${round1(p)}</b> / ${norms.protein||"—"} г</div></div>
+        <div class="bar p"><div style="width:${clamp(p/(norms.protein||1)*100,0,100)}%"></div></div>
+        <div class="macro-row"><div class="dot" style="background:#F59E0B"></div><div class="name">Жиры</div><div class="vals"><b>${round1(f)}</b> / ${norms.fat||"—"} г</div></div>
+        <div class="bar f"><div style="width:${clamp(f/(norms.fat||1)*100,0,100)}%"></div></div>
+        <div class="macro-row"><div class="dot" style="background:#10B981"></div><div class="name">Углев.</div><div class="vals"><b>${round1(carb)}</b> / ${norms.carb||"—"} г</div></div>
+        <div class="bar c"><div style="width:${clamp(carb/(norms.carb||1)*100,0,100)}%"></div></div>
+      </div>
+
+      <div class="stat-grid">
+        <div class="stat k"><div class="val">${w.length?w[w.length-1].weight:"—"}</div><div class="lbl">Вес, кг</div></div>
+        <div class="stat p"><div class="val">${unread}</div><div class="lbl">Новых сообщ.</div></div>
+      </div>
+
+      <div class="section-title">Быстрые действия</div>
+      <div class="card card-tight" style="display:flex;gap:8px">
+        <button class="btn btn-primary btn-sm" style="flex:1" onclick="navigate('client_diary')">+ Записать еду</button>
+        <button class="btn btn-ghost btn-sm" style="flex:1" onclick="navigate('client_menu')">Меню на день</button>
+      </div>
+
+      <div class="section-title">Меню от врача на сегодня</div>
+      ${(await clientMenuToday(c)).html}
+    </div>
+    ${clientBottomNav("home")}
+  `;
+}
+
+async function clientMenuToday(c){
+  const menu = await Store.getMenu(c.id);
+  const meta = await Store.getMenuMeta(c.id);
+  const date = todayStr();
+  let items = [];
+  if(meta.mode==="week"){
+    const dow = (new Date().getDay()+6)%7; // пн=0
+    items = menu["w"+dow]||[];
+  } else {
+    items = menu[date]||[];
+  }
+  const meals = ["Завтрак","Обед","Перекус","Ужин"];
+  let html = "";
+  for(const m of meals){
+    const its = items.filter(x=>x.meal===m);
+    if(!its.length) continue;
+    html += `<div class="meal-block"><div class="meal-head"><h3>${m}</h3></div>${its.map(it=>`<div class="food-item"><div class="fi-name">${esc(it.name)}</div><div class="fi-qty">${it.qty} г</div></div>`).join("")}</div>`;
+  }
+  if(!html) html = `<div class="empty"><span class="ico">📋</span>Врач ещё не составил меню</div>`;
+  return {html};
+}
+
+function clientBottomNav(active){
+  return `
+    <div class="bottomnav">
+      <button class="${active==="home"?"active":""}" onclick="navigate('client_home')"><span class="ico">🏠</span>Главная</button>
+      <button class="${active==="diary"?"active":""}" onclick="navigate('client_diary')"><span class="ico">🍽</span>Дневник</button>
+      <button class="${active==="menu"?"active":""}" onclick="navigate('client_menu')"><span class="ico">📋</span>Меню</button>
+      <button class="${active==="weight"?"active":""}" onclick="navigate('client_weight')"><span class="ico">⚖</span>Вес</button>
+      <button class="${active==="chat"?"active":""}" onclick="navigate('client_chat')"><span class="ico">💬</span>Чат</button>
+    </div>`;
+}
+
+/* ---------- Дневник питания (клиент) ---------- */
+async function renderClientDiary(a){
+  const c = state.user;
+  if(!c||c.role!=="client"){ navigate("client_home"); return }
+  const date = state.sub.date || todayStr();
+  const diary = await Store.getDiary(c.id, date);
+  const norms = c.norms||{};
+  const kcal = diary.reduce((s,x)=>s+x.kcal,0);
+  const meals = ["Завтрак","Обед","Перекус","Ужин"];
+
+  a.innerHTML = `
+    <div class="topbar">
+      <button class="btn-icon btn-outline" onclick="navigate('client_home')">←</button>
+      <h1>Дневник питания</h1>
+      <input type="date" id="d_date" value="${date}" style="border:1.5px solid var(--border);border-radius:8px;padding:6px 8px;font-size:13px">
+    </div>
+    <div class="screen">
+      <div class="card">
+        <div class="flex jcb aic">
+          <div><div class="small muted">За день</div><div style="font-size:22px;font-weight:700">${kcal} ккал</div></div>
+          <div class="small muted">из ${norms.kcal||"—"}</div>
+        </div>
+      </div>
+      ${meals.map(m=>{
+        const its = diary.filter(x=>x.meal===m);
+        const mk = its.reduce((s,x)=>s+x.kcal,0);
+        return `<div class="meal-block">
+          <div class="meal-head"><h3>${m}</h3><span class="kcal">${mk} ккал</span></div>
+          ${its.length?its.map((it,i)=>`<div class="food-item"><div class="fi-name">${esc(it.name)}${it.photo?` <img src="${it.photo}" class="photo-thumb" style="width:32px;height:32px">`:""}<div class="fi-qty">${it.qty} г · Б${it.p}/Ж${it.f}/У${it.c}</div></div><div class="fi-kcal">${it.kcal}</div><button class="fi-del" data-del="${m}:${i}">×</button></div>`).join(""):`<div class="small muted">Пусто</div>`}
+          <button class="btn btn-ghost btn-sm mt8" data-add="${m}">+ Добавить блюдо</button>
+        </div>`;
+      }).join("")}
+    </div>
+    ${clientBottomNav("diary")}
+  `;
+  $("#d_date",a).oninput = (e)=>{ state.sub.date = e.target.value; render() };
+  $(".screen",a).onclick = async (e)=>{
+    const t = e.target.closest("[data-add],[data-del]");
+    if(!t) return;
+    if(t.dataset.add){
+      openFoodPicker(c, async (sel)=>{
+        // предложить фото
+        const arr = await Store.getDiary(c.id, date);
+        arr.push({foodId:sel.name, name:sel.name, qty:sel.qty, kcal:sel.kcal, p:sel.p, f:sel.f, c:sel.c, meal:t.dataset.add, time:Date.now()});
+        await Store.setDiary(c.id, date, arr);
+        if(await ensureSupabase()) sbUpsert(`diary:${c.id}:${date}`, arr);
+        render();
+      });
+    } else if(t.dataset.del){
+      const [m,i] = t.dataset.del.split(":");
+      const arr = diary.filter((x,idx)=>!(x.meal===m && idx===+i));
+      await Store.setDiary(c.id, date, arr);
+      if(await ensureSupabase()) sbUpsert(`diary:${c.id}:${date}`, arr);
+      render();
+    }
+  };
+}
+
+/* ---------- Меню (клиент) ---------- */
+async function renderClientMenu(a){
+  const c = state.user;
+  if(!c||c.role!=="client"){ navigate("client_home"); return }
+  const date = state.sub.date || todayStr();
+  const {html} = await clientMenuToday(c);
+  a.innerHTML = `
+    <div class="topbar">
+      <button class="btn-icon btn-outline" onclick="navigate('client_home')">←</button>
+      <h1>Меню</h1>
+      <input type="date" id="m_date" value="${date}" style="border:1.5px solid var(--border);border-radius:8px;padding:6px 8px;font-size:13px">
+    </div>
+    <div class="screen">
+      <div class="card" style="background:var(--primary-lighter);border:1px solid var(--primary-light)">
+        <div class="small muted">Совет врача</div>
+        <div>Следуйте этому меню — врач увидит ваш дневник питания автоматически.</div>
+      </div>
+      <div class="section-title">${fmtDateFull(date)}</div>
+      ${html}
+      <div class="card"><div class="small muted center">Меню составляет ваш врач. Если хотите что-то изменить — напишите в чат.</div></div>
+    </div>
+    ${clientBottomNav("menu")}
+  `;
+  $("#m_date",a).oninput = (e)=>{ state.sub.date = e.target.value; render() };
+}
+
+/* ---------- Вес (клиент) ---------- */
+async function renderClientWeight(a){
+  const c = state.user;
+  if(!c||c.role!=="client"){ navigate("client_home"); return }
+  const w = await Store.getWeight(c.id);
+  a.innerHTML = `
+    <div class="topbar">
+      <button class="btn-icon btn-outline" onclick="navigate('client_home')">←</button>
+      <h1>Контроль веса</h1>
+    </div>
+    <div class="screen">
+      <div class="card">
+        <div class="flex jcb aic mb8">
+          <div><div class="small muted">Текущий вес</div><div style="font-size:28px;font-weight:700">${w.length?w[w.length-1].weight:"—"} кг</div></div>
+          <div class="small muted">цель: ${c.goal==="lose"?"снижение":c.goal==="gain"?"набор":"поддержание"}</div>
+        </div>
+      </div>
+      ${w.length>1?`<div class="chart-wrap mt8">${makeWeightChart(w)}</div>`:`<div class="empty"><span class="ico">⚖</span>Запишите вес ещё раз, чтобы увидеть динамику</div>`}
+      <div class="section-title">Записать новый замер</div>
+      <div class="card">
+        <div class="field"><label>Вес сегодня, кг</label><input id="w_val" type="number" inputmode="decimal" step="0.1" value="${w.length?w[w.length-1].weight:""}"></div>
+        <button class="btn btn-primary" id="w_save">Сохранить замер</button>
+      </div>
+      <div class="section-title">История</div>
+      <div class="card">
+        ${w.length?w.slice().reverse().map(x=>`<div class="kv"><span class="k">${fmtDate(x.date)}</span><span class="v">${x.weight} кг</span></div>`).join(""):`<div class="small muted">Нет записей</div>`}
+      </div>
+    </div>
+    ${clientBottomNav("weight")}
+  `;
+  $("#w_save",a).onclick = async ()=>{
+    const v = +$("#w_val",a).value;
+    if(!v){ toast("Введите вес"); return }
+    const arr = await Store.getWeight(c.id);
+    // если есть запись на сегодня — обновим
+    const today = todayStr();
+    const idx = arr.findIndex(x=>x.date===today);
+    if(idx>=0) arr[idx].weight = v; else arr.push({date:today, weight:v});
+    arr.sort((a,b)=>a.date.localeCompare(b.date));
+    await Store.setWeight(c.id, arr);
+    if(await ensureSupabase()) sbUpsert("weight:"+c.id, arr);
+    toast("Сохранено!");
+    render();
+  };
+}
+
+/* ---------- Чат (клиент) ---------- */
+async function renderClientChat(a){
+  const c = state.user;
+  if(!c||c.role!=="client"){ navigate("client_home"); return }
+  const msgs = await Store.getMessages(c.id);
+  // отметить прочитанными
+  let changed=false; msgs.forEach(m=>{ if(m.from==="doctor"&&!m.read){m.read=true;changed=true} });
+  if(changed){ await Store.setMessages(c.id,msgs); if(await ensureSupabase()) sbUpsert("messages:"+c.id,msgs) }
+  a.innerHTML = `
+    <div class="topbar">
+      <button class="btn-icon btn-outline" onclick="navigate('client_home')">←</button>
+      <h1>Чат с врачом</h1>
+    </div>
+    <div class="chat-wrap">
+      <div class="chat-msgs" id="cm">
+        ${msgs.length?msgs.map(m=>msgHtml(m,c)).join(""):`<div class="empty"><span class="ico">💬</span>Напишите врачу — он ответит в течение дня</div>`}
+      </div>
+      <div class="chat-input">
+        <textarea id="ci" placeholder="Сообщение..." rows="1"></textarea>
+        <button id="cp">📷</button>
+        <button id="cs">➤</button>
+      </div>
+    </div>
+  `;
+  const cm = $("#cm",a); cm.scrollTop = cm.scrollHeight;
+  const ci = $("#ci",a);
+  const send = async ()=>{
+    const t = ci.value.trim(); if(!t) return;
+    const m = {id:uid(), from:"client", text:t, time:Date.now(), read:false};
+    msgs.push(m); await Store.setMessages(c.id, msgs);
+    if(await ensureSupabase()) sbUpsert("messages:"+c.id, msgs);
+    cm.insertAdjacentHTML("beforeend", msgHtml(m,c)); ci.value=""; ci.style.height="auto"; cm.scrollTop=cm.scrollHeight;
+  };
+  $("#cs",a).onclick = send;
+  ci.onkeydown = e=>{ if(e.key==="Enter"&&!e.shiftKey){ e.preventDefault(); send() } };
+  ci.oninput = ()=>{ ci.style.height="auto"; ci.style.height=ci.scrollHeight+"px" };
+  $("#cp",a).onclick = ()=>{
+    const inp = document.createElement("input"); inp.type="file"; inp.accept="image/*"; inp.capture="environment";
+    inp.onchange = async ()=>{
+      const f = inp.files[0]; if(!f) return;
+      if(f.size>1500000){ toast("Фото слишком большое (макс 1.5 МБ)"); return }
+      const url = await fileToDataUrl(f);
+      const m = {id:uid(), from:"client", photo:url, text:"", time:Date.now(), read:false};
+      msgs.push(m); await Store.setMessages(c.id, msgs);
+      if(await ensureSupabase()) sbUpsert("messages:"+c.id, msgs);
+      cm.insertAdjacentHTML("beforeend", msgHtml(m,c)); cm.scrollTop=cm.scrollHeight;
+    };
+    inp.click();
+  };
+  // realtime: врач пишет — перерисовываем, если появились новые сообщения
+  subscribeMessages(c.id, (newArr)=>{
+    const prev = cm.querySelectorAll(".msg").length;
+    if(newArr.length > prev){
+      // отметить прочитанными новые от врача
+      newArr.forEach(m=>{ if(m.from==="doctor") m.read=true });
+      cm.innerHTML = newArr.map(m=>msgHtml(m,c)).join("");
+      cm.scrollTop = cm.scrollHeight;
+      Store.setMessages(c.id, newArr);
+      if(ensureSupabase()) sbUpsert("messages:"+c.id, newArr);
+    }
+  });
+}
+
+/* ---------- Профиль / настройки (клиент) ---------- */
+async function renderClientProfile(a){
+  const c = state.user;
+  if(!c||c.role!=="client"){ navigate("client_home"); return }
+  a.innerHTML = `
+    <div class="topbar">
+      <button class="btn-icon btn-outline" onclick="navigate('client_home')">←</button>
+      <h1>Профиль</h1>
+    </div>
+    <div class="screen">
+      <div class="card">
+        <div class="flex aic gap8 mb8">
+          <div class="avatar" style="width:54px;height:54px;font-size:20px">${initials(c.name)}</div>
+          <div><div style="font-weight:600;font-size:17px">${esc(c.name)}</div><div class="small muted">${c.age?c.age+" лет, ":""}${c.sex==="m"?"муж.":"жен."}</div></div>
+        </div>
+      </div>
+      <div class="section-title">Мои нормы</div>
+      <div class="card">
+        <div class="kv"><span class="k">Калории</span><span class="v">${c.norms?c.norms.kcal:"—"} ккал/день</span></div>
+        <div class="kv"><span class="k">Белки</span><span class="v">${c.norms?c.norms.protein:"—"} г</span></div>
+        <div class="kv"><span class="k">Жиры</span><span class="v">${c.norms?c.norms.fat:"—"} г</span></div>
+        <div class="kv"><span class="k">Углеводы</span><span class="v">${c.norms?c.norms.carb:"—"} г</span></div>
+        <div class="kv"><span class="k">Базовый обмен</span><span class="v">${c.norms?c.norms.bmr:"—"} ккал</span></div>
+      </div>
+      <div class="section-title">Анкета</div>
+      <div class="card">
+        <div class="kv"><span class="k">Рост</span><span class="v">${c.height||"—"} см</span></div>
+        <div class="kv"><span class="k">Вес</span><span class="v">${c.weight||"—"} кг</span></div>
+        <div class="kv"><span class="k">Активность</span><span class="v">${esc(ACTIVITY.find(x=>x.v===c.activity)?.t||"—")}</span></div>
+        <div class="kv"><span class="k">Цель</span><span class="v">${esc(GOALS.find(g=>g.v===c.goal)?.t||"—")}</span></div>
+        <div class="kv"><span class="k">Ограничения</span><span class="v">${esc(c.alerg||"—")}</span></div>
+      </div>
+      <div class="section-title">Установка приложения</div>
+      <div class="card">
+        <p class="small muted mb8">Чтобы открыть приложение одним касанием, добавьте его на главный экран:</p>
+        <p class="small"><b>iPhone (Safari):</b> кнопка «Поделиться» → «На экран Домой».</p>
+        <p class="small"><b>Android (Chrome):</b> меню ⋮ → «Установить приложение» / «Добавить на главный экран».</p>
+      </div>
+      <div class="section-title">Сброс</div>
+      <button class="btn btn-danger" id="b_reset">Выйти и стереть данные на устройстве</button>
+      <p class="hint center mt8">Внимание: это удалит вашу анкету и дневник с этого телефона. Облачные данные врача не затронет.</p>
+    </div>
+  `;
+  $("#b_reset",a).onclick = async ()=>{
+    if(!confirm("Точно стереть все данные с этого устройства?")) return;
+    const keys = await idbKeys();
+    for(const k of keys){
+      const sk = String(k);
+      if(sk.startsWith("user:")||sk.startsWith("diary:")||sk.startsWith("weight:")||sk.startsWith("messages:")||sk.startsWith("notes:")||sk.startsWith("menu:")||sk==="session"||sk==="clients"){
+        await idbDel(k);
+      }
+    }
+    state.user=null;
+    navigate("setup");
+  };
+}
+
+/* ---------- Настройки (общий экран) ---------- */
+async function renderSettings(a){
+  const cfg = await Store.getCfg();
+  const demo = await Store.isDemo();
+  const doctor = await Store.getDoctor();
+  a.innerHTML = `
+    <div class="topbar">
+      <button class="btn-icon btn-outline" onclick="navigate('${state.user&&state.user.role==="doctor"?"doctor_home":"client_home"}')">←</button>
+      <h1>Настройки</h1>
+    </div>
+    <div class="screen">
+      <div class="section-title">Подключение к облаку</div>
+      <div class="card">
+        ${demo?`<div class="badge badge-warn mb8">Демо-режим (данные только на устройстве)</div>`:cfg?`<div class="badge badge-ok mb8">Облачная синхронизация включена</div>`:`<div class="badge badge-warn mb8">Не настроено</div>`}
+        <div class="field"><label>Supabase URL</label><input id="s_url" value="${cfg?cfg.url:""}" placeholder="https://xxxx.supabase.co"></div>
+        <div class="field"><label>Supabase anon key</label><input id="s_key" value="${cfg?cfg.key:""}" placeholder="eyJ..." style="font-size:12px"></div>
+        <button class="btn btn-primary" id="s_save">Сохранить</button>
+        <button class="btn btn-ghost mt8" id="s_demo">Перейти в демо-режим</button>
+      </div>
+      ${doctor?`<div class="section-title">Профиль врача</div>
+      <div class="card">
+        <div class="field"><label>Имя</label><input id="d_name" value="${esc(doctor.name)}"></div>
+        <div class="field"><label>Специализация</label><input id="d_spec" value="${esc(doctor.spec||"")}"></div>
+        <div class="field"><label>О себе</label><textarea id="d_bio">${esc(doctor.bio||"")}</textarea></div>
+        <button class="btn btn-primary" id="d_save">Сохранить профиль</button>
+      </div>`:""}
+      <div class="section-title">Экспорт данных</div>
+      <div class="card"><button class="btn btn-outline" id="b_export">Скачать все данные (JSON)</button></div>
+      <div class="section-title">О приложении</div>
+      <div class="card"><p class="small muted">Рацион v1.0 — приложение для ведения клиентов нутрициологом. Данные хранятся локально и (опционально) в вашем Supabase.</p></div>
+    </div>
+  `;
+  $("#s_save",a).onclick = async ()=>{
+    const url=$("#s_url",a).value.trim(), key=$("#s_key",a).value.trim();
+    if(url&&key){ await Store.setCfg({url,key}); await Store.setDemo(false); state.sbClient=null; toast("Сохранено") }
+    else { await Store.setCfg(null); toast("Очищено") }
+  };
+  $("#s_demo",a).onclick = async ()=>{ await Store.setDemo(true); await Store.setCfg(null); state.sbClient=null; toast("Демо-режим"); render() };
+  if(doctor){
+    $("#d_save",a).onclick = async ()=>{
+      doctor.name=$("#d_name",a).value.trim()||"Врач";
+      doctor.spec=$("#d_spec",a).value.trim();
+      doctor.bio=$("#d_bio",a).value.trim();
+      await Store.setDoctor(doctor);
+      if(await ensureSupabase()) sbUpsert("user:doctor", doctor);
+      toast("Профиль сохранён");
+    };
+  }
+  $("#b_export",a).onclick = async ()=>{
+    const data = await Store.exportAll();
+    const blob = new Blob([JSON.stringify(data,null,2)],{type:"application/json"});
+    const url = URL.createObjectURL(blob);
+    const l = document.createElement("a"); l.href=url; l.download="ration-export.json"; l.click();
+    URL.revokeObjectURL(url);
+  };
+}
+
+/* ---------- График веса (SVG) ---------- */
+function makeWeightChart(w){
+  if(!w||w.length<2) return "";
+  const vals = w.map(x=>x.weight);
+  const min = Math.min(...vals)-1, max = Math.max(...vals)+1;
+  const W=320,H=160, pad=24;
+  const x = i => pad + i*(W-2*pad)/(w.length-1);
+  const y = v => H-pad - (v-min)/(max-min)*(H-2*pad);
+  const path = w.map((p,i)=>`${i===0?"M":"L"}${x(i)},${y(p.weight)}`).join(" ");
+  const area = `${path} L${x(w.length-1)},${H-pad} L${x(0)},${H-pad} Z`;
+  const delta = (vals[vals.length-1]-vals[0]).toFixed(1);
+  const col = delta<0?"#10B981":delta>0?"#EF4444":"#64748B";
+  return `<div class="chart-wrap"><div class="flex jcb aic mb8"><b>Динамика веса</b><span class="badge" style="background:${col}22;color:${col}">${delta>0?"+":""}${delta} кг</span></div>
+    <svg class="chart-svg" viewBox="0 0 ${W} ${H}">
+      <defs><linearGradient id="g" x1="0" x2="0" y1="0" y2="1"><stop offset="0" stop-color="#0EA5E9" stop-opacity=".3"/><stop offset="1" stop-color="#0EA5E9" stop-opacity="0"/></linearGradient></defs>
+      <path d="${area}" fill="url(#g)"/>
+      <path d="${path}" fill="none" stroke="#0EA5E9" stroke-width="2.5" stroke-linejoin="round" stroke-linecap="round"/>
+      ${w.map((p,i)=>`<circle cx="${x(i)}" cy="${y(p.weight)}" r="3" fill="#fff" stroke="#0EA5E9" stroke-width="2"/>`).join("")}
+      ${w.map((p,i)=>`<text x="${x(i)}" y="${H-6}" font-size="9" fill="#64748B" text-anchor="middle">${fmtDate(p.date).replace(" ","")}</text>`).join("")}
+      <text x="${pad-4}" y="${y(vals[0])-6}" font-size="10" fill="#0F172A" text-anchor="end" font-weight="600">${vals[0]}</text>
+      <text x="${x(w.length-1)}" y="${y(vals[vals.length-1])-6}" font-size="10" fill="#0F172A" text-anchor="end" font-weight="600">${vals[vals.length-1]}</text>
+    </svg></div>`;
+}
+
+/* ---------- Кольцо прогресса (SVG) ---------- */
+function makeRing(val, target, label, size=110){
+  const pct = target>0 ? clamp(val/target,0,1) : 0;
+  const r = (size-12)/2, c = 2*Math.PI*r;
+  const off = c*(1-pct);
+  const col = pct>=1?"#10B981":pct>0.85?"#F59E0B":"#0EA5E9";
+  return `<div class="ring" style="width:${size}px;height:${size}px">
+    <svg width="${size}" height="${size}">
+      <circle cx="${size/2}" cy="${size/2}" r="${r}" fill="none" stroke="#E2E8F0" stroke-width="9"/>
+      <circle cx="${size/2}" cy="${size/2}" r="${r}" fill="none" stroke="${col}" stroke-width="9"
+        stroke-linecap="round" stroke-dasharray="${c}" stroke-dashoffset="${off}" transform="rotate(-90 ${size/2} ${size/2})"/>
+    </svg>
+    <div class="ring-val"><div class="num" style="font-size:${size*0.22}px">${val}</div><div class="unit">${label}</div></div>
+  </div>`;
+}
+
+/* ---------- PWA: Service Worker для офлайна ---------- */
+if("serviceWorker" in navigator){
+  navigator.serviceWorker.register("./sw.js").catch(()=>{/* offline best-effort */});
+}
+
+/* ---------- Старт ---------- */
+boot();
+</script>
+
+</script>
+</body>
+</html>
