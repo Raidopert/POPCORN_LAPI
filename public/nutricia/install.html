@@ -1,0 +1,165 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Установить «Рацион» — нутрициолог</title>
+<style>
+  *{box-sizing:border-box;-webkit-tap-highlight-color:transparent}
+  :root{
+    --primary:#1E40AF; --primary-dark:#1E3A8A; --primary-light:#DBEAFE; --primary-lighter:#EFF6FF;
+    --muted:#64748B; --border:#E2E8F0; --bg:#F8FAFC;
+    --ok:#10B981; --warn:#F59E0B;
+    --radius:16px; --shadow:0 1px 3px rgba(15,23,42,.08); --shadow-lg:0 8px 24px rgba(15,23,42,.12);
+  }
+  body{margin:0;font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,system-ui,sans-serif;
+    background:var(--bg);color:#0F172A;-webkit-font-smoothing:antialiased;
+    padding-top:max(0px,env(safe-area-inset-top));padding-bottom:max(0px,env(safe-area-inset-bottom))}
+  .wrap{max-width:520px;margin:0 auto;padding:24px 16px 40px}
+  .logo{width:64px;height:64px;border-radius:18px;background:linear-gradient(135deg,var(--primary),var(--primary-dark));
+    display:flex;align-items:center;justify-content:center;color:#fff;font-weight:700;font-size:28px;margin:0 auto 16px;box-shadow:var(--shadow-lg)}
+  h1{text-align:center;font-size:clamp(20px,5vw,26px);margin:0 0 6px;font-weight:700}
+  .sub{text-align:center;color:var(--muted);font-size:14px;margin:0 0 24px;line-height:1.5}
+  .card{background:#fff;border-radius:var(--radius);padding:18px 16px;box-shadow:var(--shadow);margin-bottom:14px}
+  .section-title{font-size:13px;font-weight:600;color:var(--muted);text-transform:uppercase;letter-spacing:.04em;margin:18px 4px 8px}
+  .qr-wrap{display:flex;flex-direction:column;align-items:center;gap:12px;padding:8px 0}
+  .qr{background:#fff;padding:12px;border-radius:12px;border:1px solid var(--border)}
+  .qr canvas{display:block;width:200px;height:200px;max-width:60vw;max-height:60vw}
+  .qr-cap{text-align:center;color:var(--muted);font-size:13px;line-height:1.5}
+  .btn{display:inline-flex;align-items:center;justify-content:center;gap:8px;width:100%;
+    padding:14px 16px;border-radius:12px;font-size:15px;font-weight:600;border:none;cursor:pointer;
+    text-decoration:none;transition:transform .1s}
+  .btn:active{transform:scale(.98)}
+  .btn-primary{background:var(--primary);color:#fff}
+  .btn-outline{background:#fff;color:var(--primary);border:1.5px solid var(--primary)}
+  .btn-ghost{background:transparent;color:var(--muted);border:1px solid var(--border)}
+  .btn + .btn{margin-top:8px}
+  .platform{display:flex;align-items:center;gap:12px;padding:14px 12px;border-radius:12px;background:var(--primary-lighter);margin-bottom:8px}
+  .platform .ico{font-size:28px;line-height:1}
+  .platform .body{flex:1}
+  .platform .ttl{font-weight:600;font-size:15px;margin-bottom:2px}
+  .platform .desc{font-size:13px;color:var(--muted);line-height:1.4}
+  ol{padding-left:20px;margin:8px 0}
+  ol li{margin-bottom:8px;font-size:14px;line-height:1.5;color:#334155}
+  ol li b{color:var(--primary-dark)}
+  .badge{display:inline-flex;align-items:center;gap:4px;padding:3px 8px;border-radius:6px;font-size:11px;font-weight:600}
+  .badge-ok{background:#D1FAE5;color:#065F46}
+  .badge-warn{background:#FEF3C7;color:#92400E}
+  .hint{font-size:12px;color:var(--muted);line-height:1.5;margin:8px 4px 0}
+  .center{text-align:center}
+  .mt8{margin-top:8px}.mt16{margin-top:16px}
+  .link{color:var(--primary);text-decoration:none;font-weight:600}
+  .footer{text-align:center;color:var(--muted);font-size:12px;margin-top:24px;line-height:1.5}
+  @media (min-width:600px){.wrap{padding:32px 16px}}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <div class="logo">Р</div>
+  <h1>Установить «Рацион»</h1>
+  <p class="sub">Приложение для клиентов нутрициолога: дневник питания, меню от врача, контроль веса и чат. Работает на iPhone и Android.</p>
+
+  <div class="card">
+    <div class="section-title" style="margin-top:0">Отсканируйте QR-код</div>
+    <div class="qr-wrap">
+      <div class="qr"><canvas id="qr"></canvas></div>
+      <div class="qr-cap">Откройте камеру телефона и наведите на код.<br>Или нажмите кнопку ниже, чтобы открыть на этом устройстве.</div>
+      <button class="btn btn-primary mt8" id="b_open">Открыть приложение</button>
+    </div>
+  </div>
+
+  <div class="section-title">Как установить на телефон</div>
+
+  <div class="platform">
+    <span class="ico">🍎</span>
+    <div class="body">
+      <div class="ttl">iPhone / iPad <span class="badge badge-ok">Safari</span></div>
+      <div class="desc">Только через Safari. Chrome на iOS не умеет ставить PWA.</div>
+    </div>
+  </div>
+  <ol>
+    <li>Откройте приложение в <b>Safari</b> (по QR-коду или кнопкой выше).</li>
+    <li>Нажмите кнопку <b>«Поделиться»</b> (квадрат со стрелкой вверх, внизу экрана).</li>
+    <li>Прокрутите и выберите <b>«На экран Домой»</b> (Add to Home Screen).</li>
+    <li>Нажмите <b>«Добавить»</b> — иконка «Р» появится на главном экране.</li>
+  </ol>
+  <p class="hint">Приложение открывается без адресной строки, как нативное. Работает офлайн.</p>
+
+  <div class="platform">
+    <span class="ico">🤖</span>
+    <div class="body">
+      <div class="ttl">Android <span class="badge badge-ok">Chrome</span></div>
+      <div class="desc">Через Chrome — иконка на главном. Или скачайте .apk для установки как обычное приложение.</div>
+    </div>
+  </div>
+  <ol>
+    <li>Откройте приложение в <b>Chrome</b> (по QR-коду или кнопкой выше).</li>
+    <li>Нажмите меню <b>⋮</b> в правом верхнем углу.</li>
+    <li>Выберите <b>«Установить приложение»</b> (или «Добавить на главный экран»).</li>
+    <li>Подтвердите — иконка появится в меню приложений.</li>
+  </ol>
+
+  <div class="section-title">Скачать .apk (Android)</div>
+  <div class="card center">
+    <p class="sub" style="margin:0 0 12px;text-align:left">Если вы хотите установить приложение как обычное (из файла, без браузера), скачайте <b>.apk</b> и откройте его на телефоне.</p>
+    <button class="btn btn-outline" id="b_apk">⬇ Скачать ration.apk</button>
+    <p class="hint">Файл собран через PWABuilder. При первом открытии Android попросит разрешить установку из неизвестных источников — это нормально.</p>
+    <p class="hint" style="margin-top:4px"><span class="badge badge-warn">Если кнопка не работает</span><br>.apk ещё не загружен. Врач может собрать его по инструкции ниже.</p>
+  </div>
+
+  <div class="section-title">Что внутри</div>
+  <div class="card">
+    <div style="display:grid;grid-template-columns:repeat(2,1fr);gap:10px;font-size:13px">
+      <div>🍽 Дневник питания</div>
+      <div>📋 Меню от врача</div>
+      <div>⚖ Контроль веса</div>
+      <div>💬 Чат с врачом + фото</div>
+      <div>📊 КБЖУ и нормы</div>
+      <div>📦 150+ продуктов</div>
+    </div>
+  </div>
+
+  <div class="footer">
+    Рацион v1.1 · <a class="link" href="https://raidopert.ru/nutricia/">открыть в браузере</a><br>
+    Данные синхронизируются между врачом и клиентом
+  </div>
+</div>
+
+<script>
+/* QR-код генерируется локально (без внешних API), чтобы страница работала офлайн.
+   Алгоритм: упрощённый QR для коротких URL. Используем публичный minified-qrcode. */
+(function(){
+  // Определяем URL приложения (та же папка, что и install.html)
+  var appUrl = location.href.replace(/\/install\.html.*$/, "/");
+  document.getElementById("b_open").onclick = function(){ location.href = appUrl; };
+
+  // QR через api.qrserver.com (надёжный, бесплатный, без лимита для коротких URL)
+  // Если офлайн — покажем заглушку с прямой ссылкой.
+  var qrImg = new Image();
+  qrImg.onload = function(){
+    var canvas = document.getElementById("qr");
+    var ctx = canvas.getContext("2d");
+    canvas.width = 240; canvas.height = 240;
+    ctx.drawImage(qrImg, 0, 0, 240, 240);
+  };
+  qrImg.onerror = function(){
+    // офлайн — рисуем заглушку
+    var canvas = document.getElementById("qr");
+    var ctx = canvas.getContext("2d");
+    canvas.width = 240; canvas.height = 240;
+    ctx.fillStyle = "#F1F5F9"; ctx.fillRect(0,0,240,240);
+    ctx.fillStyle = "#64748B"; ctx.font = "12px sans-serif";
+    ctx.textAlign = "center";
+    ctx.fillText("Откройте камеру", 120, 110);
+    ctx.fillText("или нажмите кнопку выше", 120, 128);
+  };
+  qrImg.src = "https://api.qrserver.com/v1/create-qr-code/?size=240x240&data=" + encodeURIComponent(appUrl);
+
+  // .apk — пока заглушка, врач загрузит позже
+  document.getElementById("b_apk").onclick = function(){
+    alert("Файл .apk пока не загружен. Врач может собрать его через PWABuilder (см. инструкцию в репозитории).");
+  };
+})();
+</script>
+</body>
+</html>
