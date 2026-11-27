@@ -491,6 +491,11 @@ const Store = {
 };
 
 /* ---------- Supabase sync (опционально) ---------- */
+/* Встроенные ключи проекта RaidoPert (anon public — безопасно для фронтенда,
+   RLS защищает данные на уровне БД). Если пользователь введёт свои в настройках —
+   они перекроют эти (Store.getCfg приоритетнее). */
+const EMBEDDED_SB_URL = "https://utxcjvgskntcfnjoxixs.supabase.co";
+const EMBEDDED_SB_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InV0eGNqdmdza250Y2Zuam94aXhzIiwicm9sZSI6ImFub24iLCJpYXQiOjE3OTU3ODAxMjUsImV4cCI6MjExMTM1NjEyNX0.2SpFqskH1LNsSrw4i3M1UzGLbDVtGpKHmGPdDUAAgao";
 let SB_LOADED=false, SB_LIB=null;
 async function loadSupabaseLib(){
   if(SB_LOADED) return SB_LIB;
@@ -500,13 +505,17 @@ async function loadSupabaseLib(){
   }catch(e){ console.warn("Supabase lib load failed",e); return null }
 }
 async function ensureSupabase(){
+  // приоритет: конфиг из настроек > встроенные ключи
   const cfg = await Store.getCfg();
-  if(!cfg || !cfg.url || !cfg.key){ return null }
-  if(state.sbClient) return state.sbClient;
+  const url = (cfg && cfg.url) || EMBEDDED_SB_URL;
+  const key = (cfg && cfg.key) || EMBEDDED_SB_KEY;
+  if(!url || !key){ return null }
+  if(state.sbClient && state.sbClient._cfgUrl === url) return state.sbClient;
   const lib = await loadSupabaseLib();
   if(!lib) return null;
   try{
-    state.sbClient = lib.createClient(cfg.url, cfg.key, {auth:{persistSession:false}});
+    state.sbClient = lib.createClient(url, key, {auth:{persistSession:false}});
+    state.sbClient._cfgUrl = url; // метка, чтобы пересоздать при смене конфига
     return state.sbClient;
   }catch(e){ console.warn(e); return null }
 }
@@ -578,7 +587,12 @@ function navigate(route, sub={}){
 async function boot(){
   const cfg = await Store.getCfg();
   const demo = await Store.isDemo();
-  if(!cfg && !demo){ navigate("setup"); return; }
+  // Пропускаем setup, если: есть кастомный конфиг ИЛИ включён demo-режим
+  // ИЛИ есть встроенные ключи Supabase (приложение само подключится к облаку).
+  // Setup-экран оставляем только если встроенных ключей нет и пользователь
+  // ещё ничего не выбрал — для self-hosted установки без вшитых ключей.
+  const hasEmbedded = EMBEDDED_SB_URL && EMBEDDED_SB_KEY;
+  if(!cfg && !demo && !hasEmbedded){ navigate("setup"); return; }
   const session = await Session.get();
   if(!session){ navigate("login"); return; }
   if(session.role==="doctor"){
