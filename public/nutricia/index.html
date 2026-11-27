@@ -578,8 +578,8 @@ const Store = {
 
 /* ---------- Supabase sync (опционально) ---------- */
 /* Встроенные ключи проекта RaidoPert (anon public — безопасно для фронтенда,
-   RLS защищает данные на уровне БД). Если пользователь введёт свои в настройках —
-   они перекроют эти (Store.getCfg приоритетнее). */
+   RLS защищает данные на уровне БД). Врач и клиент ничего не вводят:
+   приложение подключается к облаку само. */
 const EMBEDDED_SB_URL = "https://utxcjvgskntcfnjoxixs.supabase.co";
 const EMBEDDED_SB_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InV0eGNqdmdza250Y2Zuam94aXhzIiwicm9sZSI6ImFub24iLCJpYXQiOjE3OTU3ODAxMjUsImV4cCI6MjExMTM1NjEyNX0.2SpFqskH1LNsSrw4i3M1UzGLbDVtGpKHmGPdDUAAgao";
 let SB_LOADED=false, SB_LIB=null;
@@ -635,6 +635,40 @@ async function sbFetchAll(prefix){
     return out;
   }catch(e){ return {} }
 }
+/* Полная синхронизация профиля клиента: анкета + текущий вес + список ids.
+   Вызывается при регистрации и при входе клиента — чтобы врач с другого
+   устройства гарантированно увидел нового клиента. */
+async function sbSyncClient(client){
+  if(!await ensureSupabase()) return;
+  await sbUpsert("user:"+client.id, client);
+  const ids = await Store.getClientIds();
+  if(!ids.includes(client.id)){ ids.push(client.id); await Store.setClientIds(ids) }
+  await sbUpsert("clients", ids);
+}
+/* Подтянуть из облака все данные клиента (дневник, вес, меню, чат, заметки) —
+   для врача при открытии карточки и для клиента при входе. */
+async function sbPullClientData(cid){
+  const sb = await ensureSupabase();
+  if(!sb) return;
+  // diary:<cid>:<date> — по префиксу
+  const diaryAll = await sbFetchAll("diary:"+cid+":");
+  for(const k in diaryAll){
+    const date = k.split(":")[2];
+    if(date) await Store.setDiary(cid, date, diaryAll[k]);
+  }
+  // точные ключи
+  const pairs = [
+    ["weight:"+cid, v=>Store.setWeight(cid,v)],
+    ["messages:"+cid, v=>Store.setMessages(cid,v)],
+    ["menu:"+cid, v=>Store.setMenu(cid,v)],
+    ["notes:"+cid, v=>Store.setNotes(cid,v)],
+    ["custom:"+cid, v=>Store.setCustom(cid,v)],
+  ];
+  for(const [key,setter] of pairs){
+    const v = await sbFetch(key);
+    if(v!==undefined && v!==null) await setter(v);
+  }
+}
 
 /* ============================================================
    РОУТЕР И ЭКРАНЫ
@@ -671,14 +705,14 @@ function navigate(route, sub={}){
 
 /* ---------- Стартовая логика ---------- */
 async function boot(){
-  const cfg = await Store.getCfg();
-  const demo = await Store.isDemo();
-  // Пропускаем setup, если: есть кастомный конфиг ИЛИ включён demo-режим
-  // ИЛИ есть встроенные ключи Supabase (приложение само подключится к облаку).
-  // Setup-экран оставляем только если встроенных ключей нет и пользователь
-  // ещё ничего не выбрал — для self-hosted установки без вшитых ключей.
+  // Приложение всегда работает с облаком: ключи Supabase вшиты в файл
+  // (EMBEDDED_SB_*), ни врач, ни клиент ничего не настраивают и не вводят.
+  // Само-восстановление после старых версий: снимаем demo-флаг и ручной
+  // конфиг, если устройство было настроено прежней версией приложения.
+  if(await Store.isDemo()){ await Store.setDemo(false); }
+  if(await Store.getCfg()){ await Store.setCfg(null); }
   const hasEmbedded = EMBEDDED_SB_URL && EMBEDDED_SB_KEY;
-  if(!cfg && !demo && !hasEmbedded){ navigate("setup"); return; }
+  if(!hasEmbedded){ navigate("setup"); return; }
   const session = await Session.get();
   if(!session){ navigate("login"); return; }
   if(session.role==="doctor"){
@@ -840,12 +874,14 @@ function renderLoginClient(a){
     const client = {id, role:"client", name, sex, age, height, weight, activity, goal, alerg,
                     norms, createdAt:Date.now(), doctorId:"doctor"};
     await Store.setClient(client);
+    // отправляем профиль клиента в облако, чтобы врач его увидел (см. sbSyncClient)
+    await sbSyncClient(client);
     // если врач уже создал этот id в списке клиентов — не дублируем
     const ids = await Store.getClientIds();
     if(!ids.includes(id)){ ids.push(id); await Store.setClientIds(ids) }
     // стартовая запись веса
     const w = await Store.getWeight(id);
-    if(!w.length){ await Store.setWeight(id, [{date:todayStr(), weight}]) }
+    if(!w.length){ await Store.setWeight(id, [{date:todayStr(), weight}]); if(await ensureSupabase()) sbUpsert("weight:"+id, [{date:todayStr(), weight}]) }
     await Session.set({role:"client", cid:id});
     state.user = client;
     navigate("client_home");
@@ -864,7 +900,25 @@ async function renderDoctorHome(a){
   // Синхронизация с облаком: подтянуть клиентов оттуда
   if(await ensureSupabase()){
     const remote = await sbFetchAll("user:");
-    for(const k in remote){ const c = remote[k]; if(c && c.role==="client" && !clients.find(x=>x.id===c.id)){ clients.push(c); await Store.setClient(c); const _ids = await Store.getClientIds(); if(!_ids.includes(c.id)){_ids.push(c.id); await Store.setClientIds(_ids)} } }
+    for(const k in remote){
+      const c = remote[k];
+      if(c && c.role==="client" && !clients.find(x=>x.id===c.id)){
+        clients.push(c); await Store.setClient(c);
+        const _ids = await Store.getClientIds();
+        if(!_ids.includes(c.id)){ _ids.push(c.id); await Store.setClientIds(_ids) }
+      }
+    }
+    // список ids клиентов, записанный клиентским приложением (ключ "clients")
+    const remoteIds = await sbFetch("clients");
+    if(Array.isArray(remoteIds)){
+      for(const id of remoteIds){
+        if(clients.find(x=>x.id===id)) continue;
+        let c = await Store.getClient(id);
+        if(!c){ c = await sbFetch("user:"+id) }
+        if(c && c.role==="client"){ clients.push(c); await Store.setClient(c) }
+      }
+      await Store.setClientIds([...new Set([...ids, ...remoteIds])]);
+    }
   }
   a.innerHTML = `
     <div class="topbar">
@@ -942,12 +996,28 @@ async function createManualClient(){
 /* ---------- Карточка клиента (врач) ---------- */
 async function renderDoctorClient(a){
   const cid = state.sub.cid;
+  // сначала тянем свежие данные клиента из облака (анкета, дневник, вес, чат)
+  if(await ensureSupabase()){
+    const remoteUser = await sbFetch("user:"+cid);
+    if(remoteUser && remoteUser.role==="client"){ await Store.setClient(remoteUser) }
+    await sbPullClientData(cid);
+  }
   const c = await Store.getClient(cid);
   if(!c){ navigate("doctor_home"); return }
   state.user = await Store.getDoctor();
   const date = state.sub.date || todayStr();
   const diary = await Store.getDiary(cid, date);
-  const msgs = await Store.getMessages(cid);
+  // сообщения: merge локальных с облаком по id — чтобы не потерять сообщения клиента
+  let msgs = await Store.getMessages(cid);
+  if(await ensureSupabase()){
+    const remoteMsgs = await sbFetch("messages:"+cid);
+    if(Array.isArray(remoteMsgs) && remoteMsgs.length){
+      const byId={}; for(const m of msgs){ byId[m.id]=m }
+      for(const m of remoteMsgs){ if(!byId[m.id]) byId[m.id]=m }
+      msgs = Object.values(byId).sort((a,b)=>(a.time||0)-(b.time||0));
+      await Store.setMessages(cid, msgs);
+    }
+  }
   const notes = await Store.getNotes(cid);
   const w = await Store.getWeight(cid);
   const lastWeight = w.length?w[w.length-1].weight:null;
@@ -968,7 +1038,7 @@ async function renderDoctorClient(a){
             <div class="small muted">${c.age?c.age+" лет, ":""}${c.sex==="m"?"муж.":"жен."}${lastWeight?`, ${lastWeight} кг`:""}</div>
           </div>
         </div>
-        ${c.normas?``:`<div class="badge badge-warn">Анкета не заполнена</div>`}
+        ${c.norms?``:`<div class="badge badge-warn">Анкета не заполнена</div>`}
       </div>
 
       <div class="tabs">
@@ -1095,8 +1165,23 @@ async function subscribeMessages(cid, onNew){
           })
       .subscribe();
     _activeChatSub = ch;
-    return ()=>{ try{ ch.unsubscribe() }catch{}; _activeChatSub=null };
-  }catch(e){ console.warn("rt sub fail",e); return ()=>{} }
+  }catch(e){ console.warn("rt sub fail",e) }
+  /* Поллинг — основной механизм доставки (работает всегда, независимо от
+     настроек realtime-публикации в Supabase): раз в 3с сверяем messages:<cid>
+     с облаком; realtime-событие (если публикация включена) лишь ускоряет. */
+  const poll = setInterval(async ()=>{
+    try{
+      const v = await sbFetch(key);
+      if(v!==undefined && Array.isArray(v)){
+        const local = await Store.getMessages(cid);
+        if(JSON.stringify(v)!==JSON.stringify(local)){
+          await Store.setMessages(cid, v);
+          onNew(v);
+        }
+      }
+    }catch(e){}
+  }, 3000);
+  return ()=>{ clearInterval(poll); try{ if(_activeChatSub) _activeChatSub.unsubscribe() }catch{}; _activeChatSub=null };
 }
 let _activeMenuSub = null;
 async function subscribeMenu(cid, onNew){
@@ -1124,6 +1209,16 @@ function bindChat(c, msgs, body){
   const redrawAll = (arr)=>{ cm.innerHTML = arr.map(m=>msgHtml(m,c)).join(""); scroll() };
   const send = async ()=>{
     const t = ci.value.trim(); if(!t) return;
+    // перед отправкой: merge с облаком, чтобы не затереть сообщения клиента
+    if(await ensureSupabase()){
+      const remote = await sbFetch("messages:"+c.id);
+      if(Array.isArray(remote)){
+        const byId={}; for(const m of msgs){ byId[m.id]=m }
+        for(const m of remote){ if(!byId[m.id]) byId[m.id]=m }
+        const merged = Object.values(byId).sort((a,b)=>(a.time||0)-(b.time||0));
+        msgs.length=0; msgs.push(...merged);
+      }
+    }
     const m = {id:uid(), from:"doctor", text:t, time:Date.now()};
     msgs.push(m); await Store.setMessages(c.id, msgs);
     if(await ensureSupabase()) sbUpsert("messages:"+c.id, msgs);
@@ -1299,10 +1394,19 @@ async function renderClientHome(a){
     if(ids.length){ c = await Store.getClient(ids[ids.length-1]) }
   }
   if(!c){ navigate("login_client"); return }
+  // вход клиента: тянем свежие данные из облака (меню от врача, чат, анкету)
+  if(await ensureSupabase()){
+    const rc = await sbFetch("user:"+c.id);
+    if(rc && rc.role==="client"){ await Store.setClient(rc); c = rc }
+    else { await sbSyncClient(c) } // профиля нет в облаке (старые клиенты) — дозаписываем
+    await sbPullClientData(c.id);
+  }
   state.user = c;
-  const date = todayStr();
+    const date = todayStr();
   const diary = await Store.getDiary(c.id, date);
   const norms = c.norms||{kcal:0,protein:0,fat:0,carb:0};
+  // перед показом «меню от врача» тянем из облака актуальное меню
+  if(await ensureSupabase()){ const rm = await sbFetch("menu:"+c.id); if(rm) await Store.setMenu(c.id, rm) }
   const kcal = diary.reduce((s,x)=>s+x.kcal,0);
   const p = diary.reduce((s,x)=>s+x.p,0);
   const f = diary.reduce((s,x)=>s+x.f,0);
@@ -1535,7 +1639,18 @@ async function renderClientWeight(a){
 async function renderClientChat(a){
   const c = state.user;
   if(!c||c.role!=="client"){ navigate("client_home"); return }
-  const msgs = await Store.getMessages(c.id);
+  // СНАЧАЛА сливаем локальные сообщения с облаком (по id), чтобы не затереть
+  // более свежие сообщения врача устаревшим локальным массивом — и только потом
+  // отмечаем прочитанными и пишем в облако.
+  let msgs = await Store.getMessages(c.id);
+  if(await ensureSupabase()){
+    const remote = await sbFetch("messages:"+c.id);
+    if(Array.isArray(remote) && remote.length){
+      const byId = {}; for(const m of msgs){ byId[m.id]=m };      // локальные — база
+      for(const m of remote){ if(!byId[m.id]) byId[m.id]=m }     // добираем недостающие из облака
+      msgs = Object.values(byId).sort((a,b)=>(a.time||0)-(b.time||0));
+    }
+  }
   // отметить прочитанными
   let changed=false; msgs.forEach(m=>{ if(m.from==="doctor"&&!m.read){m.read=true;changed=true} });
   if(changed){ await Store.setMessages(c.id,msgs); if(await ensureSupabase()) sbUpsert("messages:"+c.id,msgs) }
@@ -1560,6 +1675,16 @@ async function renderClientChat(a){
   const ci = $("#ci",a);
   const send = async ()=>{
     const t = ci.value.trim(); if(!t) return;
+    // перед отправкой: merge с облаком, чтобы не затереть сообщения врача
+    if(await ensureSupabase()){
+      const remote = await sbFetch("messages:"+c.id);
+      if(Array.isArray(remote)){
+        const byId={}; for(const m of msgs){ byId[m.id]=m }
+        for(const m of remote){ if(!byId[m.id]) byId[m.id]=m }
+        const merged = Object.values(byId).sort((a,b)=>(a.time||0)-(b.time||0));
+        msgs.length=0; msgs.push(...merged);
+      }
+    }
     const m = {id:uid(), from:"client", text:t, time:Date.now(), read:false};
     msgs.push(m); await Store.setMessages(c.id, msgs);
     if(await ensureSupabase()) sbUpsert("messages:"+c.id, msgs);
@@ -1582,15 +1707,20 @@ async function renderClientChat(a){
     inp.click();
   };
   // realtime: врач пишет — перерисовываем, если появились новые сообщения
-  subscribeMessages(c.id, (newArr)=>{
-    const prev = cm.querySelectorAll(".msg").length;
-    if(newArr.length > prev){
+  subscribeMessages(c.id, async (newArr)=>{
+    // перерисовываем при любом расхождении контента с экраном (не только по длине)
+    const prevCount = cm.querySelectorAll(".msg").length;
+    const changed = newArr.length!==prevCount || cm.innerText.replace(/\s+/g,"")!==newArr.map(m=>(m.text||m.photo||"")).join("");
+    if(changed){
       // отметить прочитанными новые от врача
-      newArr.forEach(m=>{ if(m.from==="doctor") m.read=true });
+      let readChanged=false;
+      newArr.forEach(m=>{ if(m.from==="doctor" && !m.read){ m.read=true; readChanged=true } });
       cm.innerHTML = newArr.map(m=>msgHtml(m,c)).join("");
       cm.scrollTop = cm.scrollHeight;
-      Store.setMessages(c.id, newArr);
-      if(ensureSupabase()) sbUpsert("messages:"+c.id, newArr);
+      await Store.setMessages(c.id, newArr);
+      // в облако пишем ТОЛЬКО изменение флагов read — иначе гонка upsert'ов
+      // может затереть чужие более свежие сообщения
+      if(readChanged && await ensureSupabase()) sbUpsert("messages:"+c.id, newArr);
     }
   });
 }
@@ -1659,8 +1789,6 @@ async function renderClientProfile(a){
 
 /* ---------- Настройки (общий экран) ---------- */
 async function renderSettings(a){
-  const cfg = await Store.getCfg();
-  const demo = await Store.isDemo();
   const doctor = await Store.getDoctor();
   a.innerHTML = `
     <div class="topbar">
@@ -1670,11 +1798,8 @@ async function renderSettings(a){
     <div class="screen">
       <div class="section-title">Подключение к облаку</div>
       <div class="card">
-        ${demo?`<div class="badge badge-warn mb8">Демо-режим (данные только на устройстве)</div>`:cfg?`<div class="badge badge-ok mb8">Облачная синхронизация включена</div>`:`<div class="badge badge-warn mb8">Не настроено</div>`}
-        <div class="field"><label>Supabase URL</label><input id="s_url" value="${cfg?cfg.url:""}" placeholder="https://xxxx.supabase.co"></div>
-        <div class="field"><label>Supabase anon key</label><input id="s_key" value="${cfg?cfg.key:""}" placeholder="eyJ..." style="font-size:12px"></div>
-        <button class="btn btn-primary" id="s_save">Сохранить</button>
-        <button class="btn btn-ghost mt8" id="s_demo">Перейти в демо-режим</button>
+        <div class="badge badge-ok mb8">Облачная синхронизация включена</div>
+        <p class="hint">Меню, дневник, вес, чат и заметки автоматически сохраняются в облако и видны врачу и клиенту на любом устройстве. Настраивать ничего не нужно.</p>
       </div>
       ${doctor?`<div class="section-title">Профиль врача</div>
       <div class="card">
@@ -1686,16 +1811,10 @@ async function renderSettings(a){
       <div class="section-title">Экспорт данных</div>
       <div class="card"><button class="btn btn-outline" id="b_export">Скачать все данные (JSON)</button></div>
       <div class="section-title">О приложении</div>
-      <div class="card"><p class="small muted">Рацион v1.0 — приложение для ведения клиентов нутрициологом. Данные хранятся локально и (опционально) в вашем Supabase.</p></div>
+      <div class="card"><p class="small muted">Рацион v1.0 — приложение для ведения клиентов нутрициологом. Данные хранятся на устройстве и автоматически синхронизируются с облаком.</p></div>
     </div>
     ${doctorBottomNav("settings")}
   `;
-  $("#s_save",a).onclick = async ()=>{
-    const url=$("#s_url",a).value.trim(), key=$("#s_key",a).value.trim();
-    if(url&&key){ await Store.setCfg({url,key}); await Store.setDemo(false); state.sbClient=null; toast("Сохранено") }
-    else { await Store.setCfg(null); toast("Очищено") }
-  };
-  $("#s_demo",a).onclick = async ()=>{ await Store.setDemo(true); await Store.setCfg(null); state.sbClient=null; toast("Демо-режим"); render() };
   if(doctor){
     $("#d_save",a).onclick = async ()=>{
       doctor.name=$("#d_name",a).value.trim()||"Врач";
